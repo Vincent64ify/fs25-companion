@@ -25,7 +25,6 @@ log = logging.getLogger("companion.pipe")
 
 GENERIC_READ = 0x80000000
 OPEN_EXISTING = 3
-FILE_FLAG_FIRST_PIPE_INSTANCE = 0x00080000
 
 ERROR_BROKEN_PIPE = 0x0000000E
 ERROR_NO_DATA = 0x0000006D
@@ -79,14 +78,16 @@ class NamedPipeServer:
             log.debug("game disconnected, waiting for reconnect")
 
     def _create_instance(self):
-        """Create a new pipe instance; blocks until the game connects."""
+        """Create a new pipe instance (MSDN 'Creating a Named Pipe' pattern);
+        blocks until the game connects. If an instance already exists (e.g.
+        created by the game), this connects to it instead."""
         handle = kernel32.CreateFileW(
             self.pipe_name,
             GENERIC_READ,
             0,
             None,
             OPEN_EXISTING,
-            FILE_FLAG_FIRST_PIPE_INSTANCE,
+            0,
             None,
         )
         if handle is None or handle == ctypes.c_size_t(-1).value:

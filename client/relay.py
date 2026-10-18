@@ -6,6 +6,8 @@ import logging
 
 import websockets
 
+from protocol import endpoint_url
+
 log = logging.getLogger("companion.relay")
 
 
@@ -32,7 +34,8 @@ class WebSocketRelay:
         backoff = 1.0
         while True:
             try:
-                async with websockets.connect(self.backend, open_timeout=10) as ws:
+                async with websockets.connect(
+                        endpoint_url(self.backend, self.pairing), open_timeout=10) as ws:
                     await ws.send(json.dumps({
                         "type": "hello",
                         "role": "client",

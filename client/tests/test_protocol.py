@@ -49,10 +49,21 @@ def test_mismatched_body_is_discarded():
     assert frames == [{"A": 2, "B": 3}]
 
 
+def test_endpoint_url():
+    from protocol import endpoint_url
+    assert endpoint_url("ws://127.0.0.1:8123", "123456") == \
+        "ws://127.0.0.1:8123/ws?pair=123456"
+    assert endpoint_url("ws://127.0.0.1:8123/", "123456") == \
+        "ws://127.0.0.1:8123/ws?pair=123456"
+    assert endpoint_url("ws://h/ws", "123456") == "ws://h/ws?pair=123456"
+    assert endpoint_url("ws://h/ws?pair=999", "123456") == "ws://h/ws?pair=999"
+
+
 if __name__ == "__main__":
     test_basic_frame()
     test_byte_by_byte_feed()
     test_table_value()
     test_resync_after_partial_stream()
     test_mismatched_body_is_discarded()
-    print("all protocol tests passed")
+    test_endpoint_url()
+    print("all client tests passed")

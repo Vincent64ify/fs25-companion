@@ -73,3 +73,17 @@ def _decode_value(key: str, raw: str) -> Any:
     if value.is_integer() and "." not in raw and "e" not in raw.lower():
         return int(value)
     return value
+
+
+def endpoint_url(backend: str, pairing: str) -> str:
+    """Build the relay endpoint URL: <backend>/ws?pair=<code>.
+
+    If the user already supplied a full /ws path, only make sure the
+    pairing query param is present.
+    """
+    base = backend.rstrip("/")
+    if "/ws" in base:
+        if "pair=" in base:
+            return base
+        return base + ("&" if "?" in base else "?") + f"pair={pairing}"
+    return f"{base}/ws?pair={pairing}"
