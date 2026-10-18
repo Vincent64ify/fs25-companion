@@ -109,10 +109,18 @@ class NamedPipeServer:
         return handle
 
     def _read(self, handle) -> bytes:
-        """Read one chunk; returns b'' when the client disconnected."""
+        """Read one chunk; returns b'' only when the connected client
+        disconnected.
+
+        "No data yet" (NO_DATA 536) and the intermittent INVALID_DATA (109)
+        are NOT errors — keep waiting on the SAME instance. This matters:
+        tearing the instance down destroys the pipe object (max 1 instance),
+        which lets the game's io.open create its own pipe instances that we
+        cannot read. A stable, always-present instance forces the game to
+        connect to it as a client (proven by pipe_probe.py).
+        """
         buf = ctypes.create_string_buffer(65536)
         read = wintypes.DWORD(0)
-        no_data_streak = 0
         while not self._stop:
             ok = kernel32.ReadFile(handle, buf, 65536, ctypes.byref(read), None)
             if ok:
@@ -120,18 +128,5 @@ class NamedPipeServer:
             err = ctypes.get_last_error()
             if err in (ERROR_BROKEN_PIPE, ERROR_PIPE_NOT_CONNECTED):
                 return b""
-            if err in (ERROR_NO_DATA, ERROR_INVALID_DATA):
-                # NO_DATA: transient (right after connect, or writer closed)
-                # INVALID_DATA (109): observed intermittently while data is
-                # flowing fine (see pipe_probe.py); retry rather than
-                # tearing down the instance
-                no_data_streak += 1
-                if no_data_streak > 10:
-                    return b""
-                time.sleep(0.05)
-                continue
-            # anything else: log and tear down the instance rather than
-            # killing the pipe thread
-            log.warning("ReadFile error %d — recreating pipe instance", err)
-            return b""
+            time.sleep(0.05)
         return b""
