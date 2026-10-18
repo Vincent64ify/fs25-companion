@@ -131,13 +131,14 @@ class NamedPipeServer:
     def _create_instance(self):
         """Create a new pipe instance (non-blocking; ReadFile waits for
         the game to connect)."""
-        # PIPE_NOWAIT: ReadFile returns whatever is available (or NO_DATA
-        # immediately), so the no-data deadline in run() is actually
-        # reachable while waiting for the game to connect.
+        # Byte mode + PIPE_WAIT, exactly like pipe_probe.py (the
+        # configuration the game is proven to connect to). NOTE: do NOT add
+        # PIPE_NOWAIT here — bit 0x01 is PIPE_TYPE_MESSAGE, so
+        # BYTE|NOWAIT silently becomes a message-type pipe.
         handle = kernel32.CreateNamedPipeW(
             self.pipe_name,
             PIPE_ACCESS_INBOUND,
-            PIPE_TYPE_BYTE | PIPE_READMODE_BYTE | PIPE_NOWAIT,
+            PIPE_TYPE_BYTE | PIPE_READMODE_BYTE | PIPE_WAIT,
             MAX_INSTANCES,
             0,            # out buffer (unused for INBOUND)
             IN_BUFFER,
@@ -158,12 +159,13 @@ class NamedPipeServer:
         return vals[0].value == 1  # maxCollectionCount
 
     def _read(self, handle, deadline) -> bytes | None:
-        """Read one chunk.
+        """Read one chunk (blocking ReadFile on a helper thread so the
+        no-data ``deadline`` is enforceable on a byte-mode pipe).
 
         Returns bytes on data, b"" when the instance is dead or the game
         disconnected, and None when no data arrived before ``deadline``
         (the caller recreates the instance to re-join the game's current
-        pipe object).
+        pipe object; closing the handle unblocks the reader thread).
 
         "No data yet" (NO_DATA 536) and the intermittent INVALID_DATA (109)
         are NOT errors — keep waiting on the SAME instance. This matters:
@@ -172,15 +174,30 @@ class NamedPipeServer:
         cannot read. A stable, always-present instance forces the game to
         connect to it as a client (proven by pipe_probe.py).
         """
-        buf = ctypes.create_string_buffer(65536)
-        read = wintypes.DWORD(0)
+        import threading
+
         while not self._stop:
             if time.monotonic() > deadline:
                 return None
-            ok = kernel32.ReadFile(handle, buf, 65536, ctypes.byref(read), None)
-            if ok:
-                return buf.raw[:read.value]
-            err = ctypes.get_last_error()
+            result: dict = {}
+
+            def reader():
+                buf = ctypes.create_string_buffer(65536)
+                read = wintypes.DWORD(0)
+                ok = kernel32.ReadFile(
+                    handle, buf, 65536, ctypes.byref(read), None)
+                result["ok"] = ok
+                result["data"] = buf.raw[:read.value] if ok else b""
+                result["err"] = ctypes.get_last_error()
+
+            t = threading.Thread(target=reader, daemon=True)
+            t.start()
+            t.join(max(0.05, deadline - time.monotonic()))
+            if t.is_alive():
+                return None  # no data before the deadline
+            if result["ok"]:
+                return result["data"]
+            err = result["err"]
             if err in (ERROR_BROKEN_PIPE, ERROR_PIPE_NOT_CONNECTED):
                 return b""
             if err == ERROR_NO_DATA:
