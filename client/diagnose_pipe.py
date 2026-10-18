@@ -85,12 +85,22 @@ def round_trip(tag):
     print(f"  CreateNamedPipeW(unique name)            -> OK (instance created)")
 
     data = {}
+    ERROR_NO_DATA = 0x00000218
 
     def reader():
         buf = ctypes.create_string_buffer(256)
         n = wintypes.DWORD(0)
-        ok = k32.ReadFile(srv, buf, 256, ctypes.byref(n), None)
-        data["read"] = buf.raw[:n.value] if ok else f"error {err()}"
+        for _ in range(100):
+            ok = k32.ReadFile(srv, buf, 256, ctypes.byref(n), None)
+            if ok:
+                data["read"] = buf.raw[:n.value]
+                return
+            if err() == ERROR_NO_DATA:  # transient in message mode; retry
+                time.sleep(0.05)
+                continue
+            data["read"] = f"error {err()}"
+            return
+        data["read"] = "timeout (repeated ERROR_NO_DATA)"
 
     t = threading.Thread(target=reader, daemon=True)
     t.start()
@@ -105,8 +115,14 @@ def round_trip(tag):
 
     msg = b"hello"
     n = wintypes.DWORD(0)
-    k32.WriteFile(cli, msg, len(msg), ctypes.byref(n), None)
-    t.join(2.0)
+    ok = k32.WriteFile(cli, msg, len(msg), ctypes.byref(n), None)
+    if not ok:
+        print(f"  WriteFile                             -> error {err()}")
+        k32.CloseHandle(cli)
+        k32.CloseHandle(srv)
+        return
+    print(f"  WriteFile                             -> OK ({n.value} bytes)")
+    t.join(3.0)
     got = data.get("read", "timeout")
     ok_mark = "OK" if got == b"hello" else "MISMATCH"
     print(f"  round trip (client wrote, server read)  -> {got!r} [{ok_mark}]")

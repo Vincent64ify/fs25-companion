@@ -36,7 +36,7 @@ MAX_INSTANCES = 1
 IN_BUFFER = 65536
 
 ERROR_BROKEN_PIPE = 0x0000000E
-ERROR_NO_DATA = 0x0000006D
+ERROR_NO_DATA = 0x00000218
 ERROR_PIPE_NOT_CONNECTED = 0x00000274
 
 kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
@@ -108,10 +108,22 @@ class NamedPipeServer:
         """Read one chunk; returns b'' when the client disconnected."""
         buf = ctypes.create_string_buffer(65536)
         read = wintypes.DWORD(0)
-        ok = kernel32.ReadFile(handle, buf, 65536, ctypes.byref(read), None)
-        if not ok:
+        no_data_streak = 0
+        while not self._stop:
+            ok = kernel32.ReadFile(handle, buf, 65536, ctypes.byref(read), None)
+            if ok:
+                return buf.raw[:read.value]
             err = ctypes.get_last_error()
-            if err in (ERROR_BROKEN_PIPE, ERROR_NO_DATA, ERROR_PIPE_NOT_CONNECTED):
+            if err in (ERROR_BROKEN_PIPE, ERROR_PIPE_NOT_CONNECTED):
                 return b""
+            if err == ERROR_NO_DATA:
+                # message mode: can occur transiently (right after connect,
+                # or when the writer closed); retry briefly, then treat as
+                # a disconnect
+                no_data_streak += 1
+                if no_data_streak > 10:
+                    return b""
+                time.sleep(0.05)
+                continue
             raise OSError(err, "ReadFile")
-        return buf.raw[: read.value]
+        return b""
