@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8" standalone="no" ?>
-<modDesc descVersion="91">
+<modDesc descVersion="105">
     <author>fs25-companion</author>
     <authorContact>https://github.com/yourname/fs25-companion</authorContact>
     <version>0.1.0</version>
@@ -9,6 +9,7 @@
     <description>
         <en><![CDATA[Exports live telemetry (position, vehicle, implements, weather) to the \\.\pipe\fssimx named pipe for the FS25 Companion dashboard. Based on the MIT-licensed LS25_FSTelemetry mod.]]></en>
     </description>
+    <iconFilename>icon_FSCompanionTelemetry.png</iconFilename>
     <multiplayer supported="true" />
     <extraSourceFiles>
         <sourceFile filename="CompanionTelemetry.lua"/>
