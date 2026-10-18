@@ -13,9 +13,9 @@ Either start order works: if the game starts first, its io.open() simply
 fails until our instance exists.
 
 The pipe is created with CreateNamedPipeW (the dedicated pipe-creation API;
-CreateFileW-based creation proved unreliable across Windows setups).
-Message mode mirrors the reference FS_Telemetry_Server app; the parser in
-protocol.py works on the byte stream either way.
+CreateFileW-based creation proved unreliable across Windows setups) in
+byte mode (message mode broke when the game sent a message larger than
+the read buffer).
 
 Windows only (FS25's named-pipe IPC is Windows-only; a UDP mode is on the
 roadmap).
@@ -29,8 +29,11 @@ from ctypes import wintypes
 log = logging.getLogger("companion.pipe")
 
 PIPE_ACCESS_INBOUND = 1          # data flows game -> us
-PIPE_TYPE_MESSAGE = 0x04
-PIPE_READMODE_MESSAGE = 0x02
+# byte mode: no message boundaries, so ReadFile can never fail with
+# ERROR_INVALID_DATA over a large message. The parser in protocol.py is
+# stream-based and re-syncs on HEADER tokens, so it doesn't need them.
+PIPE_TYPE_BYTE = 0x00
+PIPE_READMODE_BYTE = 0x00
 PIPE_WAIT = 0x00
 MAX_INSTANCES = 1
 IN_BUFFER = 65536
@@ -93,7 +96,7 @@ class NamedPipeServer:
         handle = kernel32.CreateNamedPipeW(
             self.pipe_name,
             PIPE_ACCESS_INBOUND,
-            PIPE_TYPE_MESSAGE | PIPE_READMODE_MESSAGE | PIPE_WAIT,
+            PIPE_TYPE_BYTE | PIPE_READMODE_BYTE | PIPE_WAIT,
             MAX_INSTANCES,
             0,            # out buffer (unused for INBOUND)
             IN_BUFFER,
@@ -117,13 +120,15 @@ class NamedPipeServer:
             if err in (ERROR_BROKEN_PIPE, ERROR_PIPE_NOT_CONNECTED):
                 return b""
             if err == ERROR_NO_DATA:
-                # message mode: can occur transiently (right after connect,
-                # or when the writer closed); retry briefly, then treat as
-                # a disconnect
+                # can occur transiently (right after connect, or when the
+                # writer closed); retry briefly, then treat as a disconnect
                 no_data_streak += 1
                 if no_data_streak > 10:
                     return b""
                 time.sleep(0.05)
                 continue
-            raise OSError(err, "ReadFile")
+            # anything else: log and tear down the instance rather than
+            # killing the pipe thread
+            log.warning("ReadFile error %d — recreating pipe instance", err)
+            return b""
         return b""
