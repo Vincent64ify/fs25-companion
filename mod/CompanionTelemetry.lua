@@ -402,7 +402,14 @@ function CT:RefreshPipe()
     end
     if CTContext.RefreshCurrent == 0 then
         CT:ClosePipe()
-        CTContext.Pipe = io.open(CTContext.PipeName, "w")
+        local p = io.open(CTContext.PipeName, "w")
+        -- debug: shows in the F2 console; remove once the pipe is stable
+        if p == nil then
+            print("[CompanionTelemetry] pipe open FAILED (no consumer?)")
+        else
+            print("[CompanionTelemetry] pipe opened")
+        end
+        CTContext.Pipe = p
     end
 end
 
