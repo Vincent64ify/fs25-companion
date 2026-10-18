@@ -18,3 +18,4 @@ web/maps/*.webp
 # OS
 .DS_Store
 Thumbs.db
+mod/FS25_CompanionTelemetry.zip
