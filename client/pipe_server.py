@@ -55,6 +55,11 @@ kernel32.ReadFile.argtypes = [
     ctypes.POINTER(wintypes.DWORD), ctypes.c_void_p,
 ]
 kernel32.CloseHandle.argtypes = [wintypes.HANDLE]
+kernel32.GetNamedPipeInfo.restype = wintypes.BOOL
+kernel32.GetNamedPipeInfo.argtypes = [
+    wintypes.HANDLE, wintypes.LPDWORD, wintypes.LPDWORD,
+    wintypes.LPDWORD, wintypes.LPDWORD, wintypes.LPDWORD,
+]
 
 
 class NamedPipeServer:
@@ -80,6 +85,13 @@ class NamedPipeServer:
                 log.error("CreateNamedPipeW failed: %s", e)
                 time.sleep(1.0)
                 continue
+
+            if not self._owns_pipe_object(handle):
+                log.warning(
+                    "pipe object already exists with more than 1 instance "
+                    "(created by the game) — this instance may not receive "
+                    "data. Fix: stop the client, wait 2 s, restart it "
+                    "(with the game closed for a guaranteed clean state).")
 
             try:
                 while not self._stop:
@@ -108,9 +120,18 @@ class NamedPipeServer:
             raise OSError(ctypes.get_last_error(), "CreateNamedPipeW")
         return handle
 
+    def _owns_pipe_object(self, handle) -> bool:
+        """True if this instance is the sole instance of the pipe object
+        (i.e. we created the object with max 1)."""
+        vals = [wintypes.DWORD(0) for _ in range(5)]
+        if not kernel32.GetNamedPipeInfo(
+                handle, *(ctypes.byref(v) for v in vals)):
+            return False
+        return vals[0].value == 1  # maxCollectionCount
+
     def _read(self, handle) -> bytes:
-        """Read one chunk; returns b'' only when the connected client
-        disconnected.
+        """Read one chunk; returns b'' when the instance is dead or the
+        connected client disconnected.
 
         "No data yet" (NO_DATA 536) and the intermittent INVALID_DATA (109)
         are NOT errors — keep waiting on the SAME instance. This matters:
@@ -127,6 +148,14 @@ class NamedPipeServer:
                 return buf.raw[:read.value]
             err = ctypes.get_last_error()
             if err in (ERROR_BROKEN_PIPE, ERROR_PIPE_NOT_CONNECTED):
+                return b""
+            # Other errors: the instance may have been destroyed out from
+            # under us (e.g. the game exited and took the pipe object with
+            # it). Verify before deciding whether to keep waiting.
+            vals = [wintypes.DWORD(0) for _ in range(5)]
+            if not kernel32.GetNamedPipeInfo(
+                    handle, *(ctypes.byref(v) for v in vals)):
+                log.debug("pipe instance dead (error %d) — recreating", err)
                 return b""
             time.sleep(0.05)
         return b""
