@@ -1,0 +1,15 @@
+{
+  "id": "amdream",
+  "name": "American Dream (placeholder projection)",
+  "image": "maps/amdream.png",
+  "headingOffset": 0,
+  "projection": {
+    "imageWidth": 4000,
+    "imageHeight": 4000,
+    "worldMinX": -1000,
+    "worldMinZ": -1000,
+    "worldMaxX": 1000,
+    "worldMaxZ": 1000
+  },
+  "_note": "PLACEHOLDER — copy the real map image to maps/amdream.png and regenerate this file with builder/make_map_config.py using the map's real world bounds."
+}

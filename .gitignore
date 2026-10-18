@@ -1,0 +1,20 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+.pytest_cache/
+
+# PyInstaller
+dist/
+build/
+*.spec
+
+# Map assets (generated, potentially large)
+web/maps/*.png
+web/maps/*.jpg
+web/maps/*.webp
+
+# OS
+.DS_Store
+Thumbs.db
