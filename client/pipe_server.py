@@ -4,13 +4,18 @@ The in-game mod is the pipe *client*: it connects to our pipe instance,
 writes telemetry, and re-opens the connection roughly every 1.6 s (the mod
 closes and re-opens the pipe every 100 updates). We therefore run a loop:
 
-    create instance (blocks until the game connects)
+    create instance (CreateNamedPipeW)
     -> read until the game disconnects
     -> create a new instance
     -> repeat
 
 Either start order works: if the game starts first, its io.open() simply
 fails until our instance exists.
+
+The pipe is created with CreateNamedPipeW (the dedicated pipe-creation API;
+CreateFileW-based creation proved unreliable across Windows setups).
+Message mode mirrors the reference FS_Telemetry_Server app; the parser in
+protocol.py works on the byte stream either way.
 
 Windows only (FS25's named-pipe IPC is Windows-only; a UDP mode is on the
 roadmap).
@@ -23,20 +28,23 @@ from ctypes import wintypes
 
 log = logging.getLogger("companion.pipe")
 
-GENERIC_READ = 0x80000000
-GENERIC_WRITE = 0x40000000
-OPEN_EXISTING = 3
-FILE_FLAG_FIRST_PIPE_INSTANCE = 0x00000008
+PIPE_ACCESS_INBOUND = 1          # data flows game -> us
+PIPE_TYPE_MESSAGE = 0x04
+PIPE_READMODE_MESSAGE = 0x02
+PIPE_WAIT = 0x00
+MAX_INSTANCES = 1
+IN_BUFFER = 65536
 
 ERROR_BROKEN_PIPE = 0x0000000E
 ERROR_NO_DATA = 0x0000006D
 ERROR_PIPE_NOT_CONNECTED = 0x00000274
 
 kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
-kernel32.CreateFileW.restype = wintypes.HANDLE
-kernel32.CreateFileW.argtypes = [
+kernel32.CreateNamedPipeW.restype = wintypes.HANDLE
+kernel32.CreateNamedPipeW.argtypes = [
     wintypes.LPCWSTR, wintypes.DWORD, wintypes.DWORD,
-    ctypes.c_void_p, wintypes.DWORD, wintypes.DWORD, ctypes.c_void_p,
+    wintypes.DWORD, wintypes.DWORD, wintypes.DWORD,
+    wintypes.DWORD, ctypes.c_void_p,
 ]
 kernel32.ReadFile.argtypes = [
     wintypes.HANDLE, ctypes.c_void_p, wintypes.DWORD,
@@ -65,7 +73,7 @@ class NamedPipeServer:
             try:
                 handle = self._create_instance()
             except OSError as e:
-                log.error("CreateFileW failed: %s", e)
+                log.error("CreateNamedPipeW failed: %s", e)
                 time.sleep(1.0)
                 continue
 
@@ -80,22 +88,20 @@ class NamedPipeServer:
             log.debug("game disconnected, waiting for reconnect")
 
     def _create_instance(self):
-        """Create a new pipe instance; blocks until the game connects.
-
-        Same CreateFile combination as .NET's NamedPipeServerStream (which
-        is what the reference FS_Telemetry_Server app uses successfully).
-        """
-        handle = kernel32.CreateFileW(
+        """Create a new pipe instance (non-blocking; ReadFile waits for
+        the game to connect)."""
+        handle = kernel32.CreateNamedPipeW(
             self.pipe_name,
-            GENERIC_READ | GENERIC_WRITE,
-            0,
-            None,
-            OPEN_EXISTING,
-            FILE_FLAG_FIRST_PIPE_INSTANCE,
+            PIPE_ACCESS_INBOUND,
+            PIPE_TYPE_MESSAGE | PIPE_READMODE_MESSAGE | PIPE_WAIT,
+            MAX_INSTANCES,
+            0,            # out buffer (unused for INBOUND)
+            IN_BUFFER,
+            0,            # no default timeout
             None,
         )
         if handle is None or handle == ctypes.c_size_t(-1).value:
-            raise OSError(ctypes.get_last_error(), "CreateFileW")
+            raise OSError(ctypes.get_last_error(), "CreateNamedPipeW")
         return handle
 
     def _read(self, handle) -> bytes:
