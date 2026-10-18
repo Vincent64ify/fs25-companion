@@ -48,7 +48,7 @@ NAME = "\\\\.\\pipe\\fssimx"
 
 
 def pipe_info(h):
-    vals = (wintypes.DWORD(0) for _ in range(5))
+    vals = [wintypes.DWORD(0) for _ in range(5)]
     if k32.GetNamedPipeInfo(h, *(ctypes.byref(v) for v in vals)):
         return (f"maxInst={vals[0].value} currInst={vals[1].value} "
                 f"bufSize={vals[2].value} readAvail={vals[3].value} "

@@ -39,6 +39,7 @@ MAX_INSTANCES = 1
 IN_BUFFER = 65536
 
 ERROR_BROKEN_PIPE = 0x0000000E
+ERROR_INVALID_DATA = 0x0000006D
 ERROR_NO_DATA = 0x00000218
 ERROR_PIPE_NOT_CONNECTED = 0x00000274
 
@@ -119,9 +120,11 @@ class NamedPipeServer:
             err = ctypes.get_last_error()
             if err in (ERROR_BROKEN_PIPE, ERROR_PIPE_NOT_CONNECTED):
                 return b""
-            if err == ERROR_NO_DATA:
-                # can occur transiently (right after connect, or when the
-                # writer closed); retry briefly, then treat as a disconnect
+            if err in (ERROR_NO_DATA, ERROR_INVALID_DATA):
+                # NO_DATA: transient (right after connect, or writer closed)
+                # INVALID_DATA (109): observed intermittently while data is
+                # flowing fine (see pipe_probe.py); retry rather than
+                # tearing down the instance
                 no_data_streak += 1
                 if no_data_streak > 10:
                     return b""
