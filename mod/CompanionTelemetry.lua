@@ -51,7 +51,8 @@ end
 ---------------------------------------------------------------------------
 
 function CompanionTelemetry:loadMap(name)
-    CTContext.SessionId = os.date("%Y%m%d%H%M%S") .. "-" .. math.random(100000, 999999)
+    -- note: the GIANTS engine Lua has no standard `os` library
+    CTContext.SessionId = "sess-" .. tostring(math.random(1000000, 9999999))
     CTContext.Telemetry = {}
     CT:InitTelemetry()
 end
