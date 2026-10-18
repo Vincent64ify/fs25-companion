@@ -24,7 +24,9 @@ from ctypes import wintypes
 log = logging.getLogger("companion.pipe")
 
 GENERIC_READ = 0x80000000
+GENERIC_WRITE = 0x40000000
 OPEN_EXISTING = 3
+FILE_FLAG_FIRST_PIPE_INSTANCE = 0x00000008
 
 ERROR_BROKEN_PIPE = 0x0000000E
 ERROR_NO_DATA = 0x0000006D
@@ -78,16 +80,18 @@ class NamedPipeServer:
             log.debug("game disconnected, waiting for reconnect")
 
     def _create_instance(self):
-        """Create a new pipe instance (MSDN 'Creating a Named Pipe' pattern);
-        blocks until the game connects. If an instance already exists (e.g.
-        created by the game), this connects to it instead."""
+        """Create a new pipe instance; blocks until the game connects.
+
+        Same CreateFile combination as .NET's NamedPipeServerStream (which
+        is what the reference FS_Telemetry_Server app uses successfully).
+        """
         handle = kernel32.CreateFileW(
             self.pipe_name,
-            GENERIC_READ,
+            GENERIC_READ | GENERIC_WRITE,
             0,
             None,
             OPEN_EXISTING,
-            0,
+            FILE_FLAG_FIRST_PIPE_INSTANCE,
             None,
         )
         if handle is None or handle == ctypes.c_size_t(-1).value:
