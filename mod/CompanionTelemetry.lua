@@ -247,15 +247,15 @@ function CT:ProcessPlayer()
             t.PositionY = y or 0.0
             t.PositionZ = z
             -- getWorldRotation(node) -> rx, ry, rz (radians); ry = yaw.
-            -- Empirical (2026-10-19, Solek, live PDA cross-check): the
-            -- vehicle-node yaw uses the same convention as the player
-            -- path below — with math.deg(-yaw) the dashboard arrow's
-            -- rotation matches the in-game PDA heading readout exactly
-            -- (0.2° == 0.2°). A 180° offset was tried and rejected
-            -- (arrow rotated opposite while moving correctly).
+            -- Empirical (2026-10-19, Solek): the vehicle-node yaw sign is
+            -- the MIRROR of the in-game PDA heading (dashboard showed
+            -- 295.1° when the PDA readout was 64.9°, i.e. 360 − x), and a
+            -- constant 180° offset was ruled out by that same test. So:
+            -- take math.deg(yaw) directly — unlike the player path,
+            -- which negates its rotY. Same 0 = north, clockwise.
             local okRot, _, yaw = pcall(getWorldRotation, vehicle.rootNode)
             if okRot and yaw ~= nil then
-                t.Heading = math.deg(-yaw) % 360
+                t.Heading = math.deg(yaw) % 360
             end
             return
         end
