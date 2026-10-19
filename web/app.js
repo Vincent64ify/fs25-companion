@@ -143,30 +143,24 @@ function draw() {
 
   if (state.pos) {
     const [px, py] = toScreen(state.pos.x, state.pos.z);
-    // exact position: a small dot whose center is the true world position
-    // (matches how the in-game PDA centers its marker icon on the point)
-    ctx.beginPath();
-    ctx.arc(px, py, 4.5, 0, 2 * Math.PI);
-    ctx.fillStyle = "#22d3ee";
-    ctx.strokeStyle = "#0e7490";
-    ctx.lineWidth = 1.5;
-    ctx.fill();
-    ctx.stroke();
-    // direction needle: rotated to the heading, drawn around the same
-    // center (tip forward = the way the vehicle/player is facing)
+    // position arrow: drawn as if the world pivot sits at the vehicle, tip
+    // pointing where it faces (the old full-image "offset" was eventually
+    // traced to the projection bug, so the arrow can be centered again)
     ctx.save();
+    ctx.translate(px, py);
     // heading: 0 = north (up on the map), clockwise; headingOffset and
     // rotateDeg are calibration knobs in the map config (rotateDeg rotates
     // the image, so "north on the image" turns with it)
     ctx.rotate(((state.heading + (mapConfig.headingOffset || 0) +
                  (mapConfig.rotateDeg || 0)) % 360) * Math.PI / 180);
     ctx.beginPath();
-    ctx.moveTo(-11, 2);
-    ctx.lineTo(0, -10);
-    ctx.lineTo(11, 2);
-    ctx.lineTo(0, 8);
+    ctx.moveTo(0, -11);
+    ctx.lineTo(8, 9);
+    ctx.lineTo(0, 4);
+    ctx.lineTo(-8, 9);
     ctx.closePath();
-    ctx.fillStyle = "rgba(34, 211, 238, 0.55)";
+    ctx.fillStyle = "#22d3ee";
+    ctx.strokeStyle = "#0e7490";
     ctx.lineWidth = 1.5;
     ctx.fill();
     ctx.stroke();
