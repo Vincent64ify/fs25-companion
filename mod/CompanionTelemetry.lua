@@ -20,7 +20,7 @@
 -- both MIT licensed.
 --
 -- Changes for FS25 Companion:
---   * adds PositionX/Y/Z, Heading, MapName, PlayerName, SessionId, IsMultiplayer
+--   * adds PositionX/Y/Z, Heading, MapId, MapName, PlayerName, SessionId, IsMultiplayer
 --   * trimmed vehicle fields to what the dashboard needs (the base mod has
 --     more: lights detail, cruise control, wipers, tyre defl/air, prices, …)
 --   * same pipe name and wire format as the base mod (drop-in compatible)
@@ -93,6 +93,7 @@ function CT:InitTelemetry()
     local t = CTContext.Telemetry
     -- session
     t.SessionId = CTContext.SessionId
+    t.MapId = ""
     t.MapName = ""
     t.PlayerName = ""
     t.IsMultiplayer = false
@@ -145,6 +146,7 @@ end
 function CT:ProcessSession()
     local t = CTContext.Telemetry
     t.IsMultiplayer = g_environment ~= nil and g_environment.isMultiplayer == true
+    t.MapId = ""
     t.MapName = ""
     t.PlayerName = ""
 
@@ -153,8 +155,13 @@ function CT:ProcessSession()
         return
     end
     if mission.missionInfo ~= nil then
-        -- TODO: verify the exact map-name field for FS25 (name vs mapName)
-        t.MapName = mission.missionInfo.name or mission.missionInfo.mapName or ""
+        -- MapId is what careerSavegame.xml stores as <mapId> (e.g.
+        -- "FS25_Solek.SampleModMap" for mod maps) — the dashboard uses it
+        -- to pick matching web/maps/<MapId>.json + .png assets. Fall back
+        -- to the map name for safety if the field is absent in FS25.
+        t.MapId = mission.missionInfo.mapId
+            or mission.missionInfo.mapName or ""
+        t.MapName = mission.missionInfo.mapTitle or t.MapId
     end
     if mission.player ~= nil then
         t.PlayerName = mission.player.nickname or ""

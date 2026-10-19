@@ -1,0 +1,20 @@
+{
+  "id": "FS25_Solek.SampleModMap",
+  "name": "Solek",
+  "image": "maps/FS25_Solek.SampleModMap.png",
+  "headingOffset": 0,
+  "projection": {
+    "imageWidth": 4096,
+    "imageHeight": 4096,
+    "worldMinX": -1024.0,
+    "worldMinZ": -1024.0,
+    "worldMaxX": 1024.0,
+    "worldMaxZ": 1024.0,
+    "terrainSize": 2048.0
+  },
+  "_provenance": {
+    "savegame": "savegame1",
+    "source": "map/overview.dds",
+    "dds": true
+  }
+}

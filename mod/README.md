@@ -24,7 +24,8 @@ and put the zip into your FS25 `mods/` folder. Enable it in the mod list.
 
 ## Telemetry fields
 
-Session: `SessionId`, `MapName`, `PlayerName`, `IsMultiplayer`
+Session: `SessionId`, `MapId` (matches careerSavegame.xml's `<mapId>` —
+the dashboard uses it to pick the map image), `MapName`, `PlayerName`, `IsMultiplayer`
 
 Game: `Money`, `TemperatureMin/Max/Trend`, `WeatherCurrent/Next`,
 `DayTimeMinutes`, `Day`

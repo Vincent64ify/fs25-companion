@@ -21,6 +21,11 @@ from pipe_server import NamedPipeServer
 from protocol import FrameParser
 from relay import WebSocketRelay
 
+try:
+    from map_sync import ensure_current_map
+except ImportError:
+    ensure_current_map = None
+
 log = logging.getLogger("companion")
 
 
@@ -54,6 +59,13 @@ def main() -> None:
     pairing = args.pairing or "".join(random.choices(string.digits, k=6))
     parser = FrameParser()
     state = {"frame": None, "dirty": False}
+
+    # Note: map sync runs on a thread so a cold first import (DDS decode of
+    # a 4096x4096 texture) never delays the pipe from coming up — the game
+    # may already be trying to connect.
+    if ensure_current_map is not None:
+        threading.Thread(target=ensure_current_map, name="map-sync",
+                         daemon=True).start()
 
     def on_data(data: bytes) -> None:
         for frame in parser.feed(data):
