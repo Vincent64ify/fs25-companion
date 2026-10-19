@@ -247,11 +247,13 @@ function CT:ProcessPlayer()
             t.PositionY = y or 0.0
             t.PositionZ = z
             -- getWorldRotation(node) -> rx, ry, rz (radians); ry = yaw.
-            -- Same heading convention as the player path below
-            -- (0 = north, clockwise; calibrate via mapConfig.headingOffset)
+            -- Empirical (2026-10-19, Solek): vehicle-node yaw needs a 180°
+            -- flip on top of the player convention, else the dashboard
+            -- arrow points opposite to the direction of travel. Same
+            -- convention otherwise (0 = north, clockwise).
             local okRot, _, yaw = pcall(getWorldRotation, vehicle.rootNode)
             if okRot and yaw ~= nil then
-                t.Heading = math.deg(-yaw) % 360
+                t.Heading = (math.deg(-yaw) + 180) % 360
             end
             return
         end
