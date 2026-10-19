@@ -107,13 +107,15 @@ class NamedPipeServer:
         """
         log.info("waiting for game on %s", self.pipe_name)
         first_create = True
+        failures = 0
         while not self._stop:
             try:
                 handle = self._create_instance()
             except OSError as e:
-                log.error("CreateNamedPipeW failed: %s", e)
-                time.sleep(1.0)
+                failures += 1
+                time.sleep(self._create_backoff(failures, e))
                 continue
+            failures = 0
 
             if first_create:
                 log.info("created pipe object — waiting for game")
@@ -134,6 +136,34 @@ class NamedPipeServer:
                     self.on_data(chunk)
             finally:
                 kernel32.CloseHandle(handle)
+
+    def _create_backoff(self, attempt: int, e: OSError) -> float:
+        """Backoff after a failed CreateNamedPipeW.
+
+        ERROR_PIPE_BUSY (231) normally means another local process
+        (a stale companion client) still holds the pipe name — retrying
+        hammering once per second only spams the log and burns CPU when
+        that process never exits. Exponential backoff instead: 0.5, 1,
+        2, 4, then capped at 5 s; resets to instant retrying as soon as
+        a create succeeds.
+
+        Only the FIRST failure is logged as an error; subsequent
+        identical failures are downgraded to debug so the long wait for
+        a stale process to exit stays quiet.
+        """
+        delay = min(0.5 * 2 ** (attempt - 1), 5.0)
+        if attempt == 1:
+            log.error("CreateNamedPipeW failed: %s", e)
+            if getattr(e, "winerror", None) == 231 or \
+                    "231" in str(e):  # ERROR_PIPE_BUSY
+                log.error(
+                    "pipe name likely held by another process (a stale "
+                    "companion client?) — retrying with backoff")
+        else:
+            log.debug(
+                "CreateNamedPipeW still failing (attempt %d) — "
+                "retrying in %.1fs: %s", attempt, delay, e)
+        return delay
 
     def _create_instance(self):
         """Create a new pipe instance (non-blocking; ReadFile waits for

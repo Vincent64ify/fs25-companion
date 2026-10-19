@@ -58,8 +58,9 @@ builder/    Scripts to generate map configs (image + world→image projection)
    python companion_client.py --backend ws://127.0.0.1:8123
    ```
    It prints a 6-digit pairing code.
-4. **Dashboard**: serve `web/` (e.g. `python -m http.server` in `web/`) and
-   open `http://localhost:8000/?pair=<CODE>`.
+4. **Dashboard**: open `http://localhost:8123/?pair=<CODE>` — the backend
+   serves the dashboard directly. (`?backend=` is only needed if you host
+   `web/` yourself, e.g. with `python -m http.server`.)
 5. Start FS25 — the mod connects to the client's pipe automatically (either
    start order works; both sides retry).
 

@@ -11,14 +11,21 @@ Protocol (JSON over WebSocket at /ws?pair=<CODE>):
   viewer -> relay:  {"type": "hello", "role": "viewer"}
   relay  -> viewer: {"type": "telemetry", "data": {...}}
   relay  -> viewer: {"type": "client_status", "connected": bool}
+
+The bundled dashboard (../web) is served from this same process, so the
+viewer URL is simply http://<host>:8123/?pair=<CODE> — no separate
+static server and no ?backend= parameter needed (app.js already
+defaults the relay URL to the page's own origin).
 """
 
 import asyncio
 import json
 import logging
+from pathlib import Path
 from typing import Dict, Optional
 
 from fastapi import FastAPI, WebSocket
+from fastapi.staticfiles import StaticFiles
 from starlette.websockets import WebSocketDisconnect
 
 logging.basicConfig(level=logging.INFO)
@@ -61,8 +68,8 @@ def maybe_drop_empty(session: Session) -> None:
         sessions.pop(session.code, None)
 
 
-@app.get("/")
-async def root():
+@app.get("/api/info")
+async def api_info():
     return {
         "name": "fs25-companion relay",
         "version": "0.1.0",
@@ -144,6 +151,16 @@ async def handle_viewer(ws: WebSocket, session: Session) -> None:
         async with session.lock:
             session.viewers.discard(ws)
         maybe_drop_empty(session)
+
+
+# --- static dashboard ---------------------------------------------------
+# Mounted LAST (after all API routes) so /, /ws and /api/info are matched
+# first; anything else falls through to the web directory. html=True makes
+# "/" serve index.html. Since app.js defaults the relay WS URL to the
+# page's own origin, the standalone http.server on :8000 is no longer
+# needed and the dashboard has no ?backend= parameter.
+WEB_DIR = Path(__file__).resolve().parent.parent / "web"
+app.mount("/", StaticFiles(directory=WEB_DIR, html=True), name="web")
 
 
 if __name__ == "__main__":

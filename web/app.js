@@ -3,7 +3,10 @@
 // URL parameters:
 //   ?pair=123456   pairing code (required)
 //   ?map=amdream   map config id (see maps/<id>.json)
-//   ?backend=…     relay WebSocket URL (default: same origin as this page)
+//   ?backend=…     relay WebSocket URL (optional; default is the page's
+//                  own origin — the backend serves this dashboard, so
+//                  it usually just works. Only needed if you host the
+//                  dashboard elsewhere, e.g. `python -m http.server`.)
 
 const params = new URLSearchParams(location.search);
 const PAIR = (params.get("pair") || "").trim();
