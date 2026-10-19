@@ -9,9 +9,13 @@ pipe and relays it as JSON over a WebSocket to the relay backend.
   (byte mode, inbound — verified against the real game; the game's
   `io.open()` reads/writes through it fine and message mode broke on
   large frames). The game connects, writes, and re-connects every
-  ~1.6 s. Reads run on a helper thread with a no-data deadline
-  (15 s, `NO_DATA_TIMEOUT`), after which the instance is re-created so we
-  re-join whichever pipe object the game is currently using.
+  ~18 s (RefreshRate updates). Reads are a plain blocking `ReadFile` on
+  the pipe thread — replicating `pipe_probe.py` 1:1 — and the instance
+  is recreated only on a disconnect; the game reconnects instantly.
+  (An earlier no-data-deadline design with a threaded read pinned a
+  zombie read IRP on each timed teardown: the game's open then failed
+  for ~15 s and no bytes ever arrived — proved by the 2026-10-19 probe,
+  which streamed 1286 frames while that client got zero.)
 - **The pipe instance must exist continuously, and the client must run
   before the game.** If the game's `io.open()` finds no pipe at all, the
   engine creates its own `fssimx` pipe object that we can't read, and the

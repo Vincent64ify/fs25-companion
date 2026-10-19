@@ -32,9 +32,13 @@ class FrameParser:
         parts = self._buf.split(b"<")
         self._buf = parts[-1]  # keep the (possibly incomplete) tail
         for part in parts[:-1]:
+            # NOTE: empty tokens are REAL values — the mod sends ""
+            # (e.g. no vehicle) as a zero-length field between '<'s:
+            # "BODY<<<<<6<1087<...". Discarding them desynchronises the
+            # value count from the key count and NO frame would ever
+            # complete. Empty tokens are consumed by _on_token (dropped in
+            # "none" mode, appended as "" in "body" mode).
             token = part.decode("latin-1", "replace").strip()
-            if not token:
-                continue
             frame = self._on_token(token)
             if frame is not None:
                 yield frame

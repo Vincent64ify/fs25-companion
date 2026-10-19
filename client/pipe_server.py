@@ -25,9 +25,17 @@ Empirically (see the long debugging saga of 2026-10-18):
 - If we join the game's own pipe object (max > 1 instances), the mod
   connects to our waiting instance — that works too.
 
-To cope with the game's pipe object appearing/disappearing between the
-mod's refresh cycles, the instance is recreated every NO_DATA_TIMEOUT
-seconds of silence.
+To cope with any pipe object changes between the mod's refresh cycles the
+instance is recreated on every disconnect (the mod re-opens the pipe
+every RefreshRate updates, so recreate cycles are frequent and fresh).
+
+Empirically (probe session of 2026-10-19): a blocking ReadFile on the
+loop thread streamed the game's telemetry continuously (1286 frames in
+~90 s), and after each teardown the game's next open succeeded
+instantly. NO no-data deadline is used: the earlier threaded-read +
+timer-recreate design closed the handle while a pending helper read
+pinned the (single) instance, the game's subsequent opens failed with a
+busy pipe until the zombie read resolved, and no bytes ever arrived.
 
 Windows only (FS25's named-pipe IPC is Windows-only; a UDP mode is on the
 roadmap).
@@ -85,17 +93,20 @@ class NamedPipeServer:
         self.on_data = on_data
         self._stop = False
 
-    # Recreate the instance after this much silence, so we re-join
-    # whichever pipe object the game is currently using (the game's pipe
-    # object can be created/destroyed between the mod's refresh cycles).
-    NO_DATA_TIMEOUT = 15.0
-
     def stop(self) -> None:
         self._stop = True
 
     def run(self) -> None:
-        """Blocking loop; run in a daemon thread."""
+        """Blocking loop; run in a daemon thread.
+
+        Replicates pipe_probe.py 1:1 — the empirically proven
+        configuration: blocking ReadFile on the loop thread itself, and
+        the instance is recreated only on a disconnect (the mod closes
+        and re-opens its handle every RefreshRate updates) or a dead
+        pipe. The game reconnects immediately after each recreate.
+        """
         log.info("waiting for game on %s", self.pipe_name)
+        first_create = True
         while not self._stop:
             try:
                 handle = self._create_instance()
@@ -104,29 +115,25 @@ class NamedPipeServer:
                 time.sleep(1.0)
                 continue
 
-            if self._owns_pipe_object(handle):
+            if first_create:
                 log.info("created pipe object — waiting for game")
+                first_create = False
             else:
-                log.info("joined the game's pipe object — waiting for mod")
+                log.debug(
+                    "recreated pipe instance — waiting for game (owned: %s)",
+                    self._owns_pipe_object(handle))
 
             try:
-                deadline = time.monotonic() + self.NO_DATA_TIMEOUT
                 while not self._stop:
-                    chunk = self._read(handle, deadline)
-                    if chunk is None:      # no-data timeout -> re-join
-                        log.info(
-                            "no data for %.0fs — recreating pipe instance",
-                            self.NO_DATA_TIMEOUT,
-                        )
+                    chunk = self._read(handle)
+                    if chunk is None:      # unexpected error, same handle
+                        time.sleep(0.05)
+                        continue
+                    if chunk == b"":       # disconnect / instance dead
                         break
-                    if chunk == b"":       # instance dead / game gone
-                        break
-                    deadline = time.monotonic() + self.NO_DATA_TIMEOUT
                     self.on_data(chunk)
             finally:
                 kernel32.CloseHandle(handle)
-            log.debug("pipe instance closed, recreating")
-            time.sleep(0.2)
 
     def _create_instance(self):
         """Create a new pipe instance (non-blocking; ReadFile waits for
@@ -158,58 +165,44 @@ class NamedPipeServer:
             return False
         return vals[0].value == 1  # maxCollectionCount
 
-    def _read(self, handle, deadline) -> bytes | None:
-        """Read one chunk (blocking ReadFile on a helper thread so the
-        no-data ``deadline`` is enforceable on a byte-mode pipe).
+    def _read(self, handle) -> bytes | None:
+        """Blocking read; called on the pipe thread.
 
-        Returns bytes on data, b"" when the instance is dead or the game
-        disconnected, and None when no data arrived before ``deadline``
-        (the caller recreates the instance to re-join the game's current
-        pipe object; closing the handle unblocks the reader thread).
+        Returns bytes on data, b"" when the game disconnected or the
+        instance died (caller recreates), and None for an unexpected
+        (non-fatal) error — caller retries on the same handle after a
+        short pause.
 
-        "No data yet" (NO_DATA 536) and the intermittent INVALID_DATA (109)
-        are NOT errors — keep waiting on the SAME instance. This matters:
-        tearing the instance down destroys the pipe object (max 1 instance),
-        which lets the game's io.open create its own pipe instances that we
-        cannot read. A stable, always-present instance forces the game to
-        connect to it as a client (proven by pipe_probe.py).
+        Empirics from the probe dissociate the two outcomes: when the mod
+        closes/re-opens its handle, the pending read fails with the
+        intermittent ERROR_INVALID_DATA (109) or pipe-gone errors —
+        recreating and re-waiting reconnects the game instantly.
+        ERROR_NO_DATA (536) never appears on this byte+WAIT instance but
+        is tolerated anyway. UNKNOWN errors are dead-checked via
+        GetNamedPipeInfo before giving up the instance (see d09f05c).
         """
-        import threading
+        buf = ctypes.create_string_buffer(IN_BUFFER)
+        read = wintypes.DWORD(0)
+        ok = kernel32.ReadFile(handle, buf, IN_BUFFER, ctypes.byref(read), None)
+        if ok:
+            return buf.raw[:read.value]
 
-        while not self._stop:
-            if time.monotonic() > deadline:
-                return None
-            result: dict = {}
+        err = ctypes.get_last_error()
+        if err in (ERROR_INVALID_DATA, ERROR_BROKEN_PIPE,
+                   ERROR_PIPE_NOT_CONNECTED):
+            if err == ERROR_INVALID_DATA:
+                log.debug("read gap (INVALID_DATA 109) — recreating instance")
+            return b""
 
-            def reader():
-                buf = ctypes.create_string_buffer(65536)
-                read = wintypes.DWORD(0)
-                ok = kernel32.ReadFile(
-                    handle, buf, 65536, ctypes.byref(read), None)
-                result["ok"] = ok
-                result["data"] = buf.raw[:read.value] if ok else b""
-                result["err"] = ctypes.get_last_error()
+        if err == ERROR_NO_DATA:
+            return None  # tolerate: "no data yet"
 
-            t = threading.Thread(target=reader, daemon=True)
-            t.start()
-            t.join(max(0.05, deadline - time.monotonic()))
-            if t.is_alive():
-                return None  # no data before the deadline
-            if result["ok"]:
-                return result["data"]
-            err = result["err"]
-            if err in (ERROR_BROKEN_PIPE, ERROR_PIPE_NOT_CONNECTED):
-                return b""
-            if err == ERROR_NO_DATA:
-                time.sleep(0.05)
-                continue
-            # Other errors (e.g. the intermittent 109): the instance may
-            # have been destroyed out from under us. Verify before deciding
-            # whether to keep waiting.
-            vals = [wintypes.DWORD(0) for _ in range(5)]
-            if not kernel32.GetNamedPipeInfo(
-                    handle, *(ctypes.byref(v) for v in vals)):
-                log.debug("pipe instance dead (error %d) — recreating", err)
-                return b""
-            time.sleep(0.05)
-        return b""
+        # Other errors: verify whether the instance is still alive before
+        # deciding to keep waiting.
+        vals = [wintypes.DWORD(0) for _ in range(5)]
+        if not kernel32.GetNamedPipeInfo(
+                handle, *(ctypes.byref(v) for v in vals)):
+            log.debug("pipe instance dead (error %d) — recreating", err)
+            return b""
+        log.debug("recoverable ReadFile error %d — staying on instance", err)
+        return None
