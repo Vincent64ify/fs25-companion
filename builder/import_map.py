@@ -263,6 +263,25 @@ def sync_current_map(games_dir: Path | None = None, game_dir: Path | None = None
     size = src["size"] or [4096, 4096]
     w = min(size[0], size[1])
     half = info["terrainSize"] / 2.0
+    # carry user calibration knobs through re-runs
+    cfg_extra = {}
+    if out_json.exists():
+        try:
+            old = json.loads(out_json.read_text())
+            cfg_extra = {k: old[k] for k in ("overviewSpanFactor",)
+                         if k in old}
+        except Exception:
+            pass
+    # FS25 PDA overview images cover SPAN_FACTOR × the terrain size: the
+    # playable terrain is the central quarter of the texture and the game's
+    # PDA displays only that part (the outer ring is clouds/vignette).
+    # Empirically verified on Solek with two world<->readout sample pairs.
+    # knob: <id>.json "overviewSpanFactor" (1.0 = whole image is the world).
+    span = float(cfg_extra.get("overviewSpanFactor", 2.0))
+    vw = size[0] / span
+    vh = size[1] / span
+    view = {"x": (size[0] - vw) / 2.0, "y": (size[1] - vh) / 2.0,
+            "w": vw, "h": vh}
     cfg = {
         "id": map_id,
         "name": meta["mapTitle"] or map_id,
@@ -276,9 +295,12 @@ def sync_current_map(games_dir: Path | None = None, game_dir: Path | None = None
         "rotateDeg": 0,
         "flipX": False,
         "flipZ": False,
+        # knob kept in the output so per-map calibration survives re-runs:
+        "overviewSpanFactor": span,
         "projection": {
             "imageWidth": size[0],
             "imageHeight": size[1],
+            "view": view,
             "worldMinX": -half,
             "worldMinZ": -half,
             "worldMaxX": half,

@@ -82,17 +82,29 @@ function ensureMap(id) {
     .finally(() => { if (mapLoading === id) mapLoading = null; });
 }
 
+// The world→image mapping uses the map image's "view" rectangle: the part
+// of the texture that corresponds to the playable terrain. The FS25 PDA
+// overview image covers *twice* the terrain size, so the playable area is
+// the central quarter of the texture (e.g. texture 1024..3072 of 4096 for
+// a 2048 world) — the outer ring (clouds/vignette) is never displayed by
+// the game. Configs without a view rect map over the whole image.
+function mapView(p) {
+  if (p.view) return p.view;
+  return { x: 0, y: 0, w: p.imageWidth, h: p.imageHeight };
+}
+
 function worldToImage(x, z) {
   const p = mapConfig.projection;
   if (mapConfig.flipX) x = p.worldMinX + p.worldMaxX - x;
   if (mapConfig.flipZ) z = p.worldMinZ + p.worldMaxZ - z;
-  let ix = (x - p.worldMinX) / (p.worldMaxX - p.worldMinX) * p.imageWidth;
-  let iy = (z - p.worldMinZ) / (p.worldMaxZ - p.worldMinZ) * p.imageHeight;
+  const v = mapView(p);
+  let ix = (x - p.worldMinX) / (p.worldMaxX - p.worldMinX) * v.w;
+  let iy = (z - p.worldMinZ) / (p.worldMaxZ - p.worldMinZ) * v.h;
   const rot = ((mapConfig.rotateDeg || 0) % 360 + 360) % 360;
   if (rot) {
-    // rotate around the image centre (calibration knob in <id>.json)
+    // rotate around the view centre (calibration knob in <id>.json)
     const rad = rot * Math.PI / 180;
-    const cx = p.imageWidth / 2, cy = p.imageHeight / 2;
+    const cx = v.w / 2, cy = v.h / 2;
     const a = Math.atan2(iy - cy, ix - cx);
     const r = Math.hypot(ix - cx, iy - cy);
     ix = cx + r * Math.cos(a + rad);
@@ -116,10 +128,13 @@ function draw() {
   ctx.clearRect(0, 0, W, H);
   if (!mapImage || !mapImage.complete || !mapImage.naturalWidth) return;
 
-  const scale = Math.min(W / mapImage.naturalWidth, H / mapImage.naturalHeight);
-  const ox = (W - mapImage.naturalWidth * scale) / 2;
-  const oy = (H - mapImage.naturalHeight * scale) / 2;
-  ctx.drawImage(mapImage, ox, oy, mapImage.naturalWidth * scale, mapImage.naturalHeight * scale);
+  // display only the playable view rect of the texture (1:1 with the
+  // in-game PDA, which crops away the outer clouds/vignette ring)
+  const v = mapView(mapConfig.projection);
+  const scale = Math.min(W / v.w, H / v.h);
+  const ox = (W - v.w * scale) / 2;
+  const oy = (H - v.h * scale) / 2;
+  ctx.drawImage(mapImage, v.x, v.y, v.w, v.h, ox, oy, v.w * scale, v.h * scale);
 
   const toScreen = (wx, wz) => {
     const [ix, iy] = worldToImage(wx, wz);
