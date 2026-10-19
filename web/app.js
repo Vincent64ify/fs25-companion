@@ -21,7 +21,6 @@ const WEATHER_NAMES = ["Sunny", "Light clouds", "Cloudy", "Fog", "Rain", "Storm"
 const state = {
   pos: null,      // {x, z}
   heading: 0,
-  trail: [],
 };
 
 let mapConfig = null;    // config of the currently loaded map image
@@ -127,17 +126,6 @@ function draw() {
     return [ox + ix * scale, oy + iy * scale];
   };
 
-  if (state.trail.length > 1) {
-    ctx.beginPath();
-    state.trail.forEach(([x, z], i) => {
-      const [px, py] = toScreen(x, z);
-      i === 0 ? ctx.moveTo(px, py) : ctx.lineTo(px, py);
-    });
-    ctx.strokeStyle = "rgba(255, 193, 7, 0.8)";
-    ctx.lineWidth = 2;
-    ctx.stroke();
-  }
-
   if (state.pos) {
     const [px, py] = toScreen(state.pos.x, state.pos.z);
     ctx.save();
@@ -168,13 +156,8 @@ function onTelemetry(d) {
   const x = d.PositionX, z = d.PositionZ;
   if (mapConfig === null) ensureMap(MAP_OVERRIDE || d.MapId || d.MapName);
   if (typeof x === "number" && typeof z === "number") {
-    const prev = state.pos;
     state.pos = { x, z };
     state.heading = d.Heading || 0;
-    if (!prev || Math.hypot(x - prev.x, z - prev.z) > 0.5) {
-      state.trail.push([x, z]);
-      if (state.trail.length > 3000) state.trail.shift();
-    }
   }
 
   const driving = d.IsDrivingVehicle;
