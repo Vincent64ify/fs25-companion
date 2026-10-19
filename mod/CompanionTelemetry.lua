@@ -207,6 +207,22 @@ function CT:ProcessGameData()
     t.Day = environment.currentDay
 end
 
+local function getControlledVehicle()
+    local mission = g_currentMission
+    if mission == nil or mission.hud == nil or mission.hud.player == nil then
+        return nil
+    end
+    local player = mission.hud.player
+    if player.getCurrentVehicle == nil then
+        return nil
+    end
+    local vehicle = player:getCurrentVehicle()
+    if vehicle ~= nil and vehicle.spec_motorized ~= nil then
+        return vehicle
+    end
+    return nil
+end
+
 function CT:ProcessPlayer()
     local t = CTContext.Telemetry
     t.PositionX = 0.0
@@ -215,7 +231,33 @@ function CT:ProcessPlayer()
     t.Heading = 0.0
 
     local mission = g_currentMission
-    if mission == nil or mission.player == nil then
+    if mission == nil then
+        return
+    end
+
+    -- Prefer the controlled vehicle: while driving, the FS25 player
+    -- avatar stays at the world origin, so "player position" is not
+    -- where the user actually is. When driving, report the vehicle.
+    local vehicle = getControlledVehicle()
+    if vehicle ~= nil and vehicle.rootNode ~= nil then
+        -- getWorldTranslation(node) -> lx, ly, lz
+        local okPos, x, y, z = pcall(getWorldTranslation, vehicle.rootNode)
+        if okPos and x ~= nil then
+            t.PositionX = x
+            t.PositionY = y or 0.0
+            t.PositionZ = z
+            -- getWorldRotation(node) -> rx, ry, rz (radians); ry = yaw.
+            -- Same heading convention as the player path below
+            -- (0 = north, clockwise; calibrate via mapConfig.headingOffset)
+            local okRot, _, yaw = pcall(getWorldRotation, vehicle.rootNode)
+            if okRot and yaw ~= nil then
+                t.Heading = math.deg(-yaw) % 360
+            end
+            return
+        end
+    end
+
+    if mission.player == nil then
         return
     end
 
@@ -235,22 +277,6 @@ function CT:ProcessPlayer()
         -- applies mapConfig.headingOffset for final calibration
         t.Heading = math.deg(-rotY) % 360
     end
-end
-
-local function getControlledVehicle()
-    local mission = g_currentMission
-    if mission == nil or mission.hud == nil or mission.hud.player == nil then
-        return nil
-    end
-    local player = mission.hud.player
-    if player.getCurrentVehicle == nil then
-        return nil
-    end
-    local vehicle = player:getCurrentVehicle()
-    if vehicle ~= nil and vehicle.spec_motorized ~= nil then
-        return vehicle
-    end
-    return nil
 end
 
 function CT:ProcessVehicle()

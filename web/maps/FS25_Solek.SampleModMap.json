@@ -3,6 +3,9 @@
   "name": "Solek",
   "image": "maps/FS25_Solek.SampleModMap.png",
   "headingOffset": 0,
+  "rotateDeg": 0,
+  "flipX": false,
+  "flipZ": false,
   "projection": {
     "imageWidth": 4096,
     "imageHeight": 4096,
