@@ -277,6 +277,14 @@ web/
 
 **Later**
 - Prices per sell point, missions/contracts, AI worker routes, multiplayer (farm colours), a system-tray client built with PyInstaller.
+- Fixes to do next: see [NEXT.md](NEXT.md).
+
+**Ideas**
+- **Control the game from the dashboard.** Buttons that trigger in-game actions (key binds), for example attach / detach an implement, lower / raise, turn on, lights, cruise control. The button icons come from the game files, so each button shows the same icon the player sees in game for that action.
+  - Needs a way back into the game: today the mod only writes. The game can't read files from Lua (Phase 0: handles have no `read`), so a command channel is the open question (another mod-readable source, or a reverse transport to verify).
+  - Actions must run through the game's own input actions, so they behave like a key press and respect the current vehicle.
+  - Icons: extract the input glyphs from the game's data (and convert DDS to PNG like the overview image), matched to the action names.
+- **Screens and themes.** Several dashboard "screens" the user cycles through: PDA (the map), GPS, implements, vehicle, farm. A theme selector on top, with themes based on the manufacturers' in-cab terminals: New Holland IntelliView, Massey Ferguson Datatronic, Fendt FendtONE, and so on, matching their colours and the placement of their elements.
 
 ## Verification
 - **Unit tests:** `pytest client backend` (fixtures, tailer rotation, protocol validation). Run `busted mod/tests` for the Lua encoder and scheduler.
