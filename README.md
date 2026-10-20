@@ -8,7 +8,9 @@ phone, on **Windows and macOS**.
 
 > **Status: under rework.** The first prototype (Windows named pipe and a
 > single position arrow) is being replaced by a cross-platform, layered design.
-> Phase 0, verifying the game's API in-game, is done. See
+> Phase 0 (verifying the game's API in game) is done. Phase 1 (file
+> transport, client, backend protocol) is built and tested offline, and
+> still needs its first live run in the game. See
 > [docs/PLAN.md](docs/PLAN.md) for the full plan and the verified API facts.
 
 ## How it works
@@ -59,15 +61,15 @@ web/           Browser dashboard
 builder/       Map asset tooling (being folded into the client)
 ```
 
-`mod/`, `client/`, `backend/`, `web/` and `builder/` still contain the first
-prototype until Phase 1 and 2 replace them.
+`web/` and `builder/` still contain the first prototype's map view until
+Phase 2 replaces them. `scripts/build_mod.py` zips the mod.
 
 ## Roadmap
 
 | Phase | Scope | Status |
 |---|---|---|
 | 0 | In-game API spike: file I/O, heading, hotspots, fields, farmlands, map geometry | ✅ done |
-| 1 | New mod skeleton + file transport, client tailer with record/replay, backend protocol and state store; remove the named pipe | next |
+| 1 | New mod skeleton + file transport, client tailer with record/replay, backend protocol and state store; remove the named pipe | built, live test pending |
 | 2 | Leaflet map in world coordinates, overview image pipeline, player marker, pan/zoom/follow | planned |
 | 3 | PDA layers: sell points, shops, productions, animals; all vehicles; farmland ownership | planned |
 | 4 | Fields: outlines, crop and growth colours (PDA colours), field info panel | planned |
@@ -77,12 +79,26 @@ prototype until Phase 1 and 2 replace them.
 
 Requirements: Python 3.12+, and FS25 on Windows or macOS for live testing.
 
-**Probe the game API (Phase 0 spike).** See [spike/README.md](spike/README.md).
-Zip `spike/FS25_CompanionSpike/`, drop it in your FS25 `mods/` folder, load a
-savegame, and read the generated `modSettings/FS25_CompanionSpike/report.json`.
+```bash
+pip install -r requirements-dev.txt
 
-Run instructions for the new client, backend and dashboard will be added here
-as Phase 1 lands.
+# install the mod into FS25's mods/ folder
+python scripts/build_mod.py --install
+
+# start the client with a built-in backend, then open http://localhost:8123
+python client/companion_client.py --local
+
+# no game? replay a recording instead
+python client/companion_client.py --local --replay fixtures/solek_v1.ndjson --loop
+
+# all tests: mod (through lupa), client, backend
+python -m pytest mod/tests client/tests backend/tests
+```
+
+The game and the client can start in any order. Details:
+[mod](mod/README.md), [client](client/README.md), [backend](backend/README.md).
+
+**Probe the game API (Phase 0 spike).** See [spike/README.md](spike/README.md).
 
 FS25 mod folders:
 

@@ -1,62 +1,48 @@
-# Local bridge client
+# Companion client
 
-Reads the telemetry the in-game mod writes to the `\\.\pipe\fssimx` named
-pipe and relays it as JSON over a WebSocket to the relay backend.
-
-## How it works
-
-- `pipe_server.py` creates the pipe with `kernel32.CreateNamedPipeW`
-  (byte mode, inbound — verified against the real game; the game's
-  `io.open()` reads/writes through it fine and message mode broke on
-  large frames). The game connects, writes, and re-connects every
-  ~18 s (RefreshRate updates). Reads are a plain blocking `ReadFile` on
-  the pipe thread — replicating `pipe_probe.py` 1:1 — and the instance
-  is recreated only on a disconnect; the game reconnects instantly.
-  (An earlier no-data-deadline design with a threaded read pinned a
-  zombie read IRP on each timed teardown: the game's open then failed
-  for ~15 s and no bytes ever arrived — proved by the 2026-10-19 probe,
-  which streamed 1286 frames while that client got zero.)
-- **The pipe instance must exist continuously, and the client must run
-  before the game.** If the game's `io.open()` finds no pipe at all, the
-  engine creates its own `fssimx` pipe object that we can't read, and the
-  engine's pipe subsystem stays wedged for that name until the game is
-  restarted. A stable instance forces the game to connect to it as a
-  client instead (see `pipe_probe.py`).
-- `protocol.py` parses the `HEADER<...<BODY<...<` wire format into dicts
-  (stream-based, re-syncs on HEADER tokens).
-- `relay.py` connects to the backend via `endpoint_url(backend, pairing)`
-  (`<backend>/ws?pair=<code>`) and forwards the latest frame at a fixed
-  rate (default 5 Hz).
+Runs next to the game. It tails the mod's stream file and forwards each
+envelope to the backend over a WebSocket. Pure Python, the same on Windows
+and macOS.
 
 ## Run
 
 ```bash
-pip install -r requirements.txt
-python companion_client.py --backend ws://127.0.0.1:8123
+pip install -r client/requirements.txt -r backend/requirements.txt
+
+# one program: the client starts the backend too. Open http://localhost:8123
+python client/companion_client.py --local
+
+# no game: replay a recording (any OS)
+python client/companion_client.py --local --replay fixtures/solek_v1.ndjson --loop
+
+# hosted relay: open <relay>/?pair=<code>
+python client/companion_client.py --backend wss://relay.example.com
 ```
 
-The pairing code is printed on startup (or pass `--pairing 123456`).
+Options: `--profile-dir` or `--stream` to skip the profile folder search,
+`--record FILE` to save what the game sends, `--speed` and `--loop` for
+replay, `--port` for `--local`, `--no-map-sync`, `-v`.
 
-## Build a portable .exe
+## How it works
 
-```bash
-pip install pyinstaller
-pyinstaller --onefile --name FSCompanion companion_client.py
-```
-
-(No tray icon yet — that's on the roadmap; for now run it in a terminal or
-via a shortcut.)
+- `paths.py` finds the FS25 profile folder. On Windows it asks Windows for
+  the Documents folder (`SHGetKnownFolderPath`, which follows OneDrive). On
+  macOS it checks `~/Library/Application Support` and the App Store
+  container.
+- `transport/file_tail.py` polls the file every 50 ms. It keeps an offset,
+  buffers partial lines, and starts again from 0 when the file shrinks (the
+  mod rotated it). Lines that aren't JSON envelopes are dropped.
+- `transport/replay.py` plays a recording back with its original timing.
+- `relay.py` keeps the latest envelope per topic. A backlog or a slow link
+  skips intermediate values instead of queueing them. `hello` always goes
+  first, and everything is sent again after a reconnect.
+- `map_sync.py`: when the mod's `hello` names a map that `web/maps/` doesn't
+  have yet, it imports that map's overview image. This uses the prototype's
+  importer, which looks for base-game maps in the default Steam folders
+  (Phase 2 replaces it).
 
 ## Tests
 
 ```bash
-pip install pytest
-python -m pytest tests/
+python -m pytest client/tests
 ```
-
-## Notes
-
-- Windows only (named pipes). A UDP transport that skips the local client
-  entirely is on the roadmap (the GIANTS engine ships luasocket).
-- The client never sends personal data beyond what the mod exports; it
-  only talks to your own relay.

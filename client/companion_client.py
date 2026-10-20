@@ -1,92 +1,210 @@
 #!/usr/bin/env python3
-r"""FS25 Companion — local bridge client.
+"""FS25 Companion client: runs next to the game.
 
-Reads the telemetry the in-game mod writes to the ``\\.\pipe\fssimx``
-named pipe and relays it as JSON over a WebSocket to the companion relay
-backend, which forwards it to your browser dashboard.
+Tails the stream file the companion mod writes
+(<profile>/modSettings/FS25_Companion/stream.ndjson) and forwards every
+envelope to the backend, which serves the browser dashboard.
 
-Usage:
-    python companion_client.py --backend ws://127.0.0.1:8123
-    python companion_client.py --backend wss://relay.example.com --pairing 123456
+    python client/companion_client.py --local
+        start the backend in this process too; open http://localhost:8123
+    python client/companion_client.py --backend wss://relay.example.com
+        use a hosted relay; the dashboard needs ?pair=<code>
+    python client/companion_client.py --local --replay fixtures/solek_v1.ndjson
+        no game needed: replay a recording (works on any OS)
+    python client/companion_client.py --local --record session.ndjson
+        also save what the game sends, for replay later
+
+Works the same on Windows and macOS.
 """
 
 import argparse
+import asyncio
 import logging
 import random
+import socket
 import string
 import sys
-import threading
+from pathlib import Path
 
-from pipe_server import NamedPipeServer
-from protocol import FrameParser
-from relay import WebSocketRelay
+CLIENT_DIR = Path(__file__).resolve().parent
+REPO = CLIENT_DIR.parent
+sys.path.insert(0, str(CLIENT_DIR))
 
-try:
-    from map_sync import ensure_current_map
-except ImportError:
-    ensure_current_map = None
+import paths  # noqa: E402
+from relay import Outbox, WebSocketRelay  # noqa: E402
+from transport.file_tail import POLL_INTERVAL_S, FileTail, parse_line  # noqa: E402
+from transport.replay import replay  # noqa: E402
 
 log = logging.getLogger("companion")
 
+LOCAL_PAIRING = "LOCAL"
 
-def parse_args():
-    p = argparse.ArgumentParser(
-        description="FS25 Companion local bridge client (pipe -> relay)")
-    p.add_argument("--backend", default="ws://127.0.0.1:8123",
-                   help="relay WebSocket URL (default: ws://127.0.0.1:8123)")
+
+def parse_args(argv=None):
+    p = argparse.ArgumentParser(description="FS25 Companion client (game -> backend)")
+    p.add_argument("--local", action="store_true",
+                   help="run the backend in this process (one program, LAN only)")
+    p.add_argument("--port", type=int, default=8123,
+                   help="backend port with --local (default 8123)")
+    p.add_argument("--backend", default=None,
+                   help="backend WebSocket URL (default ws://127.0.0.1:8123)")
     p.add_argument("--pairing", default=None,
-                   help="pairing code for the dashboard (random 6 digits if omitted)")
-    p.add_argument("--pipe", default="\\\\.\\pipe\\fssimx",
-                   help="named pipe path (default: \\\\.\\pipe\\fssimx)")
-    p.add_argument("--hz", type=float, default=5.0,
-                   help="telemetry send rate in Hz (default: 5)")
-    p.add_argument("-v", "--verbose", action="store_true",
-                   help="debug logging")
-    return p.parse_args()
+                   help="pairing code (default: LOCAL with --local, else 6 random digits)")
+    p.add_argument("--profile-dir", type=Path, default=None,
+                   help="FS25 profile folder (the one with mods/ and modSettings/)")
+    p.add_argument("--stream", type=Path, default=None,
+                   help="stream file to tail (overrides --profile-dir)")
+    p.add_argument("--replay", type=Path, default=None, metavar="FILE",
+                   help="replay a recorded .ndjson instead of tailing the game")
+    p.add_argument("--speed", type=float, default=1.0, help="replay speed factor")
+    p.add_argument("--loop", action="store_true", help="replay forever")
+    p.add_argument("--record", type=Path, default=None, metavar="FILE",
+                   help="append every line read from the game to FILE")
+    p.add_argument("--no-map-sync", action="store_true",
+                   help="don't extract the map image for the dashboard at startup")
+    p.add_argument("-v", "--verbose", action="store_true", help="debug logging")
+    return p.parse_args(argv)
 
 
-def main() -> None:
-    args = parse_args()
+def resolve_stream(args) -> Path:
+    if args.stream is not None:
+        return args.stream
+    profile = args.profile_dir or paths.find_profile_dir()
+    if profile is None:
+        tried = "\n  ".join(str(c) for c in paths.candidate_profile_dirs())
+        sys.exit("FS25 profile folder not found. Tried:\n  " + tried +
+                 "\nPass --profile-dir <folder> (the one that contains mods/).")
+    return paths.stream_path(profile)
+
+
+def lan_address() -> str:
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
+            s.connect(("10.255.255.255", 1))  # no packet is sent
+            return s.getsockname()[0]
+    except OSError:
+        return "localhost"
+
+
+async def tail(stream: Path, outbox: Outbox, record, on_hello=None) -> None:
+    reader = FileTail(stream)
+    waiting_logged = False
+    rotations = 0
+    while True:
+        lines = reader.poll()
+        if not lines and not stream.exists() and not waiting_logged:
+            log.info("waiting for the game to create %s", stream)
+            waiting_logged = True
+        if reader.rotations != rotations:
+            rotations = reader.rotations
+            log.debug("stream file rotated")
+        for line in lines:
+            waiting_logged = False
+            if record is not None:
+                record.write(line + "\n")
+            envelope = parse_line(line)
+            if envelope is not None:
+                outbox.put(envelope)
+                if on_hello is not None and envelope["topic"] == "hello":
+                    on_hello(envelope["data"])
+        if record is not None and lines:
+            record.flush()
+        await asyncio.sleep(POLL_INTERVAL_S)
+
+
+async def serve_backend(port: int, pairing: str) -> None:
+    try:
+        import uvicorn
+        sys.path.insert(0, str(REPO))
+        from backend.app.main import create_app
+    except ImportError as e:
+        sys.exit(f"--local needs the backend packages ({e}). "
+                 "Run: pip install -r backend/requirements.txt")
+    config = uvicorn.Config(create_app(local_pairing=pairing), host="0.0.0.0",
+                            port=port, log_level="warning")
+    await uvicorn.Server(config).serve()
+
+
+def map_syncer(profile_dir):
+    """on_hello callback: import the overview image of each new map, on a
+    thread (a cold DDS decode takes a few seconds)."""
+    try:
+        from map_sync import ensure_map
+    except ImportError as e:
+        log.info("map sync unavailable (%s)", e)
+        return None
+    import threading
+    seen = set()
+
+    def on_hello(hello: dict) -> None:
+        map_id = hello.get("mapId")
+        if not map_id or map_id in seen:
+            return
+        seen.add(map_id)
+        threading.Thread(target=ensure_map, args=(map_id, hello.get("mapTitle"), profile_dir),
+                         name="map-sync", daemon=True).start()
+
+    return on_hello
+
+
+async def run(args) -> None:
+    pairing = args.pairing or (LOCAL_PAIRING if args.local
+                               else "".join(random.choices(string.digits, k=6)))
+    backend = args.backend or f"ws://127.0.0.1:{args.port}"
+    outbox = Outbox()
+    tasks = []
+
+    if args.local:
+        tasks.append(asyncio.create_task(serve_backend(args.port, pairing)))
+        dashboard = f"http://localhost:{args.port}  (LAN: http://{lan_address()}:{args.port})"
+    else:
+        http = backend.replace("wss://", "https://").replace("ws://", "http://")
+        dashboard = f"{http.rstrip('/')}/?pair={pairing}"
+
+    record = None
+    if args.replay is not None:
+        source = f"replay {args.replay}"
+        tasks.append(asyncio.create_task(
+            replay(args.replay, outbox.put, speed=args.speed, loop=args.loop)))
+    else:
+        stream = resolve_stream(args)
+        source = str(stream)
+        if args.record is not None:
+            record = open(args.record, "a", encoding="utf-8", newline="\n")
+        # the stream file normally sits in <profile>/modSettings/FS25_Companion/
+        profile = stream.parents[2] if (stream.parents[2] / "mods").is_dir() else None
+        on_hello = None if args.no_map_sync else map_syncer(profile)
+        tasks.append(asyncio.create_task(tail(stream, outbox, record, on_hello)))
+
+    relay = WebSocketRelay(backend, pairing, outbox)
+    tasks.append(asyncio.create_task(relay.run()))
+
+    print("=" * 64)
+    print("FS25 Companion client")
+    print(f"  source:    {source}")
+    print(f"  backend:   {backend}{'  (in this process)' if args.local else ''}")
+    print(f"  pairing:   {pairing}")
+    print(f"  dashboard: {dashboard}")
+    print("=" * 64)
+
+    try:
+        # run until Ctrl+C or a task fails; a finished replay keeps its last
+        # state on the dashboard
+        done, _ = await asyncio.wait(tasks, return_when=asyncio.FIRST_EXCEPTION)
+        for task in done:
+            task.result()
+    finally:
+        if record is not None:
+            record.close()
+
+
+def main(argv=None) -> None:
+    args = parse_args(argv)
     logging.basicConfig(
         level=logging.DEBUG if args.verbose else logging.INFO,
         format="%(asctime)s %(name)s %(levelname)s %(message)s")
-
-    if sys.platform != "win32":
-        log.error("the telemetry pipe is a Windows named pipe; "
-                  "run the client on Windows")
-        sys.exit(1)
-
-    pairing = args.pairing or "".join(random.choices(string.digits, k=6))
-    parser = FrameParser()
-    state = {"frame": None, "dirty": False}
-
-    # Note: map sync runs on a thread so a cold first import (DDS decode of
-    # a 4096x4096 texture) never delays the pipe from coming up — the game
-    # may already be trying to connect.
-    if ensure_current_map is not None:
-        threading.Thread(target=ensure_current_map, name="map-sync",
-                         daemon=True).start()
-
-    def on_data(data: bytes) -> None:
-        for frame in parser.feed(data):
-            state["frame"] = frame
-            state["dirty"] = True
-
-    pipe = NamedPipeServer(args.pipe, on_data)
-    threading.Thread(target=pipe.run, name="pipe", daemon=True).start()
-
-    relay = WebSocketRelay(args.backend, pairing, state, 1.0 / args.hz)
-
-    print("=" * 60)
-    print("FS25 Companion client")
-    print(f"  pipe:      {args.pipe}")
-    print(f"  backend:   {args.backend}")
-    print(f"  pairing:   {pairing}")
-    print("  dashboard:  open the web app with ?pair=" + pairing)
-    print("=" * 60)
-
     try:
-        relay.run_forever()
+        asyncio.run(run(args))
     except KeyboardInterrupt:
         pass
 

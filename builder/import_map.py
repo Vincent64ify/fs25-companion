@@ -221,7 +221,7 @@ def convert_image(kind: str, root, image_src: str, out_png: Path,
 
 def sync_current_map(games_dir: Path | None = None, game_dir: Path | None = None,
                      savegame: int | None = None, map_id_arg: str | None = None,
-                     quiet: bool = False) -> dict:
+                     map_title_arg: str | None = None, quiet: bool = False) -> dict:
     """Ensure web/maps/<mapId>.{json,png} exist for the current savegame.
 
     Returns the resulting config dict (or raises SystemExit on problems).
@@ -237,7 +237,8 @@ def sync_current_map(games_dir: Path | None = None, game_dir: Path | None = None
         game_dir = Path(game_dir)
 
     if map_id_arg:
-        save_name, meta = "(--map-id)", {"mapId": map_id_arg, "mapTitle": map_id_arg.split(".")[-1]}
+        save_name, meta = "(--map-id)", {
+            "mapId": map_id_arg, "mapTitle": map_title_arg or map_id_arg.split(".")[-1]}
     else:
         save_name, meta = latest_savegame(games_dir, savegame)
 

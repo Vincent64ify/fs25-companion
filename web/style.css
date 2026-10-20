@@ -33,6 +33,14 @@ h1 { font-size: 18px; margin: 0; }
 }
 .conn.connected { background: #14532d; color: #bbf7d0; }
 .conn.disconnected { background: #7f1d1d; color: #fecaca; }
+.conn.waiting { background: #713f12; color: #fef08a; }
+
+#banner {
+  padding: 8px 16px;
+  background: #7f1d1d;
+  color: #fecaca;
+  font-size: 14px;
+}
 
 main {
   display: grid;

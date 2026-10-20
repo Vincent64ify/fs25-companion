@@ -1,53 +1,78 @@
-# Telemetry mod
+# Companion mod
 
-Lua mod that exports live telemetry to the Windows named pipe
-`\\.\pipe\fssimx` (same pipe name and wire format as the
-[LS25_FSTelemetry](https://github.com/upsidedownLS13/LS25_FSTelemetry)
-base mod, MIT licensed).
+Streams game state to `<profile>/modSettings/FS25_Companion/stream.ndjson`,
+one JSON envelope per line. The companion client tails that file. It works
+the same on Windows and macOS, never blocks the game, and doesn't care
+whether the game or the client starts first.
 
 ## Install
 
-Zip the **contents** of this folder (so `modDesc.xml` is at the zip root),
-and put the zip into your FS25 `mods/` folder. Enable it in the mod list.
+```bash
+python scripts/build_mod.py --install   # builds dist/FS25_Companion.zip and copies it to mods/
+```
 
-## Notes
+Or zip the contents of this folder yourself (`modDesc.xml` at the zip root)
+and name it `FS25_Companion.zip`. Enable it in the savegame's mod list.
 
-- The pipe is created by the companion client (see `../client`). The game
-  connects to it. If no client is running, `io.open` fails and telemetry is
-  silently skipped — no effect on the game.
-- The mod re-opens the pipe every 100 updates (~1.6 s); consumers must
-  handle repeated connect/disconnect.
-- Telemetry is throttled to ~60 Hz; the client typically downsamples to a
-  few Hz.
-- `multiplayer supported="true"` — in MP the mod runs on every machine; the
-  one whose player you're watching is the one whose pipe you read.
+Remove the old `FS25_CompanionTelemetry.zip` (named-pipe prototype) from
+`mods/` if it's still there.
 
-## Telemetry fields
+## Layout
 
-Session: `SessionId`, `MapId` (matches careerSavegame.xml's `<mapId>` —
-the dashboard uses it to pick the map image), `MapName`, `PlayerName`, `IsMultiplayer`
+```
+modDesc.xml
+src/
+  Json.lua        JSON encoder (NaN/inf -> null, sorted keys)
+  Geo.lua         one heading convention: degrees, 0 = north (-Z), clockwise
+  Api.lua         guarded calls for API names not verified in Phase 0
+  Transport.lua   file open / write / flush / rotate at 2 MB, seq counter
+  Scheduler.lua   runs each collector at its interval, under pcall
+  collectors/     one file per topic
+  Companion.lua   bootstrap (loaded last)
+tests/run.lua     offline tests with a stubbed game
+```
 
-Game: `Money`, `TemperatureMin/Max/Trend`, `WeatherCurrent/Next`,
-`DayTimeMinutes`, `Day`
+## Envelope (protocol v1)
 
-Player: `PositionX/Y/Z`, `Heading` (0 = north, clockwise; calibrate with
-`headingOffset` in the map config)
+```json
+{"v":1,"seq":1234,"t":5123456,"topic":"player","data":{...}}
+```
 
-Vehicle: `IsDrivingVehicle`, `VehicleName`, `Speed` (km/h), `RPM` (+ min/max),
-`Gear`, `Fuel`/`FuelMax`, `Wear` (0–1), `OperationTimeMinutes`,
-`MotorTemperature`, `Mass`, `TotalMass`, `IsEngineStarted`, lights
-(`IsLightOn`, `IsLightHighOn`, `IsLightTurnLeftOn`, `IsLightTurnRightOn`,
-`IsLightHazardOn`, `IsLightBeaconOn`)
+`seq` counts up for the whole session, across rotations. `t` is game time
+in ms. When the file reaches 2 MB it is reopened with `"w"` and `hello` is
+sent again.
 
-Implements (per attachment slot, front to back):
-`AttachedImplementsPosition`, `AttachedImplementsLowered`,
-`AttachedImplementsTurnedOn`, `AttachedImplementsWear` — recursive up to
-6 levels deep. Other mods can inject extra per-implement data via
-`object.FStelemetryAddonData` (same hook as the base mod).
+| topic | rate | data |
+|---|---|---|
+| `hello` | start, and after each rotation | protocolVersion, modVersion, sessionId, platform, mapId, mapTitle, mapDir, mapXmlFilename, isModMap, terrainSize, ingameMap (world size and map extension values), farmId, playerName, profileDir |
+| `env` | 1 Hz | day, dayTimeMinutes, season, weather (tempMin, tempMax, tempTrend, current, next), money (farmId → money) |
+| `player` | 10 Hz | x, y, z, heading, inVehicle, vehicleId, farmId |
+| `vehicles` | 2 Hz | vehicles[] and controlledId. Phase 1 sends only the controlled vehicle, with speed, rpm, gear, fuel, motorTemp, wear, operatingHours, mass, lights and implements[] |
 
-## Open items
+A collector whose API call fails drops only its own topic (or a single
+value) and logs once to `log.txt` as `[FS25_Companion] topic … failed`.
 
-- Verify `missionInfo.name` / `player.nickname` field names on a real FS25
-  install (they're guarded, worst case they come out empty).
-- `Heading` convention: the mod sends `deg(-rotY) % 360`; drive north and
-  set `headingOffset` in the map config if the marker points the wrong way.
+## Adding a topic
+
+Add `src/collectors/<Name>.lua` returning
+`{ topic = "...", interval = ms, collect = function(ctx) return data end }`,
+list it in `modDesc.xml` and register it in `Companion.lua`. The client and
+the backend pass unknown topics through unchanged.
+
+## Tests
+
+```bash
+lua mod/tests/run.lua           # any Lua 5.1+
+python -m pytest mod/tests      # same suite through lupa
+```
+
+## To verify in game
+
+These names were not covered by Phase 0 and are guarded (a wrong guess
+leaves the value out):
+
+- `getCurrentFacingDirection()` → heading on foot: is it the facing
+  direction in world space (same convention as vehicles)?
+- weather (`getWeatherTypeAtTime`, temperatures) and `g_farmManager` money
+- `player.nickname`, vehicle motor/lights/implement fields (from the old mod)
+- rotation: does reopening with `"w"` truncate the file?

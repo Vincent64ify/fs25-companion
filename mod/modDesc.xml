@@ -1,17 +1,26 @@
 <?xml version="1.0" encoding="utf-8" standalone="no" ?>
 <modDesc descVersion="105">
     <author>fs25-companion</author>
-    <authorContact>https://github.com/yourname/fs25-companion</authorContact>
-    <version>0.1.0</version>
+    <authorContact>https://github.com/Vincent64ify/fs25-companion</authorContact>
+    <version>0.2.0</version>
     <title>
-        <en>FS25 Companion Telemetry</en>
+        <en>FS25 Companion</en>
     </title>
     <description>
-        <en><![CDATA[Exports live telemetry (position, vehicle, implements, weather) to the \\.\pipe\fssimx named pipe for the FS25 Companion dashboard. Based on the MIT-licensed LS25_FSTelemetry mod.]]></en>
+        <en><![CDATA[Streams live game state (map, player, vehicle, time and weather) to modSettings/FS25_Companion/stream.ndjson for the FS25 Companion browser map. Read-only: it doesn't change your game or savegames.]]></en>
     </description>
-    <iconFilename>icon_FSCompanionTelemetry.png</iconFilename>
+    <iconFilename>icon.png</iconFilename>
     <multiplayer supported="true" />
     <extraSourceFiles>
-        <sourceFile filename="CompanionTelemetry.lua"/>
+        <sourceFile filename="src/Json.lua"/>
+        <sourceFile filename="src/Geo.lua"/>
+        <sourceFile filename="src/Api.lua"/>
+        <sourceFile filename="src/Transport.lua"/>
+        <sourceFile filename="src/Scheduler.lua"/>
+        <sourceFile filename="src/collectors/Hello.lua"/>
+        <sourceFile filename="src/collectors/Env.lua"/>
+        <sourceFile filename="src/collectors/Player.lua"/>
+        <sourceFile filename="src/collectors/Vehicles.lua"/>
+        <sourceFile filename="src/Companion.lua"/>
     </extraSourceFiles>
 </modDesc>

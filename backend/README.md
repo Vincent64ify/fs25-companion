@@ -1,25 +1,45 @@
-# Relay backend
+# Backend
 
-Tiny FastAPI WebSocket relay. One game client and any number of browser
-viewers per pairing code. No accounts, no persistence — everything lives in
-memory.
+FastAPI app: pairing relay, per-session state store, and the dashboard's
+web server. No accounts, no persistence.
 
 ## Run
 
+From the repository root:
+
 ```bash
-pip install -r requirements.txt
-python -m uvicorn main:app --host 0.0.0.0 --port 8123
+pip install -r backend/requirements.txt
+python -m backend.app.main            # http://localhost:8123
 ```
 
-## Deploy
+Locally you usually don't run it yourself: `companion_client.py --local`
+starts it in-process.
 
-Any WebSocket-capable PaaS works (Railway, Fly.io, Render, a VPS with a
-reverse proxy). The app needs no environment variables. Make sure the
-platform supports WebSockets (most do by default) and that the client and
-browser can reach the same host.
+## Layout
+
+```
+app/main.py         app factory, /api/info, static dashboard
+app/protocol.py     pydantic models: the envelope and each known topic
+app/state_store.py  latest envelope per topic; a new sessionId resets it
+app/sessions.py     pairing sessions (one client, many viewers)
+app/ws.py           /ws?pair=<code> endpoint
+```
 
 ## Protocol
 
-See the docstring in `main.py`. The pairing code is whatever the client was
-started with (or a random 6 digits it prints). The dashboard is opened with
-`?pair=<CODE>`.
+See the docstring in `app/ws.py`. A viewer gets a `snapshot` of every
+topic on connect, then one `update` per envelope. Envelopes with another
+protocol version are rejected, and viewers get a `protocol_error` asking
+to update the mod. Unknown topics pass through with only the envelope
+validated, so a new collector needs no backend change.
+
+## Deploy
+
+Any host with WebSocket support (Railway, Fly.io, Render, a VPS behind a
+reverse proxy). Start command: `python -m backend.app.main --port $PORT`.
+
+## Tests
+
+```bash
+python -m pytest backend/tests
+```
