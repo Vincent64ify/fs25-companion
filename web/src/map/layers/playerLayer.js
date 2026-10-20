@@ -4,24 +4,13 @@
 // between them so it moves smoothly.
 
 import { worldToLatLng } from "../mapView.js";
+import { createGlide, showPose } from "../glide.js";
 
 /** @typedef {import("../../types.js").Player} Player */
-/** @typedef {{x: number, z: number, heading: number}} Pose */
-
-const MAX_GLIDE_MS = 500;
-const TELEPORT_M = 150;
+/** @typedef {import("../glide.js").Pose} Pose */
 
 const ARROW_SVG = `<svg viewBox="-12 -12 24 24" width="26" height="26" aria-hidden="true">
   <path d="M0,-11 L8,9 L0,4 L-8,9 Z" /></svg>`;
-
-/** @param {number} a @param {number} b @param {number} k */
-const lerp = (a, b, k) => a + (b - a) * k;
-
-/** shortest way round: 350 -> 10 turns 20 degrees, not 340 */
-function lerpHeading(/** @type {number} */ a, /** @type {number} */ b, /** @type {number} */ k) {
-  const d = ((b - a + 540) % 360) - 180;
-  return (a + d * k + 360) % 360;
-}
 
 /**
  * @param {any} map L.Map
@@ -32,58 +21,27 @@ export function createPlayerLayer(map, store) {
   const icon = L.divIcon({ className: "player-marker", html: ARROW_SVG, iconSize: [26, 26] });
   const marker = L.marker([0, 0], { icon, pane: "player", interactive: false, keyboard: false });
   const group = L.layerGroup([marker]);
-
-  /** @type {Pose|null} */ let from = null;
-  /** @type {Pose|null} */ let to = null;
-  let startedAt = 0;
-  let glideMs = 0;
-  let lastAt = 0;
+  const glide = createGlide({ maxGlideMs: 500 });
   /** @type {Pose|null} */ let shown = null;
-
-  /** @param {number} now */
-  function poseAt(now) {
-    if (!to) return null;
-    if (!from || glideMs <= 0) return to;
-    const k = Math.min(1, (now - startedAt) / glideMs);
-    return {
-      x: lerp(from.x, to.x, k),
-      z: lerp(from.z, to.z, k),
-      heading: lerpHeading(from.heading, to.heading, k),
-    };
-  }
 
   store.subscribe("player", (/** @type {Player|undefined} */ p) => {
     if (!p || typeof p.x !== "number" || typeof p.z !== "number") {
-      to = from = null;
+      glide.clear();
       return;
     }
-    const now = performance.now();
-    const current = poseAt(now);
-    const next = { x: p.x, z: p.z, heading: typeof p.heading === "number" ? p.heading : current?.heading ?? 0 };
-    const jump = current ? Math.hypot(next.x - current.x, next.z - current.z) : Infinity;
-    from = jump < TELEPORT_M ? current : null;
-    to = next;
-    glideMs = Math.min(MAX_GLIDE_MS, now - lastAt);
-    startedAt = lastAt = now;
+    glide.push(p, performance.now());
   });
 
   /** Called every animation frame by main.js; returns the shown pose. */
   function tick(/** @type {number} */ now) {
-    const pose = poseAt(now);
+    const pose = glide.at(now);
     if (!pose) {
       if (shown) group.removeLayer(marker);
       shown = null;
       return null;
     }
     if (!shown) group.addLayer(marker);
-    if (!shown || shown.x !== pose.x || shown.z !== pose.z) {
-      marker.setLatLng(worldToLatLng(pose.x, pose.z));
-    }
-    const el = marker.getElement()?.firstElementChild;
-    if (el && (!shown || shown.heading !== pose.heading)) {
-      el.style.transform = `rotate(${pose.heading}deg)`;
-    }
-    shown = pose;
+    shown = showPose(marker, pose, shown, worldToLatLng);
     return pose;
   }
 

@@ -10,6 +10,10 @@ import { createStore } from "./store.js";
 import { addCursorReadout, createMapView } from "./map/mapView.js";
 import { createOverviewLayer } from "./map/overviewLayer.js";
 import { createFollowControl } from "./map/followControl.js";
+import { createLegend } from "./map/legend.js";
+import { createFarmlandsLayer } from "./map/layers/farmlandsLayer.js";
+import { createHotspotsLayer } from "./map/layers/hotspotsLayer.js";
+import { createVehiclesLayer } from "./map/layers/vehiclesLayer.js";
 import { createPlayerLayer } from "./map/layers/playerLayer.js";
 import { createVehiclePanel } from "./panels/vehiclePanel.js";
 import { createEnvPanel } from "./panels/envPanel.js";
@@ -23,16 +27,17 @@ const follow = createFollowControl(map);
 createOverviewLayer(map, store, { onNewMap: follow.onNewMap });
 addCursorReadout(map);
 
-/** @type {import("./types.js").MapLayer[]} */
+const player = createPlayerLayer(map, store);
+const vehicles = createVehiclesLayer(map, store);
+/** @type {import("./types.js").MapLayer[]} in legend order */
 const layers = [
-  createPlayerLayer(map, store),
+  player,
+  vehicles,
+  createHotspotsLayer(map, store),
+  createFarmlandsLayer(map, store),
 ];
-const overlays = /** @type {Record<string, any>} */ ({});
-for (const layer of layers) {
-  layer.leafletLayer.addTo(map);
-  overlays[layer.title] = layer.leafletLayer;
-}
-L.control.layers(undefined, overlays, { position: "topright", collapsed: true }).addTo(map);
+for (const layer of layers) layer.leafletLayer.addTo(map);
+createLegend(map, layers);
 
 createVehiclePanel(store);
 createEnvPanel(store);
@@ -66,9 +71,9 @@ setInterval(renderStatus, 1000);
 
 // --- animation -------------------------------------------------------------
 
-const player = /** @type {any} */ (layers[0]);
 function frame(/** @type {number} */ now) {
   follow.tick(player.tick(now));
+  vehicles.tick(now);
   requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);

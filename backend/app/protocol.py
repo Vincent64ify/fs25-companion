@@ -12,7 +12,7 @@ through with only the envelope checked. Breaking changes bump ``v``.
 
 from typing import Any, Dict, List, Optional, Union
 
-from pydantic import BaseModel, ConfigDict, Field, ValidationError
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
 
 PROTOCOL_VERSION = 1
 
@@ -139,6 +139,11 @@ class Vehicle(Pose):
     lights: Optional[Lights] = None
     # the encoder writes an empty table as [], so an empty object may too
     implements: List[Implement] = []
+    # has an engine (tractors, trucks) vs implements and trailers
+    motorized: Optional[bool] = None
+    # hitched to another vehicle
+    attached: Optional[bool] = None
+    propertyState: Optional[int] = None
 
 
 class Vehicles(TopicModel):
@@ -146,11 +151,65 @@ class Vehicles(TopicModel):
     controlledId: Optional[Union[int, str]] = None
 
 
+class Hotspot(TopicModel):
+    # MapHotspot.CATEGORY_*: ANIMAL 2, MISSION 3, TOUR 4, UNLOADING 9 (sell
+    # points), LOADING 10, PRODUCTION 11, SHOP 12, OTHER 13
+    category: int
+    x: float
+    z: float
+    name: Optional[str] = None
+    farmId: Optional[int] = None
+    visible: bool = True
+
+
+class Hotspots(TopicModel):
+    hotspots: List[Hotspot] = []
+
+
+class Farmland(TopicModel):
+    id: int
+    # 0 = nobody owns it
+    farmId: int = 0
+    price: Optional[float] = None
+    areaHa: Optional[float] = None
+    x: Optional[float] = None
+    z: Optional[float] = None
+    name: Optional[str] = None
+    listed: bool = True
+
+
+class Farmlands(TopicModel):
+    farmlands: List[Farmland] = []
+
+
+class FarmlandGrid(TopicModel):
+    """Farmland id per cell, row by row from (originX, originZ), run-length
+    encoded as [id, count, id, count, ...]; id 0 = no farmland."""
+    cell: float = Field(gt=0)
+    cols: int = Field(gt=0)
+    rows: int = Field(gt=0)
+    originX: float
+    originZ: float
+    runs: List[int]
+
+    @model_validator(mode="after")
+    def runs_cover_the_grid(self):
+        if len(self.runs) % 2:
+            raise ValueError("runs must be [id, count] pairs")
+        counts = self.runs[1::2]
+        if any(n <= 0 for n in counts) or sum(counts) != self.cols * self.rows:
+            raise ValueError("run counts must add up to cols * rows")
+        return self
+
+
 TOPIC_MODELS = {
     "hello": Hello,
     "env": Env,
     "player": Player,
     "vehicles": Vehicles,
+    "hotspots": Hotspots,
+    "farmlands": Farmlands,
+    "farmland_grid": FarmlandGrid,
 }
 
 

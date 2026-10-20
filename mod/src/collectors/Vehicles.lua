@@ -1,7 +1,8 @@
 -- Vehicles.lua
--- Vehicles, twice per second. Phase 1 sends only the vehicle the player
--- controls, with the dashboard detail (motor, fuel, lights, implements);
--- Phase 3 adds every vehicle on the map to the same list.
+-- Every vehicle on the map, twice per second (vehicleSystem.vehicles,
+-- Phase 0): pose, name, owner, AI state, whether it has an engine and
+-- whether it hangs on another vehicle. The vehicle the player controls also
+-- gets the dashboard detail (motor, fuel, lights, implements).
 --
 -- The spec field names come from the old telemetry mod (which read them
 -- through the pipe) and are guarded.
@@ -13,6 +14,27 @@ local Api = Companion.Api
 local Geo = Companion.Geo
 
 local MAX_IMPLEMENT_DEPTH = 6
+
+-- vehicle id -> full name; names don't change, and there may be many
+-- vehicles. Cleared per map by reset().
+local names = {}
+
+local function vehicleName(vehicle)
+    local name = names[vehicle.id]
+    if name == nil then
+        name = Api.tryCall(vehicle, "getFullName") or false
+        names[vehicle.id] = name
+    end
+    return name or nil
+end
+
+local function speedKmh(vehicle, motorized)
+    local speed = Api.tryCall(vehicle, "getLastSpeed")
+    if speed == nil then
+        return nil
+    end
+    return Geo.round(math.max(0, speed * (motorized.speedDisplayScale or 3.6)), 1)
+end
 
 local function collectImplements(vehicle, depth, out)
     local attached = Api.tryCall(vehicle, "getAttachedImplements")
@@ -49,10 +71,6 @@ local function motorDetail(vehicle, entry)
     if motorized.motorTemperature ~= nil then
         entry.motorTemp = Geo.round(motorized.motorTemperature.value, 1)
     end
-    local speed = Api.tryCall(vehicle, "getLastSpeed")
-    if speed ~= nil then
-        entry.speed = Geo.round(math.max(0, speed * (motorized.speedDisplayScale or 3.6)), 1)
-    end
     local motor = Api.tryCall(vehicle, "getMotor")
     if motor ~= nil then
         entry.rpm = Geo.round(Api.tryCall(motor, "getLastRealMotorRpm"), 0)
@@ -84,9 +102,18 @@ local function vehicleEntry(vehicle, detailed)
     end
     entry.id = vehicle.id
     entry.typeName = vehicle.typeName
-    entry.name = Api.tryCall(vehicle, "getFullName")
+    entry.name = vehicleName(vehicle)
     entry.farmId = Api.tryCall(vehicle, "getOwnerFarmId")
     entry.isAI = Api.tryCall(vehicle, "getIsAIActive") == true
+    entry.propertyState = vehicle.propertyState
+    local motorized = vehicle.spec_motorized
+    entry.motorized = motorized ~= nil
+    if motorized ~= nil then
+        entry.speed = speedKmh(vehicle, motorized)
+    end
+    -- an implement or trailer hitched to something: the PDA draws only
+    -- the vehicle pulling it
+    entry.attached = Api.tryCall(vehicle, "getAttacherVehicle") ~= nil
     if detailed then
         motorDetail(vehicle, entry)
         entry.lights = lights(vehicle)
@@ -106,19 +133,46 @@ local function vehicleEntry(vehicle, detailed)
     return entry
 end
 
+local function idLess(a, b)
+    local ta, tb = type(a.id), type(b.id)
+    if ta ~= tb then
+        return ta < tb
+    end
+    return a.id < b.id
+end
+
 Companion.Collectors.Vehicles = {
     topic = "vehicles",
     interval = 500,
+    reset = function()
+        names = {}
+    end,
     collect = function(ctx)
         local data = { vehicles = {} }
-        local vehicle = Api.controlledVehicle()
-        if vehicle ~= nil then
-            local entry = vehicleEntry(vehicle, true)
+        local controlled = Api.controlledVehicle()
+        local system = g_currentMission.vehicleSystem
+        local all = Api.listOf(system ~= nil and system.vehicles or nil)
+        local listed = false
+        for _, vehicle in ipairs(all) do
+            if vehicle.isDeleted ~= true and vehicle.id ~= nil then
+                local entry = vehicleEntry(vehicle, vehicle == controlled)
+                if entry ~= nil then
+                    data.vehicles[#data.vehicles + 1] = entry
+                    if vehicle == controlled then
+                        data.controlledId = entry.id
+                        listed = true
+                    end
+                end
+            end
+        end
+        if controlled ~= nil and not listed then
+            local entry = vehicleEntry(controlled, true)
             if entry ~= nil then
-                data.vehicles[1] = entry
+                data.vehicles[#data.vehicles + 1] = entry
                 data.controlledId = entry.id
             end
         end
+        table.sort(data.vehicles, idLess)
         return data
     end,
 }

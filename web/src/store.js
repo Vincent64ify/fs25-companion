@@ -76,3 +76,12 @@ export function createStore() {
 }
 
 /** @typedef {ReturnType<typeof createStore>} Store */
+
+/**
+ * The viewer's farm: the local player's (1 in single player).
+ * @param {Store} store
+ * @returns {number}
+ */
+export function myFarmId(store) {
+  return store.get("hello")?.farmId ?? store.get("player")?.farmId ?? 1;
+}

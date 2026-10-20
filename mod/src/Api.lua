@@ -42,3 +42,20 @@ function Api.controlledVehicle()
     end
     return Api.tryCall(player, "getCurrentVehicle")
 end
+
+-- Game collections may be arrays, id-keyed maps or sets keyed by the object
+-- itself (Phase 0); normalise to an array of the object tables.
+function Api.listOf(t)
+    local list = {}
+    if type(t) ~= "table" then
+        return list
+    end
+    for k, v in pairs(t) do
+        if type(v) == "table" then
+            list[#list + 1] = v
+        elseif type(k) == "table" then
+            list[#list + 1] = k
+        end
+    end
+    return list
+end

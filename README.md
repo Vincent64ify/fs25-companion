@@ -11,8 +11,10 @@ phone, on **Windows and macOS**.
 > Phase 0 (verifying the game's API in game) is done. Phase 1 (file
 > transport, client, backend protocol) and Phase 2 (Leaflet map in world
 > coordinates, overview image pipeline, player marker) are built and tested
-> offline with a replay, and still need their first live run in the game. See
-> [docs/PLAN.md](docs/PLAN.md) for the full plan and the verified API facts.
+> offline with a replay, and still need their first live run in the game.
+> Phase 3 (PDA places, every vehicle, farmland ownership) is built the same
+> way. See [docs/PLAN.md](docs/PLAN.md) for the full plan and the verified
+> API facts.
 
 ## How it works
 
@@ -33,7 +35,7 @@ Browser dashboard: Leaflet map in world coordinates, one layer per feature
 ```
 
 - **Mod (Lua).** Small collectors, one per topic: `player`, `vehicles`,
-  `hotspots`, `fields`, `farmlands`, `env`. Each runs at its own rate and writes
+  `hotspots`, `farmlands`, `farmland_grid`, `env` (and `fields` in Phase 4). Each runs at its own rate and writes
   versioned JSON envelopes (`{"v":1,"seq":…,"t":…,"topic":…,"data":…}`) to a
   plain file. Plain file I/O works the same on Windows and macOS, never blocks
   the game, and doesn't care about start order. Every collector is isolated, so
@@ -49,7 +51,9 @@ Browser dashboard: Leaflet map in world coordinates, one layer per feature
 - **Dashboard (vanilla JS ES modules, no build step).** A Leaflet map in
   world meters (`lng = x`, `lat = -z`), with the overview image placed using
   the game's own map-extension values, so there's nothing to calibrate.
-  Pan, zoom, follow-me, and one toggleable layer per feature.
+  Pan, zoom, follow-me, and one toggleable layer per feature: the PDA's
+  places (sell points, shops, productions, animals, ...), every vehicle, and
+  farmland borders shaded by owner, with a legend that remembers your choices.
 
 ## Repository layout
 
@@ -72,7 +76,7 @@ web/           Browser dashboard (src/ modules, vendor/leaflet)
 | 0 | In-game API spike: file I/O, heading, hotspots, fields, farmlands, map geometry | ✅ done |
 | 1 | New mod skeleton + file transport, client tailer with record/replay, backend protocol and state store; remove the named pipe | built, live test pending |
 | 2 | Leaflet map in world coordinates, overview image pipeline, player marker, pan/zoom/follow | built, live test pending |
-| 3 | PDA layers: sell points, shops, productions, animals; all vehicles; farmland ownership | planned |
+| 3 | PDA layers: sell points, shops, productions, animals; all vehicles; farmland ownership | built, live test pending |
 | 4 | Fields: outlines, crop and growth colours (PDA colours), field info panel | planned |
 | later | Sell prices, missions, AI workers, multiplayer farm colours, tray app | ideas |
 

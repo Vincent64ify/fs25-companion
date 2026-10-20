@@ -1,7 +1,8 @@
 -- run.lua
 -- Offline tests for the mod's pure parts: the JSON encoder, the heading
--- maths, the transport (writes and rotation) and the scheduler (isolation
--- of failing collectors). The game API is stubbed.
+-- maths, the transport (writes and rotation), the scheduler (isolation of
+-- failing collectors, resend after rotation) and the collectors against a
+-- stubbed game API.
 --
 -- Runs under plain Lua 5.1+ from the repository root (set TMP_DIR to keep
 -- scratch files out of the system temp folder):
@@ -234,6 +235,150 @@ test("scheduler skips nil data and emits on demand", function()
     eq(tr.sent[1].t, 7)
 end)
 
+test("scheduler resets collectors and resends the last data after a rotation", function()
+    local tr = fakeTransport()
+    local s = Scheduler.new(tr, function() end)
+    local resets = 0
+    local sentOnce = false
+    s:add({ topic = "hello", interval = nil, collect = function() return { hi = 1 } end })
+    s:add({ topic = "once", interval = 0, resend = true,
+        reset = function() resets = resets + 1 end,
+        collect = function()
+            if sentOnce then
+                return nil
+            end
+            sentOnce = true
+            return { big = true }
+        end })
+    s:add({ topic = "often", interval = 0, collect = function() return { n = 1 } end })
+    eq(resets, 1, "reset when added")
+    local ctx = { time = 1 }
+    s:update(16, ctx)
+    s:update(16, ctx)
+    eq(#tr.sent, 3, "once + 2x often")
+    tr.sent = {}
+    s:resend(ctx)
+    eq(#tr.sent, 2, "hello and the resend topic only")
+    eq(tr.sent[1].topic, "hello")
+    eq(tr.sent[2].topic, "once")
+    eq(tr.sent[2].data.big, true)
+end)
+
+-- Collectors against a stubbed game ---------------------------------------
+
+test("farmland grid samples cell centres in slices and run-length encodes", function()
+    load("src/collectors/FarmlandGrid.lua")
+    local grid = Companion.Collectors.FarmlandGrid
+    local calls = 0
+    g_currentMission = { terrainSize = 2048 }
+    g_farmlandManager = {
+        -- west half farmland 3, east half none (255); one lookup raises
+        getFarmlandIdAtWorldPosition = function(_, x, z)
+            calls = calls + 1
+            if calls == 5000 then
+                error("transient")
+            end
+            if x < 0 then
+                return 3
+            end
+            return 255
+        end,
+    }
+    grid.reset()
+    local frames, data = 0, nil
+    while data == nil and frames < 200 do
+        frames = frames + 1
+        local ok, result = pcall(grid.collect, {})
+        if ok then
+            data = result
+        end
+    end
+    assert(data ~= nil, "grid finished")
+    eq(data.cell, 4)
+    eq(data.cols, 512)
+    eq(data.rows, 512)
+    eq(data.originX, -1024)
+    eq(data.originZ, -1024)
+    eq(frames, 65, "64 slices of 4096 cells plus the frame that raised")
+    eq(calls, 512 * 512 + 1, "every cell once, the raising one twice")
+    -- every row: 256 cells of farmland 3, then 256 of none
+    eq(#data.runs, 512 * 2 * 2)
+    eq(data.runs[1], 3)
+    eq(data.runs[2], 256)
+    eq(data.runs[3], 0, "255 becomes 0")
+    eq(data.runs[4], 256)
+    local cells = 0
+    for i = 2, #data.runs, 2 do
+        cells = cells + data.runs[i]
+    end
+    eq(cells, 512 * 512)
+    eq(grid.collect({}), nil, "sent once")
+    grid.reset()
+    g_currentMission = { terrainSize = 8192 }
+    local big = nil
+    for _ = 1, 100 do
+        big = grid.collect({}) or big
+    end
+    assert(big ~= nil, "large map grid finished")
+    eq(big.cell, 16, "at most 512 cells a side")
+end)
+
+test("hotspots: PDA points only, named, sorted", function()
+    load("src/collectors/Hotspots.lua")
+    local function hotspot(category, name, x, z, extra)
+        local h = extra or {}
+        h.worldX, h.worldZ, h.ownerFarmId = x, z, h.ownerFarmId or 0
+        h.getCategory = function() return category end
+        if name ~= nil then
+            h.getName = function() return name end
+        end
+        return h
+    end
+    g_currentMission = { hud = { ingameMap = { hotspots = {
+        hotspot(9, "Mill", 173.0, 971.49),
+        hotspot(1, nil, 0, 0, { name = "12" }),               -- field: skipped
+        hotspot(5, nil, 1, 1),                                -- vehicle: skipped
+        hotspot(12, "Vehicle Shop", -64, 277),
+        hotspot(11, "Biogas", 586.5, 1011, { ownerFarmId = 15,
+            getIsVisible = function() return false end }),
+        hotspot(13, nil, 5, 5, { name = "Farm house" }),       -- name field fallback
+        hotspot(9, "Bakery", -12, 3),
+        { getCategory = function() error("broken") end },     -- dropped, not fatal
+    } } } }
+    local list = Companion.Collectors.Hotspots.collect({}).hotspots
+    eq(#list, 5)
+    eq(list[1].name, "Bakery", "sorted by category, then x")
+    eq(list[2].name, "Mill")
+    eq(list[2].z, 971.5)
+    eq(list[3].category, 11)
+    eq(list[3].visible, false)
+    eq(list[3].farmId, 15)
+    eq(list[4].name, "Vehicle Shop")
+    eq(list[4].visible, true)
+    eq(list[5].name, "Farm house")
+end)
+
+test("farmlands: owner, price and area per farmland", function()
+    load("src/collectors/Farmlands.lua")
+    g_farmlandManager = { farmlands = {
+        [7] = { id = 7, farmId = 1, price = 98137.2, areaInHa = 1.5098, xWorldPos = -876.02,
+            zWorldPos = -941.5, name = "7", showOnFarmlandsScreen = true },
+        [2] = { id = 2, farmId = 0, price = 259148.5, areaInHa = 3.9869, xWorldPos = 1, zWorldPos = 2 },
+        [3] = { id = 3, price = 1, showOnFarmlandsScreen = false },
+    } }
+    local list = Companion.Collectors.Farmlands.collect({}).farmlands
+    eq(#list, 3)
+    eq(list[1].id, 2, "sorted by id")
+    eq(list[1].farmId, 0)
+    eq(list[1].price, 259149)
+    eq(list[1].listed, true)
+    eq(list[2].farmId, 0, "missing farmId = unowned")
+    eq(list[2].listed, false)
+    eq(list[3].farmId, 1)
+    eq(list[3].areaHa, 1.51)
+    eq(list[3].x, -876)
+end)
+
 -- Whole mod against a stubbed game -----------------------------------------
 -- Loads every file in modDesc order and runs a few frames. Needs TMP_DIR
 -- with an existing FS25_Companion/ folder (createFolder is a game function).
@@ -270,6 +415,19 @@ local function stubGame()
         spec_lights = { isLightOn = true },
         spec_wearable = { wear = 0.1 },
     }
+    local parked = {
+        id = 9, rootNode = 66, typeName = "trailer", propertyState = 2,
+        getFullName = function() return "Farmtech EDK 650" end,
+        getOwnerFarmId = function() return 1 end,
+        getIsAIActive = function() return false end,
+        getAttacherVehicle = function() return nil end,
+    }
+    local hitched = {
+        id = 8, rootNode = 77, typeName = "shovel",
+        getFullName = function() return "Bucket" end,
+        getOwnerFarmId = function() return 1 end,
+        getAttacherVehicle = function() return vehicle end,
+    }
     local player = {
         farmId = 1, nickname = "Farmer",
         currentVehicle = nil,
@@ -286,6 +444,10 @@ local function stubGame()
     g_time = 5000
     getAppBasePath = function() return "C:/Games/FS25/" end
     g_localPlayer = player
+    g_farmlandManager = {
+        farmlands = { { id = 1, farmId = 1, price = 1000, areaInHa = 2 } },
+        getFarmlandIdAtWorldPosition = function(_, x) return x < 0 and 1 or 255 end,
+    }
     g_farmManager = { getFarms = function() return { { farmId = 1, money = 123456.7 } } end }
     g_currentMission = {
         terrainSize = 2048,
@@ -293,7 +455,15 @@ local function stubGame()
             id = "FS25_Test.TestMap", title = "Test Map", baseDirectory = "C:/mods/FS25_Test/",
             mapXMLFilename = "map/map.xml", isModMap = true,
         } },
-        hud = { ingameMap = { worldSizeX = 2048, mapExtensionScaleFactor = 0.5, mapExtensionOffsetX = 0.25 } },
+        hud = { ingameMap = {
+            worldSizeX = 2048, mapExtensionScaleFactor = 0.5, mapExtensionOffsetX = 0.25,
+            hotspots = { {
+                worldX = 829.35, worldZ = -407.95, ownerFarmId = 0,
+                getCategory = function() return 9 end,
+                getName = function() return "Carrefour" end,
+            } },
+        } },
+        vehicleSystem = { vehicles = { parked, vehicle, hitched } },
         environment = {
             currentDay = 3, dayTime = (13 * 60 + 30) * 60000, currentSeason = 1,
             getDayAndDayTime = function(_, time, day) return day, time end,
@@ -309,7 +479,7 @@ local function stubGame()
     return player, vehicle, function() return listener end
 end
 
-test("whole mod streams hello, env, player and vehicles", function()
+test("whole mod streams every topic", function()
     if TMP_DIR == nil then
         print("skip whole-mod test (no TMP_DIR)")
         return
@@ -319,6 +489,9 @@ test("whole mod streams hello, env, player and vehicles", function()
     load("src/collectors/Env.lua")
     load("src/collectors/Player.lua")
     load("src/collectors/Vehicles.lua")
+    load("src/collectors/Hotspots.lua")
+    load("src/collectors/Farmlands.lua")
+    load("src/collectors/FarmlandGrid.lua")
     load("src/Companion.lua")
     local mod = getListener()
     assert(mod ~= nil, "registered as a mod event listener")
@@ -326,7 +499,8 @@ test("whole mod streams hello, env, player and vehicles", function()
     mod:loadMap("map")
     mod:update(16)
     player.currentVehicle = vehicle
-    for _ = 1, 40 do
+    -- long enough for the farmland grid (64 slices)
+    for _ = 1, 80 do
         mod:update(16)
     end
     mod:deleteMap()
@@ -348,6 +522,20 @@ test("whole mod streams hello, env, player and vehicles", function()
     -- a broken weather call drops only that value
     assert(text:find('"tempMax":21', 1, true), "env survives a failing weather call")
     assert(text:find('"money":{"1":123457}', 1, true), "money per farm")
+    -- every vehicle, detail only for the controlled one
+    assert(text:find('"id":9,"isAI":false,"motorized":false,"name":"Farmtech EDK 650"', 1, true),
+        "parked trailer")
+    assert(text:find('"attached":true,"farmId":1,"heading":0,"id":8', 1, true), "hitched bucket")
+    assert(text:find('"name":"Carrefour"', 1, true), "hotspots")
+    assert(text:find('"topic":"farmlands"', 1, true), "farmlands")
+    local gridLines = 0
+    for _, line in ipairs(ls) do
+        if line:find('"topic":"farmland_grid"', 1, true) then
+            gridLines = gridLines + 1
+            assert(line:find('"runs":[1,256,0,256,1,256', 1, true), "grid runs: " .. line:sub(1, 120))
+        end
+    end
+    eq(gridLines, 1, "grid sent once")
     for i, line in ipairs(ls) do
         assert(line:find('"seq":' .. i .. ',', 1, true), "contiguous seq at line " .. i)
     end

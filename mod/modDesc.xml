@@ -2,12 +2,12 @@
 <modDesc descVersion="105">
     <author>fs25-companion</author>
     <authorContact>https://github.com/Vincent64ify/fs25-companion</authorContact>
-    <version>0.2.0</version>
+    <version>0.3.0</version>
     <title>
         <en>FS25 Companion</en>
     </title>
     <description>
-        <en><![CDATA[Streams live game state (map, player, vehicle, time and weather) to modSettings/FS25_Companion/stream.ndjson for the FS25 Companion browser map. Read-only: it doesn't change your game or savegames.]]></en>
+        <en><![CDATA[Streams live game state (map, player, vehicles, sell points, shops, productions, farmlands, time and weather) to modSettings/FS25_Companion/stream.ndjson for the FS25 Companion browser map. Read-only: it doesn't change your game or savegames.]]></en>
     </description>
     <iconFilename>icon.png</iconFilename>
     <multiplayer supported="true" />
@@ -21,6 +21,9 @@
         <sourceFile filename="src/collectors/Env.lua"/>
         <sourceFile filename="src/collectors/Player.lua"/>
         <sourceFile filename="src/collectors/Vehicles.lua"/>
+        <sourceFile filename="src/collectors/Hotspots.lua"/>
+        <sourceFile filename="src/collectors/Farmlands.lua"/>
+        <sourceFile filename="src/collectors/FarmlandGrid.lua"/>
         <sourceFile filename="src/Companion.lua"/>
     </extraSourceFiles>
 </modDesc>

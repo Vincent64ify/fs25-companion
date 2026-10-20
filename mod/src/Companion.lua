@@ -8,7 +8,7 @@
 
 Companion = Companion or {}
 
-Companion.VERSION = "0.2.0"
+Companion.VERSION = "0.3.0"
 Companion.DIR_NAME = "FS25_Companion"
 Companion.STREAM_FILE = "stream.ndjson"
 
@@ -93,6 +93,9 @@ function Companion:loadMap(name)
     scheduler:add(collectors.Env)
     scheduler:add(collectors.Player)
     scheduler:add(collectors.Vehicles)
+    scheduler:add(collectors.Hotspots)
+    scheduler:add(collectors.Farmlands)
+    scheduler:add(collectors.FarmlandGrid)
 
     local profile = profileDir()
     state.transport = transport
@@ -142,7 +145,7 @@ function Companion:update(dt)
         return
     end
     if rotated then
-        scheduler:emit("hello", ctx)
+        scheduler:resend(ctx)
         pcall(transport.flush, transport)
     end
 end

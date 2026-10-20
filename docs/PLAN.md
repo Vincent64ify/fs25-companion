@@ -49,7 +49,9 @@ These results override any API guesses later in this document.
 - `hud.ingameMap.hotspots` holds 352 entries, each with `worldX`, `worldZ`, `name`, `ownerFarmId`, `isVisible`, `getCategory()` and `getWorldPosition()`.
 - Category constants come from `MapHotspot.CATEGORY_*`: FIELD 1, ANIMAL 2, MISSION 3, TOUR 4, STEERABLE 5, COMBINE 6, TRAILER 7, TOOL 8, UNLOADING 9 (sell points), LOADING 10, PRODUCTION 11, SHOP 12, DEFAULT/OTHER 13, AI 14, PLAYER/MAP_UTILITY 15.
 - The observed mix: 189 field, 108 other, 19 loading, 13 unloading, 9 production, 4 shop, 5 animal, plus vehicles and player.
-- Display names for placeable hotspots are still to check in Phase 1. Candidates: the `name` field and `h.placeable:getName()`.
+- Display names: `h:getName()` works on placeable hotspots (sell points, productions, shops, animal pens, NPCs: "Mill", "Bakery", "Cow Barn"). The `MapHotspot` base class has no `getName`; farmland hotspots carry their number in the `name` field.
+- `isVisible` / `getIsVisible()` is false for placeables owned by farm 15 (pre-placed, not bought yet) and for most unnamed OTHER hotspots. The PDA doesn't draw them.
+- `MapHotspot` itself is enumerable (its `CATEGORY_*` constants and methods were listed), unlike the instances.
 
 **Fields**
 - `g_fieldManager.fields` holds 162 fields.
@@ -253,10 +255,16 @@ web/
 - Fold the reusable parts of `import_map.py` (DDS → PNG) into `client/map_assets.py`.
 - As built: `meta.json` carries `imageBounds` / `playableBounds` in world meters computed from `hello.ingameMap` (factor 2 only as a fallback). `hello` gained `gameDir` from `getAppBasePath()` (guarded, still to verify in game) so base-game `$data/` maps need no install-path guessing. The backend issues the upload token in a `welcome` reply and relays `map_assets {mapId, hash}` to viewers. Follow and the whole-map view are buttons; the layer toggle is Leaflet's layer control until Phase 3's legend.
 
-**Phase 3: PDA layers**
+**Phase 3: PDA layers** (built 2026-10-20; live test pending)
 - Hotspots (sell points, shops, productions, fuel, animals) with a legend.
 - All vehicles with interpolation.
 - Farmlands with owned/unowned shading.
+- As built:
+  - **Mod.** `hotspots` (10 s) sends every PDA hotspot except fields, vehicles, AI and the player, with category, name, position, owner farm and `visible`. `vehicles` (2 Hz) now lists every vehicle in `vehicleSystem.vehicles`, adding `motorized`, `attached` (from `getAttacherVehicle()`, unverified and guarded), `speed` and `propertyState`. Only the controlled vehicle keeps the dashboard detail. `farmlands` (10 s) sends id, owner farmId (0 = none), price, area, centre and `listed` (`showOnFarmlandsScreen`). `farmland_grid` is sent once per map: a cursor job of 4,096 lookups per frame samples `getFarmlandIdAtWorldPosition` on 4 m cells (at most 512 a side) and sends the grid run-length encoded (about 85 KB on a 2 km map).
+  - **Scheduler.** Collectors may have `reset()`, called once per map, and `resend = true`. After a file rotation, `hello` and the last data of every resend topic are sent again, so a reader that starts late still gets the grid.
+  - **Outlines are traced in the browser, not in the client** (`web/src/map/farmlandGeometry.js`). Every boundary edge of every farmland is walked into rings, the 4 m staircases are simplified with Douglas-Peucker (0.75 cell), and the result is drawn with the even-odd rule, so holes need no classification. No new message type and no client-side geometry: the grid passes through like any other topic, and tracing takes a few tens of ms on a phone.
+  - **Web.** `vehiclesLayer.js` hides the vehicle the player drives (the player arrow is that one) and hitched implements. It has your vehicles, other farms' and loose implements as legend items. `hotspotsLayer.js` groups the categories like the PDA. `farmlandsLayer.js` draws your land, other farms' land and land for sale on a canvas renderer, with popups (area, price, owner). `legend.js` replaces Leaflet's layer control and keeps its choices in localStorage. `glide.js` holds the interpolation the player and vehicle markers share.
+  - **Fixture.** `solek_v1.ndjson` now carries the PDA topics. Hotspots and vehicles are real (from the Phase 0 report, `fixtures/spike_solek_pda.json`); the farmland grid is synthetic (a Voronoi diagram around the real farmland centres) until a live session is recorded.
 
 **Phase 4: fields**
 - Field polygons, fruit/growth fill modes, a field info panel.

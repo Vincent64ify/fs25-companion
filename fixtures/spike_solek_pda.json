@@ -1,0 +1,2872 @@
+{
+ "source": "Phase 0 spike report, Solek, 2026-10-20",
+ "pricePerHa": 65000,
+ "hotspots": [
+  {
+   "category": 1,
+   "name": null,
+   "farmId": 0,
+   "x": -876.02,
+   "z": -941.5,
+   "visible": true
+  },
+  {
+   "category": 1,
+   "name": null,
+   "farmId": 0,
+   "x": -476.44,
+   "z": -389.38,
+   "visible": true
+  },
+  {
+   "category": 1,
+   "name": null,
+   "farmId": 0,
+   "x": 133.32,
+   "z": -375.53,
+   "visible": true
+  },
+  {
+   "category": 1,
+   "name": null,
+   "farmId": 0,
+   "x": -768.68,
+   "z": 342.07,
+   "visible": true
+  },
+  {
+   "category": 1,
+   "name": null,
+   "farmId": 0,
+   "x": 646.03,
+   "z": 842.05,
+   "visible": true
+  },
+  {
+   "category": 1,
+   "name": null,
+   "farmId": 0,
+   "x": -912.1,
+   "z": -758.21,
+   "visible": true
+  },
+  {
+   "category": 1,
+   "name": null,
+   "farmId": 0,
+   "x": -291.63,
+   "z": 829.82,
+   "visible": true
+  },
+  {
+   "category": 1,
+   "name": null,
+   "farmId": 0,
+   "x": -360.09,
+   "z": -242.24,
+   "visible": true
+  },
+  {
+   "category": 1,
+   "name": null,
+   "farmId": 0,
+   "x": -526.83,
+   "z": -57.92,
+   "visible": true
+  },
+  {
+   "category": 1,
+   "name": null,
+   "farmId": 0,
+   "x": -187.95,
+   "z": -181.77,
+   "visible": true
+  },
+  {
+   "category": 1,
+   "name": null,
+   "farmId": 0,
+   "x": 853.18,
+   "z": 127.35,
+   "visible": true
+  },
+  {
+   "category": 1,
+   "name": null,
+   "farmId": 0,
+   "x": 389.45,
+   "z": 925.71,
+   "visible": true
+  },
+  {
+   "category": 1,
+   "name": null,
+   "farmId": 0,
+   "x": 896.51,
+   "z": -41.68,
+   "visible": true
+  },
+  {
+   "category": 1,
+   "name": null,
+   "farmId": 0,
+   "x": 207.73,
+   "z": -714.22,
+   "visible": true
+  },
+  {
+   "category": 1,
+   "name": null,
+   "farmId": 0,
+   "x": -98.8,
+   "z": 47.34,
+   "visible": true
+  },
+  {
+   "category": 1,
+   "name": null,
+   "farmId": 0,
+   "x": 169.85,
+   "z": 374.24,
+   "visible": true
+  },
+  {
+   "category": 1,
+   "name": null,
+   "farmId": 0,
+   "x": -356.46,
+   "z": -420.41,
+   "visible": true
+  },
+  {
+   "category": 1,
+   "name": null,
+   "farmId": 0,
+   "x": 194.33,
+   "z": -92.21,
+   "visible": true
+  },
+  {
+   "category": 1,
+   "name": null,
+   "farmId": 0,
+   "x": -196.78,
+   "z": -446.72,
+   "visible": true
+  },
+  {
+   "category": 1,
+   "name": null,
+   "farmId": 0,
+   "x": -760.14,
+   "z": 915.6,
+   "visible": true
+  },
+  {
+   "category": 1,
+   "name": null,
+   "farmId": 0,
+   "x": 324.43,
+   "z": -729.12,
+   "visible": true
+  },
+  {
+   "category": 1,
+   "name": null,
+   "farmId": 0,
+   "x": 159.26,
+   "z": -31.45,
+   "visible": true
+  },
+  {
+   "category": 1,
+   "name": null,
+   "farmId": 0,
+   "x": 914.24,
+   "z": 832.07,
+   "visible": true
+  },
+  {
+   "category": 1,
+   "name": null,
+   "farmId": 0,
+   "x": -367.01,
+   "z": 340.38,
+   "visible": true
+  },
+  {
+   "category": 1,
+   "name": null,
+   "farmId": 0,
+   "x": -817.58,
+   "z": 188.32,
+   "visible": true
+  },
+  {
+   "category": 1,
+   "name": null,
+   "farmId": 0,
+   "x": 931.41,
+   "z": -721.7,
+   "visible": true
+  },
+  {
+   "category": 1,
+   "name": null,
+   "farmId": 0,
+   "x": 187.75,
+   "z": -125.52,
+   "visible": true
+  },
+  {
+   "category": 1,
+   "name": null,
+   "farmId": 0,
+   "x": 112.18,
+   "z": -206.93,
+   "visible": true
+  },
+  {
+   "category": 1,
+   "name": null,
+   "farmId": 0,
+   "x": 519.82,
+   "z": -290.16,
+   "visible": true
+  },
+  {
+   "category": 1,
+   "name": null,
+   "farmId": 0,
+   "x": -179.84,
+   "z": 45.12,
+   "visible": true
+  },
+  {
+   "category": 1,
+   "name": null,
+   "farmId": 0,
+   "x": 746.41,
+   "z": -362.13,
+   "visible": true
+  },
+  {
+   "category": 1,
+   "name": null,
+   "farmId": 0,
+   "x": 660.92,
+   "z": 402.31,
+   "visible": true
+  },
+  {
+   "category": 1,
+   "name": null,
+   "farmId": 0,
+   "x": -451.7,
+   "z": 244.19,
+   "visible": true
+  },
+  {
+   "category": 1,
+   "name": null,
+   "farmId": 0,
+   "x": -35.62,
+   "z": -919.11,
+   "visible": true
+  },
+  {
+   "category": 1,
+   "name": null,
+   "farmId": 0,
+   "x": -599.23,
+   "z": -381.3,
+   "visible": true
+  },
+  {
+   "category": 1,
+   "name": null,
+   "farmId": 0,
+   "x": -407.7,
+   "z": 142.98,
+   "visible": true
+  },
+  {
+   "category": 1,
+   "name": null,
+   "farmId": 0,
+   "x": -227.06,
+   "z": -949.68,
+   "visible": true
+  },
+  {
+   "category": 1,
+   "name": null,
+   "farmId": 0,
+   "x": 334.6,
+   "z": -799.86,
+   "visible": true
+  },
+  {
+   "category": 1,
+   "name": null,
+   "farmId": 0,
+   "x": -236.39,
+   "z": 125.08,
+   "visible": true
+  },
+  {
+   "category": 1,
+   "name": null,
+   "farmId": 0,
+   "x": 819.07,
+   "z": 651.82,
+   "visible": true
+  },
+  {
+   "category": 1,
+   "name": null,
+   "farmId": 0,
+   "x": -322.56,
+   "z": -935.86,
+   "visible": true
+  },
+  {
+   "category": 1,
+   "name": null,
+   "farmId": 0,
+   "x": -569.47,
+   "z": -112.39,
+   "visible": true
+  },
+  {
+   "category": 1,
+   "name": null,
+   "farmId": 0,
+   "x": 726.37,
+   "z": 460.72,
+   "visible": true
+  },
+  {
+   "category": 1,
+   "name": null,
+   "farmId": 0,
+   "x": 452.85,
+   "z": 890.12,
+   "visible": true
+  },
+  {
+   "category": 1,
+   "name": null,
+   "farmId": 0,
+   "x": 31.71,
+   "z": -443.71,
+   "visible": true
+  },
+  {
+   "category": 1,
+   "name": null,
+   "farmId": 0,
+   "x": -930.63,
+   "z": -241.42,
+   "visible": true
+  },
+  {
+   "category": 1,
+   "name": null,
+   "farmId": 0,
+   "x": 26.66,
+   "z": 406.56,
+   "visible": true
+  },
+  {
+   "category": 1,
+   "name": null,
+   "farmId": 0,
+   "x": -376.52,
+   "z": 414.11,
+   "visible": true
+  },
+  {
+   "category": 1,
+   "name": null,
+   "farmId": 0,
+   "x": -386.69,
+   "z": -312.11,
+   "visible": true
+  },
+  {
+   "category": 1,
+   "name": null,
+   "farmId": 0,
+   "x": 52.1,
+   "z": 809.68,
+   "visible": true
+  },
+  {
+   "category": 1,
+   "name": null,
+   "farmId": 0,
+   "x": 889.16,
+   "z": 37.74,
+   "visible": true
+  },
+  {
+   "category": 1,
+   "name": null,
+   "farmId": 0,
+   "x": -577.8,
+   "z": 947.93,
+   "visible": true
+  },
+  {
+   "category": 1,
+   "name": null,
+   "farmId": 0,
+   "x": 428.34,
+   "z": 94.37,
+   "visible": true
+  },
+  {
+   "category": 1,
+   "name": null,
+   "farmId": 0,
+   "x": -793.13,
+   "z": 134.05,
+   "visible": true
+  },
+  {
+   "category": 1,
+   "name": null,
+   "farmId": 0,
+   "x": 858.68,
+   "z": -158.1,
+   "visible": true
+  },
+  {
+   "category": 1,
+   "name": null,
+   "farmId": 0,
+   "x": 443.81,
+   "z": -717.88,
+   "visible": true
+  },
+  {
+   "category": 1,
+   "name": null,
+   "farmId": 0,
+   "x": 38.5,
+   "z": -509.5,
+   "visible": true
+  },
+  {
+   "category": 1,
+   "name": null,
+   "farmId": 0,
+   "x": -418.2,
+   "z": -565.02,
+   "visible": true
+  },
+  {
+   "category": 1,
+   "name": null,
+   "farmId": 0,
+   "x": 230.17,
+   "z": 41.82,
+   "visible": true
+  },
+  {
+   "category": 1,
+   "name": null,
+   "farmId": 0,
+   "x": 185.12,
+   "z": 16.67,
+   "visible": true
+  },
+  {
+   "category": 1,
+   "name": null,
+   "farmId": 0,
+   "x": 622.95,
+   "z": -195.83,
+   "visible": true
+  },
+  {
+   "category": 1,
+   "name": null,
+   "farmId": 0,
+   "x": 956.07,
+   "z": 781.73,
+   "visible": true
+  },
+  {
+   "category": 1,
+   "name": null,
+   "farmId": 0,
+   "x": 372.2,
+   "z": -107.94,
+   "visible": true
+  },
+  {
+   "category": 1,
+   "name": null,
+   "farmId": 0,
+   "x": 878.01,
+   "z": -710.95,
+   "visible": true
+  },
+  {
+   "category": 1,
+   "name": null,
+   "farmId": 0,
+   "x": -602.82,
+   "z": -892.68,
+   "visible": true
+  },
+  {
+   "category": 1,
+   "name": null,
+   "farmId": 0,
+   "x": 104.68,
+   "z": -574.0,
+   "visible": true
+  },
+  {
+   "category": 1,
+   "name": null,
+   "farmId": 0,
+   "x": -9.52,
+   "z": 319.03,
+   "visible": true
+  },
+  {
+   "category": 1,
+   "name": null,
+   "farmId": 0,
+   "x": -279.95,
+   "z": -783.49,
+   "visible": true
+  },
+  {
+   "category": 1,
+   "name": null,
+   "farmId": 0,
+   "x": 417.52,
+   "z": -311.52,
+   "visible": true
+  },
+  {
+   "category": 1,
+   "name": null,
+   "farmId": 0,
+   "x": 786.6,
+   "z": -29.14,
+   "visible": true
+  },
+  {
+   "category": 1,
+   "name": null,
+   "farmId": 0,
+   "x": -164.92,
+   "z": 228.65,
+   "visible": true
+  },
+  {
+   "category": 1,
+   "name": null,
+   "farmId": 0,
+   "x": -238.83,
+   "z": -417.82,
+   "visible": true
+  },
+  {
+   "category": 1,
+   "name": null,
+   "farmId": 0,
+   "x": -674.31,
+   "z": 331.65,
+   "visible": true
+  },
+  {
+   "category": 1,
+   "name": null,
+   "farmId": 0,
+   "x": -120.39,
+   "z": -836.58,
+   "visible": true
+  },
+  {
+   "category": 1,
+   "name": null,
+   "farmId": 0,
+   "x": 251.5,
+   "z": -574.13,
+   "visible": true
+  },
+  {
+   "category": 1,
+   "name": null,
+   "farmId": 0,
+   "x": 271.76,
+   "z": 935.23,
+   "visible": true
+  },
+  {
+   "category": 1,
+   "name": null,
+   "farmId": 0,
+   "x": -757.33,
+   "z": 31.9,
+   "visible": true
+  },
+  {
+   "category": 1,
+   "name": null,
+   "farmId": 0,
+   "x": 560.88,
+   "z": 259.62,
+   "visible": true
+  },
+  {
+   "category": 1,
+   "name": null,
+   "farmId": 0,
+   "x": -765.15,
+   "z": -321.06,
+   "visible": true
+  },
+  {
+   "category": 1,
+   "name": null,
+   "farmId": 0,
+   "x": -204.24,
+   "z": 973.3,
+   "visible": true
+  },
+  {
+   "category": 1,
+   "name": null,
+   "farmId": 0,
+   "x": -683.46,
+   "z": 706.9,
+   "visible": true
+  },
+  {
+   "category": 1,
+   "name": null,
+   "farmId": 0,
+   "x": 590.33,
+   "z": 977.76,
+   "visible": true
+  },
+  {
+   "category": 1,
+   "name": null,
+   "farmId": 0,
+   "x": 338.85,
+   "z": -345.41,
+   "visible": true
+  },
+  {
+   "category": 1,
+   "name": null,
+   "farmId": 0,
+   "x": 910.06,
+   "z": -11.09,
+   "visible": true
+  },
+  {
+   "category": 1,
+   "name": null,
+   "farmId": 0,
+   "x": 829.78,
+   "z": -319.65,
+   "visible": true
+  },
+  {
+   "category": 1,
+   "name": null,
+   "farmId": 0,
+   "x": -813.04,
+   "z": -246.14,
+   "visible": true
+  },
+  {
+   "category": 1,
+   "name": null,
+   "farmId": 0,
+   "x": 372.83,
+   "z": 159.6,
+   "visible": true
+  },
+  {
+   "category": 1,
+   "name": null,
+   "farmId": 0,
+   "x": -524.31,
+   "z": 91.84,
+   "visible": true
+  },
+  {
+   "category": 1,
+   "name": null,
+   "farmId": 0,
+   "x": 932.52,
+   "z": 296.49,
+   "visible": true
+  },
+  {
+   "category": 1,
+   "name": null,
+   "farmId": 0,
+   "x": 806.91,
+   "z": 271.19,
+   "visible": true
+  },
+  {
+   "category": 1,
+   "name": null,
+   "farmId": 0,
+   "x": -578.48,
+   "z": 766.11,
+   "visible": true
+  },
+  {
+   "category": 1,
+   "name": null,
+   "farmId": 0,
+   "x": 369.34,
+   "z": -569.04,
+   "visible": true
+  },
+  {
+   "category": 1,
+   "name": null,
+   "farmId": 0,
+   "x": -868.15,
+   "z": 862.88,
+   "visible": true
+  },
+  {
+   "category": 1,
+   "name": null,
+   "farmId": 0,
+   "x": -649.19,
+   "z": 66.31,
+   "visible": true
+  },
+  {
+   "category": 1,
+   "name": null,
+   "farmId": 0,
+   "x": -887.04,
+   "z": -478.98,
+   "visible": true
+  },
+  {
+   "category": 1,
+   "name": null,
+   "farmId": 0,
+   "x": 108.57,
+   "z": 300.51,
+   "visible": true
+  },
+  {
+   "category": 1,
+   "name": null,
+   "farmId": 0,
+   "x": -305.69,
+   "z": -87.25,
+   "visible": true
+  },
+  {
+   "category": 1,
+   "name": null,
+   "farmId": 0,
+   "x": 781.1,
+   "z": 547.2,
+   "visible": true
+  },
+  {
+   "category": 1,
+   "name": null,
+   "farmId": 0,
+   "x": 687.49,
+   "z": -958.23,
+   "visible": true
+  },
+  {
+   "category": 1,
+   "name": null,
+   "farmId": 0,
+   "x": 822.27,
+   "z": -709.78,
+   "visible": true
+  },
+  {
+   "category": 1,
+   "name": null,
+   "farmId": 0,
+   "x": 176.99,
+   "z": -175.83,
+   "visible": true
+  },
+  {
+   "category": 1,
+   "name": null,
+   "farmId": 0,
+   "x": 830.4,
+   "z": 752.83,
+   "visible": true
+  },
+  {
+   "category": 1,
+   "name": null,
+   "farmId": 0,
+   "x": 932.85,
+   "z": -389.82,
+   "visible": true
+  },
+  {
+   "category": 1,
+   "name": null,
+   "farmId": 0,
+   "x": -237.86,
+   "z": 754.13,
+   "visible": true
+  },
+  {
+   "category": 1,
+   "name": null,
+   "farmId": 0,
+   "x": -648.75,
+   "z": -709.35,
+   "visible": true
+  },
+  {
+   "category": 1,
+   "name": null,
+   "farmId": 0,
+   "x": -471.14,
+   "z": 736.27,
+   "visible": true
+  },
+  {
+   "category": 1,
+   "name": null,
+   "farmId": 0,
+   "x": -598.98,
+   "z": -184.6,
+   "visible": true
+  },
+  {
+   "category": 1,
+   "name": null,
+   "farmId": 0,
+   "x": -40.74,
+   "z": -257.31,
+   "visible": true
+  },
+  {
+   "category": 1,
+   "name": null,
+   "farmId": 0,
+   "x": 821.96,
+   "z": 939.35,
+   "visible": true
+  },
+  {
+   "category": 1,
+   "name": null,
+   "farmId": 0,
+   "x": -873.94,
+   "z": -560.89,
+   "visible": true
+  },
+  {
+   "category": 1,
+   "name": null,
+   "farmId": 0,
+   "x": -351.36,
+   "z": 831.28,
+   "visible": true
+  },
+  {
+   "category": 1,
+   "name": null,
+   "farmId": 0,
+   "x": 485.07,
+   "z": -855.22,
+   "visible": true
+  },
+  {
+   "category": 1,
+   "name": null,
+   "farmId": 0,
+   "x": 435.9,
+   "z": -592.33,
+   "visible": true
+  },
+  {
+   "category": 1,
+   "name": null,
+   "farmId": 0,
+   "x": 363.82,
+   "z": -930.64,
+   "visible": true
+  },
+  {
+   "category": 1,
+   "name": null,
+   "farmId": 0,
+   "x": -120.0,
+   "z": 745.34,
+   "visible": true
+  },
+  {
+   "category": 1,
+   "name": null,
+   "farmId": 0,
+   "x": -652.95,
+   "z": 937.38,
+   "visible": true
+  },
+  {
+   "category": 1,
+   "name": null,
+   "farmId": 0,
+   "x": 346.18,
+   "z": 67.74,
+   "visible": true
+  },
+  {
+   "category": 1,
+   "name": null,
+   "farmId": 1,
+   "x": 110.25,
+   "z": -281.68,
+   "visible": true
+  },
+  {
+   "category": 1,
+   "name": null,
+   "farmId": 0,
+   "x": 801.88,
+   "z": -709.41,
+   "visible": true
+  },
+  {
+   "category": 1,
+   "name": null,
+   "farmId": 0,
+   "x": -426.9,
+   "z": -974.49,
+   "visible": true
+  },
+  {
+   "category": 1,
+   "name": null,
+   "farmId": 0,
+   "x": 498.05,
+   "z": 169.68,
+   "visible": true
+  },
+  {
+   "category": 1,
+   "name": null,
+   "farmId": 0,
+   "x": -687.23,
+   "z": -606.04,
+   "visible": true
+  },
+  {
+   "category": 1,
+   "name": null,
+   "farmId": 0,
+   "x": -895.23,
+   "z": 691.2,
+   "visible": true
+  },
+  {
+   "category": 1,
+   "name": null,
+   "farmId": 0,
+   "x": -77.93,
+   "z": -125.74,
+   "visible": true
+  },
+  {
+   "category": 1,
+   "name": null,
+   "farmId": 0,
+   "x": -468.78,
+   "z": 322.23,
+   "visible": true
+  },
+  {
+   "category": 1,
+   "name": null,
+   "farmId": 0,
+   "x": 601.85,
+   "z": -685.98,
+   "visible": true
+  },
+  {
+   "category": 1,
+   "name": null,
+   "farmId": 0,
+   "x": -449.64,
+   "z": 672.35,
+   "visible": true
+  },
+  {
+   "category": 1,
+   "name": null,
+   "farmId": 0,
+   "x": 710.58,
+   "z": 263.38,
+   "visible": true
+  },
+  {
+   "category": 1,
+   "name": null,
+   "farmId": 0,
+   "x": -195.5,
+   "z": 547.45,
+   "visible": true
+  },
+  {
+   "category": 1,
+   "name": null,
+   "farmId": 0,
+   "x": 93.7,
+   "z": -653.53,
+   "visible": true
+  },
+  {
+   "category": 1,
+   "name": null,
+   "farmId": 1,
+   "x": 103.7,
+   "z": -247.31,
+   "visible": true
+  },
+  {
+   "category": 1,
+   "name": null,
+   "farmId": 0,
+   "x": 272.78,
+   "z": 480.33,
+   "visible": true
+  },
+  {
+   "category": 1,
+   "name": null,
+   "farmId": 0,
+   "x": -882.51,
+   "z": 343.19,
+   "visible": true
+  },
+  {
+   "category": 1,
+   "name": null,
+   "farmId": 1,
+   "x": 65.16,
+   "z": -358.29,
+   "visible": true
+  },
+  {
+   "category": 1,
+   "name": null,
+   "farmId": 0,
+   "x": -590.24,
+   "z": 640.4,
+   "visible": true
+  },
+  {
+   "category": 1,
+   "name": null,
+   "farmId": 0,
+   "x": -701.88,
+   "z": -308.77,
+   "visible": true
+  },
+  {
+   "category": 1,
+   "name": null,
+   "farmId": 0,
+   "x": -251.17,
+   "z": -540.56,
+   "visible": true
+  },
+  {
+   "category": 1,
+   "name": null,
+   "farmId": 0,
+   "x": -712.84,
+   "z": 771.74,
+   "visible": true
+  },
+  {
+   "category": 1,
+   "name": null,
+   "farmId": 0,
+   "x": -533.89,
+   "z": -803.98,
+   "visible": true
+  },
+  {
+   "category": 1,
+   "name": null,
+   "farmId": 0,
+   "x": 572.97,
+   "z": -260.82,
+   "visible": true
+  },
+  {
+   "category": 1,
+   "name": null,
+   "farmId": 0,
+   "x": -535.09,
+   "z": 944.43,
+   "visible": true
+  },
+  {
+   "category": 1,
+   "name": null,
+   "farmId": 0,
+   "x": -287.73,
+   "z": -663.22,
+   "visible": true
+  },
+  {
+   "category": 1,
+   "name": null,
+   "farmId": 0,
+   "x": -852.52,
+   "z": 612.72,
+   "visible": true
+  },
+  {
+   "category": 1,
+   "name": null,
+   "farmId": 0,
+   "x": 322.25,
+   "z": -599.5,
+   "visible": true
+  },
+  {
+   "category": 1,
+   "name": null,
+   "farmId": 0,
+   "x": -771.46,
+   "z": -550.17,
+   "visible": true
+  },
+  {
+   "category": 1,
+   "name": null,
+   "farmId": 0,
+   "x": -136.1,
+   "z": -918.79,
+   "visible": true
+  },
+  {
+   "category": 1,
+   "name": null,
+   "farmId": 0,
+   "x": -31.18,
+   "z": 476.85,
+   "visible": true
+  },
+  {
+   "category": 1,
+   "name": null,
+   "farmId": 0,
+   "x": 808.16,
+   "z": 584.28,
+   "visible": true
+  },
+  {
+   "category": 1,
+   "name": null,
+   "farmId": 0,
+   "x": 849.25,
+   "z": 174.62,
+   "visible": true
+  },
+  {
+   "category": 1,
+   "name": null,
+   "farmId": 0,
+   "x": -815.06,
+   "z": -788.6,
+   "visible": true
+  },
+  {
+   "category": 1,
+   "name": null,
+   "farmId": 0,
+   "x": 203.66,
+   "z": -387.98,
+   "visible": true
+  },
+  {
+   "category": 1,
+   "name": null,
+   "farmId": 0,
+   "x": 848.69,
+   "z": 888.68,
+   "visible": true
+  },
+  {
+   "category": 1,
+   "name": null,
+   "farmId": 0,
+   "x": -529.85,
+   "z": -618.57,
+   "visible": true
+  },
+  {
+   "category": 1,
+   "name": null,
+   "farmId": 0,
+   "x": 543.75,
+   "z": 197.44,
+   "visible": true
+  },
+  {
+   "category": 1,
+   "name": null,
+   "farmId": 0,
+   "x": 545.28,
+   "z": 924.71,
+   "visible": true
+  },
+  {
+   "category": 1,
+   "name": null,
+   "farmId": 0,
+   "x": 332.17,
+   "z": 623.5,
+   "visible": true
+  },
+  {
+   "category": 1,
+   "name": null,
+   "farmId": 0,
+   "x": 334.87,
+   "z": 927.71,
+   "visible": true
+  },
+  {
+   "category": 1,
+   "name": null,
+   "farmId": 0,
+   "x": 21.54,
+   "z": -590.69,
+   "visible": true
+  },
+  {
+   "category": 1,
+   "name": null,
+   "farmId": 0,
+   "x": -228.72,
+   "z": -146.53,
+   "visible": true
+  },
+  {
+   "category": 1,
+   "name": null,
+   "farmId": 0,
+   "x": 128.35,
+   "z": -822.36,
+   "visible": true
+  },
+  {
+   "category": 1,
+   "name": null,
+   "farmId": 1,
+   "x": 266.68,
+   "z": -377.25,
+   "visible": true
+  },
+  {
+   "category": 1,
+   "name": null,
+   "farmId": 0,
+   "x": 749.48,
+   "z": 510.89,
+   "visible": true
+  },
+  {
+   "category": 1,
+   "name": null,
+   "farmId": 0,
+   "x": 482.15,
+   "z": 730.05,
+   "visible": true
+  },
+  {
+   "category": 1,
+   "name": null,
+   "farmId": 0,
+   "x": 936.64,
+   "z": 398.29,
+   "visible": true
+  },
+  {
+   "category": 1,
+   "name": null,
+   "farmId": 0,
+   "x": -218.97,
+   "z": -303.61,
+   "visible": true
+  },
+  {
+   "category": 1,
+   "name": null,
+   "farmId": 0,
+   "x": 681.6,
+   "z": -167.74,
+   "visible": true
+  },
+  {
+   "category": 1,
+   "name": null,
+   "farmId": 0,
+   "x": -420.81,
+   "z": 624.0,
+   "visible": true
+  },
+  {
+   "category": 1,
+   "name": null,
+   "farmId": 0,
+   "x": 534.57,
+   "z": -614.59,
+   "visible": true
+  },
+  {
+   "category": 1,
+   "name": null,
+   "farmId": 0,
+   "x": -87.04,
+   "z": -709.53,
+   "visible": true
+  },
+  {
+   "category": 1,
+   "name": null,
+   "farmId": 0,
+   "x": -834.61,
+   "z": -510.0,
+   "visible": true
+  },
+  {
+   "category": 1,
+   "name": null,
+   "farmId": 0,
+   "x": 81.45,
+   "z": -745.77,
+   "visible": true
+  },
+  {
+   "category": 1,
+   "name": null,
+   "farmId": 0,
+   "x": -838.87,
+   "z": -637.62,
+   "visible": true
+  },
+  {
+   "category": 1,
+   "name": null,
+   "farmId": 0,
+   "x": -761.87,
+   "z": 546.71,
+   "visible": true
+  },
+  {
+   "category": 1,
+   "name": null,
+   "farmId": 0,
+   "x": 737.54,
+   "z": -857.28,
+   "visible": true
+  },
+  {
+   "category": 1,
+   "name": null,
+   "farmId": 0,
+   "x": 847.61,
+   "z": -710.95,
+   "visible": true
+  },
+  {
+   "category": 1,
+   "name": null,
+   "farmId": 0,
+   "x": -308.23,
+   "z": -265.66,
+   "visible": true
+  },
+  {
+   "category": 1,
+   "name": null,
+   "farmId": 0,
+   "x": 469.48,
+   "z": -303.89,
+   "visible": true
+  },
+  {
+   "category": 1,
+   "name": null,
+   "farmId": 0,
+   "x": 634.54,
+   "z": 339.41,
+   "visible": true
+  },
+  {
+   "category": 1,
+   "name": null,
+   "farmId": 0,
+   "x": 52.71,
+   "z": 224.75,
+   "visible": true
+  },
+  {
+   "category": 1,
+   "name": null,
+   "farmId": 0,
+   "x": 131.89,
+   "z": -903.39,
+   "visible": true
+  },
+  {
+   "category": 1,
+   "name": null,
+   "farmId": 0,
+   "x": 667.89,
+   "z": -706.2,
+   "visible": true
+  },
+  {
+   "category": 1,
+   "name": null,
+   "farmId": 0,
+   "x": 893.58,
+   "z": 236.77,
+   "visible": true
+  },
+  {
+   "category": 1,
+   "name": null,
+   "farmId": 0,
+   "x": 683.62,
+   "z": -446.48,
+   "visible": true
+  },
+  {
+   "category": 1,
+   "name": null,
+   "farmId": 1,
+   "x": 88.6,
+   "z": -317.47,
+   "visible": true
+  },
+  {
+   "category": 1,
+   "name": null,
+   "farmId": 0,
+   "x": 535.19,
+   "z": 828.76,
+   "visible": true
+  },
+  {
+   "category": 1,
+   "name": null,
+   "farmId": 0,
+   "x": -65.94,
+   "z": 553.34,
+   "visible": true
+  },
+  {
+   "category": 1,
+   "name": null,
+   "farmId": 0,
+   "x": 498.48,
+   "z": -773.75,
+   "visible": true
+  },
+  {
+   "category": 1,
+   "name": null,
+   "farmId": 0,
+   "x": 751.74,
+   "z": -635.52,
+   "visible": true
+  },
+  {
+   "category": 1,
+   "name": null,
+   "farmId": 0,
+   "x": 156.78,
+   "z": -511.66,
+   "visible": true
+  },
+  {
+   "category": 2,
+   "name": "Chicken Pasture",
+   "farmId": 1,
+   "x": 91.33,
+   "z": -318.6,
+   "visible": true
+  },
+  {
+   "category": 2,
+   "name": "Cow Barn",
+   "farmId": 15,
+   "x": -291.85,
+   "z": -282.97,
+   "visible": false
+  },
+  {
+   "category": 2,
+   "name": "Chicken Pasture",
+   "farmId": 15,
+   "x": -309.51,
+   "z": -254.36,
+   "visible": false
+  },
+  {
+   "category": 2,
+   "name": "Pigsty",
+   "farmId": 1,
+   "x": 119.8,
+   "z": -316.3,
+   "visible": true
+  },
+  {
+   "category": 2,
+   "name": "Cow Barn (large)",
+   "farmId": 15,
+   "x": -128.01,
+   "z": 738.92,
+   "visible": false
+  },
+  {
+   "category": 5,
+   "name": null,
+   "farmId": 1,
+   "x": -147.89,
+   "z": 312.52,
+   "visible": true
+  },
+  {
+   "category": 5,
+   "name": null,
+   "farmId": 1,
+   "x": -137.45,
+   "z": 278.91,
+   "visible": true
+  },
+  {
+   "category": 7,
+   "name": null,
+   "farmId": 1,
+   "x": -135.34,
+   "z": 283.05,
+   "visible": false
+  },
+  {
+   "category": 8,
+   "name": null,
+   "farmId": 1,
+   "x": -144.19,
+   "z": 310.15,
+   "visible": false
+  },
+  {
+   "category": 9,
+   "name": "Gravel Pit",
+   "farmId": 0,
+   "x": -61.34,
+   "z": -634.0,
+   "visible": true
+  },
+  {
+   "category": 9,
+   "name": "Carrefour",
+   "farmId": 0,
+   "x": 829.35,
+   "z": -407.95,
+   "visible": true
+  },
+  {
+   "category": 9,
+   "name": "Beetroot Square",
+   "farmId": 0,
+   "x": -150.69,
+   "z": 313.33,
+   "visible": true
+  },
+  {
+   "category": 9,
+   "name": "Construction",
+   "farmId": 0,
+   "x": 930.4,
+   "z": 212.65,
+   "visible": true
+  },
+  {
+   "category": 9,
+   "name": "Farm House 3",
+   "farmId": 15,
+   "x": -12.92,
+   "z": 619.02,
+   "visible": false
+  },
+  {
+   "category": 9,
+   "name": "Mill",
+   "farmId": 0,
+   "x": 173.0,
+   "z": 971.49,
+   "visible": true
+  },
+  {
+   "category": 9,
+   "name": "Silos",
+   "farmId": 1,
+   "x": 81.43,
+   "z": -321.54,
+   "visible": true
+  },
+  {
+   "category": 9,
+   "name": "Farmer",
+   "farmId": 0,
+   "x": 481,
+   "z": -69.33,
+   "visible": true
+  },
+  {
+   "category": 9,
+   "name": "Bale Purchase",
+   "farmId": 0,
+   "x": -989.6,
+   "z": -538.99,
+   "visible": true
+  },
+  {
+   "category": 9,
+   "name": "Shop",
+   "farmId": 0,
+   "x": -1.69,
+   "z": -476.98,
+   "visible": true
+  },
+  {
+   "category": 9,
+   "name": "Farma 600 + Obi 1000",
+   "farmId": 15,
+   "x": -115.54,
+   "z": 771.02,
+   "visible": false
+  },
+  {
+   "category": 9,
+   "name": "Silos",
+   "farmId": 15,
+   "x": -290.38,
+   "z": -256.0,
+   "visible": false
+  },
+  {
+   "category": 9,
+   "name": "Bale Purchase",
+   "farmId": 0,
+   "x": -148.17,
+   "z": -748.6,
+   "visible": true
+  },
+  {
+   "category": 10,
+   "name": "Small Garage",
+   "farmId": 15,
+   "x": -143.96,
+   "z": 765.8,
+   "visible": false
+  },
+  {
+   "category": 10,
+   "name": "Gas Station",
+   "farmId": 0,
+   "x": 123.1,
+   "z": 968.45,
+   "visible": true
+  },
+  {
+   "category": 10,
+   "name": "Gas Station",
+   "farmId": 0,
+   "x": -76.14,
+   "z": 264.09,
+   "visible": true
+  },
+  {
+   "category": 10,
+   "name": "Liquid Manure",
+   "farmId": 0,
+   "x": -995.67,
+   "z": -591.73,
+   "visible": true
+  },
+  {
+   "category": 10,
+   "name": "Manure",
+   "farmId": 0,
+   "x": -990.97,
+   "z": -572.03,
+   "visible": true
+  },
+  {
+   "category": 10,
+   "name": "Manure",
+   "farmId": 0,
+   "x": 642.26,
+   "z": 43.5,
+   "visible": true
+  },
+  {
+   "category": 10,
+   "name": "Lime Station",
+   "farmId": 0,
+   "x": -102.89,
+   "z": 318.04,
+   "visible": true
+  },
+  {
+   "category": 10,
+   "name": "Liquid Manure",
+   "farmId": 0,
+   "x": -700.12,
+   "z": 7.39,
+   "visible": true
+  },
+  {
+   "category": 10,
+   "name": "Liquid Manure",
+   "farmId": 0,
+   "x": 557.66,
+   "z": -37.67,
+   "visible": true
+  },
+  {
+   "category": 10,
+   "name": "Manure",
+   "farmId": 0,
+   "x": -154.79,
+   "z": -723.94,
+   "visible": true
+  },
+  {
+   "category": 10,
+   "name": "Manure Heap",
+   "farmId": 1,
+   "x": 123.69,
+   "z": -312.64,
+   "visible": true
+  },
+  {
+   "category": 10,
+   "name": "Manure",
+   "farmId": 0,
+   "x": 930.28,
+   "z": 575.79,
+   "visible": true
+  },
+  {
+   "category": 10,
+   "name": "Manure",
+   "farmId": 0,
+   "x": -530.12,
+   "z": -234.12,
+   "visible": true
+  },
+  {
+   "category": 10,
+   "name": "Manure",
+   "farmId": 0,
+   "x": -712.96,
+   "z": 17.25,
+   "visible": true
+  },
+  {
+   "category": 10,
+   "name": "Manure Heap",
+   "farmId": 15,
+   "x": -278.1,
+   "z": -263.89,
+   "visible": false
+  },
+  {
+   "category": 10,
+   "name": "Manure",
+   "farmId": 0,
+   "x": 565.33,
+   "z": -47.5,
+   "visible": true
+  },
+  {
+   "category": 10,
+   "name": "Manure",
+   "farmId": 0,
+   "x": 472.29,
+   "z": -533.3,
+   "visible": true
+  },
+  {
+   "category": 10,
+   "name": "Manure Heap",
+   "farmId": 15,
+   "x": -111.58,
+   "z": 747.2,
+   "visible": false
+  },
+  {
+   "category": 10,
+   "name": "Liquid Manure",
+   "farmId": 0,
+   "x": -36.95,
+   "z": -753.99,
+   "visible": true
+  },
+  {
+   "category": 11,
+   "name": "Big Garden",
+   "farmId": 1,
+   "x": 72.87,
+   "z": -313.37,
+   "visible": true
+  },
+  {
+   "category": 11,
+   "name": "Carpentry",
+   "farmId": 0,
+   "x": -683.8,
+   "z": 12.8,
+   "visible": true
+  },
+  {
+   "category": 11,
+   "name": "Bakery",
+   "farmId": 0,
+   "x": 311.99,
+   "z": -479.85,
+   "visible": true
+  },
+  {
+   "category": 11,
+   "name": "Carpentry",
+   "farmId": 0,
+   "x": 66.52,
+   "z": -768.31,
+   "visible": true
+  },
+  {
+   "category": 11,
+   "name": "Sawmill (Wood-Mizer LT15)",
+   "farmId": 0,
+   "x": 99.68,
+   "z": -752.6,
+   "visible": true
+  },
+  {
+   "category": 11,
+   "name": "Grain Mill",
+   "farmId": 0,
+   "x": 126.49,
+   "z": 982.45,
+   "visible": true
+  },
+  {
+   "category": 11,
+   "name": "Biogas Plant 500kW",
+   "farmId": 15,
+   "x": 586.5,
+   "z": 1011.03,
+   "visible": false
+  },
+  {
+   "category": 11,
+   "name": "Dairy",
+   "farmId": 0,
+   "x": -122.29,
+   "z": -766.8,
+   "visible": true
+  },
+  {
+   "category": 11,
+   "name": "Small Garden",
+   "farmId": 15,
+   "x": -297.12,
+   "z": -214.15,
+   "visible": false
+  },
+  {
+   "category": 12,
+   "name": "Vehicle Workshop",
+   "farmId": 1,
+   "x": 84.54,
+   "z": -335.56,
+   "visible": true
+  },
+  {
+   "category": 12,
+   "name": "Vehicle Shop",
+   "farmId": 0,
+   "x": -64,
+   "z": 277,
+   "visible": true
+  },
+  {
+   "category": 12,
+   "name": "Warehouse",
+   "farmId": 0,
+   "x": -81.11,
+   "z": 320.78,
+   "visible": true
+  },
+  {
+   "category": 12,
+   "name": "Animal Dealer",
+   "farmId": 0,
+   "x": -57.7,
+   "z": -758,
+   "visible": true
+  },
+  {
+   "category": 13,
+   "name": null,
+   "farmId": 0,
+   "x": -822.91,
+   "z": -694.98,
+   "visible": false
+  },
+  {
+   "category": 13,
+   "name": null,
+   "farmId": 0,
+   "x": -58.54,
+   "z": 275.59,
+   "visible": false
+  },
+  {
+   "category": 13,
+   "name": null,
+   "farmId": 0,
+   "x": 91.58,
+   "z": -676.98,
+   "visible": false
+  },
+  {
+   "category": 13,
+   "name": null,
+   "farmId": 0,
+   "x": 543.01,
+   "z": -24.08,
+   "visible": false
+  },
+  {
+   "category": 13,
+   "name": null,
+   "farmId": 0,
+   "x": -477.51,
+   "z": 973.61,
+   "visible": false
+  },
+  {
+   "category": 13,
+   "name": null,
+   "farmId": 0,
+   "x": -14.61,
+   "z": -971.44,
+   "visible": false
+  },
+  {
+   "category": 13,
+   "name": null,
+   "farmId": 0,
+   "x": 491.66,
+   "z": 910.21,
+   "visible": false
+  },
+  {
+   "category": 13,
+   "name": null,
+   "farmId": 0,
+   "x": -801.23,
+   "z": 644.72,
+   "visible": false
+  },
+  {
+   "category": 13,
+   "name": null,
+   "farmId": 0,
+   "x": 92.53,
+   "z": -408.38,
+   "visible": false
+  },
+  {
+   "category": 13,
+   "name": null,
+   "farmId": 0,
+   "x": 435.36,
+   "z": 685.18,
+   "visible": false
+  },
+  {
+   "category": 13,
+   "name": null,
+   "farmId": 0,
+   "x": 641.23,
+   "z": -424.72,
+   "visible": false
+  },
+  {
+   "category": 13,
+   "name": "Farm House 3",
+   "farmId": 15,
+   "x": -42.88,
+   "z": 585.23,
+   "visible": false
+  },
+  {
+   "category": 13,
+   "name": null,
+   "farmId": 0,
+   "x": 803.59,
+   "z": 21.58,
+   "visible": false
+  },
+  {
+   "category": 13,
+   "name": null,
+   "farmId": 0,
+   "x": -383.15,
+   "z": -210.78,
+   "visible": false
+  },
+  {
+   "category": 13,
+   "name": null,
+   "farmId": 0,
+   "x": 647.65,
+   "z": -516.93,
+   "visible": false
+  },
+  {
+   "category": 13,
+   "name": null,
+   "farmId": 0,
+   "x": 27.01,
+   "z": -263.11,
+   "visible": false
+  },
+  {
+   "category": 13,
+   "name": null,
+   "farmId": 0,
+   "x": 600.54,
+   "z": 875.74,
+   "visible": false
+  },
+  {
+   "category": 13,
+   "name": null,
+   "farmId": 0,
+   "x": 793.51,
+   "z": 181.7,
+   "visible": false
+  },
+  {
+   "category": 13,
+   "name": null,
+   "farmId": 0,
+   "x": -123.51,
+   "z": -349.98,
+   "visible": false
+  },
+  {
+   "category": 13,
+   "name": null,
+   "farmId": 0,
+   "x": 923.37,
+   "z": 204.99,
+   "visible": false
+  },
+  {
+   "category": 13,
+   "name": null,
+   "farmId": 0,
+   "x": -436.24,
+   "z": -200.63,
+   "visible": false
+  },
+  {
+   "category": 13,
+   "name": null,
+   "farmId": 0,
+   "x": -994.04,
+   "z": -581.07,
+   "visible": false
+  },
+  {
+   "category": 13,
+   "name": null,
+   "farmId": 0,
+   "x": 620.46,
+   "z": 994.56,
+   "visible": false
+  },
+  {
+   "category": 13,
+   "name": null,
+   "farmId": 0,
+   "x": 947.08,
+   "z": 232.05,
+   "visible": false
+  },
+  {
+   "category": 13,
+   "name": null,
+   "farmId": 0,
+   "x": 7.11,
+   "z": -847.77,
+   "visible": false
+  },
+  {
+   "category": 13,
+   "name": null,
+   "farmId": 0,
+   "x": 397.88,
+   "z": -110.15,
+   "visible": false
+  },
+  {
+   "category": 13,
+   "name": null,
+   "farmId": 0,
+   "x": 80.43,
+   "z": -435.45,
+   "visible": false
+  },
+  {
+   "category": 13,
+   "name": null,
+   "farmId": 0,
+   "x": 924.82,
+   "z": 581.71,
+   "visible": false
+  },
+  {
+   "category": 13,
+   "name": null,
+   "farmId": 0,
+   "x": -99.38,
+   "z": 303.85,
+   "visible": false
+  },
+  {
+   "category": 13,
+   "name": null,
+   "farmId": 0,
+   "x": -1.8,
+   "z": -483.01,
+   "visible": false
+  },
+  {
+   "category": 13,
+   "name": null,
+   "farmId": 0,
+   "x": -559.25,
+   "z": -189.72,
+   "visible": false
+  },
+  {
+   "category": 13,
+   "name": null,
+   "farmId": 0,
+   "x": 7.03,
+   "z": 280.05,
+   "visible": false
+  },
+  {
+   "category": 13,
+   "name": null,
+   "farmId": 0,
+   "x": -673.19,
+   "z": -134.19,
+   "visible": false
+  },
+  {
+   "category": 13,
+   "name": null,
+   "farmId": 0,
+   "x": -108.8,
+   "z": -477.01,
+   "visible": false
+  },
+  {
+   "category": 13,
+   "name": null,
+   "farmId": 0,
+   "x": -596.93,
+   "z": -234.01,
+   "visible": false
+  },
+  {
+   "category": 13,
+   "name": null,
+   "farmId": 0,
+   "x": -840.55,
+   "z": -674.13,
+   "visible": false
+  },
+  {
+   "category": 13,
+   "name": null,
+   "farmId": 0,
+   "x": -31.5,
+   "z": -401.85,
+   "visible": false
+  },
+  {
+   "category": 13,
+   "name": "Ben",
+   "farmId": 0,
+   "x": 1.07,
+   "z": -483.86,
+   "visible": true
+  },
+  {
+   "category": 13,
+   "name": null,
+   "farmId": 0,
+   "x": 163.81,
+   "z": 965.94,
+   "visible": false
+  },
+  {
+   "category": 13,
+   "name": null,
+   "farmId": 0,
+   "x": -144.33,
+   "z": -459.87,
+   "visible": false
+  },
+  {
+   "category": 13,
+   "name": "Noah",
+   "farmId": 0,
+   "x": 54.75,
+   "z": -771.28,
+   "visible": true
+  },
+  {
+   "category": 13,
+   "name": null,
+   "farmId": 0,
+   "x": 6.71,
+   "z": 287.67,
+   "visible": false
+  },
+  {
+   "category": 13,
+   "name": null,
+   "farmId": 0,
+   "x": 324.72,
+   "z": -530.22,
+   "visible": false
+  },
+  {
+   "category": 13,
+   "name": null,
+   "farmId": 0,
+   "x": -43.45,
+   "z": -468.91,
+   "visible": false
+  },
+  {
+   "category": 13,
+   "name": null,
+   "farmId": 0,
+   "x": 158.74,
+   "z": -591.7,
+   "visible": false
+  },
+  {
+   "category": 13,
+   "name": null,
+   "farmId": 0,
+   "x": -819.66,
+   "z": 93.97,
+   "visible": false
+  },
+  {
+   "category": 13,
+   "name": null,
+   "farmId": 0,
+   "x": 539.52,
+   "z": -32.33,
+   "visible": false
+  },
+  {
+   "category": 13,
+   "name": null,
+   "farmId": 0,
+   "x": -19.23,
+   "z": -175.8,
+   "visible": false
+  },
+  {
+   "category": 13,
+   "name": null,
+   "farmId": 0,
+   "x": -167.95,
+   "z": -736.73,
+   "visible": false
+  },
+  {
+   "category": 13,
+   "name": null,
+   "farmId": 0,
+   "x": -83.69,
+   "z": -776.3,
+   "visible": false
+  },
+  {
+   "category": 13,
+   "name": null,
+   "farmId": 0,
+   "x": -394.45,
+   "z": -230.2,
+   "visible": false
+  },
+  {
+   "category": 13,
+   "name": null,
+   "farmId": 0,
+   "x": 115.6,
+   "z": -503.99,
+   "visible": false
+  },
+  {
+   "category": 13,
+   "name": null,
+   "farmId": 0,
+   "x": 512.61,
+   "z": -47.99,
+   "visible": false
+  },
+  {
+   "category": 13,
+   "name": null,
+   "farmId": 0,
+   "x": -520.04,
+   "z": 1003.95,
+   "visible": false
+  },
+  {
+   "category": 13,
+   "name": null,
+   "farmId": 0,
+   "x": 440.81,
+   "z": -92.19,
+   "visible": false
+  },
+  {
+   "category": 13,
+   "name": null,
+   "farmId": 0,
+   "x": -273.55,
+   "z": -372.43,
+   "visible": false
+  },
+  {
+   "category": 13,
+   "name": null,
+   "farmId": 0,
+   "x": -58.52,
+   "z": -772.79,
+   "visible": false
+  },
+  {
+   "category": 13,
+   "name": null,
+   "farmId": 0,
+   "x": 3.33,
+   "z": 256.15,
+   "visible": false
+  },
+  {
+   "category": 13,
+   "name": null,
+   "farmId": 0,
+   "x": 32.4,
+   "z": 341.92,
+   "visible": false
+  },
+  {
+   "category": 13,
+   "name": null,
+   "farmId": 0,
+   "x": 104.14,
+   "z": -495.64,
+   "visible": false
+  },
+  {
+   "category": 13,
+   "name": null,
+   "farmId": 0,
+   "x": -104.86,
+   "z": -774.56,
+   "visible": false
+  },
+  {
+   "category": 13,
+   "name": null,
+   "farmId": 0,
+   "x": 646.64,
+   "z": -514.7,
+   "visible": false
+  },
+  {
+   "category": 13,
+   "name": null,
+   "farmId": 0,
+   "x": 32.67,
+   "z": 450.16,
+   "visible": false
+  },
+  {
+   "category": 13,
+   "name": null,
+   "farmId": 0,
+   "x": -465.67,
+   "z": -1004.1,
+   "visible": false
+  },
+  {
+   "category": 13,
+   "name": null,
+   "farmId": 0,
+   "x": -671.49,
+   "z": -145.68,
+   "visible": false
+  },
+  {
+   "category": 13,
+   "name": null,
+   "farmId": 0,
+   "x": -16.36,
+   "z": 253.31,
+   "visible": false
+  },
+  {
+   "category": 13,
+   "name": null,
+   "farmId": 0,
+   "x": -706.11,
+   "z": -16.15,
+   "visible": false
+  },
+  {
+   "category": 13,
+   "name": null,
+   "farmId": 0,
+   "x": -392.74,
+   "z": -942.0,
+   "visible": false
+  },
+  {
+   "category": 13,
+   "name": null,
+   "farmId": 0,
+   "x": -150.28,
+   "z": -398.19,
+   "visible": false
+  },
+  {
+   "category": 13,
+   "name": null,
+   "farmId": 0,
+   "x": -924.36,
+   "z": 52.71,
+   "visible": false
+  },
+  {
+   "category": 13,
+   "name": null,
+   "farmId": 0,
+   "x": 140.99,
+   "z": -419.26,
+   "visible": false
+  },
+  {
+   "category": 13,
+   "name": null,
+   "farmId": 0,
+   "x": 3.34,
+   "z": -486.7,
+   "visible": false
+  },
+  {
+   "category": 13,
+   "name": "Farm house",
+   "farmId": 1,
+   "x": 103.49,
+   "z": -338.8,
+   "visible": true
+  },
+  {
+   "category": 13,
+   "name": null,
+   "farmId": 0,
+   "x": -953.23,
+   "z": -12.57,
+   "visible": false
+  },
+  {
+   "category": 13,
+   "name": null,
+   "farmId": 0,
+   "x": -75.01,
+   "z": -388.15,
+   "visible": false
+  },
+  {
+   "category": 13,
+   "name": "Farm house",
+   "farmId": 15,
+   "x": -318.52,
+   "z": -290.44,
+   "visible": false
+  },
+  {
+   "category": 13,
+   "name": null,
+   "farmId": 0,
+   "x": 478.24,
+   "z": -529.52,
+   "visible": false
+  },
+  {
+   "category": 13,
+   "name": null,
+   "farmId": 0,
+   "x": 439.17,
+   "z": 705.26,
+   "visible": false
+  },
+  {
+   "category": 13,
+   "name": null,
+   "farmId": 0,
+   "x": -4.15,
+   "z": 350.48,
+   "visible": false
+  },
+  {
+   "category": 13,
+   "name": null,
+   "farmId": 0,
+   "x": -44.26,
+   "z": -399.64,
+   "visible": false
+  },
+  {
+   "category": 13,
+   "name": null,
+   "farmId": 0,
+   "x": 21.53,
+   "z": -382.04,
+   "visible": false
+  },
+  {
+   "category": 13,
+   "name": null,
+   "farmId": 0,
+   "x": -944.92,
+   "z": -8.12,
+   "visible": false
+  },
+  {
+   "category": 13,
+   "name": null,
+   "farmId": 0,
+   "x": -77.57,
+   "z": -495.05,
+   "visible": false
+  },
+  {
+   "category": 13,
+   "name": null,
+   "farmId": 0,
+   "x": -420.16,
+   "z": -223.12,
+   "visible": false
+  },
+  {
+   "category": 13,
+   "name": null,
+   "farmId": 0,
+   "x": 234.22,
+   "z": -792.93,
+   "visible": false
+  },
+  {
+   "category": 13,
+   "name": null,
+   "farmId": 0,
+   "x": 143.71,
+   "z": -327.22,
+   "visible": false
+  },
+  {
+   "category": 13,
+   "name": null,
+   "farmId": 0,
+   "x": 186.62,
+   "z": -258.9,
+   "visible": false
+  },
+  {
+   "category": 13,
+   "name": null,
+   "farmId": 0,
+   "x": -982.35,
+   "z": 302.97,
+   "visible": false
+  },
+  {
+   "category": 13,
+   "name": null,
+   "farmId": 0,
+   "x": -745.14,
+   "z": 991.33,
+   "visible": false
+  },
+  {
+   "category": 13,
+   "name": null,
+   "farmId": 0,
+   "x": -595.85,
+   "z": -640.29,
+   "visible": false
+  },
+  {
+   "category": 13,
+   "name": null,
+   "farmId": 0,
+   "x": 322.6,
+   "z": -484.81,
+   "visible": false
+  },
+  {
+   "category": 13,
+   "name": null,
+   "farmId": 0,
+   "x": 691.58,
+   "z": 40.03,
+   "visible": false
+  },
+  {
+   "category": 13,
+   "name": null,
+   "farmId": 0,
+   "x": 642.17,
+   "z": -527.39,
+   "visible": false
+  },
+  {
+   "category": 13,
+   "name": null,
+   "farmId": 0,
+   "x": -77.83,
+   "z": -483.88,
+   "visible": false
+  },
+  {
+   "category": 13,
+   "name": null,
+   "farmId": 0,
+   "x": -486.08,
+   "z": -829.5,
+   "visible": false
+  },
+  {
+   "category": 13,
+   "name": "Walter",
+   "farmId": 0,
+   "x": 112.33,
+   "z": -441.63,
+   "visible": true
+  },
+  {
+   "category": 13,
+   "name": "David",
+   "farmId": 0,
+   "x": 492.42,
+   "z": -67.31,
+   "visible": true
+  },
+  {
+   "category": 13,
+   "name": null,
+   "farmId": 0,
+   "x": 935.4,
+   "z": 583.37,
+   "visible": false
+  },
+  {
+   "category": 13,
+   "name": null,
+   "farmId": 0,
+   "x": -67.04,
+   "z": -500.43,
+   "visible": false
+  },
+  {
+   "category": 13,
+   "name": null,
+   "farmId": 0,
+   "x": 308.47,
+   "z": -541.98,
+   "visible": false
+  },
+  {
+   "category": 13,
+   "name": null,
+   "farmId": 0,
+   "x": -168.09,
+   "z": -930.43,
+   "visible": false
+  },
+  {
+   "category": 13,
+   "name": null,
+   "farmId": 0,
+   "x": 231.49,
+   "z": -468.7,
+   "visible": false
+  },
+  {
+   "category": 13,
+   "name": null,
+   "farmId": 0,
+   "x": -18.24,
+   "z": 620.43,
+   "visible": false
+  },
+  {
+   "category": 13,
+   "name": null,
+   "farmId": 0,
+   "x": -89.58,
+   "z": -582.87,
+   "visible": false
+  },
+  {
+   "category": 13,
+   "name": null,
+   "farmId": 0,
+   "x": 143.24,
+   "z": -324.79,
+   "visible": false
+  },
+  {
+   "category": 13,
+   "name": null,
+   "farmId": 0,
+   "x": -662.19,
+   "z": -158.54,
+   "visible": false
+  },
+  {
+   "category": 13,
+   "name": "Katie",
+   "farmId": 0,
+   "x": -75.45,
+   "z": -766.03,
+   "visible": true
+  },
+  {
+   "category": 13,
+   "name": null,
+   "farmId": 0,
+   "x": -679.07,
+   "z": -8.07,
+   "visible": false
+  },
+  {
+   "category": 15,
+   "name": null,
+   "farmId": 1,
+   "x": 108.83,
+   "z": -331.95,
+   "visible": true
+  }
+ ],
+ "vehicles": [
+  {
+   "id": 299,
+   "name": "Volvo General Purpose Bucket - Heavy Duty (L90)",
+   "typeName": "shovelLeveler",
+   "farmId": 1,
+   "propertyState": 2,
+   "isAI": false,
+   "motorized": false,
+   "x": -144.19,
+   "y": 59.11,
+   "z": 310.15
+  },
+  {
+   "id": 300,
+   "name": "Volvo L90H",
+   "typeName": "tractor",
+   "farmId": 1,
+   "propertyState": 2,
+   "isAI": false,
+   "motorized": true,
+   "x": -147.89,
+   "y": 57.04,
+   "z": 312.52
+  },
+  {
+   "id": 301,
+   "name": "John Deere 6M 95",
+   "typeName": "tractor",
+   "farmId": 1,
+   "propertyState": 2,
+   "isAI": false,
+   "motorized": true,
+   "x": -137.45,
+   "y": 56.3,
+   "z": 278.91
+  },
+  {
+   "id": 302,
+   "name": "Farmtech EDK 650",
+   "typeName": "trailer",
+   "farmId": 1,
+   "propertyState": 2,
+   "isAI": false,
+   "motorized": false,
+   "x": -135.34,
+   "y": 56.58,
+   "z": 283.05
+  }
+ ]
+}

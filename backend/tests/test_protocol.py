@@ -22,7 +22,8 @@ def test_every_fixture_line_validates(path):
             envelope = parse_envelope(json.loads(line))
             assert envelope["seq"] == n, "seq is contiguous from 1"
             topics.add(envelope["topic"])
-    assert {"hello", "player", "vehicles", "env"} <= topics
+    assert {"hello", "player", "vehicles", "env", "hotspots", "farmlands",
+            "farmland_grid"} <= topics
 
 
 def test_fixtures_exist():
@@ -33,7 +34,7 @@ def test_unknown_fields_and_topics_pass_through():
     raw = env("player", {"x": 1, "z": 2, "heading": 90, "newField": [1, 2]})
     assert parse_envelope(raw) is raw
     # a topic from a future collector: only the envelope is checked
-    assert parse_envelope(env("hotspots", {"items": []}))["topic"] == "hotspots"
+    assert parse_envelope(env("fields", {"items": []}))["topic"] == "fields"
 
 
 def test_version_mismatch():
@@ -51,6 +52,12 @@ def test_version_mismatch():
     env("hello", {"protocolVersion": 1}),                               # no sessionId
     env("vehicles", {"vehicles": [{"x": 1, "z": 2}]}),                  # vehicle without id
     {**env("env", {}), "extra": 1},                                     # unknown envelope key
+    env("hotspots", {"hotspots": [{"x": 1, "z": 2}]}),                  # hotspot without category
+    env("farmlands", {"farmlands": [{"farmId": 1}]}),                   # farmland without id
+    env("farmland_grid", {"cell": 4, "cols": 2, "rows": 2, "originX": 0,
+                          "originZ": 0, "runs": [1, 3]}),               # runs miss a cell
+    env("farmland_grid", {"cell": 4, "cols": 2, "rows": 2, "originX": 0,
+                          "originZ": 0, "runs": [1, 4, 2]}),            # odd runs
 ])
 def test_invalid_envelopes(raw):
     with pytest.raises(ValidationError):
@@ -60,3 +67,15 @@ def test_invalid_envelopes(raw):
 def test_lua_encodes_empty_implements_as_array():
     data = {"vehicles": [{"id": 7, "x": 0, "z": 0, "implements": []}], "controlledId": 7}
     parse_envelope(env("vehicles", data))
+
+
+def test_pda_topics():
+    parse_envelope(env("hotspots", {"hotspots": [
+        {"category": 9, "name": "Mill", "x": 173, "z": 971.5, "farmId": 0, "visible": True}]}))
+    parse_envelope(env("farmlands", {"farmlands": [
+        {"id": 1, "farmId": 0, "price": 98137, "areaHa": 1.51, "x": -876, "z": -941.5,
+         "name": "1", "listed": True}]}))
+    parse_envelope(env("farmland_grid", {"cell": 4, "cols": 2, "rows": 2, "originX": -4,
+                                         "originZ": -4, "runs": [0, 1, 3, 3]}))
+    parse_envelope(env("vehicles", {"vehicles": [
+        {"id": 302, "x": 0, "z": 0, "motorized": False, "attached": True, "propertyState": 2}]}))
