@@ -284,6 +284,7 @@ local function stubGame()
     getWorldTranslation = function() return 10, 50, -20 end
     localDirectionToWorld = function() return 0, 0, -1 end
     g_time = 5000
+    getAppBasePath = function() return "C:/Games/FS25/" end
     g_localPlayer = player
     g_farmManager = { getFarms = function() return { { farmId = 1, money = 123456.7 } } end }
     g_currentMission = {
@@ -335,6 +336,7 @@ test("whole mod streams hello, env, player and vehicles", function()
     assert(ls[1]:find('"topic":"hello"', 1, true), "hello first: " .. ls[1])
     assert(ls[1]:find('"mapId":"FS25_Test.TestMap"', 1, true), ls[1])
     assert(ls[1]:find('"mapExtensionScaleFactor":0.5', 1, true), ls[1])
+    assert(ls[1]:find('"gameDir":"C:/Games/FS25/"', 1, true), ls[1])
     local text = table.concat(ls, "\n")
     -- on foot: heading from the facing direction (east)
     assert(text:find('"heading":90,"inVehicle":false', 1, true), "on-foot player pose")

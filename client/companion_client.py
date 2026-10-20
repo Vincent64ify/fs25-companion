@@ -31,6 +31,7 @@ REPO = CLIENT_DIR.parent
 sys.path.insert(0, str(CLIENT_DIR))
 
 import paths  # noqa: E402
+from map_assets import MapPublisher  # noqa: E402
 from relay import Outbox, WebSocketRelay  # noqa: E402
 from transport.file_tail import POLL_INTERVAL_S, FileTail, parse_line  # noqa: E402
 from transport.replay import replay  # noqa: E402
@@ -61,7 +62,7 @@ def parse_args(argv=None):
     p.add_argument("--record", type=Path, default=None, metavar="FILE",
                    help="append every line read from the game to FILE")
     p.add_argument("--no-map-sync", action="store_true",
-                   help="don't extract the map image for the dashboard at startup")
+                   help="don't send the map's overview image to the dashboard")
     p.add_argument("-v", "--verbose", action="store_true", help="debug logging")
     return p.parse_args(argv)
 
@@ -86,7 +87,16 @@ def lan_address() -> str:
         return "localhost"
 
 
-async def tail(stream: Path, outbox: Outbox, record, on_hello=None) -> None:
+def forwarder(outbox: Outbox, on_hello=None):
+    """put(envelope): queue it for the backend and pass each hello on."""
+    def put(envelope) -> None:
+        outbox.put(envelope)
+        if on_hello is not None and envelope["topic"] == "hello":
+            on_hello(envelope["data"])
+    return put
+
+
+async def tail(stream: Path, put, record) -> None:
     reader = FileTail(stream)
     waiting_logged = False
     rotations = 0
@@ -104,15 +114,13 @@ async def tail(stream: Path, outbox: Outbox, record, on_hello=None) -> None:
                 record.write(line + "\n")
             envelope = parse_line(line)
             if envelope is not None:
-                outbox.put(envelope)
-                if on_hello is not None and envelope["topic"] == "hello":
-                    on_hello(envelope["data"])
+                put(envelope)
         if record is not None and lines:
             record.flush()
         await asyncio.sleep(POLL_INTERVAL_S)
 
 
-async def serve_backend(port: int, pairing: str) -> None:
+async def serve_backend(port: int, pairing: str, assets_dir: Path) -> None:
     try:
         import uvicorn
         sys.path.insert(0, str(REPO))
@@ -120,31 +128,9 @@ async def serve_backend(port: int, pairing: str) -> None:
     except ImportError as e:
         sys.exit(f"--local needs the backend packages ({e}). "
                  "Run: pip install -r backend/requirements.txt")
-    config = uvicorn.Config(create_app(local_pairing=pairing), host="0.0.0.0",
-                            port=port, log_level="warning")
+    config = uvicorn.Config(create_app(local_pairing=pairing, assets_dir=assets_dir),
+                            host="0.0.0.0", port=port, log_level="warning")
     await uvicorn.Server(config).serve()
-
-
-def map_syncer(profile_dir):
-    """on_hello callback: import the overview image of each new map, on a
-    thread (a cold DDS decode takes a few seconds)."""
-    try:
-        from map_sync import ensure_map
-    except ImportError as e:
-        log.info("map sync unavailable (%s)", e)
-        return None
-    import threading
-    seen = set()
-
-    def on_hello(hello: dict) -> None:
-        map_id = hello.get("mapId")
-        if not map_id or map_id in seen:
-            return
-        seen.add(map_id)
-        threading.Thread(target=ensure_map, args=(map_id, hello.get("mapTitle"), profile_dir),
-                         name="map-sync", daemon=True).start()
-
-    return on_hello
 
 
 async def run(args) -> None:
@@ -152,10 +138,13 @@ async def run(args) -> None:
                                else "".join(random.choices(string.digits, k=6)))
     backend = args.backend or f"ws://127.0.0.1:{args.port}"
     outbox = Outbox()
+    relay = WebSocketRelay(backend, pairing, outbox)
+    cache = paths.cache_dir()
     tasks = []
 
     if args.local:
-        tasks.append(asyncio.create_task(serve_backend(args.port, pairing)))
+        tasks.append(asyncio.create_task(
+            serve_backend(args.port, pairing, cache / "backend-assets")))
         dashboard = f"http://localhost:{args.port}  (LAN: http://{lan_address()}:{args.port})"
     else:
         http = backend.replace("wss://", "https://").replace("ws://", "http://")
@@ -163,9 +152,10 @@ async def run(args) -> None:
 
     record = None
     if args.replay is not None:
+        stream = None
         source = f"replay {args.replay}"
-        tasks.append(asyncio.create_task(
-            replay(args.replay, outbox.put, speed=args.speed, loop=args.loop)))
+        # a recording carries no paths of this machine: find maps by id
+        profile = args.profile_dir or paths.find_profile_dir()
     else:
         stream = resolve_stream(args)
         source = str(stream)
@@ -173,10 +163,16 @@ async def run(args) -> None:
             record = open(args.record, "a", encoding="utf-8", newline="\n")
         # the stream file normally sits in <profile>/modSettings/FS25_Companion/
         profile = stream.parents[2] if (stream.parents[2] / "mods").is_dir() else None
-        on_hello = None if args.no_map_sync else map_syncer(profile)
-        tasks.append(asyncio.create_task(tail(stream, outbox, record, on_hello)))
 
-    relay = WebSocketRelay(backend, pairing, outbox)
+    on_hello = None
+    if not args.no_map_sync:
+        on_hello = MapPublisher(relay, cache / "maps", profile).on_hello
+    put = forwarder(outbox, on_hello)
+    if stream is None:
+        tasks.append(asyncio.create_task(
+            replay(args.replay, put, speed=args.speed, loop=args.loop)))
+    else:
+        tasks.append(asyncio.create_task(tail(stream, put, record)))
     tasks.append(asyncio.create_task(relay.run()))
 
     print("=" * 64)

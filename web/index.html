@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>FS25 Companion</title>
+<link rel="stylesheet" href="vendor/leaflet/leaflet.css">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -15,12 +16,12 @@
   <div id="banner" hidden></div>
   <main>
     <section id="map-wrap">
-      <canvas id="map"></canvas>
-      <div id="map-hint">Waiting for telemetry…</div>
+      <div id="map"></div>
+      <div id="map-hint">Waiting for the game…</div>
     </section>
     <aside id="panel">
       <div class="card">
-        <h2 id="vehicle-name">—</h2>
+        <h2 id="vehicle-name">–</h2>
         <div class="gauges">
           <div class="gauge"><span id="speed">–</span><small>km/h</small></div>
           <div class="gauge"><span id="rpm">–</span><small>rpm</small></div>
@@ -56,6 +57,7 @@
     </aside>
   </main>
 </div>
-<script src="app.js"></script>
+<script src="vendor/leaflet/leaflet.js"></script>
+<script type="module" src="src/main.js"></script>
 </body>
 </html>

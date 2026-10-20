@@ -23,6 +23,9 @@ Options: `--profile-dir` or `--stream` to skip the profile folder search,
 `--record FILE` to save what the game sends, `--speed` and `--loop` for
 replay, `--port` for `--local`, `--no-map-sync`, `-v`.
 
+Converted map images are cached in `%LOCALAPPDATA%\FS25Companion` (Windows)
+or `~/Library/Caches/FS25Companion` (macOS).
+
 ## How it works
 
 - `paths.py` finds the FS25 profile folder. On Windows it asks Windows for
@@ -36,10 +39,15 @@ replay, `--port` for `--local`, `--no-map-sync`, `-v`.
 - `relay.py` keeps the latest envelope per topic. A backlog or a slow link
   skips intermediate values instead of queueing them. `hello` always goes
   first, and everything is sent again after a reconnect.
-- `map_sync.py`: when the mod's `hello` names a map that `web/maps/` doesn't
-  have yet, it imports that map's overview image. This uses the prototype's
-  importer, which looks for base-game maps in the default Steam folders
-  (Phase 2 replaces it).
+- `map_assets.py`: when the mod's `hello` names a new map, it finds the map
+  XML from `hello.mapDir` / `mapXmlFilename` (and `gameDir` for base-game
+  `$data/` paths; reads inside zipped mods too), falling back to a lookup by
+  map id in `mods/`. It converts the PDA overview image to PNG plus a
+  2048 px copy, writes `meta.json` with the world rectangle the image covers
+  (from `hello.ingameMap`), uploads the files to the backend with the token
+  from its `welcome`, and announces them. After a reconnect it checks and
+  announces again. Debug one map with
+  `python client/map_assets.py --map-id FS25_Solek.SampleModMap`.
 
 ## Tests
 

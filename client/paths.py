@@ -72,3 +72,17 @@ def find_profile_dir(**kwargs) -> Optional[Path]:
 
 def stream_path(profile_dir: Path) -> Path:
     return Path(profile_dir) / STREAM_RELATIVE
+
+
+def cache_dir(platform: str = sys.platform, home: Optional[Path] = None) -> Path:
+    """Where the client keeps converted map images between runs."""
+    import os
+
+    home = home or Path.home()
+    if platform == "win32":
+        base = os.environ.get("LOCALAPPDATA")
+        return (Path(base) if base else home / "AppData" / "Local") / "FS25Companion"
+    if platform == "darwin":
+        return home / "Library" / "Caches" / "FS25Companion"
+    base = os.environ.get("XDG_CACHE_HOME")
+    return (Path(base) if base else home / ".cache") / "fs25-companion"

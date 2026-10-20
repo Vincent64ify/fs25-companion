@@ -10,7 +10,7 @@ envelope of every topic is sent again, since the backend may have restarted.
 import asyncio
 import json
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any, Awaitable, Callable, Dict, List, Optional
 
 import websockets
 
@@ -68,11 +68,31 @@ class Outbox:
 
 
 class WebSocketRelay:
+    """Sends the outbox to the backend. The backend answers the client's
+    hello with a ``welcome`` carrying a token, which authorizes map asset
+    uploads. ``on_connect`` (an async callable) runs after every connect."""
+
     def __init__(self, backend: str, pairing: str, outbox: Outbox):
+        self.backend = backend
         self.url = endpoint_url(backend, pairing)
         self.pairing = pairing
         self.outbox = outbox
         self.sent = 0
+        self.token: Optional[str] = None
+        self.on_connect: Optional[Callable[[], Awaitable[None]]] = None
+        self._ws = None
+        self._hooks: set = set()
+
+    async def send_control(self, msg: Dict[str, Any]) -> None:
+        """Send a non-envelope message now; dropped while disconnected (the
+        sender repeats it from on_connect)."""
+        ws = self._ws
+        if ws is None:
+            return
+        try:
+            await ws.send(json.dumps(msg))
+        except websockets.WebSocketException:
+            pass
 
     async def run(self) -> None:
         backoff = 1.0
@@ -82,16 +102,27 @@ class WebSocketRelay:
                     await ws.send(json.dumps({
                         "type": "hello", "role": "client", "client": CLIENT_NAME,
                     }))
+                    welcome = json.loads(await asyncio.wait_for(ws.recv(), timeout=10))
+                    self.token = welcome.get("token") if isinstance(welcome, dict) else None
                     log.info("connected to %s", self.url)
                     backoff = 1.0
+                    self._ws = ws
                     self.outbox.resend_latest()
-                    while True:
-                        for envelope in await self.outbox.take():
-                            await ws.send(json.dumps(
-                                {"type": "envelope", "envelope": envelope},
-                                separators=(",", ":")))
-                            self.sent += 1
-            except (OSError, asyncio.TimeoutError, websockets.WebSocketException) as e:
+                    if self.on_connect is not None:
+                        hook = asyncio.create_task(self.on_connect())
+                        self._hooks.add(hook)
+                        hook.add_done_callback(self._hooks.discard)
+                    try:
+                        while True:
+                            for envelope in await self.outbox.take():
+                                await ws.send(json.dumps(
+                                    {"type": "envelope", "envelope": envelope},
+                                    separators=(",", ":")))
+                                self.sent += 1
+                    finally:
+                        self._ws = None
+                        self.token = None
+            except (OSError, asyncio.TimeoutError, ValueError, websockets.WebSocketException) as e:
                 log.warning("backend unreachable (%s), retrying in %.0f s", e, backoff)
                 await asyncio.sleep(backoff)
                 backoff = min(backoff * 2, 30.0)

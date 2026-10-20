@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Transform tests</title>
+<link rel="stylesheet" href="vendor/leaflet/leaflet.css">
+<style>
+  body { font: 14px system-ui, sans-serif; margin: 16px; background: #fff; color: #111; }
+  .ok { color: #166534; } .fail { color: #b91c1c; font-weight: 600; }
+  #map { width: 400px; height: 400px; }
+</style>
+</head>
+<body>
+<h1>World ↔ map transform tests</h1>
+<p>Open with the backend running: <code>/test.html</code>. Every line must be green.</p>
+<ul id="out"></ul>
+<div id="map"></div>
+<script src="vendor/leaflet/leaflet.js"></script>
+<script type="module">
+// @ts-check
+import { latLngToWorld, terrainBounds, worldBoundsToLatLngBounds, worldToLatLng, createMapView }
+  from "./src/map/mapView.js";
+
+const out = document.getElementById("out");
+let failed = 0;
+function check(name, actual, expected) {
+  const ok = JSON.stringify(actual) === JSON.stringify(expected);
+  if (!ok) failed++;
+  const li = document.createElement("li");
+  li.className = ok ? "ok" : "fail";
+  li.textContent = `${ok ? "ok" : "FAIL"}  ${name}` +
+    (ok ? "" : `: expected ${JSON.stringify(expected)}, got ${JSON.stringify(actual)}`);
+  out.append(li);
+}
+
+// world origin is the middle of the terrain
+check("origin", worldToLatLng(0, 0).map(Math.abs), [0, 0]);
+// +X (east) is to the right: lng grows
+check("+x is right", worldToLatLng(100, 0)[1], 100);
+// -Z (north) is up: lat grows
+check("-z is up", worldToLatLng(0, -100)[0], 100);
+check("round trip", latLngToWorld({ lat: worldToLatLng(12, -34)[0], lng: worldToLatLng(12, -34)[1] }),
+      { x: 12, z: -34 });
+check("terrain bounds", terrainBounds(2048), [-1024, -1024, 1024, 1024]);
+// south-west corner = (minX, maxZ), north-east = (maxX, minZ)
+check("bounds to latlng", worldBoundsToLatLngBounds([-2048, -2048, 2048, 2048]),
+      [[-2048, -2048], [2048, 2048]]);
+check("asymmetric bounds", worldBoundsToLatLngBounds([0, 10, 100, 50]), [[-50, 0], [-10, 100]]);
+
+// on screen, with a real Leaflet map
+const map = createMapView(document.getElementById("map"));
+map.fitBounds(worldBoundsToLatLngBounds(terrainBounds(2048)), { animate: false });
+const px = (x, z) => map.latLngToContainerPoint(worldToLatLng(x, z));
+const c = px(0, 0);
+check("origin at the centre", [Math.round(c.x), Math.round(c.y)], [200, 200]);
+check("east is right on screen", px(500, 0).x > c.x, true);
+check("north is up on screen", px(0, -500).y < c.y, true);
+check("south is down on screen", px(0, 500).y > c.y, true);
+
+document.title = failed ? `FAIL (${failed})` : "PASS";
+const summary = document.createElement("p");
+summary.className = failed ? "fail" : "ok";
+summary.textContent = failed ? `${failed} failed` : "all passed";
+out.after(summary);
+</script>
+</body>
+</html>

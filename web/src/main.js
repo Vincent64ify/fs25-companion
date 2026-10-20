@@ -1,0 +1,79 @@
+// @ts-check
+// FS25 Companion dashboard: vanilla ES modules, no build step.
+//
+// Data flow: connection.js -> store.js -> map layers and panels, each
+// subscribed to the topics it shows. Adding a map feature means adding a
+// file under map/layers/ and registering it below.
+
+import { connect } from "./connection.js";
+import { createStore } from "./store.js";
+import { addCursorReadout, createMapView } from "./map/mapView.js";
+import { createOverviewLayer } from "./map/overviewLayer.js";
+import { createFollowControl } from "./map/followControl.js";
+import { createPlayerLayer } from "./map/layers/playerLayer.js";
+import { createVehiclePanel } from "./panels/vehiclePanel.js";
+import { createEnvPanel } from "./panels/envPanel.js";
+import { $ } from "./panels/dom.js";
+
+const STALE_MS = 5000;
+
+const store = createStore();
+const map = createMapView($("map"));
+const follow = createFollowControl(map);
+createOverviewLayer(map, store, { onNewMap: follow.onNewMap });
+addCursorReadout(map);
+
+/** @type {import("./types.js").MapLayer[]} */
+const layers = [
+  createPlayerLayer(map, store),
+];
+const overlays = /** @type {Record<string, any>} */ ({});
+for (const layer of layers) {
+  layer.leafletLayer.addTo(map);
+  overlays[layer.title] = layer.leafletLayer;
+}
+L.control.layers(undefined, overlays, { position: "topright", collapsed: true }).addTo(map);
+
+createVehiclePanel(store);
+createEnvPanel(store);
+
+// --- status --------------------------------------------------------------
+
+const conn = $("connection");
+const hint = $("map-hint");
+const banner = $("banner");
+
+function renderStatus() {
+  const c = store.get("connection") || {};
+  let text, kind;
+  if (!c.pairing) [text, kind] = ["no pairing code (?pair=…)", "disconnected"];
+  else if (!c.backend) [text, kind] = ["backend offline", "disconnected"];
+  else if (!c.client) [text, kind] = ["companion offline", "disconnected"];
+  else if (Date.now() - store.lastTopicAt() > STALE_MS) [text, kind] = ["waiting for game", "waiting"];
+  else [text, kind] = ["live", "connected"];
+  conn.textContent = text;
+  conn.className = "conn " + kind;
+  hint.hidden = !!store.get("hello");
+}
+
+store.subscribe("connection", renderStatus);
+store.subscribe("hello", renderStatus);
+store.subscribe("protocolError", (message) => {
+  banner.textContent = message || "";
+  banner.hidden = !message;
+});
+setInterval(renderStatus, 1000);
+
+// --- animation -------------------------------------------------------------
+
+const player = /** @type {any} */ (layers[0]);
+function frame(/** @type {number} */ now) {
+  follow.tick(player.tick(now));
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+
+// the map container may change size with the layout (phone rotation)
+new ResizeObserver(() => map.invalidateSize({ animate: false })).observe($("map"));
+
+connect(store);

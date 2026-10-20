@@ -10,10 +10,9 @@ dist/
 build/
 *.spec
 
-# Map assets (generated, potentially large)
-web/maps/*.png
-web/maps/*.jpg
-web/maps/*.webp
+# old prototype's generated map images (the client now caches them in
+# its own folder and uploads them to the backend)
+web/maps/
 
 # OS
 .DS_Store

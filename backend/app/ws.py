@@ -3,13 +3,20 @@
 The first message names the role.
 
     client -> backend:  {"type": "hello", "role": "client", "client": "..."}
+    backend -> client:  {"type": "welcome", "token": str}
+                        the token authorizes map asset uploads (assets.py)
     client -> backend:  {"type": "envelope", "envelope": {v, seq, t, topic, data}}
+    client -> backend:  {"type": "map_assets", "mapId": str, "hash": str}
+                        after uploading; relayed to viewers
     viewer -> backend:  {"type": "hello", "role": "viewer"}
 
     backend -> viewer:  {"type": "snapshot", "topics": {topic: envelope}}
                         sent on connect, and again when a new game session
                         starts (it replaces everything the viewer holds)
     backend -> viewer:  {"type": "update", "envelope": {...}}
+    backend -> viewer:  {"type": "map_assets", "mapId": str, "hash": str}
+                        on connect too; the images are at
+                        /api/maps/<mapId>/<hash>/overview.png
     backend -> viewer:  {"type": "client_status", "connected": bool}
     backend -> viewer:  {"type": "protocol_error", "message": str}
 """
@@ -17,10 +24,12 @@ The first message names the role.
 import asyncio
 import json
 import logging
+import secrets
 
 from fastapi import APIRouter, WebSocket
 from starlette.websockets import WebSocketDisconnect
 
+from .assets import valid_ref
 from .protocol import ProtocolVersionError, ValidationError, parse_envelope
 from .sessions import Session, SessionRegistry, safe_send
 
@@ -59,9 +68,12 @@ def create_router(registry: SessionRegistry) -> APIRouter:
 
 
 async def handle_client(ws: WebSocket, session: Session) -> None:
+    token = secrets.token_urlsafe(24)
     async with session.lock:
         old = session.client
         session.client = ws
+        session.client_token = token
+    await safe_send(ws, {"type": "welcome", "token": token})
     if old is not None and old is not ws:
         await safe_send(old, {"type": "replaced"})
         try:
@@ -78,7 +90,15 @@ async def handle_client(ws: WebSocket, session: Session) -> None:
                 msg = json.loads(raw)
             except json.JSONDecodeError:
                 continue
-            if not isinstance(msg, dict) or msg.get("type") != "envelope":
+            if not isinstance(msg, dict):
+                continue
+            if msg.get("type") == "map_assets":
+                map_id, digest = msg.get("mapId"), msg.get("hash")
+                if isinstance(map_id, str) and isinstance(digest, str) and                         valid_ref(map_id, digest):
+                    session.map_assets = {"type": "map_assets", "mapId": map_id, "hash": digest}
+                    await session.broadcast(session.map_assets)
+                continue
+            if msg.get("type") != "envelope":
                 continue
             try:
                 envelope = parse_envelope(msg.get("envelope"))
@@ -105,6 +125,7 @@ async def handle_client(ws: WebSocket, session: Session) -> None:
         async with session.lock:
             if session.client is ws:
                 session.client = None
+                session.client_token = None
                 still_connected = False
             else:
                 still_connected = session.client is not None
@@ -117,6 +138,8 @@ async def handle_viewer(ws: WebSocket, session: Session) -> None:
     async with session.lock:
         session.viewers.add(ws)
     await safe_send(ws, session.snapshot_message())
+    if session.map_assets is not None:
+        await safe_send(ws, session.map_assets)
     await safe_send(ws, {"type": "client_status", "connected": session.client is not None})
     if session.protocol_error:
         await safe_send(ws, {"type": "protocol_error", "message": session.protocol_error})

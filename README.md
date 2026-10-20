@@ -9,8 +9,9 @@ phone, on **Windows and macOS**.
 > **Status: under rework.** The first prototype (Windows named pipe and a
 > single position arrow) is being replaced by a cross-platform, layered design.
 > Phase 0 (verifying the game's API in game) is done. Phase 1 (file
-> transport, client, backend protocol) is built and tested offline, and
-> still needs its first live run in the game. See
+> transport, client, backend protocol) and Phase 2 (Leaflet map in world
+> coordinates, overview image pipeline, player marker) are built and tested
+> offline with a replay, and still need their first live run in the game. See
 > [docs/PLAN.md](docs/PLAN.md) for the full plan and the verified API facts.
 
 ## How it works
@@ -38,15 +39,17 @@ Browser dashboard: Leaflet map in world coordinates, one layer per feature
   the game, and doesn't care about start order. Every collector is isolated, so
   a failing API call drops one topic, never the game.
 - **Client (Python).** Finds the FS25 profile folder on Windows or macOS, tails
-  the stream file, extracts the map's overview image (DDS → PNG), and forwards
-  everything to the backend. It can record and replay sessions, so the
+  the stream file, and forwards everything to the backend. It reads the map's
+  overview image from the paths the mod reports (zipped mods included),
+  converts it (DDS → PNG, plus a 2048 px copy for phones) and uploads it. It can record and replay sessions, so the
   dashboard can be developed without the game running.
 - **Backend (FastAPI).** Validates messages, keeps the latest state per topic,
-  and gives new viewers a full snapshot. It runs locally in one command or as a
+  gives new viewers a full snapshot, and stores the uploaded map images. It runs locally in one command or as a
   hosted relay where a pairing code links the game and the browser.
-- **Dashboard (vanilla JS, no build step).** A Leaflet map in world meters,
-  with the overview image placed using the game's own map-extension values.
-  Toggleable layers mirror the PDA filters.
+- **Dashboard (vanilla JS ES modules, no build step).** A Leaflet map in
+  world meters (`lng = x`, `lat = -z`), with the overview image placed using
+  the game's own map-extension values, so there's nothing to calibrate.
+  Pan, zoom, follow-me, and one toggleable layer per feature.
 
 ## Repository layout
 
@@ -57,12 +60,10 @@ fixtures/      Recorded mod output used by tests and replay
 mod/           Companion mod (Lua)
 client/        Local client (Python)
 backend/       FastAPI backend
-web/           Browser dashboard
-builder/       Map asset tooling (being folded into the client)
+web/           Browser dashboard (src/ modules, vendor/leaflet)
 ```
 
-`web/` and `builder/` still contain the first prototype's map view until
-Phase 2 replaces them. `scripts/build_mod.py` zips the mod.
+`scripts/build_mod.py` zips the mod.
 
 ## Roadmap
 
@@ -70,7 +71,7 @@ Phase 2 replaces them. `scripts/build_mod.py` zips the mod.
 |---|---|---|
 | 0 | In-game API spike: file I/O, heading, hotspots, fields, farmlands, map geometry | ✅ done |
 | 1 | New mod skeleton + file transport, client tailer with record/replay, backend protocol and state store; remove the named pipe | built, live test pending |
-| 2 | Leaflet map in world coordinates, overview image pipeline, player marker, pan/zoom/follow | planned |
+| 2 | Leaflet map in world coordinates, overview image pipeline, player marker, pan/zoom/follow | built, live test pending |
 | 3 | PDA layers: sell points, shops, productions, animals; all vehicles; farmland ownership | planned |
 | 4 | Fields: outlines, crop and growth colours (PDA colours), field info panel | planned |
 | later | Sell prices, missions, AI workers, multiplayer farm colours, tray app | ideas |
@@ -93,6 +94,8 @@ python client/companion_client.py --local --replay fixtures/solek_v1.ndjson --lo
 
 # all tests: mod (through lupa), client, backend
 python -m pytest mod/tests client/tests backend/tests
+
+# map transform tests: open http://localhost:8123/test.html (all green)
 ```
 
 The game and the client can start in any order. Details:

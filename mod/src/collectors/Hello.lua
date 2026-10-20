@@ -7,6 +7,20 @@ Companion.Collectors = Companion.Collectors or {}
 
 local Api = Companion.Api
 
+-- the game's install folder, so the client can read base-game maps
+-- ($data/maps/...). getAppBasePath is an engine function not yet verified in
+-- game, hence the guard.
+local function gameDir()
+    if type(getAppBasePath) ~= "function" then
+        return nil
+    end
+    local ok, path = pcall(getAppBasePath)
+    if ok and type(path) == "string" and path ~= "" then
+        return path
+    end
+    return nil
+end
+
 local INGAME_MAP_KEYS = {
     "worldSizeX", "worldSizeZ", "worldCenterOffsetX", "worldCenterOffsetZ",
     "mapExtensionScaleFactor", "mapExtensionOffsetX", "mapExtensionOffsetZ",
@@ -34,6 +48,7 @@ Companion.Collectors.Hello = {
             isMultiplayer = mission.missionDynamicInfo ~= nil
                 and mission.missionDynamicInfo.isMultiplayer == true,
             profileDir = ctx.profileDir,
+            gameDir = gameDir(),
         }
 
         local ingameMap = mission.hud ~= nil and mission.hud.ingameMap or nil

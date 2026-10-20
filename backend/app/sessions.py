@@ -5,6 +5,7 @@ Sessions live in memory only and disappear when the last socket leaves.
 
 import asyncio
 import json
+import secrets
 from typing import Any, Dict, Optional, Set
 
 from fastapi import WebSocket
@@ -26,6 +27,10 @@ class Session:
         self.viewers: Set[WebSocket] = set()
         self.store = StateStore()
         self.protocol_error: Optional[str] = None
+        # issued to the connected client; authorizes map asset uploads
+        self.client_token: Optional[str] = None
+        # {"type": "map_assets", "mapId", "hash"}: the map images in use
+        self.map_assets: Optional[Dict[str, Any]] = None
         self.lock = asyncio.Lock()
 
     async def broadcast(self, msg: Any) -> None:
@@ -45,6 +50,10 @@ class SessionRegistry:
 
     def get_or_create(self, code: str) -> Session:
         return self._sessions.setdefault(code, Session(code))
+
+    def token_valid(self, token: str) -> bool:
+        return any(s.client_token is not None and secrets.compare_digest(s.client_token, token)
+                   for s in self._sessions.values())
 
     def drop_if_empty(self, session: Session) -> None:
         if session.client is None and not session.viewers:

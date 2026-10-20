@@ -67,6 +67,7 @@ class Hello(TopicModel):
     farmId: Optional[int] = None
     playerName: Optional[str] = None
     profileDir: Optional[str] = None
+    gameDir: Optional[str] = None
 
 
 class Weather(TopicModel):

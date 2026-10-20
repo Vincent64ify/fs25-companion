@@ -4,6 +4,10 @@ Run from the repository root:
 
     python -m backend.app.main                 # http://localhost:8123
     python -m backend.app.main --port 9000
+    python -m backend.app.main --assets-dir /var/lib/fs25-companion
+
+Uploaded map images are kept in the assets folder (default
+~/.fs25-companion/assets, or $COMPANION_ASSETS_DIR).
 
 The companion client can also start it in-process (``--local``), with a
 fixed pairing code the dashboard picks up without ``?pair=``.
@@ -11,12 +15,14 @@ fixed pairing code the dashboard picks up without ``?pair=``.
 
 import argparse
 import logging
+import os
 from pathlib import Path
 from typing import Optional
 
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 
+from .assets import AssetStore, create_assets_router
 from .protocol import PROTOCOL_VERSION
 from .sessions import SessionRegistry
 from .ws import create_router
@@ -25,7 +31,13 @@ VERSION = "0.2.0"
 WEB_DIR = Path(__file__).resolve().parents[2] / "web"
 
 
-def create_app(local_pairing: Optional[str] = None, web_dir: Path = WEB_DIR) -> FastAPI:
+def default_assets_dir() -> Path:
+    env = os.environ.get("COMPANION_ASSETS_DIR")
+    return Path(env) if env else Path.home() / ".fs25-companion" / "assets"
+
+
+def create_app(local_pairing: Optional[str] = None, web_dir: Path = WEB_DIR,
+               assets_dir: Optional[Path] = None) -> FastAPI:
     """Build the app. ``local_pairing`` is advertised by /api/info so the
     dashboard can connect without ``?pair=`` (local mode only: on a hosted
     relay it would let anyone join that session)."""
@@ -33,6 +45,8 @@ def create_app(local_pairing: Optional[str] = None, web_dir: Path = WEB_DIR) -> 
     registry = SessionRegistry()
     app.state.registry = registry
     app.include_router(create_router(registry))
+    app.include_router(create_assets_router(
+        AssetStore(assets_dir or default_assets_dir()), registry.token_valid))
 
     @app.get("/api/info")
     async def api_info():
@@ -49,19 +63,18 @@ def create_app(local_pairing: Optional[str] = None, web_dir: Path = WEB_DIR) -> 
     return app
 
 
-app = create_app()
-
-
 def main() -> None:
     import uvicorn
 
     p = argparse.ArgumentParser(description="FS25 Companion backend")
     p.add_argument("--host", default="0.0.0.0")
     p.add_argument("--port", type=int, default=8123)
+    p.add_argument("--assets-dir", type=Path, default=None,
+                   help="where uploaded map images are kept")
     args = p.parse_args()
     logging.basicConfig(level=logging.INFO,
                         format="%(asctime)s %(name)s %(levelname)s %(message)s")
-    uvicorn.run(app, host=args.host, port=args.port)
+    uvicorn.run(create_app(assets_dir=args.assets_dir), host=args.host, port=args.port)
 
 
 if __name__ == "__main__":

@@ -247,10 +247,11 @@ web/
 - Delete the pipe code.
 - **Done when:** the current dashboard features work from the file stream on Windows, and the client runs on macOS in replay mode.
 
-**Phase 2: map foundation**
+**Phase 2: map foundation** (built 2026-10-20; live test pending)
 - Leaflet + world CRS, the overview pipeline (hash + upload), the player marker, pan/zoom/follow.
 - Delete `rotateDeg` and the other calibration knobs, plus `builder/make_map_config.py`.
 - Fold the reusable parts of `import_map.py` (DDS → PNG) into `client/map_assets.py`.
+- As built: `meta.json` carries `imageBounds` / `playableBounds` in world meters computed from `hello.ingameMap` (factor 2 only as a fallback). `hello` gained `gameDir` from `getAppBasePath()` (guarded, still to verify in game) so base-game `$data/` maps need no install-path guessing. The backend issues the upload token in a `welcome` reply and relays `map_assets {mapId, hash}` to viewers. Follow and the whole-map view are buttons; the layer toggle is Leaflet's layer control until Phase 3's legend.
 
 **Phase 3: PDA layers**
 - Hotspots (sell points, shops, productions, fuel, animals) with a legend.
