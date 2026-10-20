@@ -4,7 +4,7 @@
 // other farms' land, and land for sale. Land the farmlands screen doesn't
 // offer (towns, roads) isn't drawn. Tap a farmland for its size and price.
 
-import { worldToLatLng } from "../mapView.js";
+import { landRenderer, worldToLatLng } from "../mapView.js";
 import { farmlandSwatch } from "../icons.js";
 import { farmlandOutlines } from "../farmlandGeometry.js";
 import { myFarmId } from "../../store.js";
@@ -62,9 +62,7 @@ function popupContent(id, f, farmId) {
  * @param {import("../../store.js").Store} store
  */
 export function createFarmlandsLayer(map, store) {
-  // above the overview image (overlayPane, 400), below every marker
-  map.createPane("farmlands").style.zIndex = "410";
-  const renderer = L.canvas({ pane: "farmlands", padding: 0.5 });
+  const renderer = landRenderer(map);
   /** @type {Record<FarmlandClass, any>} */
   const groups = { mine: L.layerGroup(), other: L.layerGroup(), sale: L.layerGroup() };
   const root = L.layerGroup(Object.values(groups));
@@ -90,8 +88,10 @@ export function createFarmlandsLayer(map, store) {
     }
     for (const [id, rings] of outlines) {
       const latLngs = rings.map((ring) => ring.map((p) => worldToLatLng(p.x, p.z)));
-      const polygon = L.polygon(latLngs, { renderer, pane: "farmlands", ...STYLES.sale });
+      const polygon = L.polygon(latLngs, { renderer, pane: "land", ...STYLES.sale });
       polygon.bindPopup(() => popupContent(id, byId().get(id), myFarmId(store)));
+      // under the fields, however often it's shown again
+      polygon.on("add", () => polygon.bringToBack());
       shapes.set(id, { polygon, cls: null });
     }
   }

@@ -266,8 +266,14 @@ web/
   - **Web.** `vehiclesLayer.js` hides the vehicle the player drives (the player arrow is that one) and hitched implements. It has your vehicles, other farms' and loose implements as legend items. `hotspotsLayer.js` groups the categories like the PDA. `farmlandsLayer.js` draws your land, other farms' land and land for sale on a canvas renderer, with popups (area, price, owner). `legend.js` replaces Leaflet's layer control and keeps its choices in localStorage. `glide.js` holds the interpolation the player and vehicle markers share.
   - **Fixture.** `solek_v1.ndjson` now carries the PDA topics. Hotspots and vehicles are real (from the Phase 0 report, `fixtures/spike_solek_pda.json`); the farmland grid is synthetic (a Voronoi diagram around the real farmland centres) until a live session is recorded.
 
-**Phase 4: fields**
+**Phase 4: fields** (built 2026-10-20; live test pending)
 - Field polygons, fruit/growth fill modes, a field info panel.
+- As built:
+  - **Mod 0.4.0.** Three collectors. `field_outlines` (once per map, resent after a rotation): each field's outline from its `polygonPoints` nodes through `getWorldTranslation`, falling back to `densityMapPolygon.pointsX/Z`. `fields` (15 s): id, farmland, sign position, area and the game's `fieldState` values (fruit, growth, ground type, spray, lime, plow, roller, stubble, weeds, stones). `crop_types` (once): every fruit type with its PDA map colours (`defaultMapColor`, `colorBlindMapColor`) and growth thresholds (harvest, withered, cut, preparing), the `FieldGroundType` names (guarded) and the field manager's lime/plow/spray maximums. Field state and ownership are separate: the owner comes from the farmlands topic.
+  - **Backend.** Models for the three topics; outlines need at least three points.
+  - **Web.** `fieldStyle.js` holds the colour modes as pure functions (tested in test.html): crop (the game's colours, converted from linear RGB), growth (plowed, cultivated, sown, growing, ready, harvested, withered), fertilizer (a red-to-green ramp over the spray level), lime, plowing and weeds. `fieldsLayer.js` draws the fields on the same canvas as the farmlands (`landRenderer` in mapView.js), so a tap finds the field over the farmland, with field numbers from zoom −1. The legend gained a drop-down (`legendChoice`) and a colour key (`legendExtra`). Tapping a field sets the store's `selectedField`; `fieldInfoPanel.js` shows owner, crop, stage and needs over the map, the same on a phone.
+  - **Fixture.** The farmland grid and farmlands are now real (the first live Phase 3 session). Field positions are real; outlines (rectangles inside the real farmlands), crop types and all field states but one are synthetic.
+  - **To verify live:** fieldState freshness, outline accuracy against the PDA, the colour space of `defaultMapColor`, `FieldGroundType`, `weedState` meaning.
 
 **Later**
 - Prices per sell point, missions/contracts, AI worker routes, multiplayer (farm colours), a system-tray client built with PyInstaller.

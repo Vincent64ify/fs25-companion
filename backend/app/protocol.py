@@ -202,6 +202,80 @@ class FarmlandGrid(TopicModel):
         return self
 
 
+class FieldOutline(TopicModel):
+    id: int
+    # flattened [x1, z1, x2, z2, ...] in world meters
+    points: List[float]
+
+    @model_validator(mode="after")
+    def at_least_a_triangle(self):
+        if len(self.points) % 2 or len(self.points) < 6:
+            raise ValueError("points must be at least three x, z pairs")
+        return self
+
+
+class FieldOutlines(TopicModel):
+    fields: List[FieldOutline] = []
+
+
+class FieldEntry(TopicModel):
+    """One field's crop and soil state: the game's fieldState values."""
+    id: int
+    farmlandId: Optional[int] = None
+    x: Optional[float] = None
+    z: Optional[float] = None
+    areaHa: Optional[float] = None
+    # 0 = no crop; an index into crop_types.fruits
+    fruitTypeIndex: Optional[int] = None
+    growthState: Optional[int] = None
+    groundType: Optional[int] = None
+    sprayLevel: Optional[int] = None
+    sprayType: Optional[int] = None
+    limeLevel: Optional[int] = None
+    plowLevel: Optional[int] = None
+    rollerLevel: Optional[int] = None
+    stubbleShredLevel: Optional[int] = None
+    weedState: Optional[int] = None
+    stoneLevel: Optional[int] = None
+
+
+class Fields(TopicModel):
+    fields: List[FieldEntry] = []
+
+
+class Fruit(TopicModel):
+    index: int
+    name: Optional[str] = None
+    title: Optional[str] = None
+    # the PDA's crop colours, [r, g, b] in 0..1 as the game stores them
+    color: Optional[List[float]] = Field(default=None, min_length=3, max_length=3)
+    colorBlindColor: Optional[List[float]] = Field(default=None, min_length=3, max_length=3)
+    numGrowthStates: Optional[int] = None
+    minHarvest: Optional[int] = None
+    maxHarvest: Optional[int] = None
+    withered: Optional[int] = None
+    cut: Optional[int] = None
+    minPrepare: Optional[int] = None
+    maxPrepare: Optional[int] = None
+    regrows: bool = False
+    shownOnMap: bool = True
+    # growth state (as a string) -> the game's state name
+    stateNames: Optional[Dict[str, str]] = None
+
+
+class Levels(TopicModel):
+    lime: Optional[int] = None
+    plow: Optional[int] = None
+    spray: Optional[int] = None
+
+
+class CropTypes(TopicModel):
+    fruits: List[Fruit] = []
+    # FieldGroundType constant name -> value
+    groundTypes: Optional[Dict[str, int]] = None
+    levels: Optional[Levels] = None
+
+
 TOPIC_MODELS = {
     "hello": Hello,
     "env": Env,
@@ -210,6 +284,9 @@ TOPIC_MODELS = {
     "hotspots": Hotspots,
     "farmlands": Farmlands,
     "farmland_grid": FarmlandGrid,
+    "crop_types": CropTypes,
+    "field_outlines": FieldOutlines,
+    "fields": Fields,
 }
 
 

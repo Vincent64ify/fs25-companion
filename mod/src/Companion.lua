@@ -8,7 +8,7 @@
 
 Companion = Companion or {}
 
-Companion.VERSION = "0.3.0"
+Companion.VERSION = "0.4.0"
 Companion.DIR_NAME = "FS25_Companion"
 Companion.STREAM_FILE = "stream.ndjson"
 
@@ -96,6 +96,9 @@ function Companion:loadMap(name)
     scheduler:add(collectors.Hotspots)
     scheduler:add(collectors.Farmlands)
     scheduler:add(collectors.FarmlandGrid)
+    scheduler:add(collectors.CropTypes)
+    scheduler:add(collectors.FieldOutlines)
+    scheduler:add(collectors.Fields)
 
     local profile = profileDir()
     state.transport = transport

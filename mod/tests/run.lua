@@ -379,6 +379,117 @@ test("farmlands: owner, price and area per farmland", function()
     eq(list[3].x, -876)
 end)
 
+local function stubField(id, extra)
+    local f = extra or {}
+    f.getId = function() return id end
+    f.posX, f.posZ, f.areaHa = f.posX or id * 10, f.posZ or -id * 10, f.areaHa or 3.53614
+    return f
+end
+
+test("field outlines: nodes first, polygon fallback, sent once", function()
+    load("src/collectors/FieldOutlines.lua")
+    local outlines = Companion.Collectors.FieldOutlines
+    local nodes = { [101] = { 10.04, 50, 20 }, [102] = { 30, 50, 20 }, [103] = { 30, 50, 40.06 } }
+    getWorldTranslation = function(node)
+        local p = nodes[node]
+        if p == nil then
+            error("no node " .. tostring(node))
+        end
+        return p[1], p[2], p[3]
+    end
+    g_fieldManager = nil
+    outlines.reset()
+    eq(outlines.collect({}), nil, "no field manager yet")
+    g_fieldManager = { fields = {} }
+    eq(outlines.collect({}), nil, "no fields yet")
+    g_fieldManager = { fields = {
+        stubField(2, { polygonPoints = { 101, 102, 103 } }),
+        -- a node that raises: falls back to the density map polygon
+        stubField(1, { polygonPoints = { 101, 999, 103 },
+            densityMapPolygon = { pointsX = { 0, 5, 5 }, pointsZ = { 0, 0, 5 } } }),
+        stubField(3, { densityMapPolygon = { pointsX = { 0, 1 }, pointsZ = { 0, 1 } } }), -- too few
+        { posX = 1 }, -- no id
+    } }
+    local list = outlines.collect({}).fields
+    eq(#list, 2)
+    eq(list[1].id, 1, "sorted by id")
+    eq(Json.encode(list[1].points), "[0,0,5,0,5,5]")
+    eq(list[2].id, 2)
+    eq(Json.encode(list[2].points), "[10,20,30,20,30,40.1]")
+    eq(outlines.collect({}), nil, "sent once")
+    outlines.reset()
+    assert(outlines.collect({}) ~= nil, "sent again after reset (new map)")
+end)
+
+test("fields: state per field, invalid state left out", function()
+    load("src/collectors/Fields.lua")
+    g_fieldManager = { fields = {
+        stubField(5, { farmland = { id = 7 }, fieldState = {
+            isValid = true, fruitTypeIndex = 1, growthState = 4, groundType = 7,
+            sprayLevel = 1, sprayType = 1, limeLevel = 0, plowLevel = 1, rollerLevel = 0,
+            stubbleShredLevel = 0, weedState = 2, stoneLevel = 1, ownerFarmId = 15,
+        } }),
+        stubField(2, { fieldState = { isValid = false, fruitTypeIndex = 3 } }),
+    } }
+    local list = Companion.Collectors.Fields.collect({}).fields
+    eq(#list, 2)
+    eq(list[1].id, 2)
+    eq(list[1].fruitTypeIndex, nil, "invalid state not sent")
+    eq(list[1].areaHa, 3.54)
+    local f = list[2]
+    eq(f.farmlandId, 7)
+    eq(f.x, 50)
+    eq(f.z, -50)
+    eq(f.fruitTypeIndex, 1)
+    eq(f.growthState, 4)
+    eq(f.limeLevel, 0)
+    eq(f.weedState, 2)
+    eq(f.ownerFarmId, nil, "owner comes from the farmlands topic")
+end)
+
+test("crop types: PDA colours, growth stages, ground types, levels", function()
+    load("src/collectors/CropTypes.lua")
+    local crops = Companion.Collectors.CropTypes
+    FieldGroundType = { NONE = 0, PLOWED = 4, CULTIVATED = 2, getName = function() end, lower = 1 }
+    g_fieldManager = { limeLevelMaxValue = 3, plowLevelMaxValue = 1, sprayLevelMaxValue = 2 }
+    g_fruitTypeManager = { fruitTypes = {
+        [2] = { index = 2, name = "BARLEY", defaultMapColor = { r = 0.5, g = 0.4, b = 0.1, a = 1 },
+            numGrowthStates = 7, minHarvestingGrowthState = 7, maxHarvestingGrowthState = 7,
+            witheredState = 8, cutState = 9, regrows = false },
+        [1] = { index = 1, name = "WHEAT", fillType = { title = "Wheat" },
+            defaultMapColor = { 0.47931, 0.3613, 0.0103, 1 }, colorBlindMapColor = { 1, 1, 0, 1 },
+            numGrowthStates = 8, minHarvestingGrowthState = 8, maxHarvestingGrowthState = 8,
+            witheredState = 9, cutState = 10, minPreparingGrowthState = -1,
+            growthStateToName = { [1] = "invisible", [8] = "harvestReady" }, shownOnMap = true },
+        [3] = { name = "BROKEN" }, -- no index: left out
+    } }
+    crops.reset()
+    local data = crops.collect({})
+    eq(#data.fruits, 2)
+    local wheat = data.fruits[1]
+    eq(wheat.index, 1)
+    eq(wheat.title, "Wheat")
+    eq(Json.encode(wheat.color), "[0.4793,0.3613,0.0103]")
+    eq(Json.encode(wheat.colorBlindColor), "[1,1,0]")
+    eq(wheat.minHarvest, 8)
+    eq(wheat.withered, 9)
+    eq(wheat.cut, 10)
+    eq(wheat.minPrepare, -1)
+    eq(wheat.stateNames["8"], "harvestReady")
+    eq(wheat.shownOnMap, true)
+    eq(Json.encode(data.fruits[2].color), "[0.5,0.4,0.1]", "r/g/b keys")
+    eq(data.fruits[2].stateNames, nil)
+    eq(data.groundTypes.PLOWED, 4)
+    eq(data.groundTypes.getName, nil, "functions skipped")
+    eq(data.groundTypes.lower, nil, "constants only")
+    eq(data.levels.lime, 3)
+    eq(data.levels.spray, 2)
+    eq(crops.collect({}), nil, "sent once")
+    FieldGroundType = nil
+    crops.reset()
+    eq(crops.collect({}).groundTypes, nil, "no FieldGroundType")
+end)
+
 -- Whole mod against a stubbed game -----------------------------------------
 -- Loads every file in modDesc order and runs a few frames. Needs TMP_DIR
 -- with an existing FS25_Companion/ folder (createFolder is a game function).
@@ -448,6 +559,16 @@ local function stubGame()
         farmlands = { { id = 1, farmId = 1, price = 1000, areaInHa = 2 } },
         getFarmlandIdAtWorldPosition = function(_, x) return x < 0 and 1 or 255 end,
     }
+    g_fieldManager = {
+        sprayLevelMaxValue = 2,
+        fields = { {
+            getId = function() return 1 end, posX = -50, posZ = 20, areaHa = 2.5,
+            farmland = { id = 1 }, polygonPoints = { 501, 502, 503 },
+            fieldState = { isValid = true, fruitTypeIndex = 1, growthState = 3, groundType = 6 },
+        } },
+    }
+    g_fruitTypeManager = { fruitTypes = { { index = 1, name = "WHEAT",
+        defaultMapColor = { 0.5, 0.4, 0.1, 1 }, numGrowthStates = 8 } } }
     g_farmManager = { getFarms = function() return { { farmId = 1, money = 123456.7 } } end }
     g_currentMission = {
         terrainSize = 2048,
@@ -492,6 +613,9 @@ test("whole mod streams every topic", function()
     load("src/collectors/Hotspots.lua")
     load("src/collectors/Farmlands.lua")
     load("src/collectors/FarmlandGrid.lua")
+    load("src/collectors/CropTypes.lua")
+    load("src/collectors/FieldOutlines.lua")
+    load("src/collectors/Fields.lua")
     load("src/Companion.lua")
     local mod = getListener()
     assert(mod ~= nil, "registered as a mod event listener")
@@ -536,6 +660,20 @@ test("whole mod streams every topic", function()
         end
     end
     eq(gridLines, 1, "grid sent once")
+    assert(text:find('"topic":"crop_types"', 1, true), "crop types")
+    assert(text:find('"fields":[{"id":1,"points":[10,-20,10,-20,10,-20]}]', 1, true), "field outlines")
+    assert(text:find('"fields":[{"areaHa":2.5,"farmlandId":1,"fruitTypeIndex":1,"groundType":6,'
+        .. '"growthState":3,"id":1,"x":-50,"z":20}]', 1, true), "field state")
+    local once = { crop_types = 0, field_outlines = 0 }
+    for _, line in ipairs(ls) do
+        for topic in pairs(once) do
+            if line:find('"topic":"' .. topic .. '"', 1, true) then
+                once[topic] = once[topic] + 1
+            end
+        end
+    end
+    eq(once.crop_types, 1, "crop types sent once")
+    eq(once.field_outlines, 1, "field outlines sent once")
     for i, line in ipairs(ls) do
         assert(line:find('"seq":' .. i .. ',', 1, true), "contiguous seq at line " .. i)
     end

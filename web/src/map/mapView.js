@@ -79,6 +79,21 @@ export function constrainTo(map, bounds) {
   map.setMinZoom(Math.min(map.getBoundsZoom(ll, false) - 1, map.getMaxZoom()));
 }
 
+/**
+ * The one canvas that farmlands and fields share (pane "land", above the
+ * overview image, below every marker). One canvas, so a click finds the
+ * topmost shape of either layer: fields are drawn over farmlands.
+ * @param {any} map L.Map
+ * @returns {any} L.Canvas
+ */
+export function landRenderer(map) {
+  if (!map._landRenderer) {
+    map.createPane("land").style.zIndex = "410";
+    map._landRenderer = L.canvas({ pane: "land", padding: 0.5 });
+  }
+  return map._landRenderer;
+}
+
 /** Bottom-left readout of the world position under the cursor. */
 export function addCursorReadout(/** @type {any} */ map) {
   const Readout = L.Control.extend({

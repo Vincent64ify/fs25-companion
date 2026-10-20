@@ -2,7 +2,8 @@
 """Convert the Phase 0 recordings into a protocol v1 fixture.
 
     python fixtures/convert_spike.py fixtures/spike_solek_pose.ndjson \\
-        fixtures/spike_solek_pda.json fixtures/solek_v1.ndjson
+        fixtures/spike_solek_pda.json fixtures/solek_farmlands.json \\
+        fixtures/solek_v1.ndjson
 
 The spike recorded real positions on Solek at 5 Hz (on foot and in a
 tractor), and its report listed the PDA hotspots and the farm's vehicles
@@ -20,15 +21,19 @@ the v1 topics the mod sends:
   The others stay where the report saw them. A vehicle without an engine
   within 6 m of one with an engine counts as hitched to it. Parked
   headings are synthetic (the report has none).
-* ``hotspots`` and ``farmlands`` every 10 s of game time. The hotspots are
-  the report's, minus the categories the mod leaves out. The farmlands sit
-  at the report's FIELD hotspots (one per farmland) with their real owner.
-  Ids, areas and prices are synthetic.
-* ``farmland_grid`` once, after hello. SYNTHETIC: the report has no grid,
-  so each cell gets the nearest farmland centre (a Voronoi diagram), with
-  gaps along the borders and far from any centre standing in for roads and
-  forest. It looks nothing like Solek's real farmlands. It exercises the
-  dashboard's outline tracing.
+* ``hotspots``, ``farmlands`` and ``fields`` every 60 s of game time. The
+  hotspots are the report's, minus the categories the mod leaves out.
+* ``farmlands`` and ``farmland_grid`` (once, after hello) are real: the
+  last ones of a live Phase 3 session on Solek (solek_farmlands.json, see
+  extract_stream.py).
+* ``crop_types`` once. SYNTHETIC: the base-game crops with made-up indices
+  and colours, ground type names guessed to fit the two values the spike
+  saw (sown = 7, the first field's grass = 13), and the real soil levels.
+* ``field_outlines`` once. SYNTHETIC: the report has the 162 fields'
+  positions but no outlines, so each field is a rectangle (one corner cut)
+  grown from its position inside its real farmland, 4 m off the border.
+* ``fields``: real positions and farmlands. The first field's state is
+  the real one; the others are made up, seeded by the field id.
 * ``env`` every 5th sample. These values are synthetic (the spike didn't
   record time or weather): the clock starts at 08:00 on day 1 and follows
   the recorded game time.
@@ -38,8 +43,8 @@ Until a real v1 session is recorded, this file is the replay fixture.
 
 import json
 import math
+import random
 import sys
-from collections import defaultdict
 
 HELLO = {
     "protocolVersion": 1,
@@ -62,20 +67,41 @@ HELLO = {
 MIN_MOVE_M = 0.2
 HITCH_M = 6.0
 PARKED_HEADING = 200.0
-# the mod sends hotspots and farmlands every 10 s; every 60 s keeps the fixture small
+# the mod sends hotspots and farmlands every 10 s, fields every 15 s; every
+# 60 s keeps the fixture small
 PDA_INTERVAL_MS = 60000
 
 # the categories Hotspots.lua leaves out (fields, vehicles, AI, player)
 SKIPPED_CATEGORIES = {1, 5, 6, 7, 8, 14, 15}
-FIELD_CATEGORY = 1
 
-# synthetic farmland grid, same layout as FarmlandGrid.lua on a 2 km map
-TERRAIN = 2048
-CELL = 4
-COLS = TERRAIN // CELL
-ROAD_M = 7.0
-REACH_M = 230.0
-BUCKET_M = 256
+# synthetic fields: rectangles of farmland_grid cells, this many cells off
+# the farmland border and off each other
+FIELD_MARGIN_CELLS = 1
+MAX_FIELD_CELLS = 120
+
+# synthetic crop types: index, name, title, PDA colour (sRGB), growth
+# states. Grass is 31 like Solek's first field; the rest is made up.
+CROPS = [
+    (1, "WHEAT", "Wheat", "#d8b44a", 8),
+    (2, "BARLEY", "Barley", "#c9a061", 7),
+    (3, "OAT", "Oat", "#e3d49b", 5),
+    (4, "CANOLA", "Canola", "#efe03a", 9),
+    (5, "SORGHUM", "Sorghum", "#b8582f", 5),
+    (6, "SUNFLOWER", "Sunflower", "#f6c21b", 8),
+    (7, "SOYBEAN", "Soybean", "#9db53e", 7),
+    (8, "MAIZE", "Maize", "#e59a3a", 7),
+    (9, "POTATO", "Potato", "#b5784a", 6),
+    (10, "SUGARBEET", "Sugar beet", "#c75d7b", 6),
+    (31, "GRASS", "Grass", "#5aa632", 8),
+]
+GRASS = 31
+GROUND_TYPES = {
+    "NONE": 0, "STUBBLE_TILLAGE": 1, "CULTIVATED": 2, "SEEDBED": 3, "ROLLED_SEEDBED": 4,
+    "ROLLER_LINES": 5, "PLOWED": 6, "SOWN": 7, "DIRECT_SOWN": 8, "PLANTED": 9, "RIDGE": 10,
+    "RIDGE_SOWN": 11, "HARVEST_READY": 12, "GRASS": 13, "GRASS_CUT": 14,
+}
+# the field manager's real values (Phase 0)
+LEVELS = {"lime": 3, "plow": 1, "spray": 2}
 
 
 def round_heading(h: float) -> float:
@@ -100,57 +126,141 @@ def hotspots_topic(pda: dict) -> dict:
     return {"hotspots": out}
 
 
-def synthetic_grid(centres):
-    """centres: [(id, x, z)] -> (runs, cell count per id)"""
-    buckets = defaultdict(list)
-    for c in centres:
-        buckets[(int((c[1] + TERRAIN / 2) // BUCKET_M), int((c[2] + TERRAIN / 2) // BUCKET_M))].append(c)
-    runs, counts = [], defaultdict(int)
-    run_id, run_len = None, 0
-    for row in range(COLS):
-        z = -TERRAIN / 2 + (row + 0.5) * CELL
-        bz = int((z + TERRAIN / 2) // BUCKET_M)
-        for col in range(COLS):
-            x = -TERRAIN / 2 + (col + 0.5) * CELL
-            bx = int((x + TERRAIN / 2) // BUCKET_M)
-            d1 = d2 = math.inf
-            best = 0
-            for i in (bx - 1, bx, bx + 1):
-                for j in (bz - 1, bz, bz + 1):
-                    for fid, cx, cz in buckets.get((i, j), ()):
-                        d = (x - cx) ** 2 + (z - cz) ** 2
-                        if d < d1:
-                            d1, d2, best = d, d1, fid
-                        elif d < d2:
-                            d2 = d
-            d1, d2 = math.sqrt(d1), math.sqrt(d2)
-            fid = best if d1 <= REACH_M and d2 - d1 >= ROAD_M else 0
-            counts[fid] += 1
-            if fid == run_id:
-                run_len += 1
-            else:
-                if run_id is not None:
-                    runs += [run_id, run_len]
-                run_id, run_len = fid, 1
-    runs += [run_id, run_len]
-    return runs, counts
+def linear(hex_colour: str) -> list:
+    """sRGB hex -> linear 0..1, how the game stores its map colours."""
+    out = []
+    for i in (1, 3, 5):
+        c = int(hex_colour[i:i + 2], 16) / 255
+        out.append(round(c / 12.92 if c <= 0.04045 else ((c + 0.055) / 1.055) ** 2.4, 4))
+    return out
 
 
-def farmland_topics(pda: dict):
-    centres = [(i + 1, h["x"], h["z"], h["farmId"] or 0)
-               for i, h in enumerate(h for h in pda["hotspots"] if h["category"] == FIELD_CATEGORY)]
-    runs, counts = synthetic_grid([c[:3] for c in centres])
-    grid = {"cell": CELL, "cols": COLS, "rows": COLS, "originX": -TERRAIN / 2,
-            "originZ": -TERRAIN / 2, "runs": runs}
-    farmlands = []
-    for fid, x, z, farm_id in centres:
-        area = round(counts[fid] * CELL * CELL / 10000, 2)
-        farmlands.append({
-            "id": fid, "farmId": farm_id, "areaHa": area,
-            "price": round(area * pda["pricePerHa"]),
-            "x": round(x, 1), "z": round(z, 1), "name": str(fid), "listed": True,
+def crop_types_topic() -> dict:
+    fruits = []
+    for index, name, title, colour, states in CROPS:
+        fruits.append({
+            "index": index, "name": name, "title": title,
+            "color": linear(colour), "colorBlindColor": linear(colour),
+            "numGrowthStates": states, "minHarvest": states, "maxHarvest": states,
+            "withered": states + 1, "cut": states + 2, "minPrepare": -1, "maxPrepare": -1,
+            "regrows": index == GRASS, "shownOnMap": True,
+            "stateNames": {"1": "invisible", str(states): "harvestReady",
+                           str(states + 1): "withered", str(states + 2): "cut"},
         })
-    return {"farmlands": farmlands}, grid
+    return {"fruits": fruits, "groundTypes": GROUND_TYPES, "levels": LEVELS}
+
+
+def decode_grid(grid: dict) -> list:
+    cells = []
+    runs = grid["runs"]
+    for i in range(0, len(runs), 2):
+        cells += [runs[i]] * runs[i + 1]
+    return cells
+
+
+def grow_rectangle(cols: int, rows: int, col: int, row: int, ok) -> tuple:
+    """A rectangle of ok cells around (col, row), grown one side at a time
+    while the new strip is all ok. Returns (c0, r0, c1, r1), inclusive."""
+    c0 = c1 = col
+    r0 = r1 = row
+    grown = True
+    while grown and max(c1 - c0, r1 - r0) < MAX_FIELD_CELLS:
+        grown = False
+        if c0 > 0 and all(ok(c0 - 1, r) for r in range(r0, r1 + 1)):
+            c0, grown = c0 - 1, True
+        if c1 < cols - 1 and all(ok(c1 + 1, r) for r in range(r0, r1 + 1)):
+            c1, grown = c1 + 1, True
+        if r0 > 0 and all(ok(c, r0 - 1) for c in range(c0, c1 + 1)):
+            r0, grown = r0 - 1, True
+        if r1 < rows - 1 and all(ok(c, r1 + 1) for c in range(c0, c1 + 1)):
+            r1, grown = r1 + 1, True
+    return c0, r0, c1, r1
+
+
+def field_outlines_topic(pda: dict, grid: dict) -> tuple:
+    """(field_outlines data, area in ha per field id)"""
+    cols, rows, cell = grid["cols"], grid["rows"], grid["cell"]
+    ox, oz = grid["originX"], grid["originZ"]
+    cells = decode_grid(grid)
+    claimed = set()
+    out, areas = [], {}
+    m = FIELD_MARGIN_CELLS
+    for f in sorted(pda["fields"], key=lambda f: f["id"]):
+        col, row = int((f["x"] - ox) // cell), int((f["z"] - oz) // cell)
+        if not (0 <= col < cols and 0 <= row < rows):
+            continue
+        farmland = cells[row * cols + col]
+
+        def ok(c, r):
+            if (c, r) in claimed:
+                return False
+            for cc in range(c - m, c + m + 1):
+                for rr in range(r - m, r + m + 1):
+                    if not (0 <= cc < cols and 0 <= rr < rows) or cells[rr * cols + cc] != farmland:
+                        return False
+            return True
+
+        if farmland == 0 or not ok(col, row):
+            continue
+        c0, r0, c1, r1 = grow_rectangle(cols, rows, col, row, ok)
+        if (c1 - c0 + 1) * (r1 - r0 + 1) < 4:
+            continue
+        claimed.update((c, r) for c in range(c0 - m, c1 + m + 1) for r in range(r0 - m, r1 + m + 1))
+        x0, z0 = ox + c0 * cell, oz + r0 * cell
+        x1, z1 = ox + (c1 + 1) * cell, oz + (r1 + 1) * cell
+        cut = min(x1 - x0, z1 - z0) / 4
+        points = [x0, z0, x1, z0, x1, z1 - cut, x1 - cut, z1, x0, z1]
+        out.append({"id": f["id"], "points": [round(p, 1) for p in points]})
+        areas[f["id"]] = round(((x1 - x0) * (z1 - z0) - cut * cut / 2) / 10000, 2)
+    return {"fields": out}, areas
+
+
+def synthetic_state(rnd: random.Random) -> dict:
+    state = {
+        "sprayLevel": rnd.randint(0, LEVELS["spray"]), "sprayType": 1,
+        "limeLevel": rnd.choice([0, 1, 2, 3, 3]), "plowLevel": rnd.choice([0, 1, 1]),
+        "rollerLevel": 0, "stubbleShredLevel": 0,
+        "weedState": rnd.choice([0, 0, 0, 1, 2, 4]), "stoneLevel": rnd.randint(0, 2),
+    }
+    roll = rnd.random()
+    if roll < 0.15:
+        ground = rnd.choice(["PLOWED", "CULTIVATED", "STUBBLE_TILLAGE", "SEEDBED"])
+        state.update(fruitTypeIndex=0, growthState=0, groundType=GROUND_TYPES[ground])
+        return state
+    index, _, _, _, states = rnd.choice(CROPS + [CROPS[-1]] * 2)
+    if roll < 0.25:
+        growth = states + 2  # harvested
+    elif roll < 0.28:
+        growth = states + 1  # withered
+    elif roll < 0.48:
+        growth = states  # ready
+    else:
+        growth = rnd.randint(1, states - 1)
+    if index == GRASS:
+        ground = "GRASS"
+    else:
+        ground = "HARVEST_READY" if growth == states else "SOWN"
+    state.update(fruitTypeIndex=index, growthState=growth, groundType=GROUND_TYPES[ground])
+    return state
+
+
+def fields_topic(pda: dict, areas: dict) -> dict:
+    first = pda["fields"][0]["id"]
+    out = []
+    for f in sorted(pda["fields"], key=lambda f: f["id"]):
+        entry = {"id": f["id"], "farmlandId": f["farmlandId"], "x": round(f["x"], 1),
+                 "z": round(f["z"], 1)}
+        if f["id"] in areas:
+            entry["areaHa"] = areas[f["id"]]
+        if f["id"] == first:
+            entry["areaHa"] = pda["firstField"]["areaHa"]
+            state = pda["firstField"]["fieldState"]
+            entry.update({k: v for k, v in state.items() if k not in (
+                "farmlandId", "lastGrowthState", "ownerFarmId", "waterLevel", "weedFactor")})
+        else:
+            entry.update(synthetic_state(random.Random(f["id"])))
+        out.append(entry)
+    return {"fields": out}
 
 
 class Fleet:
@@ -209,7 +319,7 @@ class Fleet:
         return data
 
 
-def convert(src, pda: dict, out) -> int:
+def convert(src, pda: dict, farmlands: dict, out) -> int:
     seq = 0
 
     def emit(t: int, topic: str, data: dict) -> None:
@@ -222,7 +332,9 @@ def convert(src, pda: dict, out) -> int:
     first_drive = next(r["data"]["vehicle"] for r in records if r["data"].get("vehicle"))
     fleet = Fleet(pda, (first_drive["x"], first_drive["z"]))
     hotspots = hotspots_topic(pda)
-    farmlands, grid = farmland_topics(pda)
+    grid = farmlands["farmland_grid"]
+    outlines, areas = field_outlines_topic(pda, grid)
+    fields = fields_topic(pda, areas)
 
     first_t = None
     last_pda_t = None
@@ -235,10 +347,13 @@ def convert(src, pda: dict, out) -> int:
             first_t = t
             emit(t, "hello", HELLO)
             emit(t, "farmland_grid", grid)
+            emit(t, "crop_types", crop_types_topic())
+            emit(t, "field_outlines", outlines)
         if last_pda_t is None or t - last_pda_t >= PDA_INTERVAL_MS:
             last_pda_t = t
             emit(t, "hotspots", hotspots)
-            emit(t, "farmlands", farmlands)
+            emit(t, "farmlands", farmlands["farmlands"])
+            emit(t, "fields", fields)
         d = rec["data"]
         vehicle = d.get("vehicle")
         if vehicle is not None:
@@ -280,12 +395,14 @@ def convert(src, pda: dict, out) -> int:
 
 
 def main() -> None:
-    pose_path, pda_path, out_path = sys.argv[1], sys.argv[2], sys.argv[3]
+    pose_path, pda_path, farmlands_path, out_path = sys.argv[1:5]
     with open(pda_path, encoding="utf-8") as f:
         pda = json.load(f)
+    with open(farmlands_path, encoding="utf-8") as f:
+        farmlands = json.load(f)
     with open(pose_path, encoding="utf-8") as src, \
             open(out_path, "w", encoding="utf-8", newline="\n") as out:
-        n = convert(src, pda, out)
+        n = convert(src, pda, farmlands, out)
     print(f"wrote {n} envelopes to {out_path}")
 
 

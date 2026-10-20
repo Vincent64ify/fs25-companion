@@ -23,7 +23,7 @@ def test_every_fixture_line_validates(path):
             assert envelope["seq"] == n, "seq is contiguous from 1"
             topics.add(envelope["topic"])
     assert {"hello", "player", "vehicles", "env", "hotspots", "farmlands",
-            "farmland_grid"} <= topics
+            "farmland_grid", "crop_types", "field_outlines", "fields"} <= topics
 
 
 def test_fixtures_exist():
@@ -34,7 +34,7 @@ def test_unknown_fields_and_topics_pass_through():
     raw = env("player", {"x": 1, "z": 2, "heading": 90, "newField": [1, 2]})
     assert parse_envelope(raw) is raw
     # a topic from a future collector: only the envelope is checked
-    assert parse_envelope(env("fields", {"items": []}))["topic"] == "fields"
+    assert parse_envelope(env("prices", {"items": []}))["topic"] == "prices"
 
 
 def test_version_mismatch():
@@ -58,6 +58,10 @@ def test_version_mismatch():
                           "originZ": 0, "runs": [1, 3]}),               # runs miss a cell
     env("farmland_grid", {"cell": 4, "cols": 2, "rows": 2, "originX": 0,
                           "originZ": 0, "runs": [1, 4, 2]}),            # odd runs
+    env("field_outlines", {"fields": [{"id": 1, "points": [0, 0, 1, 1]}]}),  # two points
+    env("field_outlines", {"fields": [{"id": 1, "points": [0, 0, 1, 1, 2]}]}),  # odd points
+    env("fields", {"fields": [{"fruitTypeIndex": 1}]}),                 # field without id
+    env("crop_types", {"fruits": [{"index": 1, "color": [1, 0]}]}),     # colour without blue
 ])
 def test_invalid_envelopes(raw):
     with pytest.raises(ValidationError):
@@ -79,3 +83,19 @@ def test_pda_topics():
                                          "originZ": -4, "runs": [0, 1, 3, 3]}))
     parse_envelope(env("vehicles", {"vehicles": [
         {"id": 302, "x": 0, "z": 0, "motorized": False, "attached": True, "propertyState": 2}]}))
+
+
+def test_field_topics():
+    parse_envelope(env("field_outlines", {"fields": [
+        {"id": 1, "points": [0, 0, 5, 0, 5, 5.5]}]}))
+    parse_envelope(env("fields", {"fields": [
+        {"id": 1, "farmlandId": 2, "x": -915.8, "z": -741.2, "areaHa": 3.54, "fruitTypeIndex": 31,
+         "growthState": 8, "groundType": 13, "sprayLevel": 2, "limeLevel": 1, "plowLevel": 1,
+         "weedState": 3, "stoneLevel": 0}]}))
+    parse_envelope(env("crop_types", {
+        "fruits": [{"index": 1, "name": "WHEAT", "title": "Wheat", "color": [0.48, 0.36, 0.01],
+                    "numGrowthStates": 8, "minHarvest": 8, "maxHarvest": 8, "withered": 9,
+                    "cut": 10, "stateNames": {"1": "invisible"}}],
+        "groundTypes": {"PLOWED": 4}, "levels": {"lime": 3, "plow": 1, "spray": 2}}))
+    # Lua writes an empty table as []: no fields yet
+    parse_envelope(env("fields", {"fields": []}))

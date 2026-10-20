@@ -1,14 +1,17 @@
 // @ts-check
 // The legend: one checkbox per layer, or per item of a layer that has
-// legend items (hotspot groups, vehicle kinds, farmland classes). Choices
-// are remembered in localStorage, as is whether the panel is open.
+// legend items (hotspot groups, vehicle kinds, farmland classes), plus a
+// layer's drop-down and colour key (the fields' colour mode). Choices are
+// remembered in localStorage, as is whether the panel is open.
 
 /** @typedef {import("../types.js").MapLayer} MapLayer */
 
 const STORAGE_KEY = "fs25companion.legend";
 const SMALL_SCREEN_PX = 800;
 
-/** @returns {{open?: boolean, on?: Record<string, boolean>}} */
+/** @typedef {{open?: boolean, on?: Record<string, boolean>, choice?: Record<string, string>}} LegendState */
+
+/** @returns {LegendState} */
 function load() {
   try {
     return JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}") || {};
@@ -17,7 +20,7 @@ function load() {
   }
 }
 
-function save(/** @type {{open?: boolean, on?: Record<string, boolean>}} */ state) {
+function save(/** @type {LegendState} */ state) {
   try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch { /* private mode */ }
 }
 
@@ -54,6 +57,33 @@ export function createLegend(map, layers) {
     apply(on);
   }
 
+  /**
+   * @param {HTMLElement} parent
+   * @param {string} layerId
+   * @param {import("../types.js").LegendChoice} choice
+   */
+  function select(parent, layerId, choice) {
+    const key = `${layerId}.${choice.id}`;
+    const saved = state.choice?.[key];
+    const value = choice.options.some((o) => o.id === saved) ? /** @type {string} */ (saved) : choice.defaultValue;
+    const row = L.DomUtil.create("label", "legend-choice", parent);
+    L.DomUtil.create("span", "legend-label", row).textContent = choice.label;
+    const input = /** @type {HTMLSelectElement} */ (L.DomUtil.create("select", "", row));
+    for (const o of choice.options) {
+      const option = document.createElement("option");
+      option.value = o.id;
+      option.textContent = o.label;
+      input.append(option);
+    }
+    input.value = value;
+    input.addEventListener("change", () => {
+      state.choice = { ...state.choice, [key]: input.value };
+      save(state);
+      choice.set(input.value);
+    });
+    choice.set(value);
+  }
+
   const Control = L.Control.extend({
     onAdd() {
       const box = L.DomUtil.create("div", "leaflet-bar map-legend");
@@ -87,6 +117,8 @@ export function createLegend(map, layers) {
           checkbox(section, key, item.label, item.swatch || "", isOn(key, item.defaultOn !== false),
             item.setVisible);
         }
+        if (layer.legendChoice) select(section, layer.id, layer.legendChoice);
+        if (layer.legendExtra) section.append(layer.legendExtra);
       }
       // the panel scrolls inside the map, whatever the map's height
       const fit = () => {

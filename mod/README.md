@@ -28,7 +28,8 @@ src/
   Transport.lua   file open / write / flush / rotate at 2 MB, seq counter
   Scheduler.lua   runs each collector at its interval, under pcall
   collectors/     one file per topic (Hello, Env, Player, Vehicles,
-                  Hotspots, Farmlands, FarmlandGrid)
+                  Hotspots, Farmlands, FarmlandGrid, CropTypes,
+                  FieldOutlines, Fields)
   Companion.lua   bootstrap (loaded last)
 tests/run.lua     offline tests with a stubbed game
 ```
@@ -52,6 +53,9 @@ sent again.
 | `hotspots` | 0.1 Hz | hotspots[]: the PDA's places (category, name, x, z, farmId, visible); fields, vehicles, AI and the player are left out |
 | `farmlands` | 0.1 Hz | farmlands[]: id, farmId (0 = nobody), price, areaHa, x, z, name, listed |
 | `farmland_grid` | once per map, and after each rotation | farmland id per 4 m cell (at most 512 cells a side), run-length encoded: cell, cols, rows, originX, originZ, runs [id, count, ...] |
+| `crop_types` | once per map, and after each rotation | fruits[] (index, name, title, color and colorBlindColor as the game's [r, g, b], numGrowthStates, minHarvest, maxHarvest, withered, cut, minPrepare, maxPrepare, regrows, shownOnMap, stateNames), groundTypes (FieldGroundType name → value), levels (lime, plow, spray maximums) |
+| `field_outlines` | once per map, and after each rotation | fields[]: id, points [x1, z1, x2, z2, ...] from the field's polygon point nodes (or its density map polygon) |
+| `fields` | every 15 s | fields[]: id, farmlandId, x, z (field sign), areaHa and the game's fieldState: fruitTypeIndex (0 = none), growthState, groundType, sprayLevel, sprayType, limeLevel, plowLevel, rollerLevel, stubbleShredLevel, weedState, stoneLevel |
 
 A collector whose API call fails drops only its own topic (or a single
 value) and logs once to `log.txt` as `[FS25_Companion] topic … failed`.
@@ -84,3 +88,12 @@ leaves the value out):
 - weather (`getWeatherTypeAtTime`, temperatures) and `g_farmManager` money
 - `player.nickname`, vehicle motor/lights/implement fields (from the old mod)
 - rotation: does reopening with `"w"` truncate the file?
+- fields: is `field.fieldState` kept current by the game (does the crop
+  change on the dashboard after sowing or harvesting)? Do the outlines from
+  `polygonPoints` match the PDA's fields?
+- `FieldGroundType` constants and `fillType.title` (crop names); without
+  them the dashboard shows the fruit type's internal name and no ground
+  type
+- `defaultMapColor`: linear RGB as assumed (the dashboard converts it to
+  sRGB)? Compare the crop colours with the PDA.
+- `weedState`: the dashboard counts anything above 0 as weeds

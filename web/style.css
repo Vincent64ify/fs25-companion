@@ -198,6 +198,93 @@ dd { margin: 0; }
 .fl-other { background: rgba(59, 130, 246, 0.3); border-color: #93c5fd; }
 .fl-sale { background: transparent; border-color: rgba(248, 250, 252, 0.6); }
 
+/* --- fields ------------------------------------------------------------ */
+
+.field-label {
+  color: #fff;
+  font: 700 11px/16px system-ui, sans-serif;
+  text-align: center;
+  text-shadow: 0 0 2px #000, 0 0 3px #000;
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+.legend-choice {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  margin-top: 4px;
+}
+.legend-choice select {
+  flex: 1;
+  min-width: 0;
+  padding: 2px 4px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--panel);
+  color: var(--text);
+  font: 13px system-ui, sans-serif;
+}
+.legend-key { margin: 4px 0 0 2px; }
+.legend-key-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 1px 0;
+  font-size: 12px;
+  color: var(--muted);
+}
+.field-swatch {
+  flex: none;
+  width: 14px;
+  height: 10px;
+  border-radius: 2px;
+  border: 1px solid rgba(15, 23, 42, 0.8);
+}
+.field-swatch.empty { border-color: var(--muted); }
+
+.field-info {
+  position: absolute;
+  left: 10px;
+  bottom: 34px;
+  z-index: 1000;
+  width: 260px;
+  max-width: calc(100% - 20px);
+  max-height: calc(100% - 100px);
+  overflow-y: auto;
+  padding: 8px 12px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: rgba(15, 23, 42, 0.92);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.5);
+}
+.field-info[hidden] { display: none; }
+.field-info-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 4px;
+}
+.field-info h3 { margin: 0; font-size: 15px; color: var(--accent); }
+.field-info-close {
+  width: 28px;
+  height: 28px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+}
+.field-info-close:hover { background: var(--border); color: var(--text); }
+.field-info dl div { font-size: 13px; padding: 2px 0; gap: 12px; }
+.field-info dd { text-align: right; }
+@media (max-width: 800px) {
+  .field-info { bottom: 10px; max-height: 55%; }
+}
+
 .vehicle-popup, .farmland-popup { font: 13px system-ui, sans-serif; line-height: 1.4; }
 
 /* --- legend ------------------------------------------------------------ */

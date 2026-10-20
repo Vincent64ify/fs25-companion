@@ -59,3 +59,12 @@ function Api.listOf(t)
     end
     return list
 end
+
+-- a field's number, as the PDA shows it (getId() verified in Phase 0)
+function Api.fieldId(field)
+    local id = Api.tryCall(field, "getId")
+    if type(id) ~= "number" then
+        id = field.fieldId or field.id
+    end
+    return type(id) == "number" and id or nil
+end

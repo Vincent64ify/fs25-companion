@@ -92,6 +92,63 @@
  */
 
 /**
+ * A field's outline (field_outlines topic, once per map): flattened
+ * [x1, z1, x2, z2, ...] in world meters.
+ * @typedef {Object} FieldOutline
+ * @property {number} id
+ * @property {number[]} points
+ */
+
+/**
+ * A field's crop and soil state (fields topic): the game's fieldState.
+ * fruitTypeIndex 0 = no crop.
+ * @typedef {Object} FieldState
+ * @property {number} id
+ * @property {number} [farmlandId]
+ * @property {number} [x] field number position
+ * @property {number} [z]
+ * @property {number} [areaHa]
+ * @property {number} [fruitTypeIndex]
+ * @property {number} [growthState]
+ * @property {number} [groundType]
+ * @property {number} [sprayLevel]
+ * @property {number} [sprayType]
+ * @property {number} [limeLevel]
+ * @property {number} [plowLevel]
+ * @property {number} [rollerLevel]
+ * @property {number} [stubbleShredLevel]
+ * @property {number} [weedState]
+ * @property {number} [stoneLevel]
+ */
+
+/**
+ * A crop (crop_types topic). Colours are linear RGB, 0..1.
+ * @typedef {Object} Fruit
+ * @property {number} index
+ * @property {string} [name]
+ * @property {string} [title]
+ * @property {number[]} [color]
+ * @property {number[]} [colorBlindColor]
+ * @property {number} [numGrowthStates]
+ * @property {number} [minHarvest]
+ * @property {number} [maxHarvest]
+ * @property {number} [withered]
+ * @property {number} [cut]
+ * @property {number} [minPrepare]
+ * @property {number} [maxPrepare]
+ * @property {boolean} [regrows]
+ * @property {boolean} [shownOnMap]
+ * @property {Record<string, string>} [stateNames] growth state -> game name
+ */
+
+/**
+ * @typedef {Object} CropTypes
+ * @property {Fruit[]} fruits
+ * @property {Record<string, number>} [groundTypes] FieldGroundType name -> value
+ * @property {{lime?: number, plow?: number, spray?: number}} [levels] maximum values
+ */
+
+/**
  * World rectangle in meters: [minX, minZ, maxX, maxZ].
  * @typedef {[number, number, number, number]} WorldBounds
  */
@@ -125,13 +182,27 @@
  */
 
 /**
+ * A drop-down in the legend (map/legend.js), remembered like the checkboxes.
+ * @typedef {Object} LegendChoice
+ * @property {string} id unique within its layer
+ * @property {string} label
+ * @property {{id: string, label: string}[]} options
+ * @property {string} defaultValue
+ * @property {(value: string) => void} set
+ */
+
+/**
  * A map layer: one file under map/layers/, registered in main.js. Without
- * legendItems the legend shows one checkbox for the whole layer.
+ * legendItems the legend shows one checkbox for the whole layer. A layer
+ * may add a drop-down (legendChoice) and an element of its own below its
+ * items (legendExtra, a colour key for example).
  * @typedef {Object} MapLayer
  * @property {string} id
  * @property {string} title
  * @property {any} leafletLayer
  * @property {LegendItem[]} [legendItems]
+ * @property {LegendChoice} [legendChoice]
+ * @property {HTMLElement} [legendExtra]
  */
 
 export {};

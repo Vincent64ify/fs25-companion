@@ -12,11 +12,13 @@ import { createOverviewLayer } from "./map/overviewLayer.js";
 import { createFollowControl } from "./map/followControl.js";
 import { createLegend } from "./map/legend.js";
 import { createFarmlandsLayer } from "./map/layers/farmlandsLayer.js";
+import { createFieldsLayer } from "./map/layers/fieldsLayer.js";
 import { createHotspotsLayer } from "./map/layers/hotspotsLayer.js";
 import { createVehiclesLayer } from "./map/layers/vehiclesLayer.js";
 import { createPlayerLayer } from "./map/layers/playerLayer.js";
 import { createVehiclePanel } from "./panels/vehiclePanel.js";
 import { createEnvPanel } from "./panels/envPanel.js";
+import { createFieldInfoPanel } from "./panels/fieldInfoPanel.js";
 import { $ } from "./panels/dom.js";
 
 const STALE_MS = 5000;
@@ -34,6 +36,7 @@ const layers = [
   player,
   vehicles,
   createHotspotsLayer(map, store),
+  createFieldsLayer(map, store),
   createFarmlandsLayer(map, store),
 ];
 for (const layer of layers) layer.leafletLayer.addTo(map);
@@ -41,6 +44,7 @@ createLegend(map, layers);
 
 createVehiclePanel(store);
 createEnvPanel(store);
+createFieldInfoPanel(store);
 
 // --- status --------------------------------------------------------------
 

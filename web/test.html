@@ -110,6 +110,70 @@ check("staircase simplified to a triangle-ish ring", simple.length <= 5, true);
 const world = geo.farmlandOutlines(grid(4, 4, [0,0,0,0, 0,1,1,0, 0,1,1,0, 0,0,0,0])).get(1)[0];
 check("outline in world meters", world.map((p) => `${p.x},${p.z}`).sort(), ["-4,-4", "-4,4", "4,-4", "4,4"]);
 
+// --- field colours (map/fieldStyle.js) -------------------------------------
+
+const fs = await import("./src/map/fieldStyle.js");
+const { fieldRows } = await import("./src/panels/fieldInfoPanel.js");
+check("linear to sRGB", [fs.linearToCss([0, 1, 0.2158605]), fs.linearToCss([0.5, 0.5, 0.5])],
+      ["#00ff80", "#bcbcbc"]);
+check("pretty names", [fs.prettyName("STUBBLE_TILLAGE"), fs.prettyName("WHEAT")], ["Stubble tillage", "Wheat"]);
+const catalog = fs.cropCatalog({
+  fruits: [
+    { index: 1, name: "WHEAT", title: "Wheat", color: [1, 0, 0], numGrowthStates: 8, minHarvest: 8,
+      maxHarvest: 8, withered: 9, cut: 10, stateNames: { "1": "invisible" } },
+    { index: 5, name: "SUGARBEET", numGrowthStates: 6, minHarvest: 6, maxHarvest: 6, minPrepare: 5,
+      maxPrepare: 5, withered: 7, cut: 8 },
+  ],
+  groundTypes: { PLOWED: 6, CULTIVATED: 2, STUBBLE_TILLAGE: 1, SOWN: 7, NONE: 0 },
+  levels: { lime: 3, plow: 1, spray: 2 },
+});
+const growth = (f) => fs.classify({ id: 1, ...f }, catalog, "growth").key;
+check("growth: plowed and cultivated ground", [
+  growth({ fruitTypeIndex: 0, growthState: 0, groundType: 6 }),
+  growth({ fruitTypeIndex: 0, growthState: 0, groundType: 1 }),
+  growth({ fruitTypeIndex: 0, growthState: 0, groundType: 0 }),
+], ["plowed", "cultivated", "none"]);
+check("growth: wheat stages", [1, 4, 8, 9, 10].map((g) => growth({ fruitTypeIndex: 1, growthState: g })),
+      ["sown", "growing", "ready", "withered", "harvested"]);
+check("growth: preparing counts as ready", growth({ fruitTypeIndex: 5, growthState: 5 }), "ready");
+check("growth: unknown crop still grows", growth({ fruitTypeIndex: 42, growthState: 3 }), "growing");
+check("growth stage numbers", (({ stage, stages }) => [stage, stages])(
+  fs.growthClass({ id: 1, fruitTypeIndex: 1, growthState: 4 }, catalog)), [4, 8]);
+check("crop colour from the game", fs.classify({ id: 1, fruitTypeIndex: 1 }, catalog, "crop").color, "#ff0000");
+check("crop: none vs no data", [
+  fs.classify({ id: 1, fruitTypeIndex: 0 }, catalog, "crop").key,
+  fs.classify({ id: 1 }, catalog, "crop").key,
+  fs.classify(undefined, catalog, "crop").color,
+], ["nocrop", "none", null]);
+check("fertilizer levels", [0, 1, 2].map((l) => fs.classify({ id: 1, sprayLevel: l }, catalog, "fertilizer").label),
+      ["0% fertilized", "50% fertilized", "100% fertilized"]);
+check("fertilizer ramp ends", [0, 2].map((l) => fs.classify({ id: 1, sprayLevel: l }, catalog, "fertilizer").color),
+      ["#d64545", "#3fae49"]);
+check("lime, plow, weeds", [
+  fs.classify({ id: 1, limeLevel: 0 }, catalog, "lime").key,
+  fs.classify({ id: 1, limeLevel: 2 }, catalog, "lime").muted,
+  fs.classify({ id: 1, plowLevel: 0 }, catalog, "plow").key,
+  fs.classify({ id: 1, weedState: 3 }, catalog, "weeds").key,
+], ["needsLime", true, "needsPlow", "weeds"]);
+const keyFields = [
+  { id: 1, fruitTypeIndex: 1, growthState: 8, areaHa: 2 },
+  { id: 2, fruitTypeIndex: 5, growthState: 2, areaHa: 5 },
+  { id: 3, fruitTypeIndex: 0, growthState: 0, groundType: 6, areaHa: 9 },
+  { id: 4, fruitTypeIndex: 1, growthState: 3, areaHa: 1 },
+];
+check("crop key: by area, no crop last", fs.legendKey(keyFields, catalog, "crop").map((c) => c.label),
+      ["Sugarbeet", "Wheat", "No crop"]);
+check("growth key: PDA order", fs.legendKey(keyFields, catalog, "growth").map((c) => c.key),
+      ["plowed", "growing", "ready"]);
+check("field info rows", fieldRows(
+  { id: 7, areaHa: 3.5, farmlandId: 2, fruitTypeIndex: 1, growthState: 4, groundType: 7, sprayLevel: 1,
+    limeLevel: 0, plowLevel: 1, weedState: 0, stoneLevel: 2 },
+  { id: 2, farmId: 0, price: 259149, name: "2" }, catalog, 1), [
+  ["Area", "3.50 ha"], ["Owner", `For sale, $${(259149).toLocaleString()}`], ["Farmland", "2"],
+  ["Crop", "Wheat"], ["State", "Growing (stage 4 of 8)"], ["Ground", "Sown"], ["Fertilizer", "50%"],
+  ["Lime", "Needed"], ["Plowing", "Not needed"], ["Weeds", "None"], ["Stones", "Level 2"],
+]);
+
 document.title = failed ? `FAIL (${failed})` : "PASS";
 const summary = document.createElement("p");
 summary.className = failed ? "fail" : "ok";
