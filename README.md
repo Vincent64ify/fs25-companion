@@ -1,92 +1,95 @@
 # FS25 Companion
 
-A free, real-time companion dashboard for **Farming Simulator 25**: live
-position on the game map, vehicle status (speed, fuel, RPM, wear), attached
-implements, weather and game clock — right in your browser, no login required.
+A free, real-time companion map for **Farming Simulator 25** that runs in your
+browser. The goal is to replicate the in-game PDA: the map overview, fields
+with their crop and growth state, farmlands, sell points, shops, productions
+and every farm vehicle. You can open it on a second screen, a tablet or a
+phone, on **Windows and macOS**.
 
-The design mirrors [Truck Dash](https://github.com/Nethercap/truck-companion)
-(ETS2/ATS), adapted to the FS25 modding ecosystem.
+> **Status: under rework.** The first prototype (Windows named pipe and a
+> single position arrow) is being replaced by a cross-platform, layered design.
+> Phase 0, verifying the game's API in-game, is done. See
+> [docs/PLAN.md](docs/PLAN.md) for the full plan and the verified API facts.
 
-## Architecture
+## How it works
 
 ```
-[FS25 + CompanionTelemetry.lua mod]  →  Windows named pipe \\.\pipe\fssimx
-[Local bridge client (Python .exe)]  →  WebSocket  →  [Relay backend (FastAPI)]
-                                                        →  WebSocket  →  [Your browser]
+FS25 + companion mod (Lua)
+   │  writes one JSON message per line
+   ▼
+<profile>/modSettings/FS25_Companion/stream.ndjson
+   │  tailed by
+   ▼
+Companion client (Python, runs next to the game)
+   │  WebSocket + HTTP (map assets)
+   ▼
+Backend (FastAPI): local, or a hosted relay with pairing codes
+   │  WebSocket
+   ▼
+Browser dashboard: Leaflet map in world coordinates, one layer per feature
 ```
 
-- The **mod** (Lua) exports a framed telemetry stream to the named pipe
-  `\\.\pipe\fssimx`. Same pipe name and wire format as the
-  [LS25_FSTelemetry](https://github.com/upsidedownLS13/LS25_FSTelemetry)
-  base mod (MIT), plus position/heading/session fields.
-- The **client** (Python) creates the pipe server, parses the frames, and
-  relays them as JSON over a WebSocket to the backend, identified by a
-  pairing code.
-- The **backend** (FastAPI) is a stateless-ish relay: one game client and
-  any number of browser viewers per pairing code. No accounts, no storage.
-- The **web app** (vanilla JS) draws the vehicle on the game map image and
-  updates the status panel.
-
-Because the GIANTS engine's Lua `io` supports Windows named pipes, no game
-DLL is needed (unlike the SCS Telemetry SDK) — just a Lua mod.
+- **Mod (Lua).** Small collectors, one per topic: `player`, `vehicles`,
+  `hotspots`, `fields`, `farmlands`, `env`. Each runs at its own rate and writes
+  versioned JSON envelopes (`{"v":1,"seq":…,"t":…,"topic":…,"data":…}`) to a
+  plain file. Plain file I/O works the same on Windows and macOS, never blocks
+  the game, and doesn't care about start order. Every collector is isolated, so
+  a failing API call drops one topic, never the game.
+- **Client (Python).** Finds the FS25 profile folder on Windows or macOS, tails
+  the stream file, extracts the map's overview image (DDS → PNG), and forwards
+  everything to the backend. It can record and replay sessions, so the
+  dashboard can be developed without the game running.
+- **Backend (FastAPI).** Validates messages, keeps the latest state per topic,
+  and gives new viewers a full snapshot. It runs locally in one command or as a
+  hosted relay where a pairing code links the game and the browser.
+- **Dashboard (vanilla JS, no build step).** A Leaflet map in world meters,
+  with the overview image placed using the game's own map-extension values.
+  Toggleable layers mirror the PDA filters.
 
 ## Repository layout
 
 ```
-mod/        Lua telemetry mod (zip the contents → FS25 mods folder)
-client/     Local Python bridge client (pipe → WebSocket), PyInstaller-buildable
-backend/    FastAPI WebSocket relay (deploy to Railway/Fly/…)
-web/        Dashboard (static, no build step) + per-map configs in web/maps/
-builder/    Scripts to generate map configs (image + world→image projection)
+docs/PLAN.md   Architecture, phased roadmap, verified FS25 API facts
+spike/         Phase 0 API probe mod (development only)
+fixtures/      Recorded mod output used by tests and replay
+mod/           Companion mod (Lua)
+client/        Local client (Python)
+backend/       FastAPI backend
+web/           Browser dashboard
+builder/       Map asset tooling (being folded into the client)
 ```
 
-## Quickstart (development)
+`mod/`, `client/`, `backend/`, `web/` and `builder/` still contain the first
+prototype until Phase 1 and 2 replace them.
 
-1. **Backend**
-   ```bash
-   cd backend
-   pip install -r requirements.txt
-   python -m uvicorn main:app --port 8123
-   ```
-2. **Mod**: zip the *contents* of `mod/` (so `modDesc.xml` is at the zip
-   root) and put the zip in your FS25 `mods/` folder. Enable it in the mod
-   list.
-3. **Client** (Windows, same machine as the game):
-   ```bash
-   cd client
-   pip install -r requirements.txt
-   python companion_client.py --backend ws://127.0.0.1:8123
-   ```
-   It prints a 6-digit pairing code.
-4. **Dashboard**: open `http://localhost:8123/?pair=<CODE>` — the backend
-   serves the dashboard directly. (`?backend=` is only needed if you host
-   `web/` yourself, e.g. with `python -m http.server`.)
-5. Start FS25 — the mod connects to the client's pipe automatically (either
-   start order works; both sides retry).
+## Roadmap
 
-Map assets are per-map and not included: see `web/maps/README.md` and
-`builder/` for how to generate them.
+| Phase | Scope | Status |
+|---|---|---|
+| 0 | In-game API spike: file I/O, heading, hotspots, fields, farmlands, map geometry | ✅ done |
+| 1 | New mod skeleton + file transport, client tailer with record/replay, backend protocol and state store; remove the named pipe | next |
+| 2 | Leaflet map in world coordinates, overview image pipeline, player marker, pan/zoom/follow | planned |
+| 3 | PDA layers: sell points, shops, productions, animals; all vehicles; farmland ownership | planned |
+| 4 | Fields: outlines, crop and growth colours (PDA colours), field info panel | planned |
+| later | Sell prices, missions, AI workers, multiplayer farm colours, tray app | ideas |
 
-## Roadmap / open items
+## Development
 
-- [ ] Real map projection for FS25 maps (placeholder in `web/maps/amdream.json`)
-- [ ] Pan/zoom on the map canvas
-- [ ] Field-state overlay (crop types / harvested areas) from map data
-- [ ] Multi-vehicle tracking (all farm vehicles, not just the player's)
-- [ ] System-tray mode for the client (`pystray`) + PyInstaller one-file build
-- [ ] UDP transport (cross-platform, no local client needed) — the GIANTS
-      engine ships luasocket
-- [ ] Multiplayer: relay from the dedicated server host
+Requirements: Python 3.12+, and FS25 on Windows or macOS for live testing.
 
-## Attribution & licensing
+**Probe the game API (Phase 0 spike).** See [spike/README.md](spike/README.md).
+Zip `spike/FS25_CompanionSpike/`, drop it in your FS25 `mods/` folder, load a
+savegame, and read the generated `modSettings/FS25_CompanionSpike/report.json`.
 
-- The telemetry mod is derived from
-  [FarmingSimulatorTelemetry](https://github.com/Marciel032/FarmingSimulatorTelemetry)
-  by Marciel Grützmann and the FS25 conversion
-  [LS25_FSTelemetry](https://github.com/upsidedownLS13/LS25_FSTelemetry) by
-  upsidedown — both MIT licensed.
-- The relay architecture follows the pattern of
-  [Truck Dash](https://github.com/Nethercap/truck-companion) (AGPL-3.0);
-  this codebase is an independent, minimal implementation under MIT.
-- This project reads only what the game's Lua API exposes and does not
-  modify the game in any way.
+Run instructions for the new client, backend and dashboard will be added here
+as Phase 1 lands.
+
+FS25 mod folders:
+
+- **Windows:** `Documents/My Games/FarmingSimulator2025/mods/`
+- **macOS:** `~/Library/Application Support/FarmingSimulator2025/mods/`
+
+## License
+
+MIT, see [LICENSE](LICENSE). This project reads only what the game's Lua API
+exposes and doesn't change your game or savegames.
