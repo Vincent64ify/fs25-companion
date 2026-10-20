@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8" standalone="no" ?>
+<modDesc descVersion="105">
+    <author>fs25-companion</author>
+    <version>0.0.1</version>
+    <title>
+        <en>FS25 Companion API Spike</en>
+    </title>
+    <description>
+        <en><![CDATA[Development-only probe for FS25 Companion. Dumps the structure of the map, hotspot, field, farmland, vehicle and player APIs to modSettings/FS25_CompanionSpike/report.json and records a short pose stream. Does not change the game. Remove after use.]]></en>
+    </description>
+    <iconFilename>icon.png</iconFilename>
+    <multiplayer supported="false" />
+    <extraSourceFiles>
+        <sourceFile filename="CompanionSpike.lua"/>
+    </extraSourceFiles>
+</modDesc>

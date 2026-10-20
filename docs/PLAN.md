@@ -1,0 +1,270 @@
+# FS25 Companion: rework the transport (Windows + macOS) and rebuild the PDA map
+
+## Context
+
+The current project works, but two parts were built on early assumptions:
+
+1. **Transport.** Mod → client uses the Windows named pipe `\\.\pipe\fssimx` (`mod/CompanionTelemetry.lua`, `client/pipe_server.py`). It is Windows-only. It is also fragile: `pipe_server.py` documents a long debugging saga where the engine's pipe can get stuck until the game restarts, and there are five pipe-debugging scripts. The wire format (`HEADER<k<k<BODY<v<v`) is a flat key list. It can't carry nested or variable-size data such as lists of vehicles, fields or sell points.
+2. **Map.** `web/app.js` draws one PNG on a hand-rolled canvas and positions one arrow using calibration knobs (`rotateDeg`, `flipX/Z`, `headingOffset`, `overviewSpanFactor`). Heading has sign hacks that differ between player and vehicle (`CompanionTelemetry.lua:250-282`). Map assets are found by guessing install paths on Windows (`builder/import_map.py`). There is no pan/zoom and no layer model, so nothing to hang fields, sell points or vehicles on.
+
+**Goal:** a foundation that runs the same on Windows and macOS, carries structured data, and renders like the in-game PDA: overview image, farmlands, fields, POIs and all vehicles, as toggleable layers. Each new feature should mean adding one collector in the mod and one layer on the web side, with no changes in between.
+
+**Decisions taken:**
+- No compatibility with the old pipe or the old wire format.
+- Vanilla JS with no build step: ES modules plus `// @ts-check` and JSDoc types, and a vendored Leaflet.
+- The backend still supports both local use and the remote pairing relay.
+
+---
+
+## Phase 0 results (spike run on Solek, Windows, 2026-10-20)
+
+These results override any API guesses later in this document.
+
+**Runtime**
+- The scripting language is **Luau**, not Lua 5.1.
+- `coroutine`, `debug`, `os`, `jit` are all nil.
+- Metatables are hidden: class names and method lists can't be enumerated. Methods are still callable by name, for example `h:getCategory()` and `h:isa(Class)`.
+- Consequence: time-sliced jobs must be explicit cursor state machines advanced from `update(dt)`, not coroutines. There is no traceback, so `pcall` with an error string is all we get.
+
+**File I/O**
+- `io.open(path, "w")` + `write` + `flush` works. `stream.ndjson` ran 5.4 minutes with 1,579 lines, 0 corrupt, contiguous `seq`, steady 200 ms spacing.
+- File handles have **no `read` method**, so the mod is write-only. That's fine: it only writes.
+- `g_modSettingsDirectory` = `<profile>/modSettings/` and `getUserProfileAppPath()` = `<profile>/`.
+- **Verified live:** Python reads the file while FS25 holds it open. Over 3 s it saw 15 new complete lines; there is no file lock on Windows.
+- **Still to verify in Phase 1:** whether a `"w"` reopen truncates (rotation), and macOS.
+
+**Heading** (verified)
+- `heading = atan2(dx, -dz)` in degrees, normalized to 0..360, with 0 = north (−Z) and clockwise.
+- Vehicles: forward vector from `localDirectionToWorld(rootNode, 0, 0, 1)`. Matches the travel direction with a 0.3° median error.
+- Player: `g_localPlayer.rootNode` never rotates (always +Z, which is why the old on-foot reading was a constant 180°). Use `g_localPlayer:getCurrentFacingDirection()`, which returns `(dx, dz)` = `(sin yaw, cos yaw)`. `getYaw()` gives the same angle.
+- Other player methods: `getPosition()` returns `x, y, z`; also `getIsInVehicle()`, `getCurrentVehicle()`, `getSpeed()`, `farmId`.
+
+**Map / overview**
+- `missionInfo.map` has `id` (= mapId), `title`, `baseDirectory`, `mapXMLFilename`, `isModMap`.
+- The overview image filename is read by the client from `<baseDirectory>/<mapXMLFilename>` (`imageFilename`), reusing the import_map.py parser.
+- `g_currentMission.terrainSize` = 2048.
+- `hud.ingameMap` has `worldSizeX/Z` (2048), `worldCenterOffsetX/Z` (1024), and **`mapExtensionScaleFactor` (0.5) / `mapExtensionOffsetX/Z` (0.25)**. Send these in `hello`; they replace the hard-coded `overviewSpanFactor = 2`.
+
+**Hotspots**
+- `hud.ingameMap.hotspots` holds 352 entries, each with `worldX`, `worldZ`, `name`, `ownerFarmId`, `isVisible`, `getCategory()` and `getWorldPosition()`.
+- Category constants come from `MapHotspot.CATEGORY_*`: FIELD 1, ANIMAL 2, MISSION 3, TOUR 4, STEERABLE 5, COMBINE 6, TRAILER 7, TOOL 8, UNLOADING 9 (sell points), LOADING 10, PRODUCTION 11, SHOP 12, DEFAULT/OTHER 13, AI 14, PLAYER/MAP_UTILITY 15.
+- The observed mix: 189 field, 108 other, 19 loading, 13 unloading, 9 production, 4 shop, 5 animal, plus vehicles and player.
+- Display names for placeable hotspots are still to check in Phase 1. Candidates: the `name` field and `h.placeable:getName()`.
+
+**Fields**
+- `g_fieldManager.fields` holds 162 fields.
+- Each field has `getId()`, `posX/posZ`, `areaHa`, `farmland` (table), **`densityMapPolygon.pointsX/pointsZ`** (a ready-made outline, so no sampling is needed), and `fieldState` with `fruitTypeIndex`, `growthState`, `groundType`, `limeLevel`, `plowLevel`, `sprayLevel`, `weedState`, `stoneLevel`, `ownerFarmId`.
+
+**Farmlands**
+- `g_farmlandManager.farmlands` holds 189 entries with `id`, `farmId`, `isOwned`, `price`, `areaInHa`, `boundingBox`, `xWorldPos/zWorldPos` and `name`.
+- `getFarmlandIdAtWorldPosition` takes 7.4 ms per 10,000 calls, so a 512² grid at 4 m costs about 200 ms total. Slice it at ≤5 ms per frame. ID **255 = no farmland**.
+
+**Vehicles**
+- `g_currentMission.vehicleSystem.vehicles` returns `id`, `uniqueId`, `typeName`, `getFullName()`, `getOwnerFarmId()`, `getIsAIActive()`, `propertyState`, `rootNode` and `spec_*`.
+
+**Crop colours**
+- `g_fruitTypeManager.fruitTypes[i]` has `defaultMapColor` and `colorBlindMapColor`: the PDA's own crop colours. Send them once in a `types` topic.
+
+---
+
+## Target architecture
+
+```
+FS25 mod (Lua) ──append NDJSON──► <profile>/modSettings/FS25_Companion/stream.ndjson
+                                         │  (plain file: identical on Windows and macOS)
+Python client ──tail + validate──────────┘
+      │  WebSocket (typed envelopes)        HTTP PUT (map assets, once per map)
+      ▼                                     ▼
+FastAPI backend: per-session StateStore (latest value per topic) ──► browsers (WebSocket)
+      ▼
+web/: Leaflet in world coordinates, one module per layer
+```
+
+### 1. Transport: a file stream instead of a named pipe
+
+Why a file:
+- The mod already relies on Lua `io` (`io.open`), and GIANTS exposes `getUserProfileAppPath()` / `g_modSettingsDirectory` on both operating systems. Writing a normal file avoids every pipe and FIFO problem: nothing blocks the game, there is no OS-specific API, and start order doesn't matter.
+- macOS FIFOs (`mkfifo`) are rejected: `open()` for writing blocks until a reader exists, which would freeze the game.
+- luasocket is rejected: it is not reliably exposed to mods.
+
+**Mod side** (`mod/src/Transport.lua`):
+- At mission start, open `modSettings/FS25_Companion/stream.ndjson` in mode `"w"` (truncate) and keep it open.
+- Write one JSON object per line and `flush()` after each tick.
+- Rotate when the file reaches about 2 MB: close it and reopen with `"w"`. The reader detects the shrink and restarts from offset 0.
+- Keep the total write rate around 10–20 lines/s. That is a few KB/s, which is negligible.
+
+**Envelope (protocol v1):**
+
+```json
+{"v":1,"seq":1234,"t":5123456,"topic":"player","data":{...}}
+```
+
+- `seq` increases monotonically per session. A gap or a reset tells the reader about a rotation or a new session.
+- `t` is game time in ms.
+- `topic` is one of a fixed set of channels, each with its own rate and its own "latest wins" semantics:
+
+| topic | rate | content |
+|---|---|---|
+| `hello` | session start, and after rotation | protocolVersion, modVersion, sessionId, platform, mapId, mapTitle, terrainSize, overview image path, map dir |
+| `env` | 1 Hz | time, day, season, weather, temperatures, money (per farm) |
+| `player` | 10 Hz | position, heading, farmId, controlled vehicle id |
+| `vehicles` | 2 Hz | all vehicles: id, type/category, name, farmId, x/z/heading, speed, fuel, isAI, controlled-by; plus detail for the controlled vehicle (rpm, gear, implements, lights) |
+| `hotspots` | 0.1 Hz and on change | PDA POIs: id, category (sellpoint/shop/production/animal/fuel/…), name, x/z, icon key |
+| `farmlands` | once per map | farmland id → owner farmId and price; outline grid (see section 3) |
+| `fields` | every ~30 s | field id, farmlandId, outline polygon, center, fruit type, growth state, plow/lime/fertilizer state |
+| `prices` | every ~60 s | sell point id → fill type → price (later phase) |
+
+The `hello` message is re-emitted after every rotation, so a reader that starts late always gets the context it needs.
+
+**Client side** (`client/transport/file_tail.py`):
+- Poll the file every 50 ms. Track the read offset, buffer partial lines, and drop lines that aren't valid JSON (for example a line cut off during rotation). If the file is smaller than the offset, reset to 0.
+- Pure Python, no OS-specific code. `watchdog` is not needed.
+- Profile directory discovery (`client/paths.py`), with `--profile-dir` to override:
+  - **Windows:** `Documents/My Games/FarmingSimulator2025`, with the OneDrive variant. Resolve Documents through `SHGetKnownFolderPath` rather than guessing.
+  - **macOS:** `~/Library/Application Support/FarmingSimulator2025` and the Mac App Store container `~/Library/Containers/*/Data/Library/Application Support/FarmingSimulator2025`.
+  - **Steam vs Epic vs Giants installs:** no install path is needed, because the mod reports file paths in `hello`.
+- **Delete:** `pipe_server.py`, `diagnose_pipe.py`, `pipe_probe.py`, `pipe_connect_test.py`, `pipe_thread_test.py`, the old `protocol.py` FrameParser, and `tests/test_pipe_roundtrip.py`.
+
+**Recording and replay** (`client/companion_client.py --replay file.ndjson`, `--record`): the stream file is already a recording. Replay lets you develop the whole web side without the game running, and feeds the tests.
+
+### 2. Mod structure: one collector per topic
+
+```
+mod/
+  modDesc.xml
+  src/
+    Companion.lua          -- bootstrap, addModEventListener, scheduler (per-topic intervals, time-sliced jobs)
+    Json.lua               -- small encoder (no os/json lib in GIANTS Lua): NaN/inf → null, string escaping
+    Transport.lua          -- file open/rotate/write, seq counter
+    Geo.lua                -- worldPose(node) -> x, z, heading using localDirectionToWorld(node,0,0,1); atan2(dx,dz)
+    collectors/
+      Hello.lua  Env.lua  Player.lua  Vehicles.lua  Hotspots.lua  Farmlands.lua  Fields.lua
+```
+
+- **Collector contract:** `{ topic = "vehicles", interval = 500, collect = function(ctx) return data end }`.
+  - The scheduler wraps every `collect` call in `pcall`. One broken API call drops only that topic for that tick and logs once. It never crashes the game or the other topics.
+  - Expensive work runs as a cursor job advanced each frame, limited to N ms per frame. Luau has no coroutines. Examples: sampling the farmland grid, walking all fields.
+- **One heading convention everywhere:** 0 = north (−Z), clockwise, in degrees, computed from the node's forward vector. This replaces the separate rotY/yaw sign hacks for player and vehicle. The web side does no heading calibration.
+- **Hotspots:** read them from the same source the PDA uses (`g_currentMission.hud.ingameMap` hotspots / `mapHotspots`). Each hotspot carries category, world position and name. This makes the dashboard match the PDA for any map without per-map tables.
+
+### 3. Map data pipeline
+
+Every coordinate stays in **world meters (x, z)**, from the mod to the screen. Only one transform exists: the one that places the overview image.
+
+**Overview image**
+- `hello` carries the absolute path of the overview image and `terrainSize`. The client no longer guesses from savegames or install paths.
+- The client hashes the image file, converts DDS → PNG with Pillow (reusing the logic in `builder/import_map.py:175`), and makes a 2048 px variant for phones.
+- It uploads both to the backend with `PUT /api/maps/{mapId}/{hash}/overview.png`, which is content-addressed and skipped if already present. Uploading works the same whether the backend is local or remote.
+- Map metadata goes to `PUT /api/maps/{mapId}/{hash}/meta.json`, holding `{terrainSize, overviewSpanFactor: 2}`.
+- Keep the empirically verified factor of 2 (the playable area is the central half of the texture) as a single constant with a test. Delete `rotateDeg` and `flipX/Z`.
+- **Fallback:** if the overview is inside a packed basegame archive and unreadable, the dashboard shows a plain terrain-colored background, and all vector layers still work.
+
+**Farmlands**
+- The mod samples `g_farmlandManager:getFarmlandIdAtWorldPosition(x, z)` on a grid: 4 m cells, so 512×512 for a 2 km map. It runs time-sliced over a few seconds after load.
+- It sends the grid run-length encoded, roughly 10–50 KB.
+- The client vectorizes the grid into polygons (marching squares or simple boundary tracing in Python) and sends GeoJSON-like polygons to the backend.
+- This works for any map without parsing GIANTS `.grle` files.
+
+**Fields**
+- Use the field polygon from FS25's `Field` object if the API exposes one (to be verified in Phase 0).
+- Otherwise build the outline from the same sampling technique, using the field id at a position.
+- The field state (fruit, growth) is read with FieldState sampling at the field's center and sent per field.
+
+### 4. Backend (FastAPI): keep it, add structure
+
+```
+backend/app/
+  main.py          -- app factory, static mount
+  protocol.py      -- pydantic models for the envelope + each topic (source of truth; also exported to web/protocol/schema.json)
+  sessions.py      -- Session: client ws, viewers, StateStore
+  state_store.py   -- latest data per topic + seq; snapshot() for new viewers
+  ws.py            -- /ws?pair=… (client role / viewer role), unchanged handshake
+  assets.py        -- PUT/GET /api/maps/{mapId}/{hash}/… (disk cache dir, size limits, client-token auth)
+```
+
+- **New viewers** receive `snapshot` (all topics) and then live `update` messages per topic. This replaces the single `last_telemetry` dict.
+- **Validation:** the backend validates envelopes with pydantic. A protocol version mismatch is reported to the viewer ("update your mod").
+- **Local mode:**
+  - `companion_client.py --local` starts the backend in-process (uvicorn) and uses a fixed pairing code.
+  - You run one program and open `http://<pc-ip>:8123`.
+  - Remote relay mode stays exactly as it works today.
+- **Asset uploads** require the client's session token. The token is issued in the `hello` reply, so random people can't fill a hosted relay.
+
+### 5. Web: vanilla ES modules + Leaflet in world coordinates
+
+```
+web/
+  index.html  style.css
+  vendor/leaflet/          -- vendored Leaflet 1.9.4 (works offline/LAN, no CDN)
+  src/
+    main.js                -- bootstrap
+    store.js               -- topic store: subscribe(topic, fn); applies snapshot/update
+    connection.js          -- WebSocket, reconnect, protocol-version check
+    map/
+      mapView.js           -- L.map with L.CRS.Simple; world (x,z) ↔ LatLng adapter in ONE place
+      overviewLayer.js     -- image overlay from meta.json bounds
+      layers/
+        playerLayer.js  vehiclesLayer.js  hotspotsLayer.js  farmlandsLayer.js  fieldsLayer.js
+      icons.js             -- category → icon/colour (PDA-like legend)
+      legend.js            -- toggles per layer/category, persisted in localStorage
+    panels/
+      vehiclePanel.js  envPanel.js  fieldInfoPanel.js (click a field → details)
+    types.js               -- JSDoc typedefs mirroring backend protocol.py
+```
+
+- **Layer contract:** `createLayer(map, store) → { id, title, leafletLayer, legendItems }`. A layer subscribes only to its own topic(s). Adding a feature means adding one file and registering it.
+- **Vehicle markers:** rotated SVG icons, interpolated between updates so 2 Hz still looks smooth. There is a "follow me" toggle and a click popup with vehicle details.
+- **Fields:** polygons filled by fruit or growth state, like the PDA filter modes. They have field-number labels at higher zooms.
+- **Type checking:** `// @ts-check` in every file, and a `jsconfig.json`. This gives editor type checking with no build. An optional `npx tsc --noEmit` can run in CI.
+
+### 6. Tests and guardrails
+
+- **Golden fixtures** (`fixtures/*.ndjson`): recorded from a real session in Phase 0, one per map.
+  - Client tests: tailing, rotation, partial lines, seq reset.
+  - Backend tests: pydantic validates every fixture line, and StateStore snapshot semantics hold.
+  - Lua tests: the `Json.lua` encoder and the scheduler run under a plain Lua 5.1 (`busted`), with a stubbed `g_currentMission`.
+- **Protocol version:** bump `v` for breaking changes. Topics may gain fields freely, and the web side must ignore unknown fields.
+- **Transform tests:** `mapView.js` world↔LatLng has one tested test page (`web/test.html` with known points). For example, world (0,0) maps to the image center, and +X maps to the right.
+
+---
+
+## Phased delivery
+
+**Phase 0: API spike (in game, about 1 session)**
+- Build a debug mod that dumps to the log:
+  - whether `io.open(append)` works under the modSettings directory on Windows (and on macOS if possible)
+  - the structure of `ingameMap` hotspots
+  - the `Field` API (polygon?)
+  - the farmland lookup
+  - the overview path in `missionInfo` / `map`
+- Record the first `stream.ndjson` fixture.
+- These results fix the exact API names that sections 2 and 3 assume.
+
+**Phase 1: transport + protocol**
+- Mod skeleton (`Companion`, `Json`, `Transport`, `Geo`, plus the `Hello`/`Env`/`Player`/`Vehicles`(controlled-only) collectors).
+- Client tailer, `paths.py`, record/replay.
+- Backend pydantic protocol and StateStore.
+- Delete the pipe code.
+- **Done when:** the current dashboard features work from the file stream on Windows, and the client runs on macOS in replay mode.
+
+**Phase 2: map foundation**
+- Leaflet + world CRS, the overview pipeline (hash + upload), the player marker, pan/zoom/follow.
+- Delete `rotateDeg` and the other calibration knobs, plus `builder/make_map_config.py`.
+- Fold the reusable parts of `import_map.py` (DDS → PNG) into `client/map_assets.py`.
+
+**Phase 3: PDA layers**
+- Hotspots (sell points, shops, productions, fuel, animals) with a legend.
+- All vehicles with interpolation.
+- Farmlands with owned/unowned shading.
+
+**Phase 4: fields**
+- Field polygons, fruit/growth fill modes, a field info panel.
+
+**Later**
+- Prices per sell point, missions/contracts, AI worker routes, multiplayer (farm colours), a system-tray client built with PyInstaller.
+
+## Verification
+- **Unit tests:** `pytest client backend` (fixtures, tailer rotation, protocol validation). Run `busted mod/tests` for the Lua encoder and scheduler.
+- **Replay end-to-end:** run `python client/companion_client.py --local --replay fixtures/solek.ndjson` and open `http://localhost:8123`. Check that the player moves, layers toggle, and pan and zoom work. Use the in-app browser for screenshots at desktop and phone width.
+- **Live on Windows:** zip `mod/`, start FS25 and the client in either order, and compare the marker and hotspot positions with the in-game PDA at three spots (a map corner, the center, and one sell point).
+- **macOS:** run the same live test on a Mac. At a minimum, the client in replay mode plus `paths.py` discovery tests with a fake home directory.

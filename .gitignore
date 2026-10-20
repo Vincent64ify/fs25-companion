@@ -19,3 +19,4 @@ web/maps/*.webp
 .DS_Store
 Thumbs.db
 mod/FS25_CompanionTelemetry.zip
+spike/*.zip
