@@ -44,15 +44,30 @@ h1 { font-size: 18px; margin: 0; }
   font-size: 14px;
 }
 
-main {
-  display: grid;
-  grid-template-columns: 1fr 300px;
-  gap: 12px;
-  padding: 12px;
-  height: calc(100vh - 53px);
+#app {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  height: 100dvh;
 }
 
+main {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  gap: 12px;
+  padding: 12px;
+  container-type: size;
+}
+
+/* The map is square like the playable area, so "the whole map" fills it
+   exactly and nothing outside the playable area shows. Side by side: as
+   tall as the screen allows, leaving the panel at least 300 px. */
 #map-wrap {
+  flex: none;
+  width: min(100cqh, 100cqw - 312px);
+  aspect-ratio: 1;
+  align-self: flex-start; /* stretching would undo the aspect ratio */
   position: relative;
   background: var(--panel);
   border: 1px solid var(--border);
@@ -113,6 +128,8 @@ main {
 }
 
 #panel {
+  flex: 1;
+  min-width: 0;
   display: flex;
   flex-direction: column;
   gap: 12px;
@@ -152,9 +169,13 @@ dd { margin: 0; }
 
 #implements { margin: 0; padding-left: 18px; font-size: 13px; }
 
-@media (max-width: 800px) {
-  main { grid-template-columns: 1fr; height: auto; }
-  #map-wrap { height: 50vh; }
+/* Portrait (phones, tablets upright) and narrow windows: the map on top,
+   as wide as the screen but never taller than it, the panel below. */
+@media (orientation: portrait), (max-width: 600px) {
+  #app { height: auto; }
+  main { flex-direction: column; container-type: normal; }
+  #map-wrap { width: min(100%, 100dvh - 80px); align-self: center; }
+  #panel { overflow-y: visible; }
 }
 
 /* --- vehicles ---------------------------------------------------------- */
@@ -281,7 +302,7 @@ dd { margin: 0; }
 .field-info-close:hover { background: var(--border); color: var(--text); }
 .field-info dl div { font-size: 13px; padding: 2px 0; gap: 12px; }
 .field-info dd { text-align: right; }
-@media (max-width: 800px) {
+@media (orientation: portrait), (max-width: 600px) {
   .field-info { bottom: 10px; max-height: 55%; }
 }
 

@@ -2,7 +2,8 @@
 // The map background: the PDA overview image the client uploaded, placed
 // with meta.json's world bounds. Without an image (not uploaded yet, or the
 // map's files couldn't be read) a plain terrain rectangle stands in, so the
-// vector layers still have a frame.
+// vector layers still have a frame. Only the playable area ever shows: the
+// view is kept inside it and the image is clipped to it.
 
 import { HTTP_BASE } from "../connection.js";
 import { constrainTo, terrainBounds, worldBoundsToLatLngBounds } from "./mapView.js";
@@ -16,6 +17,18 @@ const SMALL_SCREEN_PX = 1024;
 function imageName() {
   return Math.max(screen.width, screen.height) <= SMALL_SCREEN_PX
     ? "overview_2048.png" : "overview.png";
+}
+
+/**
+ * CSS clip-path keeping the playable part of the image: inset(top right
+ * bottom left), in % of the image. The image's top is its smallest z.
+ * @param {WorldBounds} image
+ * @param {WorldBounds} playable
+ */
+export function playableClip([ix0, iz0, ix1, iz1], [px0, pz0, px1, pz1]) {
+  const w = ix1 - ix0, h = iz1 - iz0;
+  const pct = (/** @type {number} */ v, /** @type {number} */ of) => `${Math.max(0, (v / of) * 100)}%`;
+  return `inset(${pct(pz0 - iz0, h)} ${pct(ix1 - px1, w)} ${pct(iz1 - pz1, h)} ${pct(px0 - ix0, w)})`;
 }
 
 /**
@@ -73,9 +86,12 @@ export function createOverviewLayer(map, store, hooks = {}) {
     if (gen !== generation) return;
     shown = key;
     group.clearLayers();
-    L.imageOverlay(`${base}/${imageName()}`, worldBoundsToLatLngBounds(meta.imageBounds), {
+    const image = L.imageOverlay(`${base}/${imageName()}`, worldBoundsToLatLngBounds(meta.imageBounds), {
       className: "overview-image", interactive: false,
     }).addTo(group);
+    // the view never leaves the playable area, but a pinch can overshoot
+    // for a frame: show the background there, not the unplayable border
+    image.getElement().style.clipPath = playableClip(meta.imageBounds, meta.playableBounds);
     frame(mapId, meta.playableBounds);
   }
 

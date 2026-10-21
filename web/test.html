@@ -58,6 +58,26 @@ check("east is right on screen", px(500, 0).x > c.x, true);
 check("north is up on screen", px(0, -500).y < c.y, true);
 check("south is down on screen", px(0, 500).y > c.y, true);
 
+// the view never leaves the playable area
+const { constrainTo, coverZoom } = await import("./src/map/mapView.js");
+const covers = (z, size, span) => 2 ** z * span >= size;
+check("cover zoom: square view", [covers(coverZoom({ x: 400, y: 400 }, terrainBounds(2048)), 400, 2048),
+  coverZoom({ x: 400, y: 400 }, terrainBounds(2048)) < Math.log2(400 / 2048) + 0.01], [true, true]);
+check("cover zoom: wide view goes by width", covers(coverZoom({ x: 800, y: 200 }, terrainBounds(2048)), 800, 2048), true);
+const inside = () => L.latLngBounds(worldBoundsToLatLngBounds(terrainBounds(2048))).contains(map.getBounds());
+constrainTo(map, terrainBounds(2048));
+map.setZoom(-10, { animate: false });
+check("can't zoom out past the terrain", [map.getZoom() > -10, inside()], [true, true]);
+map.setView(worldToLatLng(5000, 5000), 0, { animate: false });
+check("can't pan off the terrain", inside(), true);
+map.setView(worldToLatLng(-1000, -1000), 0, { animate: false });
+check("stops at a corner", inside(), true);
+
+const { playableClip } = await import("./src/map/overviewLayer.js");
+check("clip: centre quarter", playableClip([-2048, -2048, 2048, 2048], [-1024, -1024, 1024, 1024]),
+      "inset(25% 25% 25% 25%)");
+check("clip: image = terrain", playableClip([0, 0, 10, 10], [0, 0, 10, 10]), "inset(0% 0% 0% 0%)");
+
 // --- farmland outlines (map/farmlandGeometry.js) ---------------------------
 
 const geo = await import("./src/map/farmlandGeometry.js");

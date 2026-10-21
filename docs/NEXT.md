@@ -3,27 +3,7 @@
 Things to fix after Phase 4, in no particular order. Longer-term ideas are
 under **Later** in [PLAN.md](PLAN.md).
 
-## 1. Show only the playable area
-
-The overview image is twice the size of the terrain (the playable area is
-its centre quarter, `mapExtensionScaleFactor` 0.5), so the map shows a wide
-border nobody can drive in. To be decided:
-
-- Crop the image to the playable bounds, either in the client
-  (`map_assets.py`, when it converts the DDS) or with Leaflet bounds only.
-  `meta.json` already has `playableBounds`.
-- Limit panning and zoom-out to the playable area (`constrainTo` in
-  `mapView.js` currently uses the whole image plus a margin).
-- The map is always square. How should it fit the dashboard so it stays
-  neatly in place, stays responsive and fills the screen?
-  - Wide screens: a square map using the full height, with the panels in
-    the remaining width.
-  - Tall screens (phones): a square map using the full width, panels below
-    or in a drawer.
-  - Or a full-screen map with the panels floating over it, and "fit" means
-    the playable square fits the shorter side.
-
-## 2. Vehicle values that don't work
+## 1. Vehicle values that don't work
 
 In the first live session (Solek, Volvo L90H), the controlled vehicle
 arrived without `fuel`, `fuelCapacity`, `wear` and `operatingHours`, so the
