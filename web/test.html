@@ -110,6 +110,14 @@ check("staircase simplified to a triangle-ish ring", simple.length <= 5, true);
 const world = geo.farmlandOutlines(grid(4, 4, [0,0,0,0, 0,1,1,0, 0,1,1,0, 0,0,0,0])).get(1)[0];
 check("outline in world meters", world.map((p) => `${p.x},${p.z}`).sort(), ["-4,-4", "-4,4", "4,-4", "4,4"]);
 
+// hit test in world meters; a hole doesn't count as inside
+const ring1 = geo.farmlandOutlines(grid(4, 4, [0,0,0,0, 0,1,1,0, 0,1,1,0, 0,0,0,0])).get(1);
+check("contains: centre", geo.ringsContain(ring1, 0, 0), true);
+check("contains: outside", [geo.ringsContain(ring1, -6, 0), geo.ringsContain(ring1, 0, 6)], [false, false]);
+const donutWorld = geo.farmlandOutlines(grid(3, 3, [1,1,1, 1,2,1, 1,1,1]), 0);
+check("contains: donut ring, not its hole", [geo.ringsContain(donutWorld.get(1), -6, -6), geo.ringsContain(donutWorld.get(1), -2, -2)], [true, false]);
+check("contains: farmland in the hole", geo.ringsContain(donutWorld.get(2), -2, -2), true);
+
 // --- field colours (map/fieldStyle.js) -------------------------------------
 
 const fs = await import("./src/map/fieldStyle.js");

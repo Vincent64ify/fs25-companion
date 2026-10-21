@@ -3,7 +3,8 @@
 // fields topic (every 15 s) in one of the PDA's modes: crop, growth,
 // fertilizer, lime, plowing, weeds. Field numbers show when zoomed in.
 // Tap a field to select it: the field info panel shows its details (the
-// selection is the store's "selectedField" key).
+// selection is the store's "selectedField" key). Tap anywhere else on the
+// map to close it.
 
 import { landRenderer, worldToLatLng } from "../mapView.js";
 import { MODES, classify, cropCatalog, legendKey } from "../fieldStyle.js";
@@ -30,6 +31,8 @@ export function createFieldsLayer(map, store) {
   const root = L.layerGroup([shapes]);
   /** @type {Map<number, {polygon: any, label: any}>} */
   const byId = new Map();
+  /** field clicked in the click being dispatched (the shape fires before the map) */
+  let picked = /** @type {number|undefined} */ (undefined);
   /** @type {FieldMode} */
   let mode = "crop";
   let labelsOn = true;
@@ -53,10 +56,8 @@ export function createFieldsLayer(map, store) {
         latLngs.push(worldToLatLng(f.points[i], f.points[i + 1]));
       }
       const polygon = L.polygon(latLngs, { renderer, pane: "land", ...BASE, fillOpacity: 0 });
-      polygon.on("click", (/** @type {any} */ e) => {
-        L.DomEvent.stopPropagation(e);
-        store.set("selectedField", f.id);
-      });
+      // the canvas hands a click only to shapes listening for it
+      polygon.on("click", () => { picked = f.id; });
       shapes.addLayer(polygon);
       const label = L.marker(polygon.getBounds().getCenter(), {
         pane: "fieldLabels",
@@ -125,6 +126,13 @@ export function createFieldsLayer(map, store) {
   store.subscribe("selectedField", (id) => {
     restyle();
     byId.get(id)?.polygon.bringToFront();
+  });
+  // Every click on the land ends here (markers don't bubble up): a field
+  // selects it, anything else (a farmland, bare map) closes the panel. The
+  // click goes on to the farmlands layer, which opens the farmland popup.
+  map.on("click", () => {
+    store.set("selectedField", picked);
+    picked = undefined;
   });
   map.on("zoomend", updateLabels);
   shapes.on("add remove", updateLabels);

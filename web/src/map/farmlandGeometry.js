@@ -156,6 +156,25 @@ export function ringArea2(/** @type {Point[]} */ ring) {
 }
 
 /**
+ * Whether world point (x, z) is inside the rings, by the even-odd rule the
+ * canvas fills them with: a hole's ring cancels its outer ring. World
+ * meters, so the answer doesn't depend on zoom or screen size.
+ * @param {{x: number, z: number}[][]} rings
+ * @param {number} x
+ * @param {number} z
+ */
+export function ringsContain(rings, x, z) {
+  let inside = false;
+  for (const ring of rings) {
+    for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+      const a = ring[i], b = ring[j];
+      if ((a.z > z) !== (b.z > z) && x < a.x + ((z - a.z) * (b.x - a.x)) / (b.z - a.z)) inside = !inside;
+    }
+  }
+  return inside;
+}
+
+/**
  * Farmland outlines in world meters, simplified.
  * @param {FarmlandGrid} grid
  * @param {number} [toleranceCells] Douglas-Peucker tolerance, in cells

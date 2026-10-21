@@ -2,11 +2,13 @@
 // Farmlands: outlines traced from the farmland_grid topic (once per map),
 // shaded by owner from the farmlands topic (every 10 s): the viewer's land,
 // other farms' land, and land for sale. Land the farmlands screen doesn't
-// offer (towns, roads) isn't drawn. Tap a farmland for its size and price.
+// offer (towns, roads) isn't drawn. Tap a farmland for its size and price,
+// also through a field drawn over it: the popup comes from a map click,
+// hit-tested in world meters, not from the shape on top.
 
-import { landRenderer, worldToLatLng } from "../mapView.js";
+import { landRenderer, latLngToWorld, worldToLatLng } from "../mapView.js";
 import { farmlandSwatch } from "../icons.js";
-import { farmlandOutlines } from "../farmlandGeometry.js";
+import { farmlandOutlines, ringsContain } from "../farmlandGeometry.js";
 import { myFarmId } from "../../store.js";
 
 /** @typedef {import("../../types.js").Farmland} Farmland */
@@ -66,7 +68,7 @@ export function createFarmlandsLayer(map, store) {
   /** @type {Record<FarmlandClass, any>} */
   const groups = { mine: L.layerGroup(), other: L.layerGroup(), sale: L.layerGroup() };
   const root = L.layerGroup(Object.values(groups));
-  /** @type {Map<number, {polygon: any, cls: FarmlandClass|null}>} */
+  /** @type {Map<number, {polygon: any, cls: FarmlandClass|null, rings: {x: number, z: number}[][]}>} */
   const shapes = new Map();
   let tracedKey = "";
 
@@ -89,12 +91,25 @@ export function createFarmlandsLayer(map, store) {
     for (const [id, rings] of outlines) {
       const latLngs = rings.map((ring) => ring.map((p) => worldToLatLng(p.x, p.z)));
       const polygon = L.polygon(latLngs, { renderer, pane: "land", ...STYLES.sale });
-      polygon.bindPopup(() => popupContent(id, byId().get(id), myFarmId(store)));
       // under the fields, however often it's shown again
       polygon.on("add", () => polygon.bringToBack());
-      shapes.set(id, { polygon, cls: null });
+      shapes.set(id, { polygon, cls: null, rings });
     }
   }
+
+  // Clicks on fields and farmlands bubble up to the map (markers don't).
+  // Only farmlands currently drawn count, so hidden classes stay silent.
+  map.on("click", (/** @type {any} */ e) => {
+    const { x, z } = latLngToWorld(e.latlng);
+    for (const [id, shape] of shapes) {
+      if (!map.hasLayer(shape.polygon) || !ringsContain(shape.rings, x, z)) continue;
+      L.popup()
+        .setLatLng(e.latlng)
+        .setContent(popupContent(id, byId().get(id), myFarmId(store)))
+        .openOn(map);
+      return;
+    }
+  });
 
   function byId() {
     /** @type {Farmland[]} */
