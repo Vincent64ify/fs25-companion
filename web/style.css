@@ -290,6 +290,8 @@ dd { margin: 0; }
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.5);
 }
 .field-info[hidden] { display: none; }
+/* moved aside by an open popup that would land on it (popupPlacement.js) */
+.field-info.on-right { left: auto; right: 10px; }
 .field-info-head {
   display: flex;
   align-items: center;
@@ -316,6 +318,12 @@ dd { margin: 0; }
 }
 
 .vehicle-popup, .farmland-popup { font: 13px system-ui, sans-serif; line-height: 1.4; }
+/* no room above the point: the popup hangs below it, tip pointing up */
+.leaflet-popup.popup-below .leaflet-popup-tip-container {
+  top: -20px;
+  margin-top: 1px;
+  transform: rotate(180deg);
+}
 
 /* --- legend ------------------------------------------------------------ */
 

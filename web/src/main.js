@@ -11,6 +11,7 @@ import { addCursorReadout, createMapView } from "./map/mapView.js";
 import { createOverviewLayer } from "./map/overviewLayer.js";
 import { createFollowControl } from "./map/followControl.js";
 import { createLegend } from "./map/legend.js";
+import { keepPopupsInside } from "./map/popupPlacement.js";
 import { createFarmlandsLayer } from "./map/layers/farmlandsLayer.js";
 import { createFieldsLayer } from "./map/layers/fieldsLayer.js";
 import { createHotspotsLayer } from "./map/layers/hotspotsLayer.js";
@@ -45,6 +46,7 @@ createLegend(map, layers);
 createVehiclePanel(store);
 createEnvPanel(store);
 createFieldInfoPanel(store);
+keepPopupsInside(map, { avoid: $("field-info") });
 
 // --- status --------------------------------------------------------------
 
