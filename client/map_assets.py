@@ -18,6 +18,10 @@ Mod maps can be zipped: GIANTS reports a zipped mod's folder as if it were
 unpacked (``.../mods/FS25_Solek/``), so every read also looks inside
 ``<folder>.zip``.
 
+Paid DLC maps (map id ``pdlc_<pack>.<map>``) are the exception: they live in
+an encrypted ``<game>/pdlc/<pack>.dlc`` archive that only the game can read,
+so they get no image and the dashboard draws its plain map.
+
 Everything stays in world meters. The one transform, placing the image, uses
 the PDA's own values from ``hello.ingameMap``:
 
@@ -144,6 +148,10 @@ def candidate_game_dirs(hello: Dict[str, Any]) -> List[Path]:
     out = [Path(hello["gameDir"])] if hello.get("gameDir") else []
     out += [p for p in DEFAULT_GAME_INSTALLS if p not in out]
     return out
+
+
+def is_paid_dlc(hello: Dict[str, Any]) -> bool:
+    return (hello.get("mapId") or "").startswith("pdlc_")
 
 
 def locate_map(hello: Dict[str, Any], profile_dir: Optional[Path] = None) -> MapLocation:
@@ -282,6 +290,9 @@ def prepare(hello: Dict[str, Any], cache_dir: Path,
     map_id = hello.get("mapId")
     if not map_id:
         raise MapAssetError("hello has no mapId")
+    if is_paid_dlc(hello):
+        raise MapAssetError(f"{map_id} is a paid DLC map: its files are encrypted, "
+                            "the dashboard draws a plain map")
     loc = locate_map(hello, profile_dir)
     blob, source, xml_width = read_overview(loc)
     place = placement(hello, xml_width)

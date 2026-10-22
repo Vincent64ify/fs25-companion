@@ -111,6 +111,14 @@ def test_locate_failure_is_a_map_asset_error(tmp_path):
         locate_map({"mapId": "FS25_Nope.Map"}, profile_dir=tmp_path)
 
 
+def test_prepare_skips_paid_dlc_maps(tmp_path):
+    hello = {"mapId": "pdlc_highlandsFishingPack.HighlandsFishingMap",
+             "mapDir": str(tmp_path / "pdlc" / "highlandsFishingPack"),
+             "mapXmlFilename": "map/map.xml"}
+    with pytest.raises(MapAssetError, match="paid DLC"):
+        prepare(hello, tmp_path / "cache")
+
+
 def test_prepare_converts_and_caches(zipped_mod, tmp_path, monkeypatch):
     monkeypatch.setattr(map_assets, "SMALL_SIZE", 8)
     cache = tmp_path / "cache"
