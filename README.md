@@ -6,16 +6,12 @@ with their crop and growth state, farmlands, sell points, shops, productions
 and every farm vehicle. You can open it on a second screen, a tablet or a
 phone, on **Windows and macOS**.
 
-> **Status: under rework.** The first prototype (Windows named pipe and a
-> single position arrow) is being replaced by a cross-platform, layered design.
-> Phase 0 (verifying the game's API in game) is done. Phase 1 (file
-> transport, client, backend protocol) and Phase 2 (Leaflet map in world
-> coordinates, overview image pipeline, player marker) are built and tested
-> offline with a replay, and still need their first live run in the game.
-> Phase 3 (PDA places, every vehicle, farmland ownership) ran live once on
-> Solek without errors. Phase 4 (fields with PDA colour modes and a field
-> info panel) is built and tested offline. See [docs/PLAN.md](docs/PLAN.md) for the full plan and the verified
-> API facts.
+> **Status:** the rework is built. Phases 0 to 4 (file transport, client and
+> backend, the Leaflet map, the PDA's places, every vehicle, farmlands and
+> fields) run live on Windows; macOS is still to test. Next:
+> [Themes and layouts](docs/THEMES.md). See [docs/PLAN.md](docs/PLAN.md) for
+> what's next, and [docs/DONE.md](docs/DONE.md) for what's built and the
+> verified game API facts.
 
 ## How it works
 
@@ -62,7 +58,10 @@ Browser dashboard: Leaflet map in world coordinates, one layer per feature
 ## Repository layout
 
 ```
-docs/PLAN.md   Architecture, phased roadmap, verified FS25 API facts
+docs/PLAN.md   What's next: roadmap, open checks, ground rules
+docs/DONE.md   What's built: architecture, phases, verified FS25 API facts
+docs/THEMES.md Themes and layouts plan
+docs/NEXT.md   Small fixes to do next
 spike/         Phase 0 API probe mod (development only)
 fixtures/      Recorded mod output used by tests and replay
 mod/           Companion mod (Lua)
@@ -78,11 +77,14 @@ web/           Browser dashboard (src/ modules, vendor/leaflet)
 | Phase | Scope | Status |
 |---|---|---|
 | 0 | In-game API spike: file I/O, heading, hotspots, fields, farmlands, map geometry | ✅ done |
-| 1 | New mod skeleton + file transport, client tailer with record/replay, backend protocol and state store; remove the named pipe | built, live test pending |
-| 2 | Leaflet map in world coordinates, overview image pipeline, player marker, pan/zoom/follow | built, live test pending |
-| 3 | PDA layers: sell points, shops, productions, animals; all vehicles; farmland ownership | built, first live run OK |
-| 4 | Fields: outlines, crop and growth colours (PDA colours), field info panel | built, live test pending |
-| later | Sell prices, missions, AI workers, multiplayer farm colours, tray app | ideas |
+| 1 | New mod skeleton + file transport, client tailer with record/replay, backend protocol and state store; remove the named pipe | ✅ runs live on Windows (macOS still to test) |
+| 2 | Leaflet map in world coordinates, overview image pipeline, player marker, pan/zoom/follow | ✅ runs live |
+| 3 | PDA layers: sell points, shops, productions, animals; all vehicles; farmland ownership | ✅ runs live |
+| 4 | Fields: outlines, crop and growth colours (PDA colours), field info panel | ✅ runs live |
+| next | Themes and layouts: in-cab terminal styles, starting with New Holland | planned, see [THEMES.md](docs/THEMES.md) |
+| later | Game controls from the dashboard, sell prices, missions, AI workers, multiplayer farm colours, tray app | ideas, see [PLAN.md](docs/PLAN.md) |
+
+The checks still open for Phases 1 to 4 are in [docs/PLAN.md](docs/PLAN.md#open-checks).
 
 ## Development
 
