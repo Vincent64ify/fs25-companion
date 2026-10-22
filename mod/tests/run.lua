@@ -508,7 +508,11 @@ local function stubGame()
         getOwnerFarmId = function() return 1 end,
         getIsAIActive = function() return false end,
         getLastSpeed = function() return 5 end,
-        getOperationTime = function() return 7200 end,
+        getOperatingTime = function() return 7200000 end,
+        getDamageAmount = function() return 0.1 end,
+        getConsumerFillUnitIndex = function(_, fillType) return fillType == 1 and 2 or nil end,
+        getFillUnitFillLevel = function(_, unit) return unit == 2 and 150.55 or 0 end,
+        getFillUnitCapacity = function(_, unit) return unit == 2 and 300 or 0 end,
         getTotalMass = function() return 9.5 end,
         getMotor = function()
             return {
@@ -520,11 +524,10 @@ local function stubGame()
         end,
         getAttachedImplements = function() return { { object = implement } } end,
         spec_motorized = {
-            engineStarted = true, fuelLevel = { value = 150.55 }, maxFuelLevel = 300,
-            motorTemperature = { value = 80 },
+            engineStarted = true, motorTemperature = { value = 80 },
         },
         spec_lights = { isLightOn = true },
-        spec_wearable = { wear = 0.1 },
+        spec_wearable = {},
     }
     local parked = {
         id = 9, rootNode = 66, typeName = "trailer", propertyState = 2,
@@ -554,6 +557,7 @@ local function stubGame()
     localDirectionToWorld = function() return 0, 0, -1 end
     g_time = 5000
     getAppBasePath = function() return "C:/Games/FS25/" end
+    FillType = { DIESEL = 1, DEF = 2, ELECTRICCHARGE = 3, METHANE = 4 }
     g_localPlayer = player
     g_farmlandManager = {
         farmlands = { { id = 1, farmId = 1, price = 1000, areaInHa = 2 } },
@@ -643,6 +647,8 @@ test("whole mod streams every topic", function()
     assert(text:find('"controlledId":7', 1, true), "controlled vehicle")
     assert(text:find('"name":"Plow 3000"', 1, true), "implements")
     assert(text:find('"operatingHours":2', 1, true), "hours")
+    assert(text:find('"fuel":150.6,"fuelCapacity":300,"fuelType":"diesel"', 1, true), "fuel from the fill unit")
+    assert(text:find('"wear":0.1', 1, true), "wear from getDamageAmount")
     -- a broken weather call drops only that value
     assert(text:find('"tempMax":21', 1, true), "env survives a failing weather call")
     assert(text:find('"money":{"1":123457}', 1, true), "money per farm")

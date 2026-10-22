@@ -58,16 +58,63 @@ local function collectImplements(vehicle, depth, out)
     end
 end
 
+-- FS25 keeps fuel in the fill unit the motor consumes from; the first fuel
+-- type with a consumer wins (diesel, then electric charge, then methane)
+local FUEL_TYPES = { "DIESEL", "ELECTRICCHARGE", "METHANE" }
+
+local function fuelDetail(vehicle, motorized, entry)
+    local fillTypes = FillType
+    if type(fillTypes) == "table" then
+        for _, name in ipairs(FUEL_TYPES) do
+            local fillType = fillTypes[name]
+            local unit = fillType ~= nil and Api.tryCall(vehicle, "getConsumerFillUnitIndex", fillType)
+            if unit ~= nil and unit ~= false then
+                entry.fuel = Geo.round(Api.tryCall(vehicle, "getFillUnitFillLevel", unit), 1)
+                entry.fuelCapacity = Geo.round(Api.tryCall(vehicle, "getFillUnitCapacity", unit), 1)
+                entry.fuelType = name:lower()
+                return
+            end
+        end
+    end
+    -- the old telemetry mod's fields (nil in FS25 so far)
+    if type(motorized.fuelLevel) == "table" then
+        entry.fuel = Geo.round(motorized.fuelLevel.value, 1)
+    end
+    entry.fuelCapacity = Geo.round(motorized.maxFuelLevel, 1)
+end
+
+-- damage (0..1), as the implements report it; spec_wearable.wear was nil
+local function wearOf(vehicle)
+    local damage = Api.tryCall(vehicle, "getDamageAmount")
+    if type(damage) ~= "number" then
+        local wearable = vehicle.spec_wearable
+        damage = wearable ~= nil and (wearable.damage or wearable.wear) or nil
+    end
+    return Geo.round(damage, 3)
+end
+
+-- operating time in ms (getOperationTime() returned nothing)
+local function operatingHours(vehicle)
+    local ms = Api.tryCall(vehicle, "getOperatingTime")
+    if type(ms) ~= "number" then
+        ms = vehicle.operatingTime
+    end
+    if type(ms) ~= "number" and vehicle.spec_motorized ~= nil then
+        ms = vehicle.spec_motorized.operatingTime
+    end
+    if type(ms) ~= "number" then
+        return nil
+    end
+    return Geo.round(ms / 3600000, 1)
+end
+
 local function motorDetail(vehicle, entry)
     local motorized = vehicle.spec_motorized
     if motorized == nil then
         return
     end
     entry.engineOn = motorized.engineStarted == true
-    if motorized.fuelLevel ~= nil then
-        entry.fuel = Geo.round(motorized.fuelLevel.value, 1)
-    end
-    entry.fuelCapacity = Geo.round(motorized.maxFuelLevel, 1)
+    fuelDetail(vehicle, motorized, entry)
     if motorized.motorTemperature ~= nil then
         entry.motorTemp = Geo.round(motorized.motorTemperature.value, 1)
     end
@@ -117,14 +164,8 @@ local function vehicleEntry(vehicle, detailed)
     if detailed then
         motorDetail(vehicle, entry)
         entry.lights = lights(vehicle)
-        if vehicle.spec_wearable ~= nil then
-            entry.wear = Geo.round(vehicle.spec_wearable.wear, 3)
-        end
-        local operatingSeconds = Api.tryCall(vehicle, "getOperationTime")
-        if operatingSeconds ~= nil then
-            -- seconds, as the old mod's maths assumed
-            entry.operatingHours = Geo.round(operatingSeconds / 3600, 1)
-        end
+        entry.wear = wearOf(vehicle)
+        entry.operatingHours = operatingHours(vehicle)
         entry.mass = Geo.round(Api.tryCall(vehicle, "getTotalMass", false), 2)
         local implements = {}
         collectImplements(vehicle, 1, implements)

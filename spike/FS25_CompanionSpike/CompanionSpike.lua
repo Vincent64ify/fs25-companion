@@ -754,6 +754,39 @@ local function vehicleInfo(v)
     return info
 end
 
+-- the controlled vehicle's fuel, wear and hours candidates (fuel, wear
+-- and hours arrived empty in the first live session)
+local function vehicleDetail(v)
+    local function first(name, ...)
+        local r = tryCall(v, name, ...)
+        return r ~= nil and r[2] or nil
+    end
+    local res = {
+        getDamageAmount = first("getDamageAmount"),
+        getWearTotalAmount = first("getWearTotalAmount"),
+        getOperatingTime = first("getOperatingTime"),
+        getOperationTime = first("getOperationTime"),
+        operatingTime = v.operatingTime,
+        consumers = {},
+    }
+    if type(FillType) == "table" then
+        for _, name in ipairs({ "DIESEL", "DEF", "ELECTRICCHARGE", "METHANE" }) do
+            local unit = FillType[name] ~= nil and first("getConsumerFillUnitIndex", FillType[name]) or nil
+            if unit ~= nil then
+                res.consumers[name] = {
+                    unit = unit,
+                    level = first("getFillUnitFillLevel", unit),
+                    capacity = first("getFillUnitCapacity", unit),
+                }
+            end
+        end
+    end
+    res.spec_motorized = describe(v.spec_motorized, 1, nil, 200)
+    res.spec_wearable = describe(v.spec_wearable, 1, nil, 100)
+    res.spec_fillUnit = describe(v.spec_fillUnit, 2, nil, 100)
+    return res
+end
+
 local function probeVehicles()
     local m = g_currentMission
     local res = {}
@@ -785,6 +818,7 @@ local function probeVehicles()
     local controlled = getControlledVehicle()
     if controlled ~= nil then
         res.controlled = vehicleInfo(controlled)
+        res.controlledDetail = vehicleDetail(controlled)
     end
     return res
 end
