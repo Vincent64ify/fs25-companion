@@ -267,6 +267,8 @@ As built, `map/` also has `followControl.js`, `glide.js`, `farmlandGeometry.js`,
 
 Since Themes T1 (see [THEMES.md](THEMES.md#as-built-t1)), `index.html` is an empty `#app` that the theme draws: `themes/` holds the theme contract, the renderer and the Default theme; `widgets/` the live values (the old vehicle and farm panels); `data/selectors.js` the pure reads of the store; `ui/dom.js` the DOM helpers; and `map/mapFrame.js` the map's box with its overlays.
 
+Since T2 and T3 (see [THEMES.md](THEMES.md#as-built-t3)): `ui/icons.js` is our own SVG icon set; `themes/newholland/` the New Holland style (data, CSS per palette and size class, and the map's edge toolbar); `ui/settings.js` the Settings button and panel shared by every theme; `ui/control.js` and `widgets/controls.js` the control buttons, which show the game's state until the controls project wires them; and `vendor/fonts/` the self-hosted Archivo font.
+
 - **Layer contract:** `createLayer(map, store) → { id, title, leafletLayer, legendItems }`. A layer subscribes only to its own topic(s). Adding a feature means adding one file and registering it.
 - **Vehicle markers:** rotated SVG icons, interpolated between updates so 2 Hz still looks smooth. There is a "follow me" toggle and a click popup with vehicle details.
 - **Fields:** polygons filled by fruit or growth state, like the PDA filter modes. They have field-number labels at higher zooms.
@@ -354,3 +356,24 @@ Changes since Phase 4 (2026-10-21 to 2026-10-22):
   popup would land on it.
 - **Docs:** the command channel design for dashboard buttons (`51b0862`),
   and the Themes and layouts plan (`ab36061`, [THEMES.md](THEMES.md)).
+
+## Themes T0 to T3
+
+2026-10-23; the details are in each phase's "As built" note in
+[THEMES.md](THEMES.md).
+
+- **T0, design** (`321990c` to `7ac1f83`): the Deep Blue direction, then the
+  Map and Vehicle screens, the night palette, the Settings panel and the
+  other sizes, approved in Claude Design. Tokens, measurements and the
+  layout grid are in THEMES.md's "Design result (T0)".
+- **T1, foundation** (`4a9f19c`): themes as data with one renderer,
+  Default as a theme that builds today's markup, widgets and selectors,
+  tokens, and the map frame. No visible change.
+- **T2, icons** (`c533084` to `245ba24`): 49 SVG icons of our own in the
+  cab-symbol style, reviewed on a contact sheet. Nothing is read from the
+  game for icons.
+- **T3, New Holland style** (`804acb2`, `ef3ce7b`): the status bar, control
+  column, tab bar with the vehicle readout, and the Map screen with its
+  edge toolbar, Layers panel, scale and slot zoom, in day and night; the
+  Settings panel with theme and Day / Night, in both themes; the Archivo
+  font, self-hosted.

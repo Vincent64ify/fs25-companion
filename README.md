@@ -12,10 +12,12 @@ Simulator 2 and American Truck Simulator.
 
 > **Status:** the rework is built. Phases 0 to 4 (file transport, client and
 > backend, the Leaflet map, the PDA's places, every vehicle, farmlands and
-> fields) run live on Windows; macOS is still to test. Next:
-> [Themes and layouts](docs/THEMES.md). See [docs/PLAN.md](docs/PLAN.md) for
-> what's next, and [docs/DONE.md](docs/DONE.md) for what's built and the
-> verified game API facts.
+> fields) run live on Windows; macOS is still to test. The first theme, a
+> New Holland style, has its chrome and Map screen; its Vehicle screen is
+> next ([Themes and layouts](docs/THEMES.md)). See
+> [docs/PLAN.md](docs/PLAN.md) for what's next, and
+> [docs/DONE.md](docs/DONE.md) for what's built and the verified game API
+> facts.
 
 ## How it works
 
@@ -58,6 +60,12 @@ Browser dashboard: Leaflet map in world coordinates, one layer per feature
   farmland borders shaded by owner, and fields coloured like the PDA's
   filters (crop, growth, fertilizer, lime, plowing, weeds), with a legend
   that remembers your choices. Tap a field for its details.
+- **Themes.** The Settings button (top-left) picks how the dashboard looks,
+  saved per device: **Default**, the map beside a panel of cards, or the
+  **New Holland style**, after the IntelliView 12 terminal, with a status
+  bar, a map toolbar, the vehicle's lights, engine and implement state, a
+  speed and fuel readout, and a Day / Night switch. A bookmark can choose
+  too: `?theme=newholland&palette=night`.
 
 ## Repository layout
 
@@ -85,7 +93,7 @@ web/           Browser dashboard (src/ modules, vendor/leaflet, vendor/fonts)
 | 2 | Leaflet map in world coordinates, overview image pipeline, player marker, pan/zoom/follow | ✅ runs live |
 | 3 | PDA layers: sell points, shops, productions, animals; all vehicles; farmland ownership | ✅ runs live |
 | 4 | Fields: outlines, crop and growth colours (PDA colours), field info panel | ✅ runs live |
-| next | Themes and layouts: in-cab terminal styles, starting with New Holland | planned, see [THEMES.md](docs/THEMES.md) |
+| themes | In-cab terminal styles: New Holland style chrome and Map screen (T0 to T3) | ✅ done; Vehicle screen (T4) next, see [THEMES.md](docs/THEMES.md) |
 | later | Game controls from the dashboard, sell prices, missions, AI workers, multiplayer farm colours, tray app | ideas, see [PLAN.md](docs/PLAN.md) |
 
 The checks still open for Phases 1 to 4 are in [docs/PLAN.md](docs/PLAN.md#open-checks).

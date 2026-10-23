@@ -4,11 +4,15 @@ What's next for FS25 Companion. What's already built, and the game API facts
 it relies on, are in [DONE.md](DONE.md). Small fixes go in
 [NEXT.md](NEXT.md).
 
-## Where things stand (2026-10-22)
+## Where things stand (2026-10-23)
 
 - Phases 0 to 4 of the rework are built and run live on Windows (Solek, and
   Kinlaig, a paid DLC map): the file stream, the client and backend, and the
   Leaflet map with the PDA's places, every vehicle, farmlands and fields.
+- Themes T0 to T3 are done: the approved design, themes as data, our own
+  icon set, and the New Holland style's chrome and Map screen in day and
+  night, chosen from a Settings panel that Default has too. Next is T4,
+  the Vehicle screen.
 - macOS is still to test, and a few things are still to confirm in game (see
   [Open checks](#open-checks)).
 
@@ -18,8 +22,8 @@ These decisions hold for all the work below:
 - **Same on Windows and macOS.** The mod writes a plain NDJSON file and the
   client tails it: no pipes, sockets or OS-specific code in the mod.
 - **No build step.** Vanilla ES modules with `// @ts-check` and JSDoc types.
-  Libraries are vendored (Leaflet), so the dashboard works on a LAN without
-  internet.
+  Libraries and fonts are vendored (Leaflet, Archivo), so the dashboard
+  works on a LAN without internet.
 - **One piece per feature.** One collector per topic in the mod, one layer or
   panel per feature on the web, and nothing to change in between.
 - **World meters everywhere.** Positions stay in world (x, z) from the mod to
@@ -45,15 +49,15 @@ Planned in [THEMES.md](THEMES.md): themes based on the brands' in-cab
 terminals, each with its own layout and screens. The first is a New Holland
 style, after the IntelliView 12. Today's look stays as the Default theme.
 
-| Phase | What |
-|---|---|
-| T0 | Design in Claude Design: a style frame, then the Map and Vehicle screens in both palettes and every size class; the game icon map |
-| T1 | Foundation: themes as data, widgets, tokens. No visible change |
-| T2 | Our own SVG icon set, in the cab-symbol style |
-| T3 | New Holland style: chrome and Map screen |
-| T4 | Vehicle screen: hero readout, condition tiles, implements, vehicle card |
-| T5 | Responsive pass across tablets and monitors |
-| T6 | More data from the game (can start any time) |
+| Phase | What | Status |
+|---|---|---|
+| T0 | Design in Claude Design: a style frame, then the Map and Vehicle screens in both palettes and every size class | done 2026-10-23 |
+| T1 | Foundation: themes as data, widgets, tokens. No visible change | done 2026-10-23 |
+| T2 | Our own SVG icon set, in the cab-symbol style | done 2026-10-23 |
+| T3 | New Holland style: chrome and Map screen | done 2026-10-23 |
+| T4 | Vehicle screen: hero readout, condition tiles, implements, vehicle card | next |
+| T5 | Responsive pass across tablets and monitors | planned |
+| T6 | More data from the game (can start any time) | planned |
 
 ## After that: control the game from the dashboard
 
@@ -101,6 +105,12 @@ icons instead ([THEMES.md](THEMES.md#icons)).
 ## Open checks
 
 Built, but not yet confirmed in game:
+- **New Holland style live:** drive a tractor and check the readout, the
+  control indicators (lights, beacon, hazard, turn signals, engine,
+  implement lowered and working), the alert chips and Day / Night, on a
+  tablet over the LAN and on a second monitor.
+- **Season:** the status bar reads `env.season` as 0 = spring. The replay
+  shows "Summer" on day 1; check it against the in-game calendar.
 - **Positions:** compare the player marker and the hotspots with the in-game
   PDA at three spots: a map corner, the centre and a sell point.
 - **Overview image:** see it in a live session on a map whose image the
