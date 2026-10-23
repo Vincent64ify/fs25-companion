@@ -1,0 +1,222 @@
+<!doctype html>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="claude:viewport-fit-sides" content="cover">
+<title>FS25 Companion Icon Sheet</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&display=swap">
+<style>
+/* The contact sheet for web/src/ui/icons.js (docs/THEMES.md, Icons).
+   Layout: a header, then the icons as they sit in the control column (day
+   and night), then one card per icon: a large keyline view and the sizes
+   in each palette. The page follows the viewer's theme; the specimens are
+   always shown in both New Holland palettes (Design result, T0). */
+:root {
+  --font: "Archivo", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: ui-monospace, "Cascadia Mono", Consolas, monospace;
+
+  /* the page itself: day ground and card */
+  --page: #EEF2F9;
+  --sheet: #FFFFFF;
+  --ink: #0D1B33;
+  --muted: #55627A;
+  --rule: #D2DCEC;
+  --keyline: #C9D5EA;
+  --keyline-strong: #9FB3D6;
+
+  /* New Holland style, day (fixed: specimens show both palettes) */
+  --d-ground: linear-gradient(#F4F7FC, #E3EAF5);
+  --d-card: linear-gradient(#FFFFFF, #F2F6FC);
+  --d-border: #D2DCEC;
+  --d-text: #0D1B33;
+  --d-muted: #55627A;
+  --d-on: linear-gradient(#2B6BD6, #0C4DB8);
+  --d-on-text: #FFFFFF;
+  --d-lift: inset 0 1px 0 #FFFFFF, 0 2px 4px rgba(12,45,107,0.10), 0 6px 14px rgba(12,45,107,0.10);
+  --d-on-lift: inset 0 1px 0 rgba(255,255,255,0.25), 0 2px 4px rgba(12,45,107,0.18), 0 6px 14px rgba(12,45,107,0.18);
+
+  /* New Holland style, night */
+  --n-ground: linear-gradient(#0B2149, #06142E);
+  --n-card: linear-gradient(#163370, #0D224B);
+  --n-border: #24427C;
+  --n-text: #EAF0FA;
+  --n-muted: #9DB0CF;
+  --n-on: linear-gradient(#FFD65C, #FFC72C);
+  --n-on-text: #0A1A33;
+  --n-lift: inset 0 1px 0 rgba(255,255,255,0.08), 0 4px 14px rgba(0,0,0,0.4);
+  --n-on-lift: inset 0 1px 0 rgba(255,255,255,0.45), 0 2px 10px rgba(255,199,44,0.22);
+
+  --badge: linear-gradient(#FFD65C, #FFC72C);
+  --badge-ink: #0A1A33;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --page: #071731; --sheet: #0D224B; --ink: #EAF0FA; --muted: #9DB0CF;
+    --rule: #24427C; --keyline: #1C3566; --keyline-strong: #2F5394;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --page: #071731; --sheet: #0D224B; --ink: #EAF0FA; --muted: #9DB0CF;
+  --rule: #24427C; --keyline: #1C3566; --keyline-strong: #2F5394;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body {
+  margin: 0; background: var(--page); color: var(--ink);
+  font: 14px/1.5 var(--font);
+}
+.wrap {
+  max-width: 1180px; margin: 0 auto;
+  padding-block: 32px 64px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  display: grid; gap: 40px;
+}
+h1 { margin: 0; font-size: 32px; font-weight: 700; letter-spacing: -0.01em; text-wrap: balance; }
+h2 {
+  margin: 0 0 14px; font-size: 12px; font-weight: 600; color: var(--muted);
+  text-transform: uppercase; letter-spacing: 0.08em;
+}
+header { display: grid; gap: 10px; }
+header p { margin: 0; color: var(--muted); max-width: 66ch; }
+.rules { display: flex; flex-wrap: wrap; gap: 6px; padding: 0; margin: 4px 0 0; list-style: none; }
+.rules li {
+  border: 1px solid var(--rule); border-radius: 999px; padding: 2px 10px;
+  font-size: 12px; color: var(--muted);
+}
+.icon { display: block; flex: none; }
+
+/* --- in context: the control column ------------------------------------ */
+.context { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr)); gap: 16px; }
+.column {
+  border-radius: 20px; padding: 16px; display: grid; gap: 10px;
+}
+.column h3 { margin: 0; font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; }
+.grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.ctl {
+  height: 80px; border-radius: 16px; border: 1px solid transparent;
+  display: grid; place-items: center; align-content: center; gap: 6px;
+  font-size: 12px; font-weight: 500; text-align: center; line-height: 1.2; padding: 0 4px;
+}
+.ctl .icon { width: 26px; height: 26px; }
+.day { background: var(--d-ground); color: var(--d-text); }
+.day h3 { color: var(--d-muted); }
+.day .ctl { background: var(--d-card); border-color: var(--d-border); box-shadow: var(--d-lift); }
+.day .ctl.on { background: var(--d-on); color: var(--d-on-text); border-color: transparent; box-shadow: var(--d-on-lift); }
+.night { background: var(--n-ground); color: var(--n-text); }
+.night h3 { color: var(--n-muted); }
+.night .ctl { background: var(--n-card); border-color: var(--n-border); box-shadow: var(--n-lift); }
+.night .ctl.on { background: var(--n-on); color: var(--n-on-text); border-color: transparent; box-shadow: var(--n-on-lift); }
+
+/* --- one card per icon -------------------------------------------------- */
+.cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 1fr)); gap: 16px; }
+.card {
+  background: var(--sheet); border: 1px solid var(--rule); border-radius: 16px;
+  padding: 16px; display: grid; gap: 14px; min-width: 0;
+}
+.card header { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.card .name { font-family: var(--mono); font-size: 14px; font-weight: 600; }
+.card .label { color: var(--muted); font-size: 13px; }
+.top { display: flex; gap: 14px; align-items: center; }
+.keyline {
+  width: 120px; height: 120px; flex: none; border-radius: 10px; color: var(--ink);
+  background-color: var(--sheet);
+  background-image:
+    linear-gradient(var(--keyline) 1px, transparent 1px),
+    linear-gradient(90deg, var(--keyline) 1px, transparent 1px);
+  background-size: 5px 5px; background-position: -0.5px -0.5px;
+  outline: 1px solid var(--keyline-strong);
+}
+.keyline .icon { width: 120px; height: 120px; }
+.sizes { display: grid; gap: 8px; flex: 1; min-width: 0; }
+.strip {
+  display: flex; align-items: center; gap: 14px; padding: 10px 12px; border-radius: 12px;
+}
+.strip.day { box-shadow: inset 0 0 0 1px var(--d-border); }
+.strip.night { box-shadow: inset 0 0 0 1px var(--n-border); }
+.s16 { width: 16px; height: 16px; } .s26 { width: 26px; height: 26px; } .s48 { width: 48px; height: 48px; }
+.badge {
+  width: 36px; height: 36px; border-radius: 10px; flex: none; margin-left: auto;
+  display: grid; place-items: center; background: var(--badge); color: var(--badge-ink);
+}
+.badge .icon { width: 22px; height: 22px; }
+
+@media (max-width: 420px) {
+  .top { flex-direction: column; align-items: stretch; }
+  .keyline { margin: 0 auto; }
+}
+</style>
+
+<div class="wrap">
+  <header>
+    <h1>FS25 Companion icon sheet</h1>
+    <p id="batch">Loading the icons…</p>
+    <ul class="rules">
+      <li>24 × 24 grid</li><li>2 px strokes</li><li>Round caps and joins</li>
+      <li>One colour, from the theme</li><li>Drawn from scratch, nothing from the game</li>
+    </ul>
+  </header>
+
+  <section>
+    <h2>In the control column, 26 px</h2>
+    <div class="context" id="context"></div>
+  </section>
+
+  <section>
+    <h2>Each icon: keyline at 120 px, then 16, 26 and 48 px and the badge</h2>
+    <div class="cards" id="cards"></div>
+  </section>
+</div>
+
+<script type="module">
+// @ts-check
+// In the repo the sheet loads the dashboard's own module; published as an
+// artifact, the same module sits next to the page as icons.js.
+const { ICON_GROUPS, icon } = await import(new URL("../src/ui/icons.js", location.href).href)
+  .catch(() => import("./icons.js"));
+
+/** Labels as the dashboard will show them under a control. */
+const LABELS = {
+  lights: "Lights", highBeam: "High beam", beacon: "Beacon", hazard: "Hazard",
+  turnLeft: "Turn left", turnRight: "Turn right", cruise: "Cruise", pto: "PTO",
+  hitchUp: "Raise", hitchDown: "Lower", implementOn: "Implement on",
+  aiWorker: "AI worker", engineOn: "Engine",
+};
+// A believable moment in the field: these controls are shown on.
+const ON = new Set(["lights", "beacon", "hitchDown", "implementOn", "engineOn", "pto"]);
+
+const el = (tag, cls, ...kids) => {
+  const e = document.createElement(tag);
+  if (cls) e.className = cls;
+  e.append(...kids);
+  return e;
+};
+const sized = (name, cls) => { const s = icon(name); s.classList.add(cls); return s; };
+
+const names = Object.values(ICON_GROUPS).flat();
+const groups = Object.keys(ICON_GROUPS);
+document.getElementById("batch").textContent =
+  `${names.length} icons so far (${groups.join(", ")}). The rest of the set follows in later batches.`;
+
+for (const palette of ["day", "night"]) {
+  const grid = el("div", "grid3");
+  for (const n of names) {
+    grid.append(el("div", ON.has(n) ? "ctl on" : "ctl", icon(n), LABELS[n] ?? n));
+  }
+  document.getElementById("context").append(
+    el("div", `column ${palette}`, el("h3", "", palette === "day" ? "Day" : "Night"), grid));
+}
+
+const cards = document.getElementById("cards");
+for (const n of names) {
+  const strip = (palette) => el("div", `strip ${palette}`,
+    sized(n, "s16"), sized(n, "s26"), sized(n, "s48"), el("span", "badge", icon(n)));
+  cards.append(el("article", "card",
+    el("header", "", el("span", "name", n), el("span", "label", LABELS[n] ?? "")),
+    el("div", "top", el("div", "keyline", icon(n)),
+       el("div", "sizes", strip("day"), strip("night")))));
+}
+</script>

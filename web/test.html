@@ -322,6 +322,31 @@ check("render: switching moves the frame", [shown(), rframe.el.parentElement?.cl
       [["vehicle"], true]);
 check("render: chrome widgets", app.querySelectorAll(".value-column .widget-tile").length, 2);
 
+// --- icons (ui/icons.js) --------------------------------------------------------
+
+const { ICON_GROUPS, hasIcon, icon } = await import("./src/ui/icons.js");
+const iconNames = Object.values(ICON_GROUPS).flat();
+check("icons: every listed icon is drawn", iconNames.filter((n) => !hasIcon(n)), []);
+check("icons: no name listed twice", iconNames.length, new Set(iconNames).size);
+// drawn inside the 24 × 24 box, strokes included (1 px each side)
+const iconHost = document.createElement("div");
+document.body.append(iconHost);
+const outside = iconNames.filter((n) => {
+  const s = icon(n);
+  iconHost.append(s);
+  const b = s.getBBox();
+  return b.x < 1 || b.y < 1 || b.x + b.width > 23 || b.y + b.height > 23;
+});
+iconHost.remove();
+check("icons: each fits its box", outside, []);
+const ghost = icon("nope");
+check("icons: an unknown name gives an empty icon of the same box",
+  [ghost.getAttribute("viewBox"), ghost.childElementCount], ["0 0 24 24", 0]);
+const titled = icon("beacon", { title: "Beacon" });
+check("icons: decorative by default, announced with a title",
+  [icon("beacon").getAttribute("aria-hidden"), titled.getAttribute("role"), titled.querySelector("title")?.textContent],
+  ["true", "img", "Beacon"]);
+
 document.title = failed ? `FAIL (${failed})` : "PASS";
 const summary = document.createElement("p");
 summary.className = failed ? "fail" : "ok";
