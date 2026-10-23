@@ -125,6 +125,13 @@ header p { margin: 0; color: var(--muted); max-width: 66ch; }
   border-radius: 999px; font-size: 13px; font-weight: 600; white-space: nowrap;
 }
 .chip .icon { width: 18px; height: 18px; }
+.item { display: inline-flex; align-items: center; gap: 7px; font-size: 15px; font-weight: 500; white-space: nowrap; }
+.item .icon { width: 20px; height: 20px; }
+.item.pill { background: rgba(255,255,255,0.12); border-radius: 999px; padding: 6px 14px 6px 10px; }
+.item.btn { border: 1px solid rgba(255,255,255,0.28); border-radius: 12px; padding: 6px 12px 6px 9px; }
+.bar .spacer { flex: 1; }
+.bar.weather { gap: 10px 18px; }
+.bar.weather .item { font-size: 13px; }
 .chip.warn { background: linear-gradient(#FFB648, #E58A00); color: #0A1A33; }
 .chip.alarm { background: #C42B2B; color: #FFFFFF; }
 .bar.night .chip.alarm { background: #FF7070; color: #0A1A33; }
@@ -198,6 +205,11 @@ header p { margin: 0; color: var(--muted); max-width: 66ch; }
   </section>
 
   <section>
+    <h2>Status bar, 20 px</h2>
+    <div class="bars" id="status"></div>
+  </section>
+
+  <section>
     <h2>Alerts, in the status bar, 18 px</h2>
     <div class="bars" id="alerts"></div>
   </section>
@@ -226,6 +238,9 @@ const LABELS = {
   methane: "Methane", engine: "Engine", engineTemp: "Engine temp", wear: "Wear",
   hours: "Hours", position: "Position", tractor: "Vehicle",
   warn: "Warning", battery: "Battery", oil: "Oil pressure", checkEngine: "Engine fault", snow: "Frost",
+  clock: "Time", day: "Day", season: "Season", sun: "Sunny", cloudy: "Cloudy", rain: "Rain",
+  fog: "Fog", storm: "Storm", temperature: "Temperature", money: "Money", connection: "Live",
+  settings: "Settings", dayNight: "Day / Night",
   lights: "Lights", highBeam: "High beam", beacon: "Beacon", hazard: "Hazard",
   turnLeft: "Turn left", turnRight: "Turn right", cruise: "Cruise", pto: "PTO",
   hitchUp: "Raise", hitchDown: "Lower", implementOn: "Implement on",
@@ -263,6 +278,21 @@ for (const palette of ["day", "night"]) {
   }
   document.getElementById("tiles").append(
     el("div", `column ${palette}`, el("h3", "", palette === "day" ? "Day" : "Night"), grid));
+}
+
+// The status bar as the New Holland style lays it out (docs/THEMES.md), then
+// every weather state. Only drawn once the status bar icons exist.
+if (ICON_GROUPS["Status bar"]) {
+  const item = (name, text, cls = "") => el("span", `item ${cls}`, icon(name), text);
+  for (const palette of ["day", "night"]) {
+    document.getElementById("status").append(
+      el("div", `bar ${palette}`,
+        item("settings", "Settings", "btn"), item("day", "Day 6"), item("season", "Spring"),
+        el("span", "spacer"), item("clock", "09:44", "pill"), el("span", "spacer"),
+        item("sun", "20 °C"), item("money", "$999,999"), item("connection", "Live"), item("dayNight", "")),
+      el("div", `bar weather ${palette}`, el("h3", "", "Weather"),
+        ...["sun", "cloudy", "rain", "fog", "storm", "temperature"].map((n) => item(n, LABELS[n]))));
+  }
 }
 
 /** How each alert would read in the status bar, and how loud it is. */
