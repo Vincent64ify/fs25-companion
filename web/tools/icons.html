@@ -110,6 +110,19 @@ header p { margin: 0; color: var(--muted); max-width: 66ch; }
 .night h3 { color: var(--n-muted); }
 .night .ctl { background: var(--n-card); border-color: var(--n-border); box-shadow: var(--n-lift); }
 .night .ctl.on { background: var(--n-on); color: var(--n-on-text); border-color: transparent; box-shadow: var(--n-on-lift); }
+.grid2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+.tile {
+  border-radius: 16px; border: 1px solid transparent; padding: 10px 12px;
+  display: grid; grid-template-columns: auto 1fr; align-items: center; gap: 2px 10px; min-width: 0;
+}
+.tile .icon { width: 26px; height: 26px; grid-row: span 2; }
+.tile small { font-size: 12px; font-weight: 500; }
+.tile b { font-size: 20px; font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.tile b span { font-size: 13px; font-weight: 500; margin-left: 3px; }
+.day .tile { background: var(--d-card); border-color: var(--d-border); box-shadow: var(--d-lift); }
+.day .tile small, .day .tile b span { color: var(--d-muted); }
+.night .tile { background: var(--n-card); border-color: var(--n-border); box-shadow: var(--n-lift); }
+.night .tile small, .night .tile b span { color: var(--n-muted); }
 
 /* --- one card per icon -------------------------------------------------- */
 .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 1fr)); gap: 16px; }
@@ -161,7 +174,12 @@ header p { margin: 0; color: var(--muted); max-width: 66ch; }
   </header>
 
   <section>
-    <h2>In the control column, 26 px</h2>
+    <h2>Vehicle, in value tiles, 26 px</h2>
+    <div class="context" id="tiles"></div>
+  </section>
+
+  <section>
+    <h2>Controls, in the control column, 26 px</h2>
     <div class="context" id="context"></div>
   </section>
 
@@ -178,8 +196,11 @@ header p { margin: 0; color: var(--muted); max-width: 66ch; }
 const { ICON_GROUPS, icon } = await import(new URL("../src/ui/icons.js", location.href).href)
   .catch(() => import("./icons.js"));
 
-/** Labels as the dashboard will show them under a control. */
+/** Labels as the dashboard will show them. */
 const LABELS = {
+  speed: "Speed", rpm: "Engine speed", gear: "Gear", diesel: "Diesel", electric: "Charge",
+  methane: "Methane", engine: "Engine", engineTemp: "Engine temp", wear: "Wear",
+  hours: "Hours", position: "Position", tractor: "Vehicle",
   lights: "Lights", highBeam: "High beam", beacon: "Beacon", hazard: "Hazard",
   turnLeft: "Turn left", turnRight: "Turn right", cruise: "Cruise", pto: "PTO",
   hitchUp: "Raise", hitchDown: "Lower", implementOn: "Implement on",
@@ -196,14 +217,32 @@ const el = (tag, cls, ...kids) => {
 };
 const sized = (name, cls) => { const s = icon(name); s.classList.add(cls); return s; };
 
+/** Sample readings, as a Vehicle screen would show them mid-field. */
+const VALUES = {
+  speed: ["12.4", "km/h"], rpm: ["1 850", "rpm"], gear: ["F7", ""], diesel: ["312", "l"],
+  electric: ["78", "%"], methane: ["64", "%"], engine: ["On", ""], engineTemp: ["86", "°C"],
+  wear: ["18", "%"], hours: ["1 204", "h"], position: ["412, −88", ""], tractor: ["T7.270", ""],
+};
+
 const names = Object.values(ICON_GROUPS).flat();
 const groups = Object.keys(ICON_GROUPS);
 document.getElementById("batch").textContent =
   `${names.length} icons so far (${groups.join(", ")}). The rest of the set follows in later batches.`;
 
 for (const palette of ["day", "night"]) {
+  const grid = el("div", "grid2");
+  for (const n of ICON_GROUPS.Vehicle ?? []) {
+    const [value, unit] = VALUES[n] ?? ["–", ""];
+    grid.append(el("div", "tile", icon(n), el("small", "", LABELS[n] ?? n),
+      el("b", "", value, unit ? el("span", "", unit) : "")));
+  }
+  document.getElementById("tiles").append(
+    el("div", `column ${palette}`, el("h3", "", palette === "day" ? "Day" : "Night"), grid));
+}
+
+for (const palette of ["day", "night"]) {
   const grid = el("div", "grid3");
-  for (const n of names) {
+  for (const n of ICON_GROUPS.Controls) {
     grid.append(el("div", ON.has(n) ? "ctl on" : "ctl", icon(n), LABELS[n] ?? n));
   }
   document.getElementById("context").append(
