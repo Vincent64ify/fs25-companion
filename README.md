@@ -6,6 +6,10 @@ with their crop and growth state, farmlands, sell points, shops, productions
 and every farm vehicle. You can open it on a second screen, a tablet or a
 phone, on **Windows and macOS**.
 
+Inspired by [Truck Dash](https://github.com/Nethercap/truck-companion)
+(`Nethercap/truck-companion`), a companion dashboard for Euro Truck
+Simulator 2 and American Truck Simulator.
+
 > **Status:** the rework is built. Phases 0 to 4 (file transport, client and
 > backend, the Leaflet map, the PDA's places, every vehicle, farmlands and
 > fields) run live on Windows; macOS is still to test. Next:
