@@ -27,7 +27,8 @@ terminal of a tractor brand (layout, colours, feel) with a modern finish.
 
 | Topic | Decision |
 |---|---|
-| Default theme | Today's layout, unchanged. Its only addition is a small Theme button in the header, which arrives with the second theme. |
+| Default theme | Today's layout, unchanged. Its only addition is a small Settings button at the header's left, which arrives with the second theme. |
+| Settings entry | The same in every theme: a "Settings" button with the sliders icon, top-left, opening a panel that starts with Theme. The same button opens and closes it (shown pressed while open); the panel has no close button and sits in the main area, under the header, never over it (T0 review). |
 | First theme | New Holland style, based on the IntelliView 12 (T7 LWB, T7 HD, T8, T9). |
 | Naming | Brand + "style" in the selector, with the note "Inspired by the IntelliView 12. Not affiliated with New Holland." No logos, emblems or official artwork. Internal id: `newholland`. |
 | What a theme changes | Everything: its own chrome and screens, not just colours. |
@@ -461,6 +462,10 @@ Each phase ends with:
    surfaces, faint highlights and dark shadows; "on" states and the
    selected tab turn yellow with dark text; brighter state colours; map
    colours unchanged, map overlays on dark glass.
+   Settings approved on 2026-10-23: the Settings panel (Theme cards with
+   layout thumbnails, Day / Night switch) in the main area under the
+   header, toggled by the header's Settings button; in Default, the same
+   Settings button at the header's left with a small Theme panel.
 6. Then the other sizes: 1280×800, compact at about 800 px wide, and
    1920×1080 (wide).
 7. Write the approved tokens, measurements and layout grid into
