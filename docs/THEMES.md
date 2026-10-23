@@ -809,9 +809,11 @@ Done on 2026-10-23. Choose it in Settings, or with `?theme=newholland`.
   field panel gets is now `moved`; each theme's CSS says where it goes.
 - **Saved per device:** `fs25companion.screen` (the last screen, per
   theme), plus the theme and palette keys from T1.
-- **Font:** `theme.css` asks for Archivo first, but the font files are not
-  in `web/vendor/fonts/` yet, so the system sans shows. Adding them is a
-  download, waiting for a yes.
+- **Font:** Archivo 400, 500, 600 and 700 in `web/vendor/fonts/` (from
+  `@fontsource/archivo` 5.2.8, Latin and Latin Extended subsets, about
+  110 KB in all, with `OFL.txt`). `archivo.css` declares them and only
+  New Holland's `theme.css` imports it, so Default keeps its system font.
+  The browser fetches a weight or subset only when text uses it.
 - **Checked:** test.html (113 checks, 22 new: season names, fuel levels,
   alerts, control states and labels, every control's icon, the readout and
   pill, theme checks, the renderer's parts, the Settings panel, the URL

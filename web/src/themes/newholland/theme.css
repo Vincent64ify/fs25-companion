@@ -3,6 +3,8 @@
    :root, the night palette under [data-palette="night"]. Only this
    theme's CSS is loaded, so selectors need no theme prefix. */
 
+@import url("../../../vendor/fonts/archivo.css");
+
 /* --- tokens ---------------------------------------------------------------- */
 
 :root {

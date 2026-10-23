@@ -71,7 +71,7 @@ fixtures/      Recorded mod output used by tests and replay
 mod/           Companion mod (Lua)
 client/        Local client (Python)
 backend/       FastAPI backend
-web/           Browser dashboard (src/ modules, vendor/leaflet)
+web/           Browser dashboard (src/ modules, vendor/leaflet, vendor/fonts)
 ```
 
 `scripts/build_mod.py` zips the mod.
@@ -126,3 +126,7 @@ FS25 mod folders:
 
 MIT, see [LICENSE](LICENSE). This project reads only what the game's Lua API
 exposes and doesn't change your game or savegames.
+
+Bundled third-party files keep their own licences: Leaflet (BSD-2-Clause,
+`web/vendor/leaflet/LICENSE`) and the Archivo font (SIL Open Font License
+1.1, `web/vendor/fonts/OFL.txt`).
