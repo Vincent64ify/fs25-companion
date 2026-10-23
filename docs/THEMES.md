@@ -2,7 +2,7 @@
 
 > **Status:** plan accepted on 2026-10-22; T0 (design) done on 2026-10-23,
 > see "Design result (T0)"; T1 (foundation) done on 2026-10-23, see "As
-> built (T1)". Next: T2 (game icons) and T3 (New Holland style).
+> built (T1)". Next: T2 (our icon set) and T3 (New Holland style).
 
 ## Goal
 
@@ -39,7 +39,8 @@ terminal of a tractor brand (layout, colours, feel) with a modern finish.
 | Night mode | A manual Day / Night switch, saved per device. Nothing switches by itself. |
 | Targets | Landscape tablets of any brand and second PC monitors. Phones keep working (compact class) but aren't a design target. |
 | Look | Modern first. The IntelliView 12 gives the structure, colours and feel; dated parts are modernised. |
-| Controls | Every theme reserves a control column now. Icons come from the game where possible. |
+| Controls | Every theme reserves a control column now. |
+| Icons | Our own SVG set, drawn in the cab-symbol style. Nothing is extracted from the game for icons (changed from "game first" on 2026-10-23; see Icons). |
 | Design tool | Claude Design, before any theme code. |
 | Theme choice | Per device (localStorage), with a URL override for bookmarks. |
 
@@ -205,53 +206,54 @@ These are left out of this project:
 
 ## Icons
 
-- **Game first.** These are readable DDS files in the game install (paths
-  under `<game>/data/`):
-  - `shared/assets/dashboardSymbols_diffuse.dds`: the cab warning-light and
-    ISO symbol sheet (2048², RGBA). Verified in T0: about 110 white masks
-    on a regular 128 px grid, so themes colour them from alpha. It's the
-    only atlas `client/icon_atlas.json` uses (24 icons). The T8 sheet is
-    irregular and cab-specific, and the marker sheet holds world markers,
-    so neither is used.
-  - `vehicles/newHolland/t8/t8InteriorSymbols_diffuse.dds`: the T8 cab's
-    symbols (2048²).
-  - `shared/assets/marker/markerIcons_diffuse.dds` (1024²), and the
-    `mapIcon_*.dds` files beside map buildings.
-- **Not readable:** the HUD, menu and key-glyph icons (the ones beside
-  actions in the F1 help) are inside `<game>/dataS.gar`.
-  - That file is encrypted like the DLC maps, and we don't decrypt it.
-  - So the controls idea in PLAN.md can't take its icons from there; T0
-    updates that note.
-- **Pipeline (T2):**
-  1. A mapping file, `client/icon_atlas.json`, written in T0, gives each
-     icon name its atlas and rectangle.
-  2. The client finds the game through `hello.gameDir` (confirmed live on
-     Kinlaig).
-  3. It crops the icons, keeps their alpha as a mask so themes can colour
-     them, and packs them into one sprite plus an index.
-  4. It content-hashes and caches the sprite, uploads it with the client
-     token, and announces it with an `icon_assets` message.
-     - **Once, not every start:** the cache is keyed on the sheet's path,
-       size and modified time (plus the atlas file's version), so a normal
-       start finds the sprite without even opening the DDS. Only a new or
-       changed sheet (a game update) is read and converted again, once.
-     - The upload is skipped when the backend already holds that hash.
-  5. The dashboard asks for an icon by name with `icon("beacon")`.
-- **Fallback:** we draw SVG icons in the game's style (flat glyphs, the same
-  stroke weight and corner radius). They cover icons the game doesn't have,
-  and every icon when the game files can't be read (macOS, replay), so the
-  dashboard looks the same either way.
-- **First icon set:**
-  - **Vehicle:** speed, rpm, gear, diesel, electric charge, methane, engine
-    temperature, wear, hours, engine on, position.
+- **Our own set, decided 2026-10-23.** Every icon is an SVG we draw and
+  ship with the dashboard. Nothing is read from the game for icons.
+  - **Why:** the goal is an installer that touches as little of the user's
+    computer as it can. Extracting the game's symbol sheet meant a DDS
+    crop, a sprite, a cache on disk, an upload and an `icon_assets`
+    message, all to save drawing 24 glyphs. The SVG fallback had to cover
+    every icon anyway (macOS, replay), so the game sprite only added a
+    second look to keep in step.
+  - **What it gives:** one look everywhere (live, replay, macOS, hosted
+    relay), nothing written to disk, nothing uploaded, no request to load
+    icons, and no question about showing game artwork. The icons are ours,
+    under the project's licence.
+  - **What it costs:** the exact cab glyphs. Ours follow the same
+    conventions (ISO 7000 and cab warning-light symbols are standard
+    shapes), drawn from scratch, never traced from game textures.
+  - T0 checked the game's sheets: `dashboardSymbols_diffuse.dds` is about
+    110 white masks on a 128 px grid, and the HUD and key glyphs are inside
+    the encrypted `dataS.gar`. The 24-icon map written from it,
+    `client/icon_atlas.json`, is removed in T2.
+- **Style:**
+  - drawn on a 24 × 24 grid, shown at 26 px in controls (T0
+    measurements) and scaled freely;
+  - 2 px strokes, round caps and joins, 2 px corner radius, solid fills
+    only where the symbol needs a mass (fuel drop, battery);
+  - one colour: `stroke` and `fill` use `currentColor`, so a theme colours
+    an icon with CSS `color` (white on blue, ink on the yellow badge, OK /
+    warn / alarm for states);
+  - mirrored pairs (turn left / right, hitch up / down) are one drawing
+    with a transform.
+- **In code:** `web/src/ui/icons.js` holds the path data and exports
+  `icon(name, {title})`, which returns an inline `<svg>` (`aria-hidden`
+  unless it has a title). No sprite file, no fetch, so it works offline on
+  a LAN. An unknown name returns an empty placeholder of the same size and
+  logs once, so a layout never moves.
+- **First icon set** (49):
+  - **Vehicle:** speed, rpm, gear, diesel, electric charge, methane, engine,
+    engine temperature, wear, hours, engine on, position, tractor.
   - **Controls:** lights, high beam, beacon, hazard, turn left / right,
     cruise control, PTO, hitch up / down, implement on, AI worker.
-  - **Status bar:** clock, day, season, the six weather states,
+  - **Alerts:** warning, battery, oil, check engine, frost.
+  - **Status bar:** clock, day, season, sun, cloudy, rain, fog, storm,
     temperature, money, connection, settings, day / night.
-  - **Map toolbar:** zoom in / out, recentre, whole map, layers.
-- **Rights:** icons are extracted at runtime from your own install and
-  served only by your own backend, as the overview image already is.
-  Nothing from the game is committed to the repo or uploaded to claude.ai.
+  - **Map and tabs:** map, zoom in / out, recentre, whole map, layers.
+  - Vehicle categories for the card without a picture (harvester, loader,
+    trailer...) come with T4.
+- **Contact sheet:** `web/tools/icons.html` shows every icon at 16, 26 and
+  48 px, in both palettes, on a card and in a badge. It's how icons are
+  reviewed, and the set is approved there before T3 uses it.
 
 ## Vehicle pictures
 
@@ -262,7 +264,13 @@ These are left out of this project:
   `<storeData><image>`, shipped as a `.dds` next to the XML. Checked in
   T0: base game `data/vehicles/newHolland/t7/store_t7.dds`; mod
   `FS25_volvoL90.zip` → `vehicles/volvo/l90/store_l90.dds`.
-- **Pipeline** (like the map overview and the game icons):
+- **Open question, decided before T4:** this is now the only thing besides
+  the map overview that reads the game install for images. Unlike icons,
+  a shop picture can't be drawn by us, and the card already works without
+  one. Whether it's worth the pipeline below (one more read, cache and
+  upload) for decoration is weighed then, against the light-footprint
+  rule in PLAN.md.
+- **Pipeline** (like the map overview):
   1. The mod adds the store item's image path to each vehicle (from the
      store manager, by the vehicle's config file). Today it sends only the
      name.
@@ -273,7 +281,7 @@ These are left out of this project:
   the vehicle card keeps its place and shows a large icon for the
   vehicle's category (tractor, harvester, loader...) with the name and
   brand, so the layout doesn't move.
-- **Rights:** as with icons, pictures come from the user's own install,
+- **Rights:** like the overview image, pictures come from the user's own install,
   are served only by their own backend, and are never committed or
   uploaded to claude.ai.
 
@@ -515,10 +523,9 @@ Gradients run top to bottom unless noted. "Ink" is the dark text on yellow.
 
 ### Icons
 
-- Game icons: `client/icon_atlas.json`, 24 icons from the dashboard symbol
-  sheet.
-- SVG fallback set, drawn in the same style (2 px strokes, round caps and
-  joins), for the names in its `fallback` list.
+- T0 mapped 24 icons to the game's dashboard symbol sheet and drew the
+  rest as SVG (2 px strokes, round caps and joins). Since 2026-10-23 the
+  whole set is our SVG, in the same style (see Icons).
 
 ## Responsive (tablets vary a lot)
 
@@ -680,19 +687,17 @@ Done on 2026-10-23. Default looks and behaves as before.
   are gone. Follow, whole map, Layers, legend toggles, popups and the
   field panel work as before. test.html (87 checks) and pytest (75) pass.
 
-### T2: Game icons (client, backend, web)
+### T2: Our icon set (web only)
 
-- Client: `client/icon_assets.py`, next to `map_assets.py`, reusing its DDS
-  → PNG conversion, hashing, cache and upload. Add tests.
-  - Unlike the map image, which reads the whole DDS on every start to hash
-    it, the icon cache is keyed on the sheet's path, size and modified
-    time, so a start with a warm cache doesn't open the sheet. Tests: a warm
-    cache never reads the sheet; touching the sheet rebuilds the sprite.
-- Backend: an `/api/icons/{hash}/{name}` route in `assets.py`, and an
-  `icon_assets` message relayed to viewers and included for late joiners,
-  like `map_assets`. Add tests.
-- Web: `ui/icons.js` with the game sprite and the SVG fallback set.
-- This can run alongside T1, since it touches different files.
+- `web/src/ui/icons.js`: the 49 icons of the first set (see Icons) as path
+  data, and `icon(name, {title})`.
+- `web/tools/icons.html`: the contact sheet, every icon at 16, 26 and
+  48 px, in both palettes, on a card and in a badge.
+- Remove `client/icon_atlas.json`. No client or backend change.
+- test.html: every name in the first set exists, each draws inside its
+  24 × 24 box, and an unknown name gives a same-size placeholder.
+- **Done when:** the set is approved on the contact sheet, and test.html is
+  green.
 
 ### T3: New Holland style: chrome and Map screen
 
@@ -746,10 +751,8 @@ Done on 2026-10-23. Default looks and behaves as before.
   `web/src/themes/render.js`, `themes/registry.js`, `themes/default/`,
   `themes/newholland/`, `web/src/map/mapFrame.js`, `web/src/ui/dom.js`
   (was `panels/dom.js`), `web/src/ui/icons.js`, `web/src/ui/control.js`,
-  `web/tools/layoutProbe.js`.
-- **Client and backend:** `client/icon_atlas.json`,
-  `client/icon_assets.py`, `client/companion_client.py`,
-  `backend/app/assets.py`, `backend/app/ws.py`, and their tests.
+  `web/tools/layoutProbe.js`, `web/tools/icons.html`.
+- **Removed:** `client/icon_atlas.json` (T2).
 - **Docs:** `docs/THEMES.md` (this file), `docs/PLAN.md`.
 
 ## Verification
@@ -759,9 +762,8 @@ Done on 2026-10-23. Default looks and behaves as before.
   - theme registry, URL and localStorage parsing;
   - `defaultZoom`;
   - theme data checks: every widget id exists, and no screen has more than
-    one map slot.
-- **pytest:** icon extraction (crop, sprite, hash, cache), the backend icon
-  route, and the `icon_assets` relay.
+    one map slot;
+  - icons: every name used by a theme exists in `icons.js`.
 - **Browser pane,** with the `replay-solek` launch config:
   - **Sizes:** 1133×744, 1180×820, 1194×834, 1280×800, 1376×1032,
     1366×768, 1920×1080, 2560×1440, 3440×1440, one portrait and one phone
@@ -772,7 +774,7 @@ Done on 2026-10-23. Default looks and behaves as before.
     toolbar works. The slot zoom gets closer as the slot shrinks, your zoom
     is kept per slot, and recentre resets it.
   - Popups stay inside the map and clear of the field panel.
-  - Icons with the game sprite (live) and with the fallback (replay).
+  - Icons look the same live and in replay.
   - Each screen matches its artboard.
 - **Default unchanged:**
   - Before T1, a script records the position and size of the header, map
@@ -785,14 +787,13 @@ Done on 2026-10-23. Default looks and behaves as before.
   - FS25 with the client, on a tablet over the LAN (`http://<PC IP>:8123`)
     and on a second monitor.
   - Drive a New Holland tractor and check the values, the indicators
-    (lights, beacon, implement), the game icons and the Day / Night switch.
+    (lights, beacon, implement), the icons and the Day / Night switch.
 
 ## Risks
 
 | Risk | Handling |
 |---|---|
-| The symbol sheets lack icons we need | The SVG fallback covers gaps; the mapping is checked by hand in T0. |
-| The game files can't be read (macOS path, replay) | The fallback set gives the same look. |
+| Our icons read less clearly than the game's | Standard symbol shapes, reviewed on the contact sheet at 16 px before T3. |
 | Moving the map between slots breaks its size | Re-measure after every move; tested in T4. |
 | The light day palette clashes with the map's PDA colours | Contrast checked in T0; map colours stay fixed. |
 | Tablet browser bars eat height | Fullscreen and home-screen install in T5. |

@@ -34,6 +34,10 @@ These decisions hold for all the work below:
 - **Game files stay the user's.** Images and textures are read from the
   user's own install at runtime and never committed. Encrypted archives
   (`.dlc`, `dataS.gar`) stay closed.
+- **Light footprint.** The goal is an installer that touches as little of
+  the user's computer as it can. Read from the game only what we can't make
+  ourselves (the map overview); draw the rest (icons). Every new cache,
+  file or upload has to earn its place.
 
 ## Next: Themes and layouts
 
@@ -45,7 +49,7 @@ style, after the IntelliView 12. Today's look stays as the Default theme.
 |---|---|
 | T0 | Design in Claude Design: a style frame, then the Map and Vehicle screens in both palettes and every size class; the game icon map |
 | T1 | Foundation: themes as data, widgets, tokens. No visible change |
-| T2 | Game icons: the cab symbol sheets as a sprite, with SVG fallbacks |
+| T2 | Our own SVG icon set, in the cab-symbol style |
 | T3 | New Holland style: chrome and Map screen |
 | T4 | Vehicle screen with a mini-map |
 | T5 | Responsive pass across tablets and monitors |
@@ -55,8 +59,7 @@ style, after the IntelliView 12. Today's look stays as the Default theme.
 
 Buttons that trigger in-game actions (key binds), for example attach / detach
 an implement, lower / raise, turn on, lights, cruise control.
-- The button icons come from the game's readable icon sheets where possible,
-  so they match what the player sees in the cab (see
+- The button icons are our own SVG set, drawn in the cab-symbol style (see
   [THEMES.md](THEMES.md#icons)).
 - The themes already reserve room for these buttons and show their state.
 
@@ -92,9 +95,8 @@ only actions from a known list, so nobody else on the network can press keys
 on the PC.
 
 **Icons.** The key glyphs and HUD icons are inside `dataS.gar`, which is
-encrypted like the DLC maps, so they can't be extracted. Use the readable cab
-symbol sheets under `data/` instead, converted like the overview image, with
-matching SVG icons for the rest ([THEMES.md](THEMES.md#icons)).
+encrypted like the DLC maps, so they can't be extracted. We draw our own SVG
+icons instead ([THEMES.md](THEMES.md#icons)).
 
 ## Open checks
 
