@@ -6,7 +6,7 @@
 // "showonmap" event that bubbles up to main.js.
 
 import {
-  activity, controlledVehicle, kindLabel, modelName, rpmPct, speedScale, vehicleBrand, vehicleKind,
+  activity, controlledVehicle, gearName, kindLabel, modelName, rpmPct, speedScale, vehicleBrand, vehicleKind,
 } from "../data/selectors.js";
 import { fmt, h } from "../ui/dom.js";
 import { icon } from "../ui/icons.js";
@@ -22,6 +22,12 @@ function arcPath(d, cls) {
   path.setAttribute("class", cls);
   path.setAttribute("pathLength", "100");
   return path;
+}
+
+/** Under the gear's label: its group and whether it shifts itself ("Range B · Automatic"). */
+export function gearDetail(/** @type {import("../types.js").Vehicle|undefined} */ v) {
+  return [typeof v?.gearGroup === "string" && v.gearGroup ? `Range ${v.gearGroup}` : "",
+    v?.gearAutomatic === true ? "Automatic" : ""].filter(Boolean).join(" · ");
 }
 
 /** A small capitalised label over or beside a value. */
@@ -53,10 +59,11 @@ export function vehicleReadout(store, opts = {}) {
   arc.setAttribute("role", "img");
 
   const gear = h("span", { className: "readout-gear" });
+  const gearSub = h("span", { className: "readout-gear-sub" });
   const rpm = h("b");
   const rpmBar = h("span");
   const side = h("div", { className: "readout-side" },
-    h("div", { className: "readout-gear-row" }, gear, label("Gear")),
+    h("div", { className: "readout-gear-row" }, gear, h("div", { className: "readout-gear-what" }, label("Gear"), gearSub)),
     h("div", { className: "readout-rpm" },
       h("div", { className: "readout-rpm-row" }, label("Engine"), h("span", {}, rpm, h("small", { text: " rpm" }))),
       h("span", { className: "widget-meter" }, rpmBar)));
@@ -92,7 +99,8 @@ export function vehicleReadout(store, opts = {}) {
     fill.style.opacity = pct > 0.5 ? "1" : "0";
     arc.setAttribute("aria-label", kmh === undefined ? "Speed unknown" : `Speed ${fmt(kmh, 1)} km/h`);
 
-    gear.textContent = v?.gear == null ? "–" : String(v.gear);
+    gear.textContent = gearName(v) ?? "–";
+    gearSub.textContent = gearDetail(v);
     rpm.textContent = typeof v?.rpm === "number" ? Math.round(v.rpm).toLocaleString() : "–";
     rpmBar.style.width = `${rpmPct(v) ?? 0}%`;
     side.hidden = !v;

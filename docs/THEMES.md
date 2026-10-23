@@ -883,7 +883,12 @@ pictures).
   `getCategoryByName`), the vehicle also `brand`
   (`g_brandManager:getBrandByIndex`, skipping NONE), and implements their
   `typeName`. All guarded and cached per vehicle id, cleared per map;
-  unverified in game.
+  confirmed live the same day.
+- **Gear** (fixed after the first live test): `getGear()` gave nothing in
+  FS25, so the mod reads the vehicle's `getGearInfoToDisplay()` (the
+  gear's name, group and automatic), and the dashboard shows reverse as
+  "R1". The readout card shows "Range B · Automatic" under the label when
+  the game sends them.
 - **Kinds** (`selectors.js` `vehicleKind`): the shop category first, then
   the type name, matched by pattern (tools, headers and wagons before
   loaders and harvesters); unknown motorized vehicles are tractors,

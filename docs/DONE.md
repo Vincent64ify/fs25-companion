@@ -108,6 +108,17 @@ These results override any API guesses later in this document.
   L90H).
 - **Field ground types:** the `FieldGroundType` names arrive live (for
   example "Sown").
+- **Gear** (Volvo L90H, Solek, 2026-10-23): the vehicle's
+  `getGearInfoToDisplay()` gives the gear's name as the speedometer shows
+  it ("1" to "3", "N", "-1" to "-3" in reverse) and `false` for automatic;
+  the motor's `getGear()` gave nothing. The dashboard shows reverse as
+  "R1".
+- **Brand and shop category** (2026-10-23):
+  `g_storeManager:getItemByXMLFilename(vehicle.configFileName)`,
+  `g_brandManager:getBrandByIndex(item.brandIndex).title` and
+  `getCategoryByName(item.categoryName).title` work: "JCB" and "Medium
+  Tractors" (`TRACTORSM`) for a Fastrac iCON 4160, "Volvo" and
+  `WHEELLOADERVEHICLES` for the L90H.
 
 ---
 

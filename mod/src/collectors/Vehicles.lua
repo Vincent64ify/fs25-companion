@@ -144,6 +144,30 @@ local function operatingHours(vehicle)
     return Geo.round(ms / 3600000, 1)
 end
 
+-- the gear as the game's speedometer shows it: the vehicle's
+-- getGearInfoToDisplay() gives the gear's name ("2", "N", "-1" in reverse),
+-- its group ("B") and whether it's automatic (verified live, Volvo L90H,
+-- 2026-10-23; getGear() gave nothing). The motor's own and getGear() stay
+-- as fallbacks.
+local function gearDetail(vehicle, motor, entry)
+    local name, group, _, automatic = Api.tryCallAll(vehicle, "getGearInfoToDisplay")
+    if name == nil then
+        name, group, _, automatic = Api.tryCallAll(motor, "getGearInfoToDisplay")
+    end
+    if name == nil then
+        name = Api.tryCall(motor, "getGear")
+    end
+    if type(name) == "number" or (type(name) == "string" and name ~= "") then
+        entry.gear = name
+    end
+    if type(group) == "string" and group ~= "" then
+        entry.gearGroup = group
+    end
+    if type(automatic) == "boolean" then
+        entry.gearAutomatic = automatic
+    end
+end
+
 local function motorDetail(vehicle, entry)
     local motorized = vehicle.spec_motorized
     if motorized == nil then
@@ -159,7 +183,7 @@ local function motorDetail(vehicle, entry)
         entry.rpm = Geo.round(Api.tryCall(motor, "getLastRealMotorRpm"), 0)
         entry.rpmMin = Geo.round(Api.tryCall(motor, "getMinRpm"), 0)
         entry.rpmMax = Geo.round(Api.tryCall(motor, "getMaxRpm"), 0)
-        entry.gear = Api.tryCall(motor, "getGear")
+        gearDetail(vehicle, motor, entry)
     end
 end
 

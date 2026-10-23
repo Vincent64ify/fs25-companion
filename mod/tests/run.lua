@@ -514,6 +514,7 @@ local function stubGame()
         getFillUnitFillLevel = function(_, unit) return unit == 2 and 150.55 or 0 end,
         getFillUnitCapacity = function(_, unit) return unit == 2 and 300 or 0 end,
         getTotalMass = function() return 9.5 end,
+        getGearInfoToDisplay = function() return "3", "B", true, false end,
         getMotor = function()
             return {
                 getLastRealMotorRpm = function() return 1500.4 end,
@@ -663,6 +664,7 @@ test("whole mod streams every topic", function()
     assert(not text:find('"brand":"None"', 1, true), "no brand for NONE")
     assert(text:find('"typeName":"plow"', 1, true), "implement's type")
     assert(text:find('"operatingHours":2', 1, true), "hours")
+    assert(text:find('"gear":"3","gearAutomatic":false,"gearGroup":"B"', 1, true), "gear as the speedometer shows it")
     assert(text:find('"fuel":150.6,"fuelCapacity":300,"fuelType":"diesel"', 1, true), "fuel from the fill unit")
     assert(text:find('"wear":0.1', 1, true), "wear from getDamageAmount")
     -- a broken weather call drops only that value

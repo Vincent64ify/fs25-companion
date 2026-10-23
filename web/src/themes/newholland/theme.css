@@ -636,6 +636,9 @@ button { font: inherit; color: inherit; }
   font-size: 36px;
   font-weight: 700;
 }
+.readout-gear-what { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.readout-gear-sub { font-size: 15px; color: #FFFFFF; }
+.readout-gear-sub:empty { display: none; }
 .readout-rpm { display: flex; flex-direction: column; gap: 6px; }
 .readout-rpm-row { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; font-variant-numeric: tabular-nums; }
 .readout-rpm-row > span { white-space: nowrap; }

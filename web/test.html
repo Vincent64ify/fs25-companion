@@ -487,6 +487,11 @@ check("readout card", [q(readoutCard, ".readout-title"), q(readoutCard, ".readou
   readoutCard.querySelector(".arc-fill").getAttribute("stroke-dasharray"), q(readoutCard, ".readout-gear"),
   q(readoutCard, ".readout-rpm b"), parseFloat(readoutCard.querySelector(".readout-rpm .widget-meter > span").style.width).toFixed(1)],
   ["Working", "Seed drill", "Engine on", "14.2", "50", "28.48 100", "4", (1850).toLocaleString(), "84.1"]);
+check("gear name: as the game says, reverse as R", ["2", "N", "-1", -2, 4, undefined, ""].map((g) => sel.gearName({ id: 1, gear: g })),
+  ["2", "N", "R1", "R2", "4", undefined, undefined]);
+const { gearDetail } = await import("./src/widgets/vehicleScreen.js");
+check("gear detail: group and automatic", [gearDetail({ id: 1, gear: "3", gearGroup: "B", gearAutomatic: true }),
+  gearDetail({ id: 1, gear: "N", gearAutomatic: false }), gearDetail(undefined)], ["Range B · Automatic", "", ""]);
 check("vehicle card: kind icon, model, brand and kind", [
   vehicleCardEl.querySelector(".vehicle-figure svg").dataset.icon, q(vehicleCardEl, ".vehicle-name"),
   q(vehicleCardEl, ".vehicle-sub"), vehicleCardEl.querySelector(".show-on-map").hidden],

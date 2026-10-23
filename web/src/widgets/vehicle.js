@@ -3,7 +3,7 @@
 
 import { valueWidget } from "./widget.js";
 import {
-  controlledVehicle, engineTemp as engineTempOf, fuelLevel, fuelPct, LIMITS, operatingHours,
+  controlledVehicle, engineTemp as engineTempOf, fuelLevel, fuelPct, gearName, LIMITS, operatingHours,
   vehicleName as nameOf, wearPct,
 } from "../data/selectors.js";
 import { fmt } from "../ui/dom.js";
@@ -32,7 +32,7 @@ export const rpm = valueWidget({
 
 export const gear = valueWidget({
   label: "Gear", icon: "gear", topics: VEHICLE,
-  read: (store) => controlledVehicle(store)?.gear ?? undefined,
+  read: (store) => gearName(controlledVehicle(store)),
   text: String,
 }, "gauge");
 
