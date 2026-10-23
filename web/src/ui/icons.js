@@ -18,6 +18,8 @@ const HITCH = '<path d="M4.6 18.8l7.8-7.8a2 2 0 0 0-2.8-2.8l-7.8 7.8a2 2 0 0 0 2
 const gear = (cx, cy) =>
   `<circle cx="${cx}" cy="${cy}" r="3.6" stroke-width="2.4" stroke-linecap="butt" pathLength="6" stroke-dasharray=".45 .55"/>` +
   `<circle cx="${cx}" cy="${cy}" r="2.2"/>`;
+/** A filled dot with no stroke, for the point of a "!". */
+const DOT = (cx, cy) => `<circle cx="${cx}" cy="${cy}" r="1.4" fill="currentColor" stroke="none"/>`;
 // the engine block (ISO engine symbol): a neck on a round body
 const ENGINE = '<path d="M9 7.2V3.5h6v3.7A7 7 0 1 1 9 7.2z"/>';
 // a dial open at the bottom, with ticks
@@ -54,6 +56,20 @@ const PATHS = {
   tractor: '<path d="M3 12.5V3.5h8l1.5 8h8V15M16.5 11.5V8"/><circle cx="7" cy="16.5" r="4.5"/>' +
     '<circle cx="7" cy="16.5" r="1" fill="currentColor"/><circle cx="18.5" cy="18" r="2.8"/>',
 
+  // --- alerts -----------------------------------------------------------
+  // the amber warning diamond
+  warn: '<path d="M12 2.5l9.5 9.5-9.5 9.5L2.5 12z"/><path d="M12 7.5v5"/>' + DOT(12, 16.3),
+  // the charge warning: battery with its terminals
+  battery: '<rect x="2.5" y="7" width="19" height="13" rx="1.5"/><path d="M6 7V4.5h3V7M15 7V4.5h3V7M5.5 13.5h3.5M15 13.5h3.5M16.75 11.75v3.5"/>',
+  // oil pressure: a drop in the engine, pressed from both sides
+  oil: '<path d="M9.5 7.5V4h5v3.5A6 6 0 1 1 9.5 7.5z"/>' +
+    '<path d="M12 9.8c-1.5 2-2.2 3.2-2.2 4.3a2.2 2.2 0 0 0 4.4 0c0-1.1-.7-2.3-2.2-4.3z"/>' +
+    '<path d="M1.5 13H4M22.5 13H20M2.6 11.5L4 13l-1.4 1.5M21.4 11.5L20 13l1.4 1.5"/>',
+  checkEngine: ENGINE + '<path d="M12 9.5v3.5"/>' + DOT(12, 16.6),
+  // frost: a six-armed snowflake
+  snow: [0, 60, 120, 180, 240, 300]
+    .map((a) => `<path transform="rotate(${a} 12 12)" d="M12 12V2.8M9.6 4.6L12 7l2.4-2.4"/>`).join(""),
+
   // --- controls ---------------------------------------------------------
   lights: LAMP + '<path d="M10 8L4 10M10 12l-6 2M10 16l-6 2"/>',
   highBeam: LAMP + '<path d="M10 8H4M10 12H4M10 16H4"/>',
@@ -80,6 +96,7 @@ const PATHS = {
 export const ICON_GROUPS = {
   Vehicle: ["speed", "rpm", "gear", "diesel", "electric", "methane", "engine", "engineTemp",
             "wear", "hours", "position", "tractor"],
+  Alerts: ["warn", "battery", "oil", "checkEngine", "snow"],
   Controls: ["lights", "highBeam", "beacon", "hazard", "turnLeft", "turnRight", "cruise",
              "pto", "hitchUp", "hitchDown", "implementOn", "aiWorker", "engineOn"],
 };

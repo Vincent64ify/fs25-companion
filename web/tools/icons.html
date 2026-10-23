@@ -110,6 +110,25 @@ header p { margin: 0; color: var(--muted); max-width: 66ch; }
 .night h3 { color: var(--n-muted); }
 .night .ctl { background: var(--n-card); border-color: var(--n-border); box-shadow: var(--n-lift); }
 .night .ctl.on { background: var(--n-on); color: var(--n-on-text); border-color: transparent; box-shadow: var(--n-on-lift); }
+.bars { display: grid; gap: 12px; }
+.bar {
+  border-radius: 16px; min-height: 56px; padding: 10px 14px;
+  display: flex; flex-wrap: wrap; align-items: center; gap: 8px;
+}
+.bar h3 { margin: 0 6px 0 0; font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; }
+.bar.day { background: linear-gradient(#154091, #0C2D6B); color: #FFFFFF; }
+.bar.day h3 { color: #BFD0EE; }
+.bar.night { background: linear-gradient(#0A1C40, #04112A); color: #EAF0FA; }
+.bar.night h3 { color: #9DB0CF; }
+.chip {
+  display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 12px 0 9px;
+  border-radius: 999px; font-size: 13px; font-weight: 600; white-space: nowrap;
+}
+.chip .icon { width: 18px; height: 18px; }
+.chip.warn { background: linear-gradient(#FFB648, #E58A00); color: #0A1A33; }
+.chip.alarm { background: #C42B2B; color: #FFFFFF; }
+.bar.night .chip.alarm { background: #FF7070; color: #0A1A33; }
+.chip.info { background: rgba(255,255,255,0.14); color: inherit; }
 .grid2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
 .tile {
   border-radius: 16px; border: 1px solid transparent; padding: 10px 12px;
@@ -179,6 +198,11 @@ header p { margin: 0; color: var(--muted); max-width: 66ch; }
   </section>
 
   <section>
+    <h2>Alerts, in the status bar, 18 px</h2>
+    <div class="bars" id="alerts"></div>
+  </section>
+
+  <section>
     <h2>Controls, in the control column, 26 px</h2>
     <div class="context" id="context"></div>
   </section>
@@ -201,6 +225,7 @@ const LABELS = {
   speed: "Speed", rpm: "Engine speed", gear: "Gear", diesel: "Diesel", electric: "Charge",
   methane: "Methane", engine: "Engine", engineTemp: "Engine temp", wear: "Wear",
   hours: "Hours", position: "Position", tractor: "Vehicle",
+  warn: "Warning", battery: "Battery", oil: "Oil pressure", checkEngine: "Engine fault", snow: "Frost",
   lights: "Lights", highBeam: "High beam", beacon: "Beacon", hazard: "Hazard",
   turnLeft: "Turn left", turnRight: "Turn right", cruise: "Cruise", pto: "PTO",
   hitchUp: "Raise", hitchDown: "Lower", implementOn: "Implement on",
@@ -238,6 +263,20 @@ for (const palette of ["day", "night"]) {
   }
   document.getElementById("tiles").append(
     el("div", `column ${palette}`, el("h3", "", palette === "day" ? "Day" : "Night"), grid));
+}
+
+/** How each alert would read in the status bar, and how loud it is. */
+const ALERTS = {
+  warn: ["warn", "Service due"], battery: ["alarm", "Not charging"], oil: ["alarm", "Low oil pressure"],
+  checkEngine: ["warn", "Engine fault"], snow: ["info", "Frost: −2 °C"],
+};
+for (const palette of ["day", "night"]) {
+  const bar = el("div", `bar ${palette}`, el("h3", "", palette === "day" ? "Day" : "Night"));
+  for (const n of ICON_GROUPS.Alerts ?? []) {
+    const [level, text] = ALERTS[n] ?? ["warn", n];
+    bar.append(el("span", `chip ${level}`, icon(n), text));
+  }
+  document.getElementById("alerts").append(bar);
 }
 
 for (const palette of ["day", "night"]) {
