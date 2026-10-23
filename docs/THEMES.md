@@ -4,7 +4,8 @@
 > see "Design result (T0)"; T1 (foundation) done on 2026-10-23, see "As
 > built (T1)"; T2 (our icon set) done on 2026-10-23, see "As built (T2)";
 > T3 (New Holland chrome and Map screen) done on 2026-10-23, see "As built
-> (T3)". Next: T4 (Vehicle screen).
+> (T3)"; T4 (Vehicle screen) done on 2026-10-23, see "As built (T4)". Next:
+> T5 (responsive pass).
 
 ## Goal
 
@@ -187,7 +188,9 @@ These are left out of this project:
     span of `clamp(s² / 900, 80 m, whole map)` across it.
   - That's about 100 m across a 300 px mini-map, and about 1.1 km across a
     1000 px main area.
-  - It never goes below the cover zoom. The numbers are tuned in T4.
+  - It never goes below the cover zoom. T4 kept the numbers: with no
+    mini-map, the only slot is the Map screen's (about 505 m across at
+    1180×820). Whether that's close enough in a cab is checked in game.
 - **Your zoom wins:**
   - You can zoom and pan any map slot.
   - Each slot remembers your zoom and whether follow is on.
@@ -252,8 +255,9 @@ These are left out of this project:
   - **Status bar:** clock, day, season, sun, cloudy, rain, fog, storm,
     temperature, money, connection, settings, day / night.
   - **Map and tabs:** map, zoom in / out, recentre, whole map, layers.
-  - Vehicle categories for the card without a picture (harvester, loader,
-    trailer...) come with T4.
+  - **Vehicle types** (6, added in T4) for the vehicle card and the
+    implement rows: harvester, loader, trailer, truck, implement, weight
+    (the tractor is in Vehicle).
 - **Contact sheet:** `web/tools/icons.html` shows every icon at 16, 26 and
   48 px, in both palettes, on a card and in a badge. It's how icons are
   reviewed, and the set is approved there before T3 uses it.
@@ -267,12 +271,12 @@ These are left out of this project:
   `<storeData><image>`, shipped as a `.dds` next to the XML. Checked in
   T0: base game `data/vehicles/newHolland/t7/store_t7.dds`; mod
   `FS25_volvoL90.zip` → `vehicles/volvo/l90/store_l90.dds`.
-- **Open question, decided before T4:** this is now the only thing besides
-  the map overview that reads the game install for images. Unlike icons,
-  a shop picture can't be drawn by us, and the card already works without
-  one. Whether it's worth the pipeline below (one more read, cache and
-  upload) for decoration is weighed then, against the light-footprint
-  rule in PLAN.md.
+- **Decided 2026-10-23: later, not in T4.** This would be the only thing
+  besides the map overview that reads the game install for images. Unlike
+  icons, a shop picture can't be drawn by us, and the card works without
+  one, so the pipeline below (one more read, cache and upload) waits (see
+  Later). T4's card shows the vehicle's kind as a large icon, with the
+  same layout, so a picture can take its place without moving anything.
 - **Pipeline** (like the map overview):
   1. The mod adds the store item's image path to each vehicle (from the
      store manager, by the vehicle's config file). Today it sends only the
@@ -838,6 +842,77 @@ Done on 2026-10-23. Choose it in Settings, or with `?theme=newholland`.
 - **Done when:** it matches the artboards, and moving between screens keeps
   each map slot's view.
 
+#### As built (T4)
+
+Done on 2026-10-23. The shop picture is left for later (see Vehicle
+pictures).
+- **Layout** (`themes/newholland/theme.js`): the Vehicle screen is a
+  `vehicle` group (columns `1fr | 300`, rows `296 | 116 | 1fr`) holding the
+  readout card, the vehicle card, a `conditions` group of four tiles and the
+  implements, then the same control column as the Map screen. Compact
+  stacks them and docks the controls underneath; under 720 px it's one
+  card per row and two tiles per row.
+- **Renderer** (`themes/render.js`): a slot can be `{group, slots}`, drawn
+  as a `.slot-group` with `data-group` for the theme's CSS, and a widget
+  slot can set `whenMissing`. `checkTheme()` looks inside groups.
+  `renderTheme()` also returns `mapScreen`, the first screen with a map
+  slot.
+- **Readout card** (`widgets/vehicleScreen.js` `vehicleReadout`): what the
+  vehicle is doing (`activity()`: on foot, AI worker, working with the
+  implement's name, driving, standing, parked), an Engine on / off pill,
+  the speed arc (full scale 50, 80 or 120 km/h, kept per vehicle once
+  reached), the gear box and engine speed with a bar of its top rpm. Under
+  500 px of content the arc shrinks and the speed goes to 80 px; under
+  420 px the gear and rpm go under the arc.
+- **Vehicle card** (`vehicleCard`): the vehicle's kind as a large icon,
+  the name without its brand ("T7.315 HD"), "Brand · Category", and Show
+  on map, which dispatches a bubbling `showonmap` event; `main.js` shows
+  the Map screen and recentres, so the map follows the vehicle at the
+  slot's zoom.
+- **Condition tiles:** a `condition` variant of the value widgets: badge
+  and label, number, unit and a `detail` (fuel's litres, or kWh), then a
+  bar (`bar`, or `meter`) or a `note` (hours: "Hour meter"). Engine temp's
+  bar is full at 140 °C. Warn and alarm colour the border, badge, number
+  and bar.
+- **Implements:** a `rows` variant: kind icon (yellow while working),
+  name, the shop category, Lowered / Raised and Working / Off chips, and a
+  wear bar; "Nothing attached" when empty. Default's card is unchanged.
+- **Mod** (`Vehicles.lua`): the controlled vehicle and each implement get
+  `category` and `categoryTitle` from their store item
+  (`g_storeManager:getItemByXMLFilename(configFileName)`,
+  `getCategoryByName`), the vehicle also `brand`
+  (`g_brandManager:getBrandByIndex`, skipping NONE), and implements their
+  `typeName`. All guarded and cached per vehicle id, cleared per map;
+  unverified in game.
+- **Kinds** (`selectors.js` `vehicleKind`): the shop category first, then
+  the type name, matched by pattern (tools, headers and wagons before
+  loaders and harvesters); unknown motorized vehicles are tractors,
+  anything else an implement. `kindLabel` uses the shop's category name
+  when there is one.
+- **Per-slot map memory** (`followControl.js`, key
+  `fs25companion.mapSlots`, slot `newholland/map`): following or not, the
+  zoom you chose while following, and the centre and zoom where you left
+  it when not following, restored on the same map. Recentre clears your
+  zoom. Only zooms you make count: framing a new map no longer overwrote
+  it. Default keeps `fs25companion.follow`.
+- **Hidden screens** (`mapView.js` `remeasure`): the map skips
+  `invalidateSize` while its box is 0 × 0, so a hidden Map screen keeps its
+  size and view, and switching back moves nothing.
+- **Also fixed:** the phone rule that hid the tab-bar readout's fuel meter
+  hid every meter; it's now scoped to the readout.
+- **Checked:** test.html (127 checks, 14 new: kinds, labels, model name,
+  activity, speed scale, rpm, the readout and vehicle cards on foot and
+  driving, Show on map, condition tiles, implement rows, groups in the
+  theme check and renderer, per-slot memory across reloads) and pytest
+  (75, the mod's brand and category included). In the browser pane, with
+  the replay plus a sample vehicle: 1180×820 in day and night against the
+  Vehicle artboards; 1133×744, 1280×800, 1376×1032, 1920×1080, 800×1280
+  portrait and 390×844 with no horizontal scroll, no card overflowing and
+  every button 44 px or more; switching screens and reloading keep the
+  map's view; Show on map follows at the slot's zoom. Default's
+  `layoutProbe.js` at 1280×800 matches the last commit (one live value's
+  text width aside).
+
 ### T5: Responsive pass and tablet polish
 
 - Run the viewport matrix (see Verification) and fix what it finds.
@@ -857,6 +932,7 @@ Done on 2026-10-23. Choose it in Settings, or with `?theme=newholland`.
 ### Later
 
 - Implements, Fields and Farm screens.
+- The shop picture on the vehicle card (see Vehicle pictures).
 - Layout editing.
 - More brands: Fendt FendtONE, John Deere G5, Massey Ferguson Datatronic,
   Case IH AFS Pro, CLAAS CEMIS. Each is a theme folder plus a design pass.
@@ -865,13 +941,15 @@ Done on 2026-10-23. Choose it in Settings, or with `?theme=newholland`.
 
 - **Changed:** `web/index.html`, `web/style.css`, `web/src/main.js`,
   `web/src/panels/*`, `web/src/map/legend.js`, `map/followControl.js`,
-  `map/mapView.js`, `map/popupPlacement.js`, `web/test.html`.
+  `map/mapView.js`, `map/popupPlacement.js`, `web/test.html`,
+  `mod/src/collectors/Vehicles.lua` (T4: brand and shop category).
 - **New:** `web/src/data/selectors.js`, `web/src/widgets/`,
   `web/src/themes/render.js`, `themes/registry.js`, `themes/default/`,
   `themes/newholland/`, `web/src/map/mapFrame.js`, `web/src/ui/dom.js`
   (was `panels/dom.js`), `web/src/ui/icons.js`, `web/src/ui/control.js`,
   `web/src/ui/settings.js`, `web/src/widgets/controls.js`,
-  `web/tools/layoutProbe.js`, `web/tools/icons.html`.
+  `web/src/widgets/vehicleScreen.js`, `web/tools/layoutProbe.js`,
+  `web/tools/icons.html`.
 - **Removed:** `client/icon_atlas.json` (T2).
 - **Docs:** `docs/THEMES.md` (this file), `docs/PLAN.md`.
 
@@ -914,7 +992,7 @@ Done on 2026-10-23. Choose it in Settings, or with `?theme=newholland`.
 | Risk | Handling |
 |---|---|
 | Our icons read less clearly than the game's | Standard symbol shapes, reviewed on the contact sheet at 16 px before T3. |
-| Moving the map between slots breaks its size | Re-measure after every move; tested in T4. |
+| Moving the map between slots breaks its size | Re-measure after every move, never while hidden; tested in T4. |
 | The light day palette clashes with the map's PDA colours | Contrast checked in T0; map colours stay fixed. |
 | Tablet browser bars eat height | Fullscreen and home-screen install in T5. |
 | Older tablets are slow | Light effects, reduced motion, a test on the slowest tablet available. |

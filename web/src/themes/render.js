@@ -20,8 +20,11 @@ import { hasIcon, icon } from "../ui/icons.js";
  */
 
 /**
- * A place on a screen: a widget, the map, or the theme's control groups.
- * @typedef {{widget: string, variant?: string} | {map: "full"|"mini"} | {controls: true}} Slot
+ * A place on a screen: a widget (and what it shows without data), the map,
+ * the theme's control groups, or a group of slots the theme's CSS lays out
+ * together (data-group).
+ * @typedef {{widget: string, variant?: string, whenMissing?: "hide"|"dash"} | {map: "full"|"mini"}
+ *   | {controls: true} | {group: string, slots: Slot[]}} Slot
  */
 
 /**
@@ -56,7 +59,11 @@ import { hasIcon, icon } from "../ui/icons.js";
 /**
  * @typedef {Object} Rendered
  * @property {(id: string) => void} [showScreen]
+ * @property {string} [mapScreen] the first screen with a map slot
  */
+
+/** Every slot of a screen, groups opened. @param {Slot[]} slots @returns {Slot[]} */
+const flatSlots = (slots) => slots.flatMap((slot) => ("group" in slot ? flatSlots(slot.slots) : [slot]));
 
 /** @param {WidgetRef} ref @returns {{widget: string, variant?: string}} */
 const asRef = (ref) => (typeof ref === "string" ? { widget: ref } : ref);
@@ -103,7 +110,7 @@ export function checkTheme(theme, widgetIds = Object.keys(WIDGETS)) {
     seen.add(screen.id);
     wantIcon(screen.icon, `screen ${screen.id}`);
     let maps = 0;
-    for (const slot of screen.slots) {
+    for (const slot of flatSlots(screen.slots)) {
       if ("map" in slot) maps++;
       else if ("widget" in slot) want(slot.widget, `screen ${screen.id}`);
     }
@@ -157,19 +164,29 @@ export function renderTheme(theme, app, store, frame, settings) {
     el.setAttribute("aria-label", screen.label);
     /** @type {HTMLElement|null} */
     let mapSlot = null;
-    for (const slot of screen.slots) {
-      if ("map" in slot) {
-        mapSlot = h("div", { className: `map-slot map-${slot.map}` });
-        el.append(mapSlot);
-      } else if ("controls" in slot) {
-        const column = h("aside", { className: "control-column" },
-          ...(chrome.controls || []).map((group) => controlGroup(group, store)));
-        column.setAttribute("aria-label", "Controls");
-        el.append(column);
-      } else {
-        el.append(h("div", { className: "slot" }, createWidget(slot.widget, store, { variant: slot.variant })));
+    /** @param {Slot[]} slots @param {HTMLElement} parent */
+    const place = (slots, parent) => {
+      for (const slot of slots) {
+        if ("map" in slot) {
+          mapSlot = h("div", { className: `map-slot map-${slot.map}` });
+          parent.append(mapSlot);
+        } else if ("controls" in slot) {
+          const column = h("aside", { className: "control-column" },
+            ...(chrome.controls || []).map((group) => controlGroup(group, store)));
+          column.setAttribute("aria-label", "Controls");
+          parent.append(column);
+        } else if ("group" in slot) {
+          const group = h("div", { className: "slot-group" });
+          group.dataset.group = slot.group;
+          place(slot.slots, group);
+          parent.append(group);
+        } else {
+          const { widget, variant, whenMissing } = slot;
+          parent.append(h("div", { className: "slot" }, createWidget(widget, store, { variant, whenMissing })));
+        }
       }
-    }
+    };
+    place(screen.slots, el);
     const tab = h("button", { className: "tab" },
       ...(screen.icon ? [icon(screen.icon)] : []), h("span", { className: "tab-label", text: screen.label }));
     tab.setAttribute("type", "button");
@@ -204,5 +221,6 @@ export function renderTheme(theme, app, store, frame, settings) {
 
   app.replaceChildren(...[status, values, main, tabs].filter((el) => el !== null));
   if (screens.length) showScreen(screens[0].id);
-  return { showScreen };
+  const mapScreen = screens.find((screen) => flatSlots(screen.slots).some((slot) => "map" in slot))?.id;
+  return { showScreen, mapScreen };
 }

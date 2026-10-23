@@ -5,6 +5,7 @@ import * as vehicle from "./vehicle.js";
 import * as farm from "./farm.js";
 import { implementsWidget } from "./implements.js";
 import { alerts, connection, protocolError } from "./status.js";
+import { vehicleCard, vehicleReadout } from "./vehicleScreen.js";
 
 /** @type {Record<string, import("./widget.js").CreateWidget>} */
 export const WIDGETS = {
@@ -14,6 +15,8 @@ export const WIDGETS = {
   connection,
   protocolError,
   alerts,
+  vehicleReadout,
+  vehicleCard,
 };
 
 /**

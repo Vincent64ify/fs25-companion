@@ -31,6 +31,9 @@ import { icon } from "../ui/icons.js";
  * @property {string} [icon] a name in ui/icons.js, for the tile and readout variants
  * @property {(raw: any) => "warn"|"alarm"|undefined} [level] sets data-level on the root
  * @property {(raw: any) => number} [meter] 0..100: the readout variant adds a bar
+ * @property {(raw: any) => number} [bar] 0..100 for the condition variant's bar; default meter
+ * @property {(store: Store) => string|undefined} [detail] beside the number in the condition variant ("72 L")
+ * @property {string} [note] under the number in the condition variant, in place of a bar
  */
 
 /**
@@ -82,9 +85,23 @@ const VARIANTS = {
     else root.append(h("small", { text: def.label }), value);
     return [root, value];
   },
+  // a condition tile (Vehicle screen): icon badge and label, the number with
+  // its unit and detail, then a bar or a note
+  condition(def) {
+    const value = h("span", { className: "widget-value" });
+    const root = h("div", { className: "widget-condition" },
+      h("div", { className: "widget-head" }, ...(def.icon ? [icon(def.icon)] : []),
+        h("span", { className: "widget-label", text: def.label })),
+      h("div", { className: "widget-number" }, value,
+        ...(def.unit ? [h("span", { className: "widget-unit", text: def.unit })] : []),
+        ...(def.detail ? [h("span", { className: "widget-detail" })] : [])));
+    if (def.note) root.append(h("div", { className: "widget-note", text: def.note }));
+    else if (def.bar || def.meter) root.append(h("span", { className: "widget-meter" }, h("span")));
+    return [root, value];
+  },
 };
 
-const NUMBER_VARIANTS = new Set(["gauge", "tile", "readout"]);
+const NUMBER_VARIANTS = new Set(["gauge", "tile", "readout", "condition"]);
 
 /**
  * @param {ValueDef} def
@@ -100,6 +117,8 @@ export function valueWidget(def, defaultVariant = "row") {
     if (opts.id) root.id = opts.id;
     const asNumber = NUMBER_VARIANTS.has(variant);
     const bar = /** @type {HTMLElement|null} */ (root.querySelector(".widget-meter > span"));
+    const fill = def.bar || def.meter;
+    const detail = /** @type {HTMLElement|null} */ (root.querySelector(".widget-detail"));
 
     const render = () => {
       const raw = def.read(store);
@@ -111,7 +130,8 @@ export function valueWidget(def, defaultVariant = "row") {
         if (level) root.dataset.level = level;
         else delete root.dataset.level;
       }
-      if (bar && def.meter) bar.style.width = missing ? "0" : `${Math.max(0, Math.min(100, def.meter(raw)))}%`;
+      if (bar && fill) bar.style.width = missing ? "0" : `${Math.max(0, Math.min(100, fill(raw)))}%`;
+      if (detail && def.detail) detail.textContent = (!missing && def.detail(store)) || "";
     };
     for (const topic of def.topics) store.subscribe(topic, render);
     return root;

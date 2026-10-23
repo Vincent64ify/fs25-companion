@@ -434,6 +434,144 @@ check("slot zoom: never below the cover zoom", spanAt(3000, 3000, terrainBounds(
 const { insetBox } = await import("./src/map/popupPlacement.js");
 check("popup box: inset from the toolbar", insetBox(mapBox, { left: 76 }), { left: 76, top: 0, right: 500, bottom: 500 });
 
+// --- Vehicle screen (T4): selectors, cards, tiles, implements, groups, map memory ---
+
+check("vehicle kind: shop category first, then type name", [
+  sel.vehicleKind({ category: "TRACTORSM" }), sel.vehicleKind({ category: "WHEELLOADERS", typeName: "tractor" }),
+  sel.vehicleKind({ category: "WHEELLOADERTOOLS" }), sel.vehicleKind({ category: "LOADERWAGONS" }),
+  sel.vehicleKind({ category: "HARVESTERS" }), sel.vehicleKind({ category: "CUTTERS" }),
+  sel.vehicleKind({ category: "WEIGHTS" }), sel.vehicleKind({ category: "CARS" }),
+  sel.vehicleKind({ typeName: "combineDrivable" }), sel.vehicleKind({ typeName: "trailer" }),
+  sel.vehicleKind({ typeName: "shovelLeveler", motorized: false }), sel.vehicleKind(undefined),
+], ["tractor", "loader", "implement", "trailer", "harvester", "implement", "weight", "truck", "harvester",
+    "trailer", "implement", "tractor"]);
+check("kind label, brand, model name", [
+  sel.kindLabel({ categoryTitle: "Wheel loaders", category: "WHEELLOADERS" }), sel.kindLabel({ typeName: "trailer" }),
+  sel.modelName({ id: 1, name: "New Holland T7.315 HD", brand: "New Holland" }),
+  sel.modelName({ id: 1, name: "L90H", brand: "Volvo" }), sel.modelName(undefined),
+], ["Wheel loaders", "Trailer", "T7.315 HD", "L90H", "On foot"]);
+check("activity: on foot, AI, working, driving, standing, parked", [
+  sel.activity(undefined).text,
+  sel.activity({ id: 1, isAI: true }).text,
+  sel.activity({ id: 1, speed: 9, implements: [{ name: "Plough" }, { name: "Seeder", turnedOn: true }] }),
+  sel.activity({ id: 1, speed: 9 }).text,
+  sel.activity({ id: 1, speed: 0.2, engineOn: true }).text,
+  sel.activity({ id: 1, engineOn: false, category: "TRUCKS" }),
+], ["On foot", "AI worker", { text: "Working", icon: "implementOn", detail: "Seeder" }, "Driving", "Standing",
+    { text: "Parked", icon: "truck", detail: undefined }]);
+check("speed scale: grows, kept once reached; rpm of its top",
+  [sel.speedScale(12), sel.speedScale(62), sel.speedScale(200), sel.speedScale(10, 80),
+   sel.rpmPct({ id: 1, rpm: 1100, rpmMax: 2200 }), sel.rpmPct({ id: 1, rpm: 4800 }), sel.rpmPct({ id: 1 })],
+  [50, 80, 120, 80, 50, 100, undefined]);
+
+const vs = createStore();
+const readoutCard = createWidget("vehicleReadout", vs);
+const vehicleCardEl = createWidget("vehicleCard", vs);
+const fuelCond = createWidget("fuel", vs, { variant: "condition", whenMissing: "dash" });
+const hoursCond = createWidget("hours", vs, { variant: "condition", whenMissing: "dash" });
+const implRows = createWidget("implements", vs, { variant: "rows" });
+const q = (el, s) => el.querySelector(s)?.textContent;
+vs.set("vehicles", { controlledId: 1, vehicles: [] });
+check("vehicle screen on foot", [q(readoutCard, ".readout-title"), q(readoutCard, ".readout-speed"),
+  readoutCard.querySelector(".readout-side").hidden, q(vehicleCardEl, ".vehicle-name"),
+  vehicleCardEl.querySelector(".show-on-map").hidden, fuelCond.hidden, q(fuelCond, ".widget-value"),
+  q(implRows, "h2"), implRows.querySelector(".impl-empty").hidden],
+  ["On foot", "–", true, "On foot", true, false, "–", "Attached", false]);
+vs.set("vehicles", { controlledId: 1, vehicles: [{ id: 1, name: "New Holland T7.315 HD", brand: "New Holland",
+  category: "TRACTORSM", speed: 14.24, rpm: 1850, rpmMax: 2200, gear: 4, engineOn: true, fuel: 72, fuelCapacity: 400,
+  operatingHours: 412.6, implements: [
+    { name: "Seed drill", categoryTitle: "Seeders", lowered: true, turnedOn: true, wear: 0.12 },
+    { name: "Front weight", category: "WEIGHTS", lowered: false } ] }] });
+check("readout card", [q(readoutCard, ".readout-title"), q(readoutCard, ".readout-sub"),
+  q(readoutCard, ".readout-engine"), q(readoutCard, ".readout-speed"), q(readoutCard, ".arc-max"),
+  readoutCard.querySelector(".arc-fill").getAttribute("stroke-dasharray"), q(readoutCard, ".readout-gear"),
+  q(readoutCard, ".readout-rpm b"), parseFloat(readoutCard.querySelector(".readout-rpm .widget-meter > span").style.width).toFixed(1)],
+  ["Working", "Seed drill", "Engine on", "14.2", "50", "28.48 100", "4", (1850).toLocaleString(), "84.1"]);
+check("vehicle card: kind icon, model, brand and kind", [
+  vehicleCardEl.querySelector(".vehicle-figure svg").dataset.icon, q(vehicleCardEl, ".vehicle-name"),
+  q(vehicleCardEl, ".vehicle-sub"), vehicleCardEl.querySelector(".show-on-map").hidden],
+  ["tractor", "T7.315 HD", "New Holland · Tractor", false]);
+let showOnMap = 0;
+const cardHost = document.createElement("div");
+cardHost.append(vehicleCardEl);
+cardHost.addEventListener("showonmap", () => showOnMap++);
+vehicleCardEl.querySelector(".show-on-map").click();
+check("vehicle card: Show on map bubbles up", showOnMap, 1);
+check("condition tiles: number, unit, detail, bar or note", [q(fuelCond, ".widget-value"), q(fuelCond, ".widget-unit"),
+  q(fuelCond, ".widget-detail"), fuelCond.querySelector(".widget-meter > span").style.width, q(hoursCond, ".widget-value"),
+  q(hoursCond, ".widget-note"), !!hoursCond.querySelector(".widget-meter")],
+  ["18", "%", "72 L", "18%", "412.6", "Hour meter", false]);
+check("implement rows: title, icons, chips, wear", [q(implRows, "h2"),
+  [...implRows.querySelectorAll(".impl-badge")].map((b) => `${b.querySelector("svg").dataset.icon}:${b.dataset.on}`),
+  [...implRows.querySelectorAll(".impl-chip")].map((c) => `${c.textContent}:${c.dataset.state}`),
+  [...implRows.querySelectorAll(".impl-wear b")].map((b) => b.textContent),
+  q(implRows, ".impl-row:last-child .impl-text span"), implRows.querySelector(".impl-empty").hidden],
+  ["Attached · 2", ["implement:true", "weight:false"], ["Lowered:on", "Working:active", "Raised:off", "Off:off"],
+   ["12%"], "Weight", true]);
+
+check("theme check: slots inside groups", checkTheme({
+  id: "x", palettes: [], mapControls: "edge", css: "",
+  screens: [{ id: "a", label: "A", slots: [{ map: "full" }, { group: "g", slots: [{ widget: "nope" }, { map: "mini" }] }] }],
+}), ['screen a: no widget "nope"', "screen a: 2 map slots, at most 1"]);
+const app3 = document.createElement("div");
+const ui3 = renderTheme({
+  id: "x", label: "X", palettes: [], mapControls: "edge", css: "",
+  screens: [
+    { id: "vehicle", label: "Vehicle", slots: [{ group: "cards", slots: [{ widget: "fuel", variant: "condition", whenMissing: "dash" }] }] },
+    { id: "map", label: "Map", slots: [{ map: "full" }] },
+  ],
+}, app3, createStore(), createMapFrame(createStore()));
+check("render: groups nest their slots, whenMissing, the map screen", [
+  app3.querySelector('.slot-group[data-group="cards"] > .slot > .widget-condition')?.hidden, ui3.mapScreen],
+  [false, "map"]);
+
+// a map slot's view (followControl.js): your zoom and where you left it, per slot, on this device
+const { createFollow } = await import("./src/map/followControl.js");
+const SLOTS = "fs25companion.mapSlots";
+let slotsBefore = null;
+try { slotsBefore = localStorage.getItem(SLOTS); } catch { /* private mode */ }
+// each follow on a map of its own, as after a reload
+const followHosts = [];
+const slotFollow = (id) => {
+  const host = document.createElement("div");
+  host.style.cssText = "width: 400px; height: 300px";
+  document.body.append(host);
+  followHosts.push(host);
+  const map = createMapView(host, { zoomControl: false });
+  return { map, follow: createFollow(map, { slotZoom: true, slot: id, mapId: () => "TestMap" }) };
+};
+const fbounds = terrainBounds(2048);
+const pose = { x: 100, z: 50 };
+const s1 = slotFollow("test/map");
+s1.follow.onNewMap(fbounds);
+s1.follow.tick(pose);
+const slotZoomAt = s1.map.getZoom();
+s1.follow.userZoom();
+s1.map.setZoom(2, { animate: false });
+const kept = JSON.parse(localStorage.getItem(SLOTS) || "{}")["test/map"];
+const s2 = slotFollow("test/map");
+s2.follow.onNewMap(fbounds);
+s2.follow.tick(pose);
+const handAfterReload = s2.map.getZoom();
+s2.follow.setFollowing(false);
+s2.map.setView(worldToLatLng(-300, 200), 1, { animate: false });
+const s3 = slotFollow("test/map");
+s3.follow.onNewMap(fbounds);
+const leftAt = latLngToWorld(s3.map.getCenter());
+const leftZoom = s3.map.getZoom();
+s3.follow.recentre();
+s3.follow.tick(pose);
+check("map slot memory: hand zoom kept and restored, view left restored, recentre resets", [
+  kept, handAfterReload, [Math.round(leftAt.x), Math.round(leftAt.z), leftZoom], s3.follow.following(),
+  s3.map.getZoom() === slotZoomAt, JSON.parse(localStorage.getItem(SLOTS) || "{}")["test/map"]],
+  [{ following: true, zoom: 2 }, 2, [-300, 200, 1], true, true, { following: true }]);
+check("map slot memory: per slot", slotFollow("test/other").follow.following(), true);
+for (const host of followHosts) host.remove();
+try {
+  if (slotsBefore === null) localStorage.removeItem(SLOTS);
+  else localStorage.setItem(SLOTS, slotsBefore);
+} catch { /* private mode */ }
+
 
 // --- icons (ui/icons.js) --------------------------------------------------------
 

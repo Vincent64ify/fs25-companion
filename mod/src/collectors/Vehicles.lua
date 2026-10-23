@@ -2,7 +2,8 @@
 -- Every vehicle on the map, twice per second (vehicleSystem.vehicles,
 -- Phase 0): pose, name, owner, AI state, whether it has an engine and
 -- whether it hangs on another vehicle. The vehicle the player controls also
--- gets the dashboard detail (motor, fuel, lights, implements).
+-- gets the dashboard detail (motor, fuel, lights, implements, and its
+-- brand and shop category for the Vehicle screen's card).
 --
 -- The spec field names come from the old telemetry mod (which read them
 -- through the pipe) and are guarded.
@@ -28,6 +29,37 @@ local function vehicleName(vehicle)
     return name or nil
 end
 
+-- vehicle id -> brand and shop category, from the store item its config
+-- file belongs to (unverified, guarded). Cleared per map by reset().
+local storeInfos = {}
+
+local function storeInfo(vehicle)
+    local key = vehicle.id or vehicle
+    local info = storeInfos[key]
+    if info ~= nil then
+        return info
+    end
+    info = {}
+    local store = g_storeManager
+    local item = type(vehicle.configFileName) == "string"
+        and Api.tryCall(store, "getItemByXMLFilename", vehicle.configFileName) or nil
+    if type(item) == "table" then
+        local brand = item.brandIndex ~= nil and Api.tryCall(g_brandManager, "getBrandByIndex", item.brandIndex) or nil
+        if type(brand) == "table" and type(brand.title) == "string" and brand.name ~= "NONE" then
+            info.brand = brand.title
+        end
+        if type(item.categoryName) == "string" then
+            info.category = item.categoryName
+            local category = Api.tryCall(store, "getCategoryByName", item.categoryName)
+            if type(category) == "table" and type(category.title) == "string" then
+                info.categoryTitle = category.title
+            end
+        end
+    end
+    storeInfos[key] = info
+    return info
+end
+
 local function speedKmh(vehicle, motorized)
     local speed = Api.tryCall(vehicle, "getLastSpeed")
     if speed == nil then
@@ -44,8 +76,12 @@ local function collectImplements(vehicle, depth, out)
     for _, implement in pairs(attached) do
         local object = type(implement) == "table" and implement.object or nil
         if object ~= nil then
+            local info = storeInfo(object)
             out[#out + 1] = {
                 name = Api.tryCall(object, "getFullName") or object.typeName,
+                typeName = object.typeName,
+                category = info.category,
+                categoryTitle = info.categoryTitle,
                 depth = depth,
                 lowered = Api.tryCall(object, "getIsLowered", true) == true,
                 turnedOn = Api.tryCall(object, "getIsTurnedOn") == true,
@@ -167,6 +203,10 @@ local function vehicleEntry(vehicle, detailed)
         entry.wear = wearOf(vehicle)
         entry.operatingHours = operatingHours(vehicle)
         entry.mass = Geo.round(Api.tryCall(vehicle, "getTotalMass", false), 2)
+        local info = storeInfo(vehicle)
+        entry.brand = info.brand
+        entry.category = info.category
+        entry.categoryTitle = info.categoryTitle
         local implements = {}
         collectImplements(vehicle, 1, implements)
         entry.implements = implements
@@ -187,6 +227,7 @@ Companion.Collectors.Vehicles = {
     interval = 500,
     reset = function()
         names = {}
+        storeInfos = {}
     end,
     collect = function(ctx)
         local data = { vehicles = {} }

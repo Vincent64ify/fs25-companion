@@ -496,14 +496,14 @@ end)
 
 local function stubGame()
     local implement = {
-        typeName = "plow",
+        id = 10, typeName = "plow", configFileName = "data/plow.xml",
         getFullName = function() return "Plow 3000" end,
         getIsLowered = function() return true end,
         getIsTurnedOn = function() return false end,
         getDamageAmount = function() return 0.25 end,
     }
     local vehicle = {
-        id = 7, rootNode = 55, typeName = "tractor",
+        id = 7, rootNode = 55, typeName = "tractor", configFileName = "data/t7.xml",
         getFullName = function() return "Big Tractor" end,
         getOwnerFarmId = function() return 1 end,
         getIsAIActive = function() return false end,
@@ -559,6 +559,17 @@ local function stubGame()
     getAppBasePath = function() return "C:/Games/FS25/" end
     FillType = { DIESEL = 1, DEF = 2, ELECTRICCHARGE = 3, METHANE = 4 }
     g_localPlayer = player
+    g_storeManager = {
+        items = {
+            ["data/t7.xml"] = { brandIndex = 3, categoryName = "TRACTORSM" },
+            ["data/plow.xml"] = { brandIndex = 1, categoryName = "PLOWS" },
+        },
+        getItemByXMLFilename = function(self, file) return self.items[file] end,
+        getCategoryByName = function(_, name) return name == "TRACTORSM" and { title = "Tractors M" } or nil end,
+    }
+    g_brandManager = {
+        getBrandByIndex = function(_, i) return ({ { name = "NONE", title = "None" }, nil, { name = "NEWHOLLAND", title = "New Holland" } })[i] end,
+    }
     g_farmlandManager = {
         farmlands = { { id = 1, farmId = 1, price = 1000, areaInHa = 2 } },
         getFarmlandIdAtWorldPosition = function(_, x) return x < 0 and 1 or 255 end,
@@ -646,6 +657,11 @@ test("whole mod streams every topic", function()
     assert(text:find('"heading":0,"inVehicle":true,"vehicleId":7', 1, true), "in-vehicle player pose")
     assert(text:find('"controlledId":7', 1, true), "controlled vehicle")
     assert(text:find('"name":"Plow 3000"', 1, true), "implements")
+    assert(text:find('"brand":"New Holland","category":"TRACTORSM","categoryTitle":"Tractors M"', 1, true),
+        "brand and shop category")
+    assert(text:find('"category":"PLOWS","depth":1', 1, true), "implement's category, no title")
+    assert(not text:find('"brand":"None"', 1, true), "no brand for NONE")
+    assert(text:find('"typeName":"plow"', 1, true), "implement's type")
     assert(text:find('"operatingHours":2', 1, true), "hours")
     assert(text:find('"fuel":150.6,"fuelCapacity":300,"fuelType":"diesel"', 1, true), "fuel from the fill unit")
     assert(text:find('"wear":0.1', 1, true), "wear from getDamageAmount")

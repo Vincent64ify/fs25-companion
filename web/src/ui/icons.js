@@ -63,6 +63,24 @@ const PATHS = {
   tractor: '<path d="M3 12.5V3.5h8l1.5 8h8V15M16.5 11.5V8"/><circle cx="7" cy="16.5" r="4.5"/>' +
     '<circle cx="7" cy="16.5" r="1" fill="currentColor"/><circle cx="18.5" cy="18" r="2.8"/>',
 
+  // --- vehicle types: the Vehicle screen's card and implement rows --------
+  // side view, facing right like the tractor: body, cab, reel over the
+  // cutter bar, big front wheel
+  harvester: '<path d="M2.5 12.5V6.5h7V3h5v9.5zM14.5 9.5h2.5M16.5 15.5h6"/><circle cx="19.5" cy="9.5" r="2.5"/>' +
+    '<circle cx="10.5" cy="18" r="3"/><circle cx="4.5" cy="19" r="2"/>',
+  // a wheel loader: cab, boom up front, the bucket raised
+  loader: '<path d="M2.5 14V9.5h4V4H12v10zM12 11.5l4.5-5M15.5 3h6l-1 6h-3.5z"/>' +
+    '<circle cx="6.5" cy="18.5" r="2.5"/><circle cx="16" cy="18.5" r="2.5"/>',
+  // a tipping trailer on its drawbar
+  trailer: '<path d="M7 5.5h14.5v9H7zM7 12.5l-4.5 2"/><circle cx="12" cy="18" r="2.5"/><circle cx="17.5" cy="18" r="2.5"/>',
+  // a lorry: the box, then the cab with its window
+  truck: '<path d="M2.5 5h11.5v10.5H2.5zM14 8.5h4.5l3 3.5v3.5H14M16.5 8.5v3.5h5"/>' +
+    '<circle cx="6.5" cy="18.5" r="2.5"/><circle cx="17.5" cy="18.5" r="2.5"/>',
+  // any tool: a frame on its hitch, with tines
+  implement: '<path d="M3 6h13.5v6.5H3zM16.5 9.25H21M5.5 12.5v6M9.75 12.5v6M14 12.5v6"/>',
+  // a front weight: the classic weight with its handle
+  weight: '<path d="M7.5 9h9l3 11.5h-15z"/><circle cx="12" cy="5.5" r="2.5"/>',
+
   // --- alerts -----------------------------------------------------------
   // the amber warning diamond
   warn: '<path d="M12 2.5l9.5 9.5-9.5 9.5L2.5 12z"/><path d="M12 7.5v5"/>' + DOT(12, 16.3),
@@ -141,6 +159,7 @@ const PATHS = {
 export const ICON_GROUPS = {
   Vehicle: ["speed", "rpm", "gear", "diesel", "electric", "methane", "engine", "engineTemp",
             "wear", "hours", "position", "tractor"],
+  "Vehicle types": ["harvester", "loader", "trailer", "truck", "implement", "weight"],
   Alerts: ["warn", "battery", "oil", "checkEngine", "snow"],
   "Status bar": ["clock", "day", "season", "sun", "cloudy", "rain", "fog", "storm",
                  "temperature", "money", "connection", "settings", "dayNight"],

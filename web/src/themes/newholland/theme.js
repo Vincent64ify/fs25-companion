@@ -37,18 +37,22 @@ export default {
       ],
     },
     {
-      // the hero readout, condition tiles and vehicle card come with T4
+      // the readout and vehicle cards, condition tiles and implements
+      // (rows 296 | 116 | 1fr, columns 1fr | 300), then the controls
       id: "vehicle", label: "Vehicle", icon: "tractor",
       slots: [
-        { widget: "vehicleName", variant: "title" },
-        { widget: "speed", variant: "tile" },
-        { widget: "rpm", variant: "tile" },
-        { widget: "gear", variant: "tile" },
-        { widget: "fuel", variant: "tile" },
-        { widget: "engineTemp", variant: "tile" },
-        { widget: "wear", variant: "tile" },
-        { widget: "hours", variant: "tile" },
-        { widget: "implements", variant: "card" },
+        { group: "vehicle", slots: [
+          { widget: "vehicleReadout" },
+          { widget: "vehicleCard" },
+          { group: "conditions", slots: [
+            { widget: "fuel", variant: "condition", whenMissing: "dash" },
+            { widget: "engineTemp", variant: "condition", whenMissing: "dash" },
+            { widget: "wear", variant: "condition", whenMissing: "dash" },
+            { widget: "hours", variant: "condition", whenMissing: "dash" },
+          ] },
+          { widget: "implements", variant: "rows" },
+        ] },
+        { controls: true },
       ],
     },
   ],

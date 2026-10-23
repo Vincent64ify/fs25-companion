@@ -8,7 +8,7 @@
 
 import { connect } from "./connection.js";
 import { createStore } from "./store.js";
-import { addCursorReadout, createMapView } from "./map/mapView.js";
+import { addCursorReadout, createMapView, remeasure } from "./map/mapView.js";
 import { createMapFrame } from "./map/mapFrame.js";
 import { createOverviewLayer } from "./map/overviewLayer.js";
 import { createFollow } from "./map/followControl.js";
@@ -69,17 +69,18 @@ const app = $("app");
 const rendered = renderTheme(theme, app, store, frame, settings);
 
 // the screen shown last on this device, per theme
+/** @type {Record<string, string>} */
+let screens = {};
+const rememberScreen = () => {
+  screens[theme.id] = app.dataset.screen || "";
+  try { localStorage.setItem(SCREEN_KEY, JSON.stringify(screens)); } catch { /* private mode */ }
+};
 if (rendered.showScreen) {
-  /** @type {Record<string, string>} */
-  let screens = {};
   try { screens = JSON.parse(localStorage.getItem(SCREEN_KEY) || "{}") || {}; } catch { /* private mode */ }
   if (screens[theme.id] && app.querySelector(`.screen[data-screen="${screens[theme.id]}"]`)) {
     rendered.showScreen(screens[theme.id]);
   }
-  app.querySelector(".tab-bar")?.addEventListener("click", () => {
-    screens[theme.id] = app.dataset.screen || "";
-    try { localStorage.setItem(SCREEN_KEY, JSON.stringify(screens)); } catch { /* private mode */ }
-  });
+  app.querySelector(".tab-bar")?.addEventListener("click", rememberScreen);
 }
 
 // --- map -------------------------------------------------------------------
@@ -87,7 +88,12 @@ if (rendered.showScreen) {
 const corners = theme.mapControls === "corners";
 const map = createMapView(frame.mapEl, { zoomControl: corners });
 frame.map = map;
-const follow = createFollow(map, { slotZoom: !corners });
+// each theme's map slot keeps its own view (New Holland: zoom, follow, where you left it)
+const follow = createFollow(map, {
+  slotZoom: !corners,
+  slot: corners ? undefined : `${theme.id}/${rendered.mapScreen || "map"}`,
+  mapId: () => store.get("hello")?.mapId,
+});
 if (corners) addFollowButtons(map, follow);
 createOverviewLayer(map, store, { onNewMap: follow.onNewMap });
 addCursorReadout(map);
@@ -108,6 +114,15 @@ if (corners) addLegendControl(map, legend);
 else addEdgeControls(map, follow, legend);
 
 createFieldInfoPanel(store, frame.fieldInfo);
+
+// the Vehicle screen's Show on map: the Map screen, following the vehicle
+app.addEventListener("showonmap", () => {
+  if (rendered.showScreen && rendered.mapScreen) {
+    rendered.showScreen(rendered.mapScreen);
+    rememberScreen();
+  }
+  follow.recentre();
+});
 keepPopupsInside(map, { avoid: frame.fieldInfo, inset: corners ? {} : TOOLBAR_INSET });
 
 // --- animation -------------------------------------------------------------
@@ -120,6 +135,6 @@ function frameTick(/** @type {number} */ now) {
 requestAnimationFrame(frameTick);
 
 // the map container may change size with the layout (phone rotation)
-new ResizeObserver(() => map.invalidateSize({ animate: false })).observe(frame.mapEl);
+new ResizeObserver(() => remeasure(map, { animate: false })).observe(frame.mapEl);
 
 connect(store);

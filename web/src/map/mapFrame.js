@@ -4,6 +4,7 @@
 // it moves into whichever map slot the visible screen has.
 
 import { h } from "../ui/dom.js";
+import { remeasure } from "./mapView.js";
 
 /** @param {import("../store.js").Store} store */
 export function createMapFrame(store) {
@@ -28,7 +29,7 @@ export function createMapFrame(store) {
      */
     moveTo(slot) {
       if (el.parentElement !== slot || slot.firstElementChild !== el) slot.prepend(el);
-      this.map?.invalidateSize({ pan: false });
+      if (this.map) remeasure(this.map, { pan: false });
     },
   };
 }

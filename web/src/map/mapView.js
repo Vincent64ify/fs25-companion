@@ -73,8 +73,20 @@ export function createMapView(el, { zoomControl = true } = {}) {
   map.setView([0, 0], -2);
   // Leaflet only notices window resizes; the box also changes with the
   // layout (banner shown, panel below the map, ...)
-  new ResizeObserver(() => map.invalidateSize({ pan: false })).observe(el);
+  new ResizeObserver(() => remeasure(map, { pan: false })).observe(el);
   return map;
+}
+
+/**
+ * map.invalidateSize, except while the map's box has no size (its screen
+ * is hidden): Leaflet then keeps the last size, so the view is the same
+ * when the screen shows again.
+ * @param {any} map L.Map
+ * @param {object} [opts] invalidateSize's options
+ */
+export function remeasure(map, opts) {
+  const el = map.getContainer();
+  if (el.clientWidth && el.clientHeight) map.invalidateSize(opts);
 }
 
 /**

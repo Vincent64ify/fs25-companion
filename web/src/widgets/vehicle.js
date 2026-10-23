@@ -36,11 +36,18 @@ export const gear = valueWidget({
   text: String,
 }, "gauge");
 
+// litres, or kWh for an electric vehicle
+const FUEL_UNITS = /** @type {Record<string, string>} */ ({ electriccharge: "kWh" });
+
 export const fuel = valueWidget({
   label: "Fuel", unit: "%", icon: "diesel", topics: VEHICLE,
   read: (store) => fuelPct(controlledVehicle(store)),
   text: pct, number: (v) => String(Math.round(v)),
   level: fuelLevel, meter: (v) => v,
+  detail: (store) => {
+    const v = controlledVehicle(store);
+    return v && typeof v.fuel === "number" ? `${Math.round(v.fuel).toLocaleString()} ${FUEL_UNITS[v.fuelType] || "L"}` : undefined;
+  },
 });
 
 export const wear = valueWidget({
@@ -48,6 +55,7 @@ export const wear = valueWidget({
   read: (store) => wearPct(controlledVehicle(store)),
   text: pct, number: (v) => String(Math.round(v)),
   level: (v) => (v >= LIMITS.wearWarn ? "warn" : undefined),
+  bar: (v) => v,
 });
 
 export const engineTemp = valueWidget({
@@ -55,12 +63,15 @@ export const engineTemp = valueWidget({
   read: (store) => engineTempOf(controlledVehicle(store)),
   text: (v) => Math.round(v) + "°C", number: (v) => String(Math.round(v)),
   level: (v) => (v >= LIMITS.tempAlarm ? "alarm" : v >= LIMITS.tempWarn ? "warn" : undefined),
+  // full at 140 °C, so the alarm sits near the end
+  bar: (v) => v / 1.4,
 });
 
 export const hours = valueWidget({
   label: "Hours", unit: "h", icon: "hours", topics: VEHICLE,
   read: (store) => operatingHours(controlledVehicle(store)),
   text: (v) => v.toFixed(1) + " h", number: (v) => v.toFixed(1),
+  note: "Hour meter",
 });
 
 export const position = valueWidget({

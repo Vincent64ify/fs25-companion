@@ -45,6 +45,14 @@
   --backdrop: rgba(4, 17, 42, 0.45);
   --glass: rgba(255, 255, 255, 0.85);
   --glass-text: #0D1B33;
+  --readout: linear-gradient(160deg, #1B4A9E 0%, #0C2D6B 70%);
+  --readout-lift: inset 0 1px 0 rgba(255, 255, 255, 0.18), 0 2px 4px rgba(12, 45, 107, 0.15), 0 10px 24px rgba(12, 45, 107, 0.22);
+  --warn-border: #F0C98A;
+  --badge-off: linear-gradient(#E8EEF7, #D2DCEC);
+  --badge-off-ink: #0C2D6B;
+  --chip-on-bg: #E6EEFB;
+  --chip-on-text: #0C4DB8;
+  --chip-off-bg: #EEF2F8;
 
   /* the shared tokens (style.css), so the legend, field panel and popups follow */
   --bg: #E3EAF5;
@@ -108,6 +116,13 @@
   --backdrop: rgba(0, 0, 0, 0.55);
   --glass: rgba(4, 17, 42, 0.85);
   --glass-text: #EAF0FA;
+  --readout: linear-gradient(160deg, #1A3B80 0%, #0D224B 75%);
+  --warn-border: #7A5A1E;
+  --badge-off: linear-gradient(#24427C, #1C3566);
+  --badge-off-ink: #EAF0FA;
+  --chip-on-bg: #1C3566;
+  --chip-on-text: #8DB9FF;
+  --chip-off-bg: #132B5C;
 
   --bg: #06142E;
   --surface: #12295A;
@@ -507,58 +522,302 @@ button { font: inherit; color: inherit; }
 .widget-readout[data-level="alarm"] .icon { color: var(--alarm); }
 .widget-readout[data-level] .widget-meter > span { background: var(--warn-fill); }
 
-/* --- Vehicle screen (for now: tiles and the implements; the hero readout and
-   vehicle card come with T4) ------------------------------------------------- */
+/* --- Vehicle screen: readout and vehicle cards, condition tiles, implements,
+   then the control column (widgets/vehicleScreen.js, implements.js) ---------- */
 
 .screen[data-screen="vehicle"] {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-  align-content: start;
+  grid-template-columns: minmax(0, 1fr) 268px;
   gap: 12px;
   padding: 12px;
-  overflow-y: auto;
 }
-.slot:has(> [hidden]) { display: none; }
-.slot:has(> h2), .slot:has(> .card) { grid-column: 1 / -1; }
-.slot > h2 { margin: 4px 4px 0; font-size: 22px; font-weight: 700; }
-.widget-tile, .screen .card {
-  border: 1px solid var(--border);
-  border-radius: 16px;
-  background: var(--card);
-  box-shadow: var(--lift);
-}
-.widget-tile {
+.slot-group[data-group="vehicle"] {
   display: grid;
-  grid-template-columns: auto auto 1fr;
-  align-items: baseline;
-  column-gap: 12px;
-  padding: 14px 16px;
+  grid-template-columns: minmax(0, 1fr) 300px;
+  grid-template-rows: 296px 116px minmax(0, 1fr);
+  gap: 12px;
+  min-width: 0;
+  min-height: 0;
 }
-.widget-tile .icon {
-  grid-row: 1 / 3;
-  align-self: center;
-  width: 40px;
-  height: 40px;
-  padding: 7px;
-  border-radius: 10px;
-  background: var(--badge);
-  color: var(--badge-ink);
+.slot-group[data-group="conditions"] {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
 }
-.widget-tile .widget-label { grid-column: 2 / 4; grid-row: 1; font-size: 13px; color: var(--muted); }
-.widget-tile .widget-value { grid-column: 2; grid-row: 2; font-size: 32px; font-weight: 600; font-variant-numeric: tabular-nums; }
-.widget-tile .widget-unit { grid-column: 3; grid-row: 2; margin-left: -8px; font-size: 13px; color: var(--muted); }
-.widget-tile[data-level] .widget-value { color: var(--warn); }
-.widget-tile[data-level="alarm"] .widget-value { color: var(--alarm); }
-.screen .card { padding: 14px 16px; }
-.screen .card h3 {
-  margin: 0 0 8px;
+.slot { display: grid; min-width: 0; min-height: 0; }
+.slot:has(> [hidden]) { display: none; }
+.slot:has(> .implements-card) { grid-column: 1 / -1; }
+
+.readout-label, .widget-condition .widget-label, .impl-head h2 {
   font-size: 12px;
   font-weight: 600;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: var(--muted);
 }
-.screen .card ul { margin: 0; padding-left: 18px; font-size: 14px; line-height: 1.6; white-space: pre-wrap; }
+
+/* the readout card: what the vehicle is doing, the speed arc, gear, rpm */
+.vehicle-readout {
+  container-type: inline-size;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  overflow: hidden;
+  padding: 18px 22px;
+  border-radius: 20px;
+  background: var(--readout);
+  color: #FFFFFF;
+  box-shadow: var(--readout-lift);
+}
+.readout-head { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.readout-badge {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  background: var(--badge);
+  color: var(--badge-ink);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
+}
+.readout-badge .icon { width: 20px; height: 20px; }
+.readout-what { display: flex; flex: 1; flex-direction: column; min-width: 0; }
+.readout-title { font-size: 17px; font-weight: 700; }
+.readout-sub, .readout-engine { font-size: 13px; color: #BFD0EE; }
+.readout-sub { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.readout-engine {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: none;
+  padding: 5px 12px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.1);
+  font-weight: 600;
+}
+.readout-dot { width: 8px; height: 8px; border-radius: 50%; background: #9DB0CF; }
+.readout-engine[data-on="true"] .readout-dot { background: var(--live); }
+.readout-body { display: flex; flex: 1; align-items: flex-end; gap: 24px; min-height: 0; }
+.readout-arc { position: relative; flex: none; width: 300px; height: 190px; }
+.readout-arc svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+.arc-track, .arc-fill { fill: none; stroke-width: 12; stroke-linecap: round; }
+.arc-track { stroke: rgba(255, 255, 255, 0.14); }
+.arc-fill { stroke: url(#arc-gradient); transition: stroke-dasharray 0.3s; }
+.readout-speed-box {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 14px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  font-variant-numeric: tabular-nums;
+}
+.readout-speed { font-size: 88px; font-weight: 700; line-height: 0.9; letter-spacing: -0.03em; }
+.readout-speed-box small { font-size: 16px; font-weight: 500; color: #BFD0EE; }
+.arc-min, .arc-max { position: absolute; bottom: 0; font-size: 12px; color: #9DB0CF; }
+.arc-min { left: 6px; }
+.arc-max { right: 2px; }
+.readout-side { display: flex; flex: 1; flex-direction: column; gap: 18px; min-width: 0; padding-bottom: 10px; }
+.readout-label { color: #BFD0EE; }
+.readout-gear-row { display: flex; align-items: center; gap: 14px; }
+.readout-gear {
+  display: grid;
+  place-items: center;
+  flex: none;
+  box-sizing: border-box;
+  min-width: 64px;
+  height: 64px;
+  padding: 0 8px;
+  border: 2px solid rgba(255, 255, 255, 0.5);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.08);
+  font-size: 36px;
+  font-weight: 700;
+}
+.readout-rpm { display: flex; flex-direction: column; gap: 6px; }
+.readout-rpm-row { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; font-variant-numeric: tabular-nums; }
+.readout-rpm-row > span { white-space: nowrap; }
+.readout-rpm-row b { font-size: 26px; font-weight: 700; }
+.readout-rpm-row small { font-size: 13px; color: #BFD0EE; }
+.readout-rpm .widget-meter { width: auto; background: rgba(255, 255, 255, 0.14); }
+.readout-rpm .widget-meter > span { background: linear-gradient(90deg, #7BEAA5, #4ADE80); transition: width 0.3s; }
+/* narrower columns: a smaller arc and an 80 px speed, then the side below */
+@container (max-width: 499px) {
+  .readout-body { gap: 16px; }
+  .readout-arc { width: 260px; height: 165px; }
+  .readout-speed { font-size: 80px; }
+}
+@container (max-width: 419px) {
+  .readout-body { flex-direction: column; align-items: center; gap: 12px; }
+  .readout-side { align-self: stretch; padding-bottom: 0; }
+}
+
+/* the vehicle card: its kind's icon stands where the shop picture would */
+.vehicle-card, .widget-condition, .implements-card {
+  border: 1px solid var(--border);
+  background: var(--card);
+  box-shadow: var(--lift);
+}
+.vehicle-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+  overflow: hidden;
+  padding: 16px;
+  border-radius: 20px;
+}
+.vehicle-figure {
+  position: relative;
+  display: flex;
+  flex: 1;
+  align-items: flex-end;
+  justify-content: center;
+  min-height: 0;
+  margin: 0;
+  border-radius: 14px;
+  background: radial-gradient(ellipse at 50% 85%, var(--line) 0%, transparent 70%);
+}
+.vehicle-figure::after {
+  content: "";
+  position: absolute;
+  bottom: 6px;
+  left: calc(50% - 80px);
+  width: 160px;
+  height: 14px;
+  border-radius: 50%;
+  background: radial-gradient(ellipse, rgba(0, 0, 0, 0.22) 0%, rgba(0, 0, 0, 0) 70%);
+}
+.vehicle-figure .icon {
+  position: relative;
+  z-index: 1;
+  width: auto;
+  height: min(150px, 100%);
+  aspect-ratio: 1;
+  stroke-width: 1.1;
+  color: var(--text);
+  opacity: 0.4;
+}
+.vehicle-foot { display: flex; align-items: center; gap: 10px; }
+.vehicle-text { display: flex; flex: 1; flex-direction: column; min-width: 0; }
+.vehicle-name, .vehicle-sub { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.vehicle-name { font-size: 18px; font-weight: 700; }
+.vehicle-sub { font-size: 13px; color: var(--muted); }
+.show-on-map {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 48px;
+  height: 48px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--btn);
+  color: var(--tool-ink);
+  box-shadow: var(--lift);
+  cursor: pointer;
+}
+.show-on-map .icon { width: 22px; height: 22px; }
+.show-on-map:hover { background: var(--line); }
+
+/* condition tiles (widget.js, variant "condition") */
+.widget-condition {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  min-width: 0;
+  padding: 14px;
+  border-radius: 16px;
+}
+.widget-head { display: flex; align-items: center; gap: 8px; min-width: 0; color: var(--muted); }
+.widget-condition .widget-label { letter-spacing: 0.06em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.widget-head .icon {
+  flex: none;
+  box-sizing: border-box;
+  width: 28px;
+  height: 28px;
+  padding: 6px;
+  border-radius: 9px;
+  background: var(--badge);
+  color: var(--badge-ink);
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.18);
+}
+.widget-number { display: flex; align-items: baseline; gap: 4px; min-width: 0; font-variant-numeric: tabular-nums; }
+.widget-number .widget-value { font-size: 32px; font-weight: 700; }
+.widget-number .widget-unit { font-size: 14px; color: var(--muted); }
+.widget-detail { margin-left: auto; font-size: 13px; color: var(--muted); white-space: nowrap; }
+.widget-note { font-size: 13px; color: var(--muted); }
+.widget-condition .widget-meter, .impl-wear .widget-meter { width: auto; height: 6px; border-radius: 3px; }
+.widget-condition .widget-meter > span, .impl-wear .widget-meter > span { border-radius: 3px; }
+.widget-condition[data-level] { border-color: var(--warn-border); }
+.widget-condition[data-level] .widget-head .icon { background: var(--warn-fill); color: #0A1A33; }
+.widget-condition[data-level] .widget-value, .widget-condition[data-level] .widget-unit { color: var(--warn); }
+.widget-condition[data-level] .widget-meter > span { background: var(--warn-fill); }
+.widget-condition[data-level="alarm"] { border-color: var(--alarm); }
+.widget-condition[data-level="alarm"] .widget-head .icon { background: var(--alarm); color: var(--card-solid); }
+.widget-condition[data-level="alarm"] .widget-value, .widget-condition[data-level="alarm"] .widget-unit { color: var(--alarm); }
+.widget-condition[data-level="alarm"] .widget-meter > span { background: var(--alarm); }
+
+/* the attached implements (implements.js, variant "rows") */
+.implements-card {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+  border-radius: 16px;
+}
+.impl-head { padding: 12px 16px; border-bottom: 1px solid var(--line); }
+.impl-head h2 { margin: 0; color: var(--muted); }
+.impl-list { min-height: 0; margin: 0; padding: 0; overflow-y: auto; list-style: none; }
+.impl-row {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr) auto auto 150px;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 16px;
+}
+.impl-row + .impl-row { border-top: 1px solid var(--line); }
+.impl-badge {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: var(--badge-off);
+  color: var(--badge-off-ink);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);
+}
+.impl-badge[data-on="true"] { background: var(--badge); color: var(--badge-ink); box-shadow: 0 2px 6px rgba(0, 0, 0, 0.18); }
+.impl-badge .icon { width: 24px; height: 24px; }
+.impl-text { display: flex; flex-direction: column; min-width: 0; }
+.impl-text b, .impl-text span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.impl-text b { font-size: 16px; font-weight: 700; }
+.impl-text span { font-size: 13px; color: var(--muted); }
+.impl-chip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: var(--chip-off-bg);
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.impl-chip .icon { width: 14px; height: 14px; stroke-width: 2.4; }
+.impl-chip[data-state="on"] { background: var(--chip-on-bg); color: var(--chip-on-text); }
+.impl-chip[data-state="active"] { background: var(--on); color: var(--on-text); box-shadow: 0 1px 3px rgba(12, 45, 107, 0.3); }
+/* a work chip that's off is plain text */
+.impl-chip:has(.impl-dot)[data-state="off"] { background: transparent; font-weight: 500; }
+.impl-chip[data-state="off"] .impl-dot { display: none; }
+.impl-dot { width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+.impl-wear { display: flex; flex-direction: column; gap: 5px; grid-column: 5; }
+.impl-wear > div { display: flex; justify-content: space-between; font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.impl-wear b { color: var(--text); font-weight: 600; }
+.impl-empty { margin: 0; padding: 16px; font-size: 14px; color: var(--muted); }
 
 /* --- Settings (ui/settings.js): in the main area, under the status bar -------- */
 
@@ -706,6 +965,16 @@ button { font: inherit; color: inherit; }
     align-items: start;
     overflow: visible;
   }
+  /* the Vehicle screen scrolls: its cards, then the control dock */
+  .screen[data-screen="vehicle"] {
+    grid-template-columns: minmax(0, 1fr);
+    align-content: start;
+    overflow-y: auto;
+  }
+  .slot-group[data-group="vehicle"] { grid-template-rows: 296px auto auto; }
+  /* the screen scrolls, so its rows keep their content's height */
+  .screen[data-screen="vehicle"] .slot-group, .screen[data-screen="vehicle"] .slot,
+  .screen[data-screen="vehicle"] .control-column { min-height: auto; }
   /* unselected tabs drop to icons; the readout keeps speed, rpm and fuel */
   .tab:not([aria-pressed="true"]) { padding: 0; }
   .tab:not([aria-pressed="true"]) .tab-label { display: none; }
@@ -720,9 +989,21 @@ button { font: inherit; color: inherit; }
   .status-end > .conn::before { display: none; }
   .control-column { grid-template-columns: minmax(0, 1fr); }
   .tab-readout > :nth-child(3) { display: none !important; }
-  .widget-meter { display: none; }
+  .tab-readout .widget-meter { display: none; }
+}
+
+/* narrow screens: one card per row, two condition tiles per row */
+@media (max-width: 719px) {
+  .slot-group[data-group="vehicle"] { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto; }
+  .slot-group[data-group="vehicle"] > .slot:first-child { min-height: 296px; }
+  .vehicle-figure { flex: none; height: 150px; }
+  .vehicle-figure .icon { height: 140px; }
+  .slot-group[data-group="conditions"] { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .impl-row { grid-template-columns: 44px minmax(0, 1fr) auto; }
+  .impl-row > .impl-chip ~ .impl-chip { grid-column: 3; }
+  .impl-wear { grid-column: 2 / -1; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .control { transition: none; }
+  .control, .arc-fill, .readout-rpm .widget-meter > span { transition: none; }
 }
