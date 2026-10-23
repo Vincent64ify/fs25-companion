@@ -108,11 +108,17 @@ These results override any API guesses later in this document.
   L90H).
 - **Field ground types:** the `FieldGroundType` names arrive live (for
   example "Sown").
-- **Gear** (Volvo L90H, Solek, 2026-10-23): the vehicle's
-  `getGearInfoToDisplay()` gives the gear's name as the speedometer shows
-  it ("1" to "3", "N", "-1" to "-3" in reverse) and `false` for automatic;
-  the motor's `getGear()` gave nothing. The dashboard shows reverse as
-  "R1".
+- **Gear** (Solek, 2026-10-23): the vehicle's `getGearInfoToDisplay()`
+  gives the gear's name as the speedometer shows it, its group and
+  whether it's automatic; the motor's `getGear()` gave nothing.
+  - Volvo L90H: "1" to "3", "N", "-1" to "-3"; not automatic, no group.
+  - JCB Fastrac iCON 4160 (CVT): "D", "N", "R"; automatic.
+  - Antonio Carraro Mach 4R (ranges): the range is in the name ("1H",
+    "3L", "-4H"), and the group comes as well ("H", "L"), sometimes still
+    the old one mid-shift.
+
+  The dashboard shows reverse as "R1" or "R4H", and a range under the
+  Gear label only when the name doesn't carry it.
 - **Brand and shop category** (2026-10-23):
   `g_storeManager:getItemByXMLFilename(vehicle.configFileName)`,
   `g_brandManager:getBrandByIndex(item.brandIndex).title` and

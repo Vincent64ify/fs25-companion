@@ -887,8 +887,9 @@ pictures).
 - **Gear** (fixed after the first live test): `getGear()` gave nothing in
   FS25, so the mod reads the vehicle's `getGearInfoToDisplay()` (the
   gear's name, group and automatic), and the dashboard shows reverse as
-  "R1". The readout card shows "Range B · Automatic" under the label when
-  the game sends them.
+  "R1" or "R3H". Under the label the readout card shows "Automatic" (a
+  CVT's "D") and the range, unless the gear's name already carries it
+  ("3H").
 - **Kinds** (`selectors.js` `vehicleKind`): the shop category first, then
   the type name, matched by pattern (tools, headers and wagons before
   loaders and harvesters); unknown motorized vehicles are tractors,

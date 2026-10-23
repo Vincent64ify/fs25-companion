@@ -95,8 +95,9 @@ export function speedScale(kmh, atLeast = 0) {
 }
 
 /**
- * The gear as the cab shows it: the game's name ("2", "N"), reverse as
- * "R1" where the game says "-1".
+ * The gear as the cab shows it: the game's name ("2", "3H" with its range,
+ * "D" and "N" on a CVT), reverse as "R1" or "R3H" where the game says "-1"
+ * or "-3H".
  * @param {Vehicle|undefined} v
  * @returns {string|undefined}
  */
@@ -104,7 +105,7 @@ export function gearName(v) {
   const g = v?.gear;
   if (g == null || g === "") return undefined;
   const text = String(g);
-  return /^-\d+$/.test(text) ? "R" + text.slice(1) : text;
+  return /^-./.test(text) ? "R" + text.slice(1) : text;
 }
 
 /** @param {Vehicle|undefined} v @returns {number|undefined} 0..100 of the engine's top rpm */

@@ -110,10 +110,9 @@ Built, but not yet confirmed in game:
   implement lowered and working), the alert chips and Day / Night, on a
   tablet over the LAN and on a second monitor.
 - **Vehicle screen live:** the readout card, condition tiles and implement
-  rows while working with an implement; the gear group and "Automatic" on
-  a tractor with gear ranges; and whether the Map screen's slot zoom
-  (about 505 m across a 1180×820 screen) is close enough in a cab. The
-  gear, brand and shop category are confirmed (see DONE.md).
+  rows while working with an implement, and whether the Map screen's slot
+  zoom (about 505 m across a 1180×820 screen) is close enough in a cab.
+  The gear, brand and shop category are confirmed (see DONE.md).
 - **Season:** the status bar reads `env.season` as 0 = spring. The replay
   shows "Summer" on day 1; check it against the in-game calendar.
 - **Positions:** compare the player marker and the hotspots with the in-game

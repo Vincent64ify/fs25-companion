@@ -24,9 +24,15 @@ function arcPath(d, cls) {
   return path;
 }
 
-/** Under the gear's label: its group and whether it shifts itself ("Range B · Automatic"). */
+/**
+ * Under the gear's label: its group and whether it shifts itself ("Range B
+ * · Automatic"). The range only when the gear's name doesn't carry it: the
+ * game names a ranged gear "3H", and mid-shift its group may still be the
+ * old one.
+ */
 export function gearDetail(/** @type {import("../types.js").Vehicle|undefined} */ v) {
-  return [typeof v?.gearGroup === "string" && v.gearGroup ? `Range ${v.gearGroup}` : "",
+  const bare = /^-?\d+$/.test(String(v?.gear ?? ""));
+  return [bare && typeof v?.gearGroup === "string" && v.gearGroup ? `Range ${v.gearGroup}` : "",
     v?.gearAutomatic === true ? "Automatic" : ""].filter(Boolean).join(" · ");
 }
 
