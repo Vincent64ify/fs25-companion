@@ -155,7 +155,7 @@ Why a file:
 | `hello` | session start, and after each rotation | protocol and mod version, session, platform, map id, title and folders, terrain size, the PDA's map values (`ingameMap`), game and profile folders, player and farm |
 | `env` | 1 s | day, season, time, weather, temperatures, money per farm |
 | `player` | 100 ms | position, heading, in a vehicle or not, vehicle id, farm |
-| `vehicles` | 500 ms | every vehicle: pose, name, type, farm, AI, engine or not, hitched or not, speed, property state; the controlled one also gets engine, fuel, rpm, gear, temperature, wear, hours, mass, lights and implements |
+| `vehicles` | 500 ms | every vehicle: pose, name, type, farm, AI, engine or not, hitched or not, speed, property state; the controlled one also gets engine, fuel, rpm, gear, temperature, wear, hours, mass, lights, implements (each with its type and shop category), and its brand and shop category |
 | `hotspots` | 10 s | the PDA's places: category, name, position, owner farm, visible |
 | `farmlands` | 10 s | id, owner farm, price, area, centre, listed |
 | `farmland_grid` | once per map, resent after a rotation | farmland ids on 4 m cells, run-length encoded |
@@ -267,7 +267,7 @@ As built, `map/` also has `followControl.js`, `glide.js`, `farmlandGeometry.js`,
 
 Since Themes T1 (see [THEMES.md](THEMES.md#as-built-t1)), `index.html` is an empty `#app` that the theme draws: `themes/` holds the theme contract, the renderer and the Default theme; `widgets/` the live values (the old vehicle and farm panels); `data/selectors.js` the pure reads of the store; `ui/dom.js` the DOM helpers; and `map/mapFrame.js` the map's box with its overlays.
 
-Since T2 and T3 (see [THEMES.md](THEMES.md#as-built-t3)): `ui/icons.js` is our own SVG icon set; `themes/newholland/` the New Holland style (data, CSS per palette and size class, and the map's edge toolbar); `ui/settings.js` the Settings button and panel shared by every theme; `ui/control.js` and `widgets/controls.js` the control buttons, which show the game's state until the controls project wires them; and `vendor/fonts/` the self-hosted Archivo font.
+Since T2 and T3 (see [THEMES.md](THEMES.md#as-built-t3)): `ui/icons.js` is our own SVG icon set; `themes/newholland/` the New Holland style (data, CSS per palette and size class, and the map's edge toolbar); `ui/settings.js` the Settings button and panel shared by every theme; `ui/control.js` and `widgets/controls.js` the control buttons, which show the game's state until the controls project wires them; and `vendor/fonts/` the self-hosted Archivo font. Since T4: `widgets/vehicleScreen.js` holds the Vehicle screen's readout and vehicle cards, and the renderer groups slots for a theme's CSS.
 
 - **Layer contract:** `createLayer(map, store) → { id, title, leafletLayer, legendItems }`. A layer subscribes only to its own topic(s). Adding a feature means adding one file and registering it.
 - **Vehicle markers:** rotated SVG icons, interpolated between updates so 2 Hz still looks smooth. There is a "follow me" toggle and a click popup with vehicle details.
@@ -357,7 +357,7 @@ Changes since Phase 4 (2026-10-21 to 2026-10-22):
 - **Docs:** the command channel design for dashboard buttons (`51b0862`),
   and the Themes and layouts plan (`ab36061`, [THEMES.md](THEMES.md)).
 
-## Themes T0 to T3
+## Themes T0 to T4
 
 2026-10-23; the details are in each phase's "As built" note in
 [THEMES.md](THEMES.md).
@@ -377,3 +377,8 @@ Changes since Phase 4 (2026-10-21 to 2026-10-22):
   edge toolbar, Layers panel, scale and slot zoom, in day and night; the
   Settings panel with theme and Day / Night, in both themes; the Archivo
   font, self-hosted.
+- **T4, Vehicle screen** (`5927a45`): the readout card, vehicle card with
+  Show on map, condition tiles and implement rows, in day and night and
+  every size; six vehicle-type icons; brand and shop category from the
+  mod; each map slot's view remembered per device. The shop picture is
+  left for later.

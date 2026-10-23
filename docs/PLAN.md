@@ -9,10 +9,10 @@ it relies on, are in [DONE.md](DONE.md). Small fixes go in
 - Phases 0 to 4 of the rework are built and run live on Windows (Solek, and
   Kinlaig, a paid DLC map): the file stream, the client and backend, and the
   Leaflet map with the PDA's places, every vehicle, farmlands and fields.
-- Themes T0 to T3 are done: the approved design, themes as data, our own
-  icon set, and the New Holland style's chrome and Map screen in day and
-  night, chosen from a Settings panel that Default has too. Next is T4,
-  the Vehicle screen.
+- Themes T0 to T4 are done: the approved design, themes as data, our own
+  icon set, and the New Holland style's chrome, Map screen and Vehicle
+  screen in day and night, chosen from a Settings panel that Default has
+  too. Next is T5, the responsive pass.
 - macOS is still to test, and a few things are still to confirm in game (see
   [Open checks](#open-checks)).
 
