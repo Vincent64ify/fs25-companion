@@ -4,8 +4,9 @@
 > see "Design result (T0)"; T1 (foundation) done on 2026-10-23, see "As
 > built (T1)"; T2 (our icon set) done on 2026-10-23, see "As built (T2)";
 > T3 (New Holland chrome and Map screen) done on 2026-10-23, see "As built
-> (T3)"; T4 (Vehicle screen) done on 2026-10-23, see "As built (T4)". Next:
-> T5 (responsive pass).
+> (T3)"; T4 (Vehicle screen) done on 2026-10-23, see "As built (T4)"; T5
+> (responsive pass, full screen, home screen) done on 2026-10-23, see "As
+> built (T5)". Next: T6 (more data from the game).
 
 ## Goal
 
@@ -925,6 +926,68 @@ pictures).
 - The compact class, the fullscreen button and the home-screen manifest.
 - **Done when:** the matrix passes in both palettes.
 
+#### As built (T5)
+
+Done on 2026-10-23.
+- **The matrix found one layout fault:** the Vehicle screen at 1024 px wide
+  (1024×600 and 1024×768, small Android tablets and old iPads). The
+  readout card's column is under 420 px there, so gear and rpm went under
+  the arc and were cut off; at 600 tall the implements card was squeezed
+  to 18 px.
+  - The readout card now has three steps: under 500 px a 260 px arc; from
+    340 to 419 px a 180 px arc, 52 px speed and a smaller gear box, still
+    side by side; under 340 px (phones) the side under the arc.
+  - The implements row is at least 150 px, and the Vehicle screen scrolls
+    when the window is too short for that, instead of squeezing.
+- **Full screen** (`ui/screenMode.js`): the Fullscreen API on the whole
+  page (`requestFullscreen`, or Safari's prefixed one before 16.4). Two
+  ways in, in New Holland: a button at the status bar's right end (widget
+  `fullscreen`, `widgets/screen.js`, pressed and turned to "leave" while
+  on), and a Full screen toggle in Settings under a new Screen group. Default
+  has only the Settings toggle, so its header doesn't change. Neither
+  shows where the browser has no full screen (iPhones) or in the home-screen
+  app, which already has no browser bars. Browsers leave full screen when
+  the page reloads, so switching theme leaves it too; the Settings note
+  says so.
+- **Keep screen on** (Settings, Screen): the Screen Wake Lock API, saved per
+  device (`fs25companion.keepAwake`), taken again when the page shows
+  after being hidden. It only shows on a secure page: `localhost`, or
+  HTTPS. A tablet on `http://<PC IP>:8123` doesn't get it; there the
+  device's own auto-lock setting is the way.
+- **Home screen** (`web/manifest.json`, `index.html`): name, icons,
+  `display: fullscreen` (iOS uses standalone), and the Apple meta tags
+  (`apple-mobile-web-app-capable`, a translucent status bar). No
+  `start_url`, so the app opens the address it was added from, keeping
+  `?pair=` and `?theme=`. On iPad, Safari's Share → Add to Home Screen
+  works on the LAN address too. Chrome on Android needs HTTPS (or
+  localhost) to open it without bars; on the LAN it adds a plain shortcut.
+- **Safe areas:** `viewport-fit=cover`, and both themes pad by
+  `env(safe-area-inset-*)`: New Holland's status bar and tab bar grow into
+  the iPad's status bar and home indicator, with their content kept clear;
+  Default pads `#app`. The insets are 0 in a browser tab, so nothing moves
+  there.
+- **Icons:** `web/icons/icon.svg` (the favicon too) is our tractor icon on
+  Default's slate. `scripts/app_icons.py` draws the PNGs with Pillow:
+  192 and 512, rounded, and a maskable 512 and the 180 Apple touch icon,
+  full-square with the drawing inside the safe zone. Three new icons in
+  the set: `fullscreen`, `exitFullscreen` and `keepAwake`.
+- **Checked:** test.html (135 checks, 8 new: when full screen is offered,
+  keep-awake taking, releasing and saving the lock with a fake Wake Lock
+  API, the Screen group and its toggles, no group where neither is
+  supported, the status-bar button) and pytest (75). In the browser pane,
+  with the replay and a sample vehicle, a script checked horizontal
+  scroll, clipped content (both directions) and buttons under 44 px on
+  the Map screen, the Vehicle screen and with Settings open, in day and
+  night, at 1024×600, 1024×768, 1133×744, 1180×820, 1194×834, 1280×800,
+  1280×720, 1366×768, 1376×1032, 1920×1080, 2560×1440, 3440×1440, 768×1024,
+  800×1280, 820×1180, 844×390 and 390×844: all clean. Default's
+  `layoutProbe.js` at 1280×800, 1920×1080 and 390×844 matches the last
+  commit.
+- **Not checked here:** entering full screen. The app's browser pane gets
+  the request but never answers it, so it needs a real browser: Chrome or
+  Edge on the PC, and the tablets. The safe areas and the home-screen app
+  also need a real iPad.
+
 ### T6: More data from the game (mod, can start any time)
 
 - Fuel usage, cruise control, DEF/AdBlue, fill levels of the vehicle and
@@ -955,7 +1018,10 @@ pictures).
   (was `panels/dom.js`), `web/src/ui/icons.js`, `web/src/ui/control.js`,
   `web/src/ui/settings.js`, `web/src/widgets/controls.js`,
   `web/src/widgets/vehicleScreen.js`, `web/tools/layoutProbe.js`,
-  `web/tools/icons.html`.
+  `web/tools/icons.html`, `web/src/ui/screenMode.js` and
+  `web/src/widgets/screen.js` (T5: full screen, keep-awake),
+  `web/manifest.json`, `web/icons/` and `scripts/app_icons.py` (T5: home
+  screen).
 - **Removed:** `client/icon_atlas.json` (T2).
 - **Docs:** `docs/THEMES.md` (this file), `docs/PLAN.md`.
 

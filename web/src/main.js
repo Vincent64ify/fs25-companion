@@ -25,6 +25,7 @@ import { renderTheme } from "./themes/render.js";
 import { addFollowButtons, addLegendControl } from "./themes/default/mapControls.js";
 import { addEdgeControls, TOOLBAR_INSET } from "./themes/newholland/mapControls.js";
 import { createSettings } from "./ui/settings.js";
+import { createKeepAwake, fullscreenOffered, isFullscreen, onFullscreenChange, toggleFullscreen } from "./ui/screenMode.js";
 import { $ } from "./ui/dom.js";
 
 const SCREEN_KEY = "fs25companion.screen";
@@ -50,6 +51,13 @@ await loadStylesheet(theme.css);
 // the device's choice; a URL override of the same key would win over it
 const settings = createSettings({
   themes: THEMES, theme, palette,
+  fullscreen: {
+    supported: fullscreenOffered(),
+    active: () => isFullscreen(),
+    toggle: () => toggleFullscreen(),
+    onChange: (fn) => onFullscreenChange(fn),
+  },
+  keepAwake: createKeepAwake(),
   onTheme(id) {
     saveChoice("theme", id);
     location.search = withoutParams(location.search, ["theme", "palette"]);

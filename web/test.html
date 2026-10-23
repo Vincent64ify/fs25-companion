@@ -420,6 +420,85 @@ defaultRadio.dispatchEvent(new Event("change"));
 check("settings: palette and theme choices",
   [picked, fakeSettings.layer.querySelector('[data-palette="night"]').getAttribute("aria-checked")],
   [["palette night", "theme default"], "true"]);
+
+// --- T5: full screen and keep-awake (ui/screenMode.js), in Settings and the status bar ---
+const screenMode = await import("./src/ui/screenMode.js");
+const fakeDoc = (/** @type {object} */ props) => /** @type {Document} */ (/** @type {unknown} */ (props));
+const media = (/** @type {boolean} */ app) => () => ({ matches: app });
+check("full screen: offered where the browser has it, not in the home-screen app unless already on", [
+  screenMode.fullscreenOffered(fakeDoc({ fullscreenEnabled: true }), media(false)),
+  screenMode.fullscreenOffered(fakeDoc({ webkitFullscreenEnabled: true }), media(false)),
+  screenMode.fullscreenOffered(fakeDoc({ fullscreenEnabled: false }), media(false)),
+  screenMode.fullscreenOffered(fakeDoc({ fullscreenEnabled: true }), media(true)),
+  screenMode.fullscreenOffered(fakeDoc({ fullscreenEnabled: true, fullscreenElement: {} }), media(true)),
+], [true, true, false, false, true]);
+
+// keep-awake: takes the lock if saved on, gives it back when turned off,
+// takes it again when the page shows after being hidden
+const tick = () => new Promise((r) => setTimeout(r, 0));
+const wakeLog = [];
+const visibility = new EventTarget();
+let visible = "visible";
+const wakeDoc = fakeDoc({ get visibilityState() { return visible; },
+  addEventListener: (/** @type {string} */ t, /** @type {any} */ fn) => visibility.addEventListener(t, fn) });
+const sentinel = () => {
+  const s = new EventTarget();
+  return Object.assign(s, { release: async () => { wakeLog.push("release"); s.dispatchEvent(new Event("release")); } });
+};
+const wakeNav = /** @type {Navigator} */ (/** @type {unknown} */ ({
+  wakeLock: { request: async (/** @type {string} */ type) => { wakeLog.push(`request ${type}`); return sentinel(); } } }));
+const store5 = new Map([["fs25companion.keepAwake", "on"]]);
+const wakeStorage = { getItem: (/** @type {string} */ k) => store5.get(k) ?? null,
+  setItem: (/** @type {string} */ k, /** @type {string} */ v) => { store5.set(k, v); } };
+const keep = screenMode.createKeepAwake({ nav: wakeNav, doc: wakeDoc, storage: wakeStorage });
+await tick();
+keep.set(false);
+await tick();
+const savedOff = store5.get("fs25companion.keepAwake");
+visibility.dispatchEvent(new Event("visibilitychange"));        // off: nothing to take back
+keep.set(true);
+await tick();
+visible = "hidden";
+visibility.dispatchEvent(new Event("visibilitychange"));        // hidden: not now
+visible = "visible";
+check("keep-awake: saved choice, released when off, not taken while hidden",
+  [keep.supported, wakeLog, savedOff, keep.wanted()], [true, ["request screen", "release", "request screen"], "off", true]);
+check("keep-awake: unsupported without the Wake Lock API (a plain LAN address)",
+  screenMode.createKeepAwake({ nav: /** @type {Navigator} */ ({}), doc: wakeDoc, storage: wakeStorage }).supported, false);
+
+// Settings: a Screen group with what's supported; the toggles call through and show their state
+let fsOn = false;
+/** @type {(() => void)[]} */
+const fsListeners = [];
+const fsSettings = createSettings({
+  themes: [{ id: "default", label: "Default", palettes: [] }], theme: { id: "default", label: "Default", palettes: [] },
+  palette: undefined, onTheme: () => {}, onPalette: () => {},
+  fullscreen: { supported: true, active: () => fsOn, toggle: () => { fsOn = !fsOn; fsListeners.forEach((fn) => fn()); },
+    onChange: (fn) => fsListeners.push(fn) },
+  keepAwake: { supported: true, wanted: () => keep.wanted(), set: (on) => keep.set(on) },
+});
+const fsButton = fsSettings.layer.querySelector('[data-choice="fullscreen"]');
+const awakeButton = fsSettings.layer.querySelector('[data-choice="keepAwake"]');
+const before5 = [fsButton.getAttribute("aria-pressed"), awakeButton.getAttribute("aria-pressed")];
+fsButton.click();
+awakeButton.click();
+check("settings: Screen group, full screen and keep-awake toggles", [
+  [...fsSettings.layer.querySelectorAll("legend")].map((l) => l.textContent), before5,
+  fsButton.getAttribute("aria-pressed"), fsButton.querySelector("svg").dataset.icon,
+  awakeButton.getAttribute("aria-pressed"), keep.wanted(),
+], [["Theme", "Screen"], ["false", "true"], "true", "exitFullscreen", "false", false]);
+const plainSettings = createSettings({
+  themes: [{ id: "default", label: "Default", palettes: [] }], theme: { id: "default", label: "Default", palettes: [] },
+  palette: undefined, onTheme: () => {}, onPalette: () => {},
+  fullscreen: { supported: false, active: () => false, toggle: () => {}, onChange: () => {} },
+  keepAwake: { supported: false, wanted: () => false, set: () => {} },
+});
+check("settings: no Screen group where neither is supported",
+  [...plainSettings.layer.querySelectorAll("legend")].map((l) => l.textContent), ["Theme"]);
+const fsWidget = createWidget("fullscreen", createStore());
+check("status bar: the full-screen button, offered as the browser allows",
+  [fsWidget.tagName, fsWidget.getAttribute("aria-label"), fsWidget.hidden], ["BUTTON", "Full screen", !screenMode.fullscreenOffered()]);
+
 const { withoutParams } = await import("./src/themes/registry.js");
 check("URL without theme, pairing kept", withoutParams("?pair=123&theme=nh&palette=night", ["theme", "palette"]),
       "?pair=123");

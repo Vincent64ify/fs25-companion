@@ -15,7 +15,8 @@ export default {
     status: {
       start: [{ widget: "mapName", variant: "text" }, "alerts", "protocolError"],
       centre: ["dayClock"],
-      end: ["weatherNow", { widget: "money", variant: "text" }, { widget: "connection", variant: "dot" }],
+      end: ["weatherNow", { widget: "money", variant: "text" }, { widget: "connection", variant: "dot" },
+        "fullscreen"],
     },
     controls: [
       { label: "Lights", controls: ["lights", "highBeam", "beacon", "hazard", "turnLeft", "turnRight"] },

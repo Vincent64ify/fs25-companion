@@ -2,14 +2,25 @@
 // The Settings button and panel, the same in every theme (docs/THEMES.md,
 // Settings entry): the button sits top-left in the header and opens and
 // closes the panel (shown pressed while open). The panel starts with the
-// theme, then Day / Night for a theme with palettes. The theme decides
-// where both go; the panel's layer (a backdrop plus the panel) fills its
+// theme, then Day / Night for a theme with palettes, then Screen (full
+// screen, keep the screen on) where the browser allows them. The theme
+// decides where the button and panel go; the panel's layer (a backdrop plus the panel) fills its
 // parent, which is the main area under the header.
 
 import { h } from "./dom.js";
 import { icon } from "./icons.js";
 
 /** @typedef {import("../themes/render.js").Theme} Theme */
+/** @typedef {import("./screenMode.js").KeepAwake} KeepAwake */
+
+/**
+ * Full screen as the panel uses it (ui/screenMode.js).
+ * @typedef {Object} Fullscreen
+ * @property {boolean} supported
+ * @property {() => boolean} active
+ * @property {() => void} toggle
+ * @property {(fn: () => void) => void} onChange
+ */
 
 const PALETTE_ICONS = { day: "sun", night: "dayNight" };
 
@@ -27,9 +38,11 @@ const PALETTE_ICONS = { day: "sun", night: "dayNight" };
  * @param {string|undefined} opts.palette
  * @param {(id: string) => void} opts.onTheme saves and reloads
  * @param {(palette: string) => void} opts.onPalette saves and applies
+ * @param {Fullscreen} [opts.fullscreen]
+ * @param {KeepAwake} [opts.keepAwake]
  * @returns {Settings}
  */
-export function createSettings({ themes, theme, palette, onTheme, onPalette }) {
+export function createSettings({ themes, theme, palette, onTheme, onPalette, fullscreen, keepAwake }) {
   const button = /** @type {HTMLButtonElement} */ (h("button", { className: "settings-button" },
     icon("settings"), h("span", { text: "Settings" })));
   button.type = "button";
@@ -86,6 +99,47 @@ export function createSettings({ themes, theme, palette, onTheme, onPalette }) {
     panel.append(h("fieldset", { className: "settings-group" },
       h("legend", { text: "Display" }), group,
       h("p", { className: "settings-note", text: "Saved on this device. Nothing switches by itself." })));
+  }
+
+  /** @type {HTMLButtonElement[]} */
+  const screenChoices = [];
+  /** @type {string[]} */
+  const screenNotes = [];
+  /** @param {string} name @param {string} label */
+  const toggle = (name, label) => {
+    const b = /** @type {HTMLButtonElement} */ (h("button", {}, icon(name), h("span", { text: label })));
+    b.type = "button";
+    screenChoices.push(b);
+    return b;
+  };
+  if (fullscreen?.supported) {
+    const b = toggle("fullscreen", "Full screen");
+    b.dataset.choice = "fullscreen";
+    const mark = () => {
+      const on = fullscreen.active();
+      b.setAttribute("aria-pressed", String(on));
+      b.firstElementChild?.replaceWith(icon(on ? "exitFullscreen" : "fullscreen"));
+    };
+    mark();
+    fullscreen.onChange(mark);
+    b.addEventListener("click", () => fullscreen.toggle());
+    screenNotes.push("Full screen ends when the dashboard reloads.");
+  }
+  if (keepAwake?.supported) {
+    const b = toggle("keepAwake", "Keep screen on");
+    b.dataset.choice = "keepAwake";
+    const mark = () => b.setAttribute("aria-pressed", String(keepAwake.wanted()));
+    mark();
+    b.addEventListener("click", () => {
+      keepAwake.set(!keepAwake.wanted());
+      mark();
+    });
+    screenNotes.push("Keep screen on is saved on this device.");
+  }
+  if (screenChoices.length) {
+    panel.append(h("fieldset", { className: "settings-group" },
+      h("legend", { text: "Screen" }), h("div", { className: "screen-switch" }, ...screenChoices),
+      h("p", { className: "settings-note", text: screenNotes.join(" ") })));
   }
 
   const backdrop = h("div", { className: "settings-backdrop" });

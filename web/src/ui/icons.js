@@ -119,6 +119,11 @@ const PATHS = {
     '<circle cx="9" cy="7" r="2"/><circle cx="15" cy="12" r="2"/><circle cx="7" cy="17" r="2"/>',
   // half lit, half dark: the Day / Night switch
   dayNight: '<circle cx="12" cy="12" r="8.5"/><path d="M12 3.5a8.5 8.5 0 0 1 0 17z" fill="currentColor" stroke="none"/>',
+  // four corners pointing out, then in: full screen and leaving it (T5)
+  fullscreen: '<path d="M3.5 9V3.5H9M15 3.5h5.5V9M20.5 15v5.5H15M9 20.5H3.5V15"/>',
+  exitFullscreen: '<path d="M9 3.5V9H3.5M20.5 9H15V3.5M15 20.5V15h5.5M3.5 15H9v5.5"/>',
+  // an open eye: the screen stays on
+  keepAwake: '<path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z"/><circle cx="12" cy="12" r="3"/>',
 
   // --- map and tabs -----------------------------------------------------
   // a folded map: the Map tab
@@ -162,7 +167,8 @@ export const ICON_GROUPS = {
   "Vehicle types": ["harvester", "loader", "trailer", "truck", "implement", "weight"],
   Alerts: ["warn", "battery", "oil", "checkEngine", "snow"],
   "Status bar": ["clock", "day", "season", "sun", "cloudy", "rain", "fog", "storm",
-                 "temperature", "money", "connection", "settings", "dayNight"],
+                 "temperature", "money", "connection", "settings", "dayNight",
+                 "fullscreen", "exitFullscreen", "keepAwake"],
   "Map and tabs": ["map", "zoomIn", "zoomOut", "recentre", "wholeMap", "layers"],
   Controls: ["lights", "highBeam", "beacon", "hazard", "turnLeft", "turnRight", "cruise",
              "pto", "hitchUp", "hitchDown", "implementOn", "aiWorker", "engineOn"],

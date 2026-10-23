@@ -1,11 +1,17 @@
 /* Default: the dashboard's original layout (themes/default/theme.js).
    Colours come from the tokens in style.css, whose values are Default's. */
 
+/* the safe areas are 0 in a browser tab; added to the home screen
+   (manifest.json), they keep clear of the iPad's status bar and home
+   indicator */
 #app {
   display: flex;
   flex-direction: column;
+  box-sizing: border-box;
   height: 100vh;
   height: 100dvh;
+  padding: env(safe-area-inset-top, 0px) env(safe-area-inset-right, 0px)
+    env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px);
 }
 
 header {
@@ -210,3 +216,20 @@ main {
 .theme-name { font-size: 14px; font-weight: 600; }
 .theme-note { font-size: 13px; color: var(--muted); }
 .settings-note { margin: 2px 0 0; font-size: 12px; color: var(--muted); }
+.screen-switch { display: flex; flex-wrap: wrap; gap: 8px; }
+.screen-switch button {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 36px;
+  padding: 0 12px 0 10px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text);
+  font: 600 13px var(--font);
+  cursor: pointer;
+}
+.screen-switch .icon { width: 16px; height: 16px; }
+.screen-switch button:hover { border-color: var(--muted); }
+.screen-switch [aria-pressed="true"] { border-color: var(--accent); background: rgba(34, 211, 238, 0.12); }

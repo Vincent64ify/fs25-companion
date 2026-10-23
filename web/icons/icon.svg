@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48">
+  <!-- FS25 Companion: the tractor of our icon set (src/ui/icons.js) on Default's slate -->
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#1e293b"/>
+      <stop offset="1" stop-color="#0f172a"/>
+    </linearGradient>
+  </defs>
+  <rect width="48" height="48" rx="11" fill="url(#bg)"/>
+  <path d="M9 36.5h30" stroke="#334155" stroke-width="2" stroke-linecap="round"/>
+  <g transform="translate(9 8) scale(1.25)" fill="none" stroke="#22d3ee" stroke-width="2"
+     stroke-linecap="round" stroke-linejoin="round">
+    <path d="M3 12.5V3.5h8l1.5 8h8V15M16.5 11.5V8"/>
+    <circle cx="7" cy="16.5" r="4.5"/>
+    <circle cx="7" cy="16.5" r="1" fill="#22d3ee"/>
+    <circle cx="18.5" cy="18" r="2.8"/>
+  </g>
+</svg>
