@@ -141,7 +141,11 @@ These are left out of this project:
   - condition tiles: fuel, engine temp, wear, hours;
   - the attached implements, each lowered or raised, on or off, and its
     wear;
-  - a close-zoom mini-map.
+  - the vehicle card: its shop picture, name and brand, and a button that
+    shows it on the Map screen. No mini-map: at that size it was too small
+    to be useful (T0 review).
+  - every tab shows its icon and label here, since this screen has no
+    tab-bar readout.
 
 ### Compact and wide
 
@@ -179,8 +183,8 @@ These are left out of this project:
   - Recentre turns follow on and goes back to the slot's default zoom.
   - When a slot changes size (rotation, window resize), it moves to the new
     default zoom, unless you zoomed by hand.
-- **Small slots,** with a short side under about 400 px, like the Vehicle
-  mini-map:
+- **Small slots,** with a short side under about 400 px (none in v1; for
+  later screens or a compact layout):
   - they keep zoom, pan and recentre, plus a button that opens the spot on
     the Map screen;
   - no Layers panel, field panel or popups, since those would cover the
@@ -238,8 +242,9 @@ These are left out of this project:
 
 ## Vehicle pictures
 
-- **Where:** a small "shop picture" on the Vehicle screen's readout card,
-  the same picture the in-game shop shows. It's decoration, never needed.
+- **Where:** the vehicle card on the Vehicle screen, beside the readout
+  card: the same picture the in-game shop shows, with the vehicle's name
+  and brand. It's decoration, never needed.
 - **Source:** each vehicle's XML names its store image in
   `<storeData><image>`, shipped as a `.dds` next to the XML. Checked in
   T0: base game `data/vehicles/newHolland/t7/store_t7.dds`; mod
@@ -252,7 +257,9 @@ These are left out of this project:
      DDS → PNG, hashes, caches and uploads it with the client token.
   3. The dashboard shows it when it arrives.
 - **No picture:** paid DLCs are encrypted, and a mod may have none. Then
-  the card simply has no picture; nothing else moves.
+  the vehicle card keeps its place and shows a large icon for the
+  vehicle's category (tractor, harvester, loader...) with the name and
+  brand, so the layout doesn't move.
 - **Rights:** as with icons, pictures come from the user's own install,
   are served only by their own backend, and are never committed or
   uploaded to claude.ai.
@@ -446,9 +453,14 @@ Each phase ends with:
 5. Then the Vehicle screen, the night palette, the settings sheet, and
    Default's Theme button.
    Vehicle screen approved on 2026-10-23: InfoView-style readout card
-   (speed arc, gear, rpm, shop picture), mini-map, four condition tiles,
-   the attached implements list, and the same chrome as the Map screen
-   (no tab-bar readout on this screen).
+   (speed arc, gear, rpm), four condition tiles, the attached implements
+   list, and the same chrome as the Map screen (no tab-bar readout on this
+   screen). Revised after review: the vehicle card with its shop picture
+   replaces the mini-map, and every tab shows its label.
+   Night palette approved on 2026-10-23 (Map and Vehicle): deep navy
+   surfaces, faint highlights and dark shadows; "on" states and the
+   selected tab turn yellow with dark text; brighter state colours; map
+   colours unchanged, map overlays on dark glass.
 6. Then the other sizes: 1280×800, compact at about 800 px wide, and
    1920×1080 (wide).
 7. Write the approved tokens, measurements and layout grid into
@@ -498,7 +510,9 @@ Each phase ends with:
 ### T4: Vehicle screen
 
 - The hero readout, condition tiles and implements.
-- The mini-map with the small-slot rules, per-slot memory and recentre.
+- The vehicle card with its shop picture (see Vehicle pictures) and its
+  Show-on-map button.
+- Per-slot map memory and recentre.
 - Tune the slot-zoom numbers.
 - **Done when:** it matches the artboards, and moving between screens keeps
   each map slot's view.
