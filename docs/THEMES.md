@@ -196,7 +196,11 @@ These are left out of this project:
 - **Game first.** These are readable DDS files in the game install (paths
   under `<game>/data/`):
   - `shared/assets/dashboardSymbols_diffuse.dds`: the cab warning-light and
-    ISO symbol sheet (2048², RGBA). Its contents are verified in T0.
+    ISO symbol sheet (2048², RGBA). Verified in T0: about 110 white masks
+    on a regular 128 px grid, so themes colour them from alpha. It's the
+    only atlas `client/icon_atlas.json` uses (24 icons). The T8 sheet is
+    irregular and cab-specific, and the marker sheet holds world markers,
+    so neither is used.
   - `vehicles/newHolland/t8/t8InteriorSymbols_diffuse.dds`: the T8 cab's
     symbols (2048²).
   - `shared/assets/marker/markerIcons_diffuse.dds` (1024²), and the
@@ -344,6 +348,14 @@ These are left out of this project:
   - gauges as clean arcs or bars, not dials;
   - one icon weight throughout;
   - night as a palette of its own, not an inversion.
+- **Depth, not flat** (direction-board review, 2026-10-23): soft vertical
+  gradients on surfaces, a light top highlight, a crisp edge and a real
+  drop shadow; icons in colour-filled badges, like the IntelliView's menu
+  cards.
+- **Controls first** (same review): game controls are the main content of
+  the chrome, as a button grid that reflows to its width. Speed, fuel and
+  the other values are minor on the Map screen, a compact strip of chips;
+  big hero numbers belong on the Vehicle screen.
 - **Readable in a cab:** values readable at arm's length (hero numbers of
   40 px or more on tablets), WCAG AA contrast in both palettes, and touch
   targets of at least 48 px.
@@ -397,13 +409,24 @@ Each phase ends with:
    glyphs from `dataS.gar`).
 2. Inspect the game's atlases locally: convert them in the scratchpad and
    look. Then write `client/icon_atlas.json`.
-3. **Style frame first:** the Map screen at 1180×820 in the day palette,
-   reviewed and revised until the look is approved.
-4. Then the Vehicle screen, the night palette, the settings sheet, and
+3. **Direction board:** two or three directions side by side, each a
+   palette (day and night swatches), a type pairing, and a sample of the
+   chrome (a status bar, a value tile, a control, a tab). One direction is
+   picked, or parts of several are combined, before the style frame.
+   Picked on 2026-10-23: **C · Deep Blue** (Archivo, soft radii, depth,
+   pill tabs with icon-only inactive screens, values as a slim readout in
+   the tab bar). It's a direction, not a final design: later artboards
+   keep refining it.
+4. **Style frame:** the Map screen at 1180×820 in the day palette, in the
+   chosen direction, reviewed and revised until the look is approved.
+   Approved on 2026-10-23: status bar, map with a floating edge toolbar
+   and field panel, a 268 px control column in labelled groups (Lights,
+   Drive, Implement), and the tab bar with the slim readout.
+5. Then the Vehicle screen, the night palette, the settings sheet, and
    Default's Theme button.
-5. Then the other sizes: 1280×800, compact at about 800 px wide, and
+6. Then the other sizes: 1280×800, compact at about 800 px wide, and
    1920×1080 (wide).
-6. Write the approved tokens, measurements and layout grid into
+7. Write the approved tokens, measurements and layout grid into
    `docs/THEMES.md`.
 
 - **How reviewing works:**
@@ -413,7 +436,7 @@ Each phase ends with:
 - **Reference images:** the artifact holds links, written notes and our own
   wireframes. It holds no photos or game textures, since those belong to New
   Holland and GIANTS.
-- **Done when:** every artboard is approved and `docs/THEMES.md` has the
+- **Done when:** a direction is picked, every artboard is approved, and `docs/THEMES.md` has the
   tokens, layouts and icon map.
 
 ### T1: Foundation (web, no visible change)
