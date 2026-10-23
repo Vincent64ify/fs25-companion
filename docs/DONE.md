@@ -259,11 +259,13 @@ web/
       icons.js             -- category → icon/colour (PDA-like legend)
       legend.js            -- toggles per layer/category, persisted in localStorage
     panels/
-      vehiclePanel.js  envPanel.js  fieldInfoPanel.js (click a field → details)
+      fieldInfoPanel.js    -- click a field → details
     types.js               -- JSDoc typedefs mirroring backend protocol.py
 ```
 
-As built, `map/` also has `followControl.js`, `glide.js`, `farmlandGeometry.js`, `fieldStyle.js` and `popupPlacement.js`, and `panels/` has `dom.js`.
+As built, `map/` also has `followControl.js`, `glide.js`, `farmlandGeometry.js`, `fieldStyle.js` and `popupPlacement.js`.
+
+Since Themes T1 (see [THEMES.md](THEMES.md#as-built-t1)), `index.html` is an empty `#app` that the theme draws: `themes/` holds the theme contract, the renderer and the Default theme; `widgets/` the live values (the old vehicle and farm panels); `data/selectors.js` the pure reads of the store; `ui/dom.js` the DOM helpers; and `map/mapFrame.js` the map's box with its overlays.
 
 - **Layer contract:** `createLayer(map, store) → { id, title, leafletLayer, legendItems }`. A layer subscribes only to its own topic(s). Adding a feature means adding one file and registering it.
 - **Vehicle markers:** rotated SVG icons, interpolated between updates so 2 Hz still looks smooth. There is a "follow me" toggle and a click popup with vehicle details.

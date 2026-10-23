@@ -1,170 +1,55 @@
+/* Shared by every theme: the map, its overlays and the legend's contents.
+   Each theme's own layout is in src/themes/<id>/theme.css, loaded after
+   this file; only the active theme's is loaded. */
+
+/* Interface tokens, with Default's values. A theme overrides them, per
+   palette with [data-palette="day|night"] on <html>. */
 :root {
+  --font: system-ui, -apple-system, sans-serif;
+  --font-mono: ui-monospace, monospace;
   --bg: #0f172a;
-  --panel: #1e293b;
+  --surface: #1e293b;
   --border: #334155;
   --text: #e2e8f0;
   --muted: #94a3b8;
   --accent: #22d3ee;
-  --terrain: #3d4f2f;
+  --on-accent: #083344;           /* text on the accent */
+  --ok: #bbf7d0;
+  --ok-bg: #14532d;
+  --warn: #fef08a;
+  --warn-bg: #713f12;
+  --alarm: #fecaca;
+  --alarm-bg: #7f1d1d;
+  --radius: 8px;
+  --radius-sm: 4px;
+  --shadow: 0 2px 10px rgba(0, 0, 0, 0.5);
+  /* boxes over the map: notes and readout, then the field panel */
+  --overlay: rgba(15, 23, 42, 0.75);
+  --overlay-strong: rgba(15, 23, 42, 0.92);
+  /* buttons on the map */
+  --control-bg: #fff;
+  --control-hover: #f1f5f9;
+  --control-text: #1e293b;
+  --control-line: #ccc;
+  /* Leaflet's popups (leaflet.css values) */
+  --popup-bg: white;
+  --popup-text: #333;
+
+  /* Map colours: the same in every theme and palette, so the map always
+     reads like the PDA. Not tokens: themes leave them alone. */
   --map-bg: #1a2433;
+  --map-terrain: #3d4f2f;
+  --map-player: #22d3ee;
 }
 
 * { box-sizing: border-box; }
 
 body {
   margin: 0;
-  font-family: system-ui, -apple-system, sans-serif;
+  font-family: var(--font);
   background: var(--bg);
   color: var(--text);
 }
-
-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 10px 16px;
-  border-bottom: 1px solid var(--border);
-}
-
-h1 { font-size: 18px; margin: 0; }
-
-.conn {
-  font-size: 13px;
-  padding: 3px 10px;
-  border-radius: 999px;
-}
-.conn.connected { background: #14532d; color: #bbf7d0; }
-.conn.disconnected { background: #7f1d1d; color: #fecaca; }
-.conn.waiting { background: #713f12; color: #fef08a; }
-
-#banner {
-  padding: 8px 16px;
-  background: #7f1d1d;
-  color: #fecaca;
-  font-size: 14px;
-}
-
-#app {
-  display: flex;
-  flex-direction: column;
-  height: 100vh;
-  height: 100dvh;
-}
-
-main {
-  flex: 1;
-  min-height: 0;
-  display: flex;
-  gap: 12px;
-  padding: 12px;
-  container-type: size;
-}
-
-/* The map is square like the playable area, so "the whole map" fills it
-   exactly and nothing outside the playable area shows. Side by side: as
-   tall as the screen allows, leaving the panel at least 300 px. */
-#map-wrap {
-  flex: none;
-  width: min(100cqh, 100cqw - 312px);
-  aspect-ratio: 1;
-  align-self: flex-start; /* stretching would undo the aspect ratio */
-  position: relative;
-  background: var(--panel);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  overflow: hidden;
-}
-
-#map { width: 100%; height: 100%; background: var(--map-bg); }
-
-#map .terrain-plain { fill: var(--terrain); }
-#map .terrain-grid { stroke: rgba(255, 255, 255, 0.07); }
-
-.map-note {
-  padding: 2px 8px;
-  border-radius: 4px;
-  background: rgba(15, 23, 42, 0.75);
-  color: var(--muted);
-  font: 12px system-ui, sans-serif;
-}
-
-.player-marker svg {
-  display: block;
-  transform-origin: 50% 50%;
-  filter: drop-shadow(0 0 2px rgba(0, 0, 0, 0.8));
-}
-.player-marker path {
-  fill: var(--accent);
-  stroke: #0e7490;
-  stroke-width: 1.5;
-  stroke-linejoin: round;
-}
-
-.map-buttons button {
-  display: block;
-  width: auto;
-  min-width: 56px;
-  height: 30px;
-  padding: 0 10px;
-  border: 0;
-  border-bottom: 1px solid #ccc;
-  background: #fff;
-  color: #1e293b;
-  font: 600 12px system-ui, sans-serif;
-  cursor: pointer;
-}
-.map-buttons button:last-child { border-bottom: 0; }
-.map-buttons button:hover { background: #f1f5f9; }
-.map-buttons button.active { background: var(--accent); color: #083344; }
-
-.map-readout {
-  padding: 2px 8px;
-  border-radius: 4px;
-  background: rgba(15, 23, 42, 0.75);
-  color: var(--text);
-  font: 12px ui-monospace, monospace;
-  white-space: pre;
-}
-
-#map-hint {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  color: var(--muted);
-  pointer-events: none;
-  z-index: 1000;
-}
-
-#panel {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  overflow-y: auto;
-}
-
-.card {
-  background: var(--panel);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 12px;
-}
-
-.card h2 { margin: 0 0 8px; font-size: 16px; color: var(--accent); }
-.card h3 {
-  margin: 0 0 8px;
-  font-size: 12px;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: var(--muted);
-}
-
-.gauges { display: flex; gap: 12px; }
-.gauge { flex: 1; text-align: center; }
-.gauge span { font-size: 26px; font-weight: 600; }
-.gauge small { display: block; color: var(--muted); }
 
 dl { margin: 0; }
 dl div {
@@ -176,15 +61,55 @@ dl div {
 dt { color: var(--muted); }
 dd { margin: 0; }
 
-#implements { margin: 0; padding-left: 18px; font-size: 13px; }
+/* --- map frame (map/mapFrame.js): its size comes from the theme -------- */
 
-/* Portrait (phones, tablets upright) and narrow windows: the map on top,
-   as wide as the screen but never taller than it, the panel below. */
-@media (orientation: portrait), (max-width: 600px) {
-  #app { height: auto; }
-  main { flex-direction: column; container-type: normal; }
-  #map-wrap { width: min(100%, 100dvh - 80px); align-self: center; }
-  #panel { overflow-y: visible; }
+#map-wrap {
+  position: relative;
+  overflow: hidden;
+}
+
+#map { width: 100%; height: 100%; background: var(--map-bg); }
+
+#map .terrain-plain { fill: var(--map-terrain); }
+#map .terrain-grid { stroke: rgba(255, 255, 255, 0.07); }
+
+.map-note {
+  padding: 2px 8px;
+  border-radius: var(--radius-sm);
+  background: var(--overlay);
+  color: var(--muted);
+  font: 12px var(--font);
+}
+
+.player-marker svg {
+  display: block;
+  transform-origin: 50% 50%;
+  filter: drop-shadow(0 0 2px rgba(0, 0, 0, 0.8));
+}
+.player-marker path {
+  fill: var(--map-player);
+  stroke: #0e7490;
+  stroke-width: 1.5;
+  stroke-linejoin: round;
+}
+
+.map-readout {
+  padding: 2px 8px;
+  border-radius: var(--radius-sm);
+  background: var(--overlay);
+  color: var(--text);
+  font: 12px var(--font-mono);
+  white-space: pre;
+}
+
+#map-hint {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  color: var(--muted);
+  pointer-events: none;
+  z-index: 1000;
 }
 
 /* --- vehicles ---------------------------------------------------------- */
@@ -251,10 +176,10 @@ dd { margin: 0; }
   min-width: 0;
   padding: 2px 4px;
   border: 1px solid var(--border);
-  border-radius: 4px;
-  background: var(--panel);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
   color: var(--text);
-  font: 13px system-ui, sans-serif;
+  font: 13px var(--font);
 }
 .legend-key { margin: 4px 0 0 2px; }
 .legend-key-item {
@@ -285,9 +210,9 @@ dd { margin: 0; }
   overflow-y: auto;
   padding: 8px 12px 10px;
   border: 1px solid var(--border);
-  border-radius: 8px;
-  background: rgba(15, 23, 42, 0.92);
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.5);
+  border-radius: var(--radius);
+  background: var(--overlay-strong);
+  box-shadow: var(--shadow);
 }
 .field-info[hidden] { display: none; }
 /* moved aside by an open popup that would land on it (popupPlacement.js) */
@@ -303,7 +228,7 @@ dd { margin: 0; }
   width: 28px;
   height: 28px;
   border: 0;
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   background: transparent;
   color: var(--muted);
   font-size: 20px;
@@ -317,7 +242,11 @@ dd { margin: 0; }
   .field-info { bottom: 10px; max-height: 55%; }
 }
 
-.vehicle-popup, .farmland-popup { font: 13px system-ui, sans-serif; line-height: 1.4; }
+.leaflet-popup-content-wrapper, .leaflet-popup-tip {
+  background: var(--popup-bg);
+  color: var(--popup-text);
+}
+.vehicle-popup, .farmland-popup { font: 13px var(--font); line-height: 1.4; }
 /* no room above the point: the popup hangs below it, tip pointing up */
 .leaflet-popup.popup-below .leaflet-popup-tip-container {
   top: -20px;
@@ -325,33 +254,8 @@ dd { margin: 0; }
   transform: rotate(180deg);
 }
 
-/* --- legend ------------------------------------------------------------ */
+/* --- legend contents (map/legend.js; each theme places the panel) ------ */
 
-.map-legend {
-  background: rgba(15, 23, 42, 0.9);
-  color: var(--text);
-  font: 13px system-ui, sans-serif;
-  max-width: 240px;
-}
-.map-legend .legend-toggle {
-  display: block;
-  width: 100%;
-  height: 30px;
-  padding: 0 10px;
-  border: 0;
-  background: #fff;
-  color: #1e293b;
-  font: 600 12px system-ui, sans-serif;
-  cursor: pointer;
-  text-align: left;
-}
-.map-legend.open .legend-toggle { background: var(--accent); color: #083344; }
-.map-legend .legend-panel {
-  display: none;
-  overflow-y: auto;
-  padding: 6px 10px 8px;
-}
-.map-legend.open .legend-panel { display: block; }
 .legend-section + .legend-section { margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--border); }
 .legend-title {
   margin-bottom: 2px;

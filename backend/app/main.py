@@ -31,6 +31,17 @@ VERSION = "0.2.0"
 WEB_DIR = Path(__file__).resolve().parents[2] / "web"
 
 
+class DashboardFiles(StaticFiles):
+    """The dashboard's files, revalidated on every load (usually a cheap
+    304). The ES modules are fetched one by one: a browser that kept some
+    from an older version would run a broken mix of the two."""
+
+    def file_response(self, *args, **kwargs):
+        response = super().file_response(*args, **kwargs)
+        response.headers["Cache-Control"] = "no-cache"
+        return response
+
+
 def default_assets_dir() -> Path:
     env = os.environ.get("COMPANION_ASSETS_DIR")
     return Path(env) if env else Path.home() / ".fs25-companion" / "assets"
@@ -59,7 +70,7 @@ def create_app(local_pairing: Optional[str] = None, web_dir: Path = WEB_DIR,
         }
 
     # Mounted last so /ws and /api/* match first; html=True serves index.html at /
-    app.mount("/", StaticFiles(directory=web_dir, html=True), name="web")
+    app.mount("/", DashboardFiles(directory=web_dir, html=True), name="web")
     return app
 
 

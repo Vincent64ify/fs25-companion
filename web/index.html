@@ -8,56 +8,8 @@
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
-<div id="app">
-  <header>
-    <h1>FS25 Companion</h1>
-    <div id="connection" class="conn disconnected">disconnected</div>
-  </header>
-  <div id="banner" hidden></div>
-  <main>
-    <section id="map-wrap">
-      <div id="map"></div>
-      <div id="map-hint">Waiting for the game…</div>
-      <div id="field-info" class="field-info" hidden></div>
-    </section>
-    <aside id="panel">
-      <div class="card">
-        <h2 id="vehicle-name">–</h2>
-        <div class="gauges">
-          <div class="gauge"><span id="speed">–</span><small>km/h</small></div>
-          <div class="gauge"><span id="rpm">–</span><small>rpm</small></div>
-          <div class="gauge"><span id="gear">–</span><small>gear</small></div>
-        </div>
-      </div>
-      <div class="card">
-        <h3>Vehicle</h3>
-        <dl>
-          <div><dt>Fuel</dt><dd id="fuel">–</dd></div>
-          <div><dt>Wear</dt><dd id="wear">–</dd></div>
-          <div><dt>Engine temp</dt><dd id="temp">–</dd></div>
-          <div><dt>Hours</dt><dd id="hours">–</dd></div>
-          <div><dt>Position</dt><dd id="pos">–</dd></div>
-        </dl>
-      </div>
-      <div class="card">
-        <h3>Farm</h3>
-        <dl>
-          <div><dt>Weather</dt><dd id="weather">–</dd></div>
-          <div><dt>Temp</dt><dd id="temperature">–</dd></div>
-          <div><dt>Time</dt><dd id="clock">–</dd></div>
-          <div><dt>Day</dt><dd id="day">–</dd></div>
-          <div><dt>Money</dt><dd id="money">–</dd></div>
-          <div><dt>Map</dt><dd id="map-name">–</dd></div>
-          <div><dt>Player</dt><dd id="player-name">–</dd></div>
-        </dl>
-      </div>
-      <div class="card" id="impl-card" hidden>
-        <h3>Implements</h3>
-        <ul id="implements"></ul>
-      </div>
-    </aside>
-  </main>
-</div>
+<!-- the theme draws everything (src/themes/) -->
+<div id="app"></div>
 <script src="vendor/leaflet/leaflet.js"></script>
 <script type="module" src="src/main.js"></script>
 </body>

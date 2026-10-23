@@ -49,9 +49,11 @@ export function terrainBounds(terrainSize) {
 
 /**
  * @param {HTMLElement} el
+ * @param {{zoomControl?: boolean}} [opts] zoomControl: Leaflet's +/- buttons,
+ *   top-left (default true; a theme may draw its own)
  * @returns {any} L.Map
  */
-export function createMapView(el) {
+export function createMapView(el, { zoomControl = true } = {}) {
   const map = L.map(el, {
     crs: L.CRS.Simple,
     minZoom: -5,
@@ -67,7 +69,7 @@ export function createMapView(el) {
     maxBoundsViscosity: 1,
     bounceAtZoomLimits: false,
   });
-  L.control.zoom({ position: "topleft" }).addTo(map);
+  if (zoomControl) L.control.zoom({ position: "topleft" }).addTo(map);
   map.setView([0, 0], -2);
   // Leaflet only notices window resizes; the box also changes with the
   // layout (banner shown, panel below the map, ...)

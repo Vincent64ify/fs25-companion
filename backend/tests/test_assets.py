@@ -105,3 +105,13 @@ def test_map_assets_reach_viewers(client):
             late.send_text(json.dumps({"type": "hello", "role": "viewer"}))
             assert recv(late)["type"] == "snapshot"
             assert recv(late) == {"type": "map_assets", "mapId": MAP, "hash": HASH}
+
+
+def test_dashboard_files_are_revalidated(client):
+    # a browser must never run new and stale dashboard modules together
+    r = client.get("/src/main.js")
+    assert r.status_code == 200
+    assert r.headers["cache-control"] == "no-cache"
+    again = client.get("/src/main.js", headers={"If-None-Match": r.headers["etag"]})
+    assert again.status_code == 304
+    assert client.get("/").headers["cache-control"] == "no-cache"

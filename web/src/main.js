@@ -1,32 +1,58 @@
 // @ts-check
 // FS25 Companion dashboard: vanilla ES modules, no build step.
 //
-// Data flow: connection.js -> store.js -> map layers and panels, each
+// Data flow: connection.js -> store.js -> map layers and widgets, each
 // subscribed to the topics it shows. Adding a map feature means adding a
-// file under map/layers/ and registering it below.
+// file under map/layers/ and registering it below. The theme (themes/)
+// decides the chrome, the screens and where the map goes.
 
 import { connect } from "./connection.js";
 import { createStore } from "./store.js";
 import { addCursorReadout, createMapView } from "./map/mapView.js";
+import { createMapFrame } from "./map/mapFrame.js";
 import { createOverviewLayer } from "./map/overviewLayer.js";
-import { createFollowControl } from "./map/followControl.js";
-import { createLegend } from "./map/legend.js";
+import { createFollow } from "./map/followControl.js";
+import { buildLegend } from "./map/legend.js";
 import { keepPopupsInside } from "./map/popupPlacement.js";
 import { createFarmlandsLayer } from "./map/layers/farmlandsLayer.js";
 import { createFieldsLayer } from "./map/layers/fieldsLayer.js";
 import { createHotspotsLayer } from "./map/layers/hotspotsLayer.js";
 import { createVehiclesLayer } from "./map/layers/vehiclesLayer.js";
 import { createPlayerLayer } from "./map/layers/playerLayer.js";
-import { createVehiclePanel } from "./panels/vehiclePanel.js";
-import { createEnvPanel } from "./panels/envPanel.js";
 import { createFieldInfoPanel } from "./panels/fieldInfoPanel.js";
-import { $ } from "./panels/dom.js";
+import { chooseTheme, savedChoice } from "./themes/registry.js";
+import { renderTheme } from "./themes/render.js";
+import { addFollowButtons, addLegendControl } from "./themes/default/mapControls.js";
+import { $ } from "./ui/dom.js";
 
-const STALE_MS = 5000;
+/** @param {string} href resolves once loaded (or failed: the page still works) */
+function loadStylesheet(href) {
+  return new Promise((resolve) => {
+    const link = document.createElement("link");
+    link.rel = "stylesheet";
+    link.href = href;
+    link.onload = link.onerror = resolve;
+    document.head.append(link);
+  });
+}
+
+// --- theme -----------------------------------------------------------------
+
+const { theme, palette } = chooseTheme(location.search, savedChoice());
+document.documentElement.dataset.theme = theme.id;
+if (palette) document.documentElement.dataset.palette = palette;
+await loadStylesheet(theme.css);
 
 const store = createStore();
-const map = createMapView($("map"));
-const follow = createFollowControl(map);
+const frame = createMapFrame(store);
+renderTheme(theme, $("app"), store, frame);
+
+// --- map -------------------------------------------------------------------
+
+const map = createMapView(frame.mapEl, { zoomControl: theme.mapControls === "corners" });
+frame.map = map;
+const follow = createFollow(map);
+if (theme.mapControls === "corners") addFollowButtons(map, follow);
 createOverviewLayer(map, store, { onNewMap: follow.onNewMap });
 addCursorReadout(map);
 
@@ -41,50 +67,22 @@ const layers = [
   createFarmlandsLayer(map, store),
 ];
 for (const layer of layers) layer.leafletLayer.addTo(map);
-createLegend(map, layers);
+const legend = buildLegend(map, layers);
+if (theme.mapControls === "corners") addLegendControl(map, legend);
 
-createVehiclePanel(store);
-createEnvPanel(store);
-createFieldInfoPanel(store);
-keepPopupsInside(map, { avoid: $("field-info") });
-
-// --- status --------------------------------------------------------------
-
-const conn = $("connection");
-const hint = $("map-hint");
-const banner = $("banner");
-
-function renderStatus() {
-  const c = store.get("connection") || {};
-  let text, kind;
-  if (!c.pairing) [text, kind] = ["no pairing code (?pair=…)", "disconnected"];
-  else if (!c.backend) [text, kind] = ["backend offline", "disconnected"];
-  else if (!c.client) [text, kind] = ["companion offline", "disconnected"];
-  else if (Date.now() - store.lastTopicAt() > STALE_MS) [text, kind] = ["waiting for game", "waiting"];
-  else [text, kind] = ["live", "connected"];
-  conn.textContent = text;
-  conn.className = "conn " + kind;
-  hint.hidden = !!store.get("hello");
-}
-
-store.subscribe("connection", renderStatus);
-store.subscribe("hello", renderStatus);
-store.subscribe("protocolError", (message) => {
-  banner.textContent = message || "";
-  banner.hidden = !message;
-});
-setInterval(renderStatus, 1000);
+createFieldInfoPanel(store, frame.fieldInfo);
+keepPopupsInside(map, { avoid: frame.fieldInfo });
 
 // --- animation -------------------------------------------------------------
 
-function frame(/** @type {number} */ now) {
+function frameTick(/** @type {number} */ now) {
   follow.tick(player.tick(now));
   vehicles.tick(now);
-  requestAnimationFrame(frame);
+  requestAnimationFrame(frameTick);
 }
-requestAnimationFrame(frame);
+requestAnimationFrame(frameTick);
 
 // the map container may change size with the layout (phone rotation)
-new ResizeObserver(() => map.invalidateSize({ animate: false })).observe($("map"));
+new ResizeObserver(() => map.invalidateSize({ animate: false })).observe(frame.mapEl);
 
 connect(store);

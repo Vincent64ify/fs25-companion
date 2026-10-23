@@ -3,7 +3,6 @@
 // and what it needs, like the PDA's field info. Shown over the map, so it
 // works the same on a phone; Escape or × closes it.
 
-import { $ } from "./dom.js";
 import { cropCatalog, cropName, growthClass, prettyName } from "../map/fieldStyle.js";
 import { myFarmId } from "../store.js";
 
@@ -58,10 +57,11 @@ export function fieldRows(field, farmland, catalog, farmId) {
   return rows;
 }
 
-/** @param {import("../store.js").Store} store */
-export function createFieldInfoPanel(store) {
-  const box = $("field-info");
-
+/**
+ * @param {import("../store.js").Store} store
+ * @param {HTMLElement} box the map frame's field panel
+ */
+export function createFieldInfoPanel(store, box) {
   function close() {
     store.set("selectedField", undefined);
   }

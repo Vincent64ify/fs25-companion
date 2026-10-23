@@ -1,7 +1,8 @@
 # Themes and layouts
 
 > **Status:** plan accepted on 2026-10-22; T0 (design) done on 2026-10-23,
-> see "Design result (T0)". Next: T1, the foundation.
+> see "Design result (T0)"; T1 (foundation) done on 2026-10-23, see "As
+> built (T1)". Next: T2 (game icons) and T3 (New Holland style).
 
 ## Goal
 
@@ -616,6 +617,64 @@ Each phase ends with:
 - **Done when:** Default's layout boxes and styles match the reference taken
   before T1 (see Verification), and test.html and pytest are green.
 
+#### As built (T1)
+
+Done on 2026-10-23. Default looks and behaves as before.
+- **Startup** (`main.js`): choose the theme, set `data-theme` (and
+  `data-palette`) on `<html>`, load the theme's stylesheet, build the
+  theme into `#app`, then the map, its layers and the theme's map controls.
+  `index.html` is an empty `#app`.
+- **Theme contract** (`themes/render.js`): `id`, `label`, `note`,
+  `palettes`, `mapControls` ("corners" or "edge"), `css`, then either
+  `chrome` and `screens` as data or a `build(app, store, frame)` of its
+  own. `checkTheme()` reports unknown widget ids and screens with more than
+  one map slot. The renderer draws the status bar, value column, screens,
+  an empty control column (controls come with T3) and the tab bar; it
+  switches screens with `hidden` and moves the map frame. It's tested with
+  a sample theme in test.html; T3 gives it its real markup.
+- **Theme choice** (`themes/registry.js`): `?theme=` and `?palette=`, then
+  `fs25companion.theme` and `fs25companion.palette`, then Default. Saving
+  the choice comes with the Settings panel (T3).
+- **Default** (`themes/default/`): `theme.js` builds the old markup from
+  widgets, `theme.css` holds its layout (the square map box, header,
+  cards), `mapControls.js` its corner buttons (Follow and Map, the Layers
+  toggle). Only the active theme's CSS is loaded, so its selectors need no
+  theme prefix.
+- **Selectors** (`data/selectors.js`): `controlledVehicle`, `vehicleName`,
+  `fuelPct`, `wearPct`, `engineTemp`, `operatingHours`, `implementsOf`,
+  `clock`, `weatherName`, `temperatureRange`, `money`, `farmMoney`,
+  `connectionStatus`. `alerts()` waits for the status bar (T3), which
+  will set its thresholds.
+- **Widgets** (`widgets/`): grouped by topic rather than one file per
+  value: `vehicle.js` (vehicleName, speed, rpm, gear, fuel, wear,
+  engineTemp, hours, position), `farm.js` (weather, temperature, clock, day,
+  money, mapName, playerName), `implements.js`, `status.js` (connection,
+  protocolError), all listed in `widgets/index.js`. Value widgets come from
+  one `valueWidget()` with the variants `row`, `gauge`, `title` and `tile`;
+  `hero` and `strip` come with T3 and T4. `whenMissing: "dash"` keeps
+  Default's "–" where other themes hide the widget.
+- **Map:** `map/mapFrame.js` is the frame (map, hint, field panel).
+  `legend.js` builds the panel only (`buildLegend`), `followControl.js`
+  is the follow logic only (`createFollow`, with `onChange`, `wholeMap`),
+  and `createMapView(el, {zoomControl})` can leave out Leaflet's zoom
+  buttons.
+- **Tokens** (`style.css`): font, background, surface, border, text,
+  muted, accent and its text, ok / warn / alarm with their fills, radii,
+  shadow, map overlays, map buttons and Leaflet popups, with Default's
+  values. Map colours (`--map-*`, markers, hotspots, fields) are fixed. A
+  second accent waits for T3, the first theme to use one.
+- **Backend:** the dashboard's files are served with `Cache-Control:
+  no-cache` (a cheap 304 on each load). Testing showed a browser running the
+  new `index.html` with a cached old `main.js`.
+- **Checked:** `web/tools/layoutProbe.js` records the boxes and computed
+  styles of the header, map, panel, cards and map controls. Run on fresh
+  loads at 1280×800, 1920×1080 and 390×844 before and after: no box moved
+  and no style changed, except that the map buttons, legend and popups now
+  use the one `--font` stack (`system-ui` comes first in both, so the
+  same font shows). The JS-only ids on the values (`#speed`, `#fuel`, ...)
+  are gone. Follow, whole map, Layers, legend toggles, popups and the
+  field panel work as before. test.html (87 checks) and pytest (75) pass.
+
 ### T2: Game icons (client, backend, web)
 
 - Client: `client/icon_assets.py`, next to `map_assets.py`, reusing its DDS
@@ -675,8 +734,10 @@ Each phase ends with:
   `web/src/panels/*`, `web/src/map/legend.js`, `map/followControl.js`,
   `map/mapView.js`, `map/popupPlacement.js`, `web/test.html`.
 - **New:** `web/src/data/selectors.js`, `web/src/widgets/`,
-  `web/src/themes/render.js`, `themes/default/`, `themes/newholland/`,
-  `web/src/ui/icons.js`, `web/src/ui/control.js`.
+  `web/src/themes/render.js`, `themes/registry.js`, `themes/default/`,
+  `themes/newholland/`, `web/src/map/mapFrame.js`, `web/src/ui/dom.js`
+  (was `panels/dom.js`), `web/src/ui/icons.js`, `web/src/ui/control.js`,
+  `web/tools/layoutProbe.js`.
 - **Client and backend:** `client/icon_atlas.json`,
   `client/icon_assets.py`, `client/companion_client.py`,
   `backend/app/assets.py`, `backend/app/ws.py`, and their tests.

@@ -79,7 +79,7 @@ export function createStore() {
 
 /**
  * The viewer's farm: the local player's (1 in single player).
- * @param {Store} store
+ * @param {{get: (key: string) => any}} store
  * @returns {number}
  */
 export function myFarmId(store) {

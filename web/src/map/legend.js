@@ -2,12 +2,13 @@
 // The legend: one checkbox per layer, or per item of a layer that has
 // legend items (hotspot groups, vehicle kinds, farmland classes), plus a
 // layer's drop-down and colour key (the fields' colour mode). Choices are
-// remembered in localStorage, as is whether the panel is open.
+// remembered in localStorage, as is whether the panel is open. This builds
+// the panel only; each theme decides where it shows and how it opens
+// (Default: themes/default/mapControls.js).
 
 /** @typedef {import("../types.js").MapLayer} MapLayer */
 
 const STORAGE_KEY = "fs25companion.legend";
-const SMALL_SCREEN_PX = 800;
 
 /** @typedef {{open?: boolean, on?: Record<string, boolean>, choice?: Record<string, string>}} LegendState */
 
@@ -25,10 +26,18 @@ function save(/** @type {LegendState} */ state) {
 }
 
 /**
+ * @typedef {Object} Legend
+ * @property {HTMLElement} panel div.legend-panel, one section per layer
+ * @property {boolean|undefined} wasOpen whether the panel was open last time
+ * @property {(open: boolean) => void} rememberOpen
+ */
+
+/**
  * @param {any} map L.Map
  * @param {MapLayer[]} layers in legend order; every leafletLayer is on the map
+ * @returns {Legend}
  */
-export function createLegend(map, layers) {
+export function buildLegend(map, layers) {
   const state = load();
   state.on = state.on || {};
   const isOn = (/** @type {string} */ key, /** @type {boolean} */ fallback) =>
@@ -84,53 +93,32 @@ export function createLegend(map, layers) {
     choice.set(value);
   }
 
-  const Control = L.Control.extend({
-    onAdd() {
-      const box = L.DomUtil.create("div", "leaflet-bar map-legend");
-      const toggle = /** @type {HTMLButtonElement} */ (L.DomUtil.create("button", "legend-toggle", box));
-      toggle.type = "button";
-      toggle.textContent = "Layers";
-      const panel = L.DomUtil.create("div", "legend-panel", box);
-      const setOpen = (/** @type {boolean} */ open) => {
-        box.classList.toggle("open", open);
-        toggle.setAttribute("aria-expanded", String(open));
-      };
-      setOpen(state.open ?? window.innerWidth > SMALL_SCREEN_PX);
-      toggle.addEventListener("click", () => {
-        state.open = !box.classList.contains("open");
-        save(state);
-        setOpen(state.open);
+  const panel = L.DomUtil.create("div", "legend-panel");
+  for (const layer of layers) {
+    const section = L.DomUtil.create("div", "legend-section", panel);
+    if (!layer.legendItems?.length) {
+      checkbox(section, layer.id, layer.title, "", isOn(layer.id, true), (on) => {
+        if (on) map.addLayer(layer.leafletLayer);
+        else map.removeLayer(layer.leafletLayer);
       });
+      continue;
+    }
+    L.DomUtil.create("div", "legend-title", section).textContent = layer.title;
+    for (const item of layer.legendItems) {
+      const key = `${layer.id}.${item.id}`;
+      checkbox(section, key, item.label, item.swatch || "", isOn(key, item.defaultOn !== false),
+        item.setVisible);
+    }
+    if (layer.legendChoice) select(section, layer.id, layer.legendChoice);
+    if (layer.legendExtra) section.append(layer.legendExtra);
+  }
 
-      for (const layer of layers) {
-        const section = L.DomUtil.create("div", "legend-section", panel);
-        if (!layer.legendItems?.length) {
-          checkbox(section, layer.id, layer.title, "", isOn(layer.id, true), (on) => {
-            if (on) map.addLayer(layer.leafletLayer);
-            else map.removeLayer(layer.leafletLayer);
-          });
-          continue;
-        }
-        L.DomUtil.create("div", "legend-title", section).textContent = layer.title;
-        for (const item of layer.legendItems) {
-          const key = `${layer.id}.${item.id}`;
-          checkbox(section, key, item.label, item.swatch || "", isOn(key, item.defaultOn !== false),
-            item.setVisible);
-        }
-        if (layer.legendChoice) select(section, layer.id, layer.legendChoice);
-        if (layer.legendExtra) section.append(layer.legendExtra);
-      }
-      // the panel scrolls inside the map, whatever the map's height
-      const fit = () => {
-        const top = box.offsetTop || 0;
-        panel.style.maxHeight = `${Math.max(100, map.getSize().y - top - 50)}px`;
-      };
-      map.on("resize", fit);
-      requestAnimationFrame(fit);
-      L.DomEvent.disableClickPropagation(box);
-      L.DomEvent.disableScrollPropagation(box);
-      return box;
+  return {
+    panel,
+    wasOpen: state.open,
+    rememberOpen(open) {
+      state.open = open;
+      save(state);
     },
-  });
-  new Control({ position: "topright" }).addTo(map);
+  };
 }
