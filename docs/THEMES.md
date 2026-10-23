@@ -231,6 +231,11 @@ These are left out of this project:
      them, and packs them into one sprite plus an index.
   4. It content-hashes and caches the sprite, uploads it with the client
      token, and announces it with an `icon_assets` message.
+     - **Once, not every start:** the cache is keyed on the sheet's path,
+       size and modified time (plus the atlas file's version), so a normal
+       start finds the sprite without even opening the DDS. Only a new or
+       changed sheet (a game update) is read and converted again, once.
+     - The upload is skipped when the backend already holds that hash.
   5. The dashboard asks for an icon by name with `icon("beacon")`.
 - **Fallback:** we draw SVG icons in the game's style (flat glyphs, the same
   stroke weight and corner radius). They cover icons the game doesn't have,
@@ -679,6 +684,10 @@ Done on 2026-10-23. Default looks and behaves as before.
 
 - Client: `client/icon_assets.py`, next to `map_assets.py`, reusing its DDS
   → PNG conversion, hashing, cache and upload. Add tests.
+  - Unlike the map image, which reads the whole DDS on every start to hash
+    it, the icon cache is keyed on the sheet's path, size and modified
+    time, so a start with a warm cache doesn't open the sheet. Tests: a warm
+    cache never reads the sheet; touching the sheet rebuilds the sprite.
 - Backend: an `/api/icons/{hash}/{name}` route in `assets.py`, and an
   `icon_assets` message relayed to viewers and included for late joiners,
   like `map_assets`. Add tests.
