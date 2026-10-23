@@ -9,10 +9,12 @@ it relies on, are in [DONE.md](DONE.md). Small fixes go in
 - Phases 0 to 4 of the rework are built and run live on Windows (Solek, and
   Kinlaig, a paid DLC map): the file stream, the client and backend, and the
   Leaflet map with the PDA's places, every vehicle, farmlands and fields.
-- Themes T0 to T4 are done: the approved design, themes as data, our own
+- Themes T0 to T5 are done: the approved design, themes as data, our own
   icon set, and the New Holland style's chrome, Map screen and Vehicle
   screen in day and night, chosen from a Settings panel that Default has
-  too. Next is T5, the responsive pass.
+  too; it fits every tablet and monitor size checked, goes full screen, and
+  can be added to a tablet's home screen. Next is T6, more data from the
+  game.
 - macOS is still to test, and a few things are still to confirm in game (see
   [Open checks](#open-checks)).
 
@@ -56,8 +58,8 @@ style, after the IntelliView 12. Today's look stays as the Default theme.
 | T2 | Our own SVG icon set, in the cab-symbol style | done 2026-10-23 |
 | T3 | New Holland style: chrome and Map screen | done 2026-10-23 |
 | T4 | Vehicle screen: hero readout, condition tiles, implements, vehicle card | done 2026-10-23 |
-| T5 | Responsive pass across tablets and monitors | next |
-| T6 | More data from the game (can start any time) | planned |
+| T5 | Responsive pass across tablets and monitors, full screen, home screen | done 2026-10-23 |
+| T6 | More data from the game (can start any time) | next |
 
 ## After that: control the game from the dashboard
 
@@ -113,6 +115,11 @@ Built, but not yet confirmed in game:
   rows while working with an implement, and whether the Map screen's slot
   zoom (about 505 m across a 1180×820 screen) is close enough in a cab.
   The gear, brand and shop category are confirmed (see DONE.md).
+- **Full screen and home screen:** the full-screen button and toggle in
+  Chrome or Edge on the PC and on the tablets (the app's browser pane
+  doesn't answer the request), Keep screen on over `localhost`, and on an
+  iPad: Add to Home Screen, then the app without bars and the safe areas
+  around its status bar and home indicator.
 - **Season:** the status bar reads `env.season` as 0 = spring. The replay
   shows "Summer" on day 1; check it against the in-game calendar.
 - **Positions:** compare the player marker and the hotspots with the in-game

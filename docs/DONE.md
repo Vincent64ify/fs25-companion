@@ -284,7 +284,7 @@ As built, `map/` also has `followControl.js`, `glide.js`, `farmlandGeometry.js`,
 
 Since Themes T1 (see [THEMES.md](THEMES.md#as-built-t1)), `index.html` is an empty `#app` that the theme draws: `themes/` holds the theme contract, the renderer and the Default theme; `widgets/` the live values (the old vehicle and farm panels); `data/selectors.js` the pure reads of the store; `ui/dom.js` the DOM helpers; and `map/mapFrame.js` the map's box with its overlays.
 
-Since T2 and T3 (see [THEMES.md](THEMES.md#as-built-t3)): `ui/icons.js` is our own SVG icon set; `themes/newholland/` the New Holland style (data, CSS per palette and size class, and the map's edge toolbar); `ui/settings.js` the Settings button and panel shared by every theme; `ui/control.js` and `widgets/controls.js` the control buttons, which show the game's state until the controls project wires them; and `vendor/fonts/` the self-hosted Archivo font. Since T4: `widgets/vehicleScreen.js` holds the Vehicle screen's readout and vehicle cards, and the renderer groups slots for a theme's CSS.
+Since T2 and T3 (see [THEMES.md](THEMES.md#as-built-t3)): `ui/icons.js` is our own SVG icon set; `themes/newholland/` the New Holland style (data, CSS per palette and size class, and the map's edge toolbar); `ui/settings.js` the Settings button and panel shared by every theme; `ui/control.js` and `widgets/controls.js` the control buttons, which show the game's state until the controls project wires them; and `vendor/fonts/` the self-hosted Archivo font. Since T4: `widgets/vehicleScreen.js` holds the Vehicle screen's readout and vehicle cards, and the renderer groups slots for a theme's CSS. Since T5: `ui/screenMode.js` (full screen and keep-awake) with `widgets/screen.js` (the status bar's full-screen button), and `manifest.json` with `icons/` for the home screen (`scripts/app_icons.py` draws the PNGs).
 
 - **Layer contract:** `createLayer(map, store) → { id, title, leafletLayer, legendItems }`. A layer subscribes only to its own topic(s). Adding a feature means adding one file and registering it.
 - **Vehicle markers:** rotated SVG icons, interpolated between updates so 2 Hz still looks smooth. There is a "follow me" toggle and a click popup with vehicle details.
@@ -374,7 +374,7 @@ Changes since Phase 4 (2026-10-21 to 2026-10-22):
 - **Docs:** the command channel design for dashboard buttons (`51b0862`),
   and the Themes and layouts plan (`ab36061`, [THEMES.md](THEMES.md)).
 
-## Themes T0 to T4
+## Themes T0 to T5
 
 2026-10-23; the details are in each phase's "As built" note in
 [THEMES.md](THEMES.md).
@@ -399,3 +399,8 @@ Changes since Phase 4 (2026-10-21 to 2026-10-22):
   every size; six vehicle-type icons; brand and shop category from the
   mod; each map slot's view remembered per device. The shop picture is
   left for later.
+- **T5, responsive pass** (`106bca7`): a 17-size matrix in both palettes;
+  the one fault, the Vehicle screen at 1024 px wide, fixed. Full screen
+  (status-bar button in New Holland, Settings toggle in both themes), keep
+  the screen on where the browser allows it, a web-app manifest with our
+  own icons, and safe-area padding for the home-screen app.
