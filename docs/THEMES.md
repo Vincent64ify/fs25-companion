@@ -236,6 +236,27 @@ These are left out of this project:
   served only by your own backend, as the overview image already is.
   Nothing from the game is committed to the repo or uploaded to claude.ai.
 
+## Vehicle pictures
+
+- **Where:** a small "shop picture" on the Vehicle screen's readout card,
+  the same picture the in-game shop shows. It's decoration, never needed.
+- **Source:** each vehicle's XML names its store image in
+  `<storeData><image>`, shipped as a `.dds` next to the XML. Checked in
+  T0: base game `data/vehicles/newHolland/t7/store_t7.dds`; mod
+  `FS25_volvoL90.zip` → `vehicles/volvo/l90/store_l90.dds`.
+- **Pipeline** (like the map overview and the game icons):
+  1. The mod adds the store item's image path to each vehicle (from the
+     store manager, by the vehicle's config file). Today it sends only the
+     name.
+  2. The client reads it from the game folder or the mod's zip, converts
+     DDS → PNG, hashes, caches and uploads it with the client token.
+  3. The dashboard shows it when it arrives.
+- **No picture:** paid DLCs are encrypted, and a mod may have none. Then
+  the card simply has no picture; nothing else moves.
+- **Rights:** as with icons, pictures come from the user's own install,
+  are served only by their own backend, and are never committed or
+  uploaded to claude.ai.
+
 ## Controls (state only for now)
 
 - **Component:** `web/src/ui/control.js`, an icon button with four states:
@@ -424,6 +445,10 @@ Each phase ends with:
    Drive, Implement), and the tab bar with the slim readout.
 5. Then the Vehicle screen, the night palette, the settings sheet, and
    Default's Theme button.
+   Vehicle screen approved on 2026-10-23: InfoView-style readout card
+   (speed arc, gear, rpm, shop picture), mini-map, four condition tiles,
+   the attached implements list, and the same chrome as the Map screen
+   (no tab-bar readout on this screen).
 6. Then the other sizes: 1280×800, compact at about 800 px wide, and
    1920×1080 (wide).
 7. Write the approved tokens, measurements and layout grid into
