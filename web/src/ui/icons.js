@@ -102,6 +102,19 @@ const PATHS = {
   // half lit, half dark: the Day / Night switch
   dayNight: '<circle cx="12" cy="12" r="8.5"/><path d="M12 3.5a8.5 8.5 0 0 1 0 17z" fill="currentColor" stroke="none"/>',
 
+  // --- map and tabs -----------------------------------------------------
+  // a folded map: the Map tab
+  map: '<path d="M3 6.5L9 4l6 2.5L21 4v13.5L15 20l-6-2.5L3 20zM9 4v13.5M15 6.5V20"/>',
+  zoomIn: '<path d="M12 5v14M5 12h14"/>',
+  zoomOut: '<path d="M5 12h14"/>',
+  // the terminal's "centre on vehicle" crosshair
+  recentre: '<circle cx="12" cy="12" r="6.5"/><path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3"/>' +
+    '<circle cx="12" cy="12" r="1.8" fill="currentColor" stroke="none"/>',
+  // a field fitted in the view's corners: show the whole map
+  wholeMap: '<path d="M3 8V3h5M16 3h5v5M21 16v5h-5M8 21H3v-5"/><path d="M8 9.5l7.5-1.5 .5 7.5-8 .5z"/>',
+  // stacked sheets: the map layers
+  layers: '<path d="M12 3.5l9 4.5-9 4.5L3 8zM3 12l9 4.5 9-4.5M3 16l9 4.5 9-4.5"/>',
+
   // --- controls ---------------------------------------------------------
   lights: LAMP + '<path d="M10 8L4 10M10 12l-6 2M10 16l-6 2"/>',
   highBeam: LAMP + '<path d="M10 8H4M10 12H4M10 16H4"/>',
@@ -131,6 +144,7 @@ export const ICON_GROUPS = {
   Alerts: ["warn", "battery", "oil", "checkEngine", "snow"],
   "Status bar": ["clock", "day", "season", "sun", "cloudy", "rain", "fog", "storm",
                  "temperature", "money", "connection", "settings", "dayNight"],
+  "Map and tabs": ["map", "zoomIn", "zoomOut", "recentre", "wholeMap", "layers"],
   Controls: ["lights", "highBeam", "beacon", "hazard", "turnLeft", "turnRight", "cruise",
              "pto", "hitchUp", "hitchDown", "implementOn", "aiWorker", "engineOn"],
 };

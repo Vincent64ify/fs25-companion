@@ -136,6 +136,29 @@ header p { margin: 0; color: var(--muted); max-width: 66ch; }
 .chip.alarm { background: #C42B2B; color: #FFFFFF; }
 .bar.night .chip.alarm { background: #FF7070; color: #0A1A33; }
 .chip.info { background: rgba(255,255,255,0.14); color: inherit; }
+.mapbox {
+  height: 300px; border-radius: 16px; position: relative; overflow: hidden;
+  background:
+    linear-gradient(115deg, transparent 0 38%, rgba(255,255,255,0.05) 38% 39%, transparent 39%),
+    linear-gradient(160deg, #6E8B3D 0 34%, #8A7A45 34% 61%, #5E7D34 61%);
+}
+.toolbar {
+  position: absolute; top: 12px; left: 12px; display: grid; border-radius: 16px; overflow: hidden;
+}
+.toolbar span { width: 48px; height: 48px; display: grid; place-items: center; }
+.toolbar .icon { width: 24px; height: 24px; }
+.day .toolbar { background: var(--d-card); color: var(--d-text); box-shadow: var(--d-lift); }
+.day .toolbar span + span { border-top: 1px solid var(--d-border); }
+.night .toolbar { background: var(--n-card); color: var(--n-text); box-shadow: var(--n-lift); }
+.night .toolbar span + span { border-top: 1px solid var(--n-border); }
+.tabs { display: flex; gap: 6px; }
+.tab {
+  height: 44px; border-radius: 999px; padding: 0 18px 0 14px;
+  display: inline-flex; align-items: center; gap: 8px; font-size: 15px; font-weight: 600;
+}
+.tab .icon { width: 22px; height: 22px; }
+.day .tab.sel { background: linear-gradient(#1B4A9E, #0C2D6B); color: #FFFFFF; }
+.night .tab.sel { background: var(--n-on); color: var(--n-on-text); }
 .grid2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
 .tile {
   border-radius: 16px; border: 1px solid transparent; padding: 10px 12px;
@@ -205,6 +228,11 @@ header p { margin: 0; color: var(--muted); max-width: 66ch; }
   </section>
 
   <section>
+    <h2>Map toolbar and tab bar, 24 px</h2>
+    <div class="context" id="maps"></div>
+  </section>
+
+  <section>
     <h2>Status bar, 20 px</h2>
     <div class="bars" id="status"></div>
   </section>
@@ -241,6 +269,8 @@ const LABELS = {
   clock: "Time", day: "Day", season: "Season", sun: "Sunny", cloudy: "Cloudy", rain: "Rain",
   fog: "Fog", storm: "Storm", temperature: "Temperature", money: "Money", connection: "Live",
   settings: "Settings", dayNight: "Day / Night",
+  map: "Map", zoomIn: "Zoom in", zoomOut: "Zoom out", recentre: "Recentre", wholeMap: "Whole map",
+  layers: "Layers",
   lights: "Lights", highBeam: "High beam", beacon: "Beacon", hazard: "Hazard",
   turnLeft: "Turn left", turnRight: "Turn right", cruise: "Cruise", pto: "PTO",
   hitchUp: "Raise", hitchDown: "Lower", implementOn: "Implement on",
@@ -278,6 +308,18 @@ for (const palette of ["day", "night"]) {
   }
   document.getElementById("tiles").append(
     el("div", `column ${palette}`, el("h3", "", palette === "day" ? "Day" : "Night"), grid));
+}
+
+// The map's edge toolbar and the tab bar (docs/THEMES.md, Measurements).
+if (ICON_GROUPS["Map and tabs"]) {
+  for (const palette of ["day", "night"]) {
+    const toolbar = el("div", "toolbar",
+      ...["zoomIn", "zoomOut", "recentre", "wholeMap", "layers"].map((n) => el("span", "", icon(n))));
+    document.getElementById("maps").append(el("div", `column ${palette}`,
+      el("h3", "", palette === "day" ? "Day" : "Night"),
+      el("div", "mapbox", toolbar),
+      el("div", "tabs", el("span", "tab sel", icon("map"), "Map"), el("span", "tab", icon("tractor"), "Vehicle"))));
+  }
 }
 
 // The status bar as the New Holland style lays it out (docs/THEMES.md), then

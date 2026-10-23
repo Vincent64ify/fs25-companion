@@ -2,7 +2,8 @@
 
 > **Status:** plan accepted on 2026-10-22; T0 (design) done on 2026-10-23,
 > see "Design result (T0)"; T1 (foundation) done on 2026-10-23, see "As
-> built (T1)". Next: T2 (our icon set) and T3 (New Holland style).
+> built (T1)"; T2 (our icon set) done on 2026-10-23, see "As built (T2)".
+> Next: T3 (New Holland style).
 
 ## Goal
 
@@ -242,9 +243,10 @@ These are left out of this project:
   logs once, so a layout never moves.
 - **First icon set** (49):
   - **Vehicle:** speed, rpm, gear, diesel, electric charge, methane, engine,
-    engine temperature, wear, hours, engine on, position, tractor.
+    engine temperature, wear, hours, position, tractor.
   - **Controls:** lights, high beam, beacon, hazard, turn left / right,
-    cruise control, PTO, hitch up / down, implement on, AI worker.
+    cruise control, PTO, hitch up / down, implement on, AI worker, engine
+    on.
   - **Alerts:** warning, battery, oil, check engine, frost.
   - **Status bar:** clock, day, season, sun, cloudy, rain, fog, storm,
     temperature, money, connection, settings, day / night.
@@ -698,6 +700,43 @@ Done on 2026-10-23. Default looks and behaves as before.
   24 × 24 box, and an unknown name gives a same-size placeholder.
 - **Done when:** the set is approved on the contact sheet, and test.html is
   green.
+
+#### As built (T2)
+
+Done on 2026-10-23. All 49 icons approved, in five batches.
+- **Module** (`ui/icons.js`): `icon(name, {title})` returns an inline
+  `<svg>` (24 × 24 box, 2 px strokes, round caps and joins, currentColor),
+  `aria-hidden` unless it has a title. `hasIcon(name)` checks a name, and
+  `ICON_GROUPS` lists the set by group, in the sheet's order. An unknown
+  name gives an empty icon of the same size and logs once.
+- **Groups:** Vehicle (12), Alerts (5), Status bar (13), Map and tabs (6)
+  and Controls (13). Engine on moved from Vehicle to Controls, since it's a
+  control; it shares its drawing with Engine.
+- **Shared drawings:** the engine block (engine, engine on, engine speed,
+  engine fault), the dial (speed, cruise), the hitch arm (raise, lower),
+  the small splined gear (PTO, implement on), the cloud (the weather), and
+  `around()`, which turns one stroke round the centre (sun, frost). Dots
+  are filled with no stroke, so they keep their size.
+- **References:** the ISO symbols in the IntelliView 12 guide (InfoView
+  warning lights and gauges on p. 4, the top bar on p. 8, the map toolbar
+  on p. 9, transmission modes on p. 20, the armrest keypad and side menu
+  on p. 23), drawn from scratch, never traced. The guide was viewed locally
+  and uploaded nowhere. Symbols with no cab equivalent (weather, season,
+  money, map) use common shapes in the same style.
+- **Changed in review:** cruise, PTO, raise, lower, implement on and engine
+  were redrawn after the guide; money became a wallet (a banknote read as
+  a camera, a coin stack as a database), currency-free; whole map became
+  view corners round a field (a framed ring also read as a camera).
+- **Contact sheet** (`tools/icons.html`): the icons in context (value
+  tiles, the map toolbar and tab bar, the status bar with a weather strip,
+  alert chips, the control column) in day and night, then one card per
+  icon with a keyline view, the sizes and the badge. It's published as the
+  private artifact "FS25 Companion icon sheet", with `icons.js` beside it.
+- **Removed:** `client/icon_atlas.json`. Nothing reads the game for icons.
+- **Checked:** test.html (91 checks, 5 for icons: every listed icon is
+  drawn, no name twice, each fits its box, the unknown-name placeholder,
+  and the title handling). Every batch was rendered in the browser pane at
+  120, 48, 26 and 16 px before review.
 
 ### T3: New Holland style: chrome and Map screen
 
