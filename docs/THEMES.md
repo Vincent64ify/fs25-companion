@@ -1,6 +1,7 @@
 # Themes and layouts
 
-> **Status:** plan accepted on 2026-10-22. Next: T0, the design in Claude Design.
+> **Status:** plan accepted on 2026-10-22; T0 (design) done on 2026-10-23,
+> see "Design result (T0)". Next: T1, the foundation.
 
 ## Goal
 
@@ -132,6 +133,9 @@ These are left out of this project:
 - **Control column:** the control zone (see Controls).
 - **Tab bar:** one tab per screen. It's designed for up to seven, like the
   real terminal; v1 has two.
+  - Every tab shows its icon and label whenever they fit. Only when the bar
+    runs out of room (compact) do the unselected tabs drop to icons; the
+    selected one keeps its label (T0 review).
 
 ### Screens (v1)
 
@@ -151,13 +155,15 @@ These are left out of this project:
 ### Compact and wide
 
 - **Compact** (narrower than 900 px, or portrait):
-  - a slimmer status bar;
-  - the value column becomes a strip under it;
-  - the controls move to a bottom row or a drawer;
-  - the tabs sit at the bottom.
-- **Wide** (1600 px and up): the side columns can hold two tile columns, and
-  the main area grows. Showing Map and Vehicle side by side, like the
-  terminal's dual display, is a design option for T0.
+  - the same status bar and tab bar;
+  - the map on top, then a control dock under it with the three groups
+    (Lights, Drive, Implement) side by side;
+  - unselected tabs drop to icons, and the readout keeps speed, rpm and
+    fuel.
+- **Wide** (1600 px and up): the main area grows. Each tab stays one
+  screen: the Map tab is the map and the controls, and Vehicle keeps its
+  own tab. Showing Map and Vehicle side by side was tried in T0 and
+  turned down.
 
 ## The map in themes
 
@@ -393,6 +399,121 @@ These are left out of this project:
 - **Check against** current car dashboards and the newest terminals
   (FendtONE, John Deere G5) for what "modern in a cab" looks like.
 
+## Design result (T0)
+
+Approved on 2026-10-23 in the Claude Design artifact
+"FS25 Companion: NH style direction board" (private, on claude.ai). This
+section is what T1 and T3 build from; the artboards are the picture.
+
+### Type
+
+- **Font:** Archivo (OFL), weights 400, 500, 600 and 700, self-hosted in
+  `web/vendor/fonts/`. Live values use tabular numerals.
+- **Scale (px):**
+
+  | Size | Use |
+  |---|---|
+  | 88 | Hero speed (Vehicle screen; 80 in narrower columns) |
+  | 36 | Gear box |
+  | 32 | Condition tile values |
+  | 24–26 | Engine rpm on the readout card |
+  | 22 | Panel titles (Settings) |
+  | 18 | Tab-bar readout values, vehicle name |
+  | 16 | Card titles (field, implement, theme) |
+  | 15 | Status bar, tab labels |
+  | 14 | Body rows |
+  | 13 | Secondary text, units, notes |
+  | 12 | Control labels; section labels in capitals with 0.08 em spacing |
+  | 11 | Small tags |
+
+### Palettes
+
+Gradients run top to bottom unless noted. "Ink" is the dark text on yellow.
+
+| Token | Day | Night |
+|---|---|---|
+| Bar (status bar) | `#154091 → #0C2D6B` | `#0A1C40 → #04112A` |
+| Ground | `#F4F7FC → #E3EAF5` | `#0B2149 → #06142E` |
+| Card | `#FFFFFF → #F2F6FC` | `#163370 → #0D224B` |
+| Button (off), map toolbar | `#FFFFFF → #EEF3FA` | `#163370 → #0D224B` |
+| Readout card | `160deg #1B4A9E → #0C2D6B` | `160deg #1A3B80 → #0D224B` |
+| Border | `#D2DCEC` | `#24427C` |
+| Line, meter track | `#E3EAF5` | `#1C3566` |
+| Text | `#0D1B33` | `#EAF0FA` |
+| Muted text | `#55627A` | `#9DB0CF` |
+| Bar text, muted | `#FFFFFF`, `#BFD0EE` | `#EAF0FA`, `#9DB0CF` |
+| On (controls, recentre, Working) | `#2B6BD6 → #0C4DB8`, white text | `#FFD65C → #FFC72C`, ink `#0A1A33` |
+| Selected tab | `#1B4A9E → #0C2D6B`, white text | `#FFD65C → #FFC72C`, ink |
+| Settings button while open | `#FFFFFF`, text `#0C4DB8` | `#FFD65C → #FFC72C`, ink |
+| Icon badge | `#FFD65C → #FFC72C`, ink | the same |
+| OK | `#12804A` (fill `#23A262 → #12804A`) | `#42D392` (fill `#4FE09C → #2DB876`) |
+| Warn | `#A15800` (fill `#FFB648 → #E58A00`) | `#FFB648` |
+| Alarm | `#C42B2B` | `#FF7070` |
+| Live dot | `#4ADE80` | `#4ADE80` |
+| Backdrop behind a panel | `rgba(4,17,42,0.45)` | `rgba(0,0,0,0.55)` |
+| Map overlays (scale, labels) | white glass `rgba(255,255,255,0.85)` | dark glass `rgba(4,17,42,0.85)` |
+
+- Map colours (hotspots, fields, crops, markers) are the same in both
+  palettes and every theme.
+- Turn arrows use OK, Hazard uses Alarm.
+- Unavailable controls: the off style at 45 % opacity.
+
+### Depth
+
+- **Lift (cards, tiles, map, toolbar):** day
+  `inset 0 1px 0 #FFFFFF, 0 2px 4px rgba(12,45,107,0.10), 0 6px 14px rgba(12,45,107,0.10)`;
+  night `inset 0 1px 0 rgba(255,255,255,0.08), 0 4px 14px rgba(0,0,0,0.4)`.
+- **On buttons:** day
+  `inset 0 1px 0 rgba(255,255,255,0.25), 0 2px 4px rgba(12,45,107,0.18), 0 6px 14px rgba(12,45,107,0.18)`;
+  night `inset 0 1px 0 rgba(255,255,255,0.45), 0 2px 10px rgba(255,199,44,0.22)`.
+- **Panels over the screen:** `0 20px 60px` at 35 % (day) or 60 % (night).
+- No blur anywhere, for older tablets.
+
+### Radii
+
+| px | Use |
+|---|---|
+| 20 | Readout card, vehicle card, Settings panel |
+| 16 | Cards, tiles, control buttons, map, toolbar group |
+| 14 | Gear box, small cards |
+| 12 | Icon buttons, toolbar buttons |
+| 9–11 | Icon badges |
+| 999 | Pills, tabs, chips |
+
+### Measurements
+
+- **Chrome:** status bar 56; tab bar 64 with 44-tall tab pills (padding
+  0 16–18, gap 6); page padding 12; gaps between areas 12.
+- **Controls:** a 268-wide column; labelled groups 14 apart; 3 columns of
+  80-tall buttons with 8 gaps; 26 px icons, 12 px labels.
+- **Map:** floating toolbar of 48 buttons, top-left inside the map, 12 in
+  from the edges; field panel 248 wide, top-right; scale bottom-right.
+- **Vehicle screen:** columns `1fr | 300`, rows `296 | 116 | 1fr`;
+  implement rows about 68 tall.
+- **Settings panel:** 420 wide, in the main area (12 below the status bar,
+  12 above the tab bar).
+- **Touch targets:** at least 44, and 48 on the map toolbar.
+
+### Layout grid
+
+| Size class | When | Grid |
+|---|---|---|
+| Regular | 900–1599 px wide, landscape | rows `56 / 1fr / 64`; main columns `1fr` and `268` |
+| Wide | 1600 px and up | as regular; the map grows |
+| Compact | under 900 px, or portrait | rows `56 / 1fr / 64`; main rows `1fr / auto`, the control dock in 3 columns |
+
+- **Tab bar readout** (Map screen only): speed, gear, rpm, fuel (with a
+  small bar, warn-coloured when low), engine temp. When space runs out,
+  drop temp, then gear.
+- **Tab labels:** shown whenever they fit (see Tab bar).
+
+### Icons
+
+- Game icons: `client/icon_atlas.json`, 24 icons from the dashboard symbol
+  sheet.
+- SVG fallback set, drawn in the same style (2 px strokes, round caps and
+  joins), for the names in its `fallback` list.
+
 ## Responsive (tablets vary a lot)
 
 - **No standard tablet size.** Sizes in CSS pixels, landscape:
@@ -468,8 +589,11 @@ Each phase ends with:
    Settings button at the header's left with a small Theme panel.
 6. Then the other sizes: 1280×800, compact at about 800 px wide, and
    1920×1080 (wide).
+   Approved on 2026-10-23: 1280×800 and 1920×1080 keep the regular
+   layout with a bigger map; compact (800×1280 portrait) docks the three
+   control groups under the map.
 7. Write the approved tokens, measurements and layout grid into
-   `docs/THEMES.md`.
+   `docs/THEMES.md`. Done: see "Design result (T0)".
 
 - **How reviewing works:**
   - The artboards live in a private Claude Design artifact on claude.ai.
