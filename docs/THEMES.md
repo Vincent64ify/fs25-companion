@@ -2,8 +2,9 @@
 
 > **Status:** plan accepted on 2026-10-22; T0 (design) done on 2026-10-23,
 > see "Design result (T0)"; T1 (foundation) done on 2026-10-23, see "As
-> built (T1)"; T2 (our icon set) done on 2026-10-23, see "As built (T2)".
-> Next: T3 (New Holland style).
+> built (T1)"; T2 (our icon set) done on 2026-10-23, see "As built (T2)";
+> T3 (New Holland chrome and Map screen) done on 2026-10-23, see "As built
+> (T3)". Next: T4 (Vehicle screen).
 
 ## Goal
 
@@ -748,6 +749,83 @@ Done on 2026-10-23. All 49 icons approved, in five batches.
 - **Done when:** the Map screen matches the approved artboards at all
   sizes, in both palettes.
 
+#### As built (T3)
+
+Done on 2026-10-23. Choose it in Settings, or with `?theme=newholland`.
+- **Theme data** (`themes/newholland/theme.js`): the status bar in three
+  parts (`start`: map name, alerts, protocol error; `centre`: day and
+  time; `end`: weather, money, connection), the control groups, and two
+  screens. Map is the map plus the control column, with the tab-bar
+  readout (speed, gear, rpm, fuel, engine temp). Vehicle is, until T4, the
+  vehicle's name, value tiles and the implements card.
+- **Renderer** (`themes/render.js`): a status bar can be a list or
+  `{start, centre, end}`; widgets are named by id or `{widget, variant}`; a
+  screen slot can be `{controls: true}` (the theme's control groups); a
+  screen's `readout` shows in the tab bar only while that screen does;
+  tabs carry their icon. `checkTheme()` now also reports unknown controls
+  and icons. No value column: the approved artboards moved the values to
+  the readout, so `chrome.values` stays optional.
+- **Controls** (`ui/control.js`, `widgets/controls.js`): a button with
+  `data-state` off, on, pending or unavailable, `aria-pressed`, and
+  `aria-disabled` until the controls project wires it. Thirteen controls
+  read the mod's data: lights, high beam, beacon, hazard, turn left and
+  right (`lights`), engine (`engineOn`), AI worker (`isAI`), raise, lower
+  and work (`implements`); cruise and PTO show as unavailable until T6
+  sends them. On foot, everything is unavailable. The Implement group's
+  label adds the first implement's name. Fold and "next tool" from the
+  artboard wait for data and icons.
+- **New widgets and variants:** `dayClock` (the centre pill: season, day,
+  time), `weatherNow` (weather icon and the day's temperatures), `alerts`
+  (chips from `alerts()` in `selectors.js`: fuel under 15 % warns and
+  under 5 % alarms, engine at 100 °C warns and at 110 °C alarms, wear from
+  80 % warns), `connection` variant `dot`, and the value variants `text`
+  and `readout` (with a meter for fuel). Value widgets gained an icon, a
+  level (`data-level` warn / alarm) and a meter.
+- **Settings** (`ui/settings.js`): the same button and panel in both
+  themes. Theme cards with layout thumbnails, then Day / Night for a theme
+  with palettes. Choosing a theme saves it, drops `?theme=` and
+  `?palette=` from the URL (keeping `?pair=` and `?backend=`) and reloads.
+  Day / Night applies at once and is saved. The panel sits in the main
+  area under the header, with a backdrop; the backdrop, Escape or the
+  button close it.
+- **Default:** the Settings button at the header's left and a small Theme
+  panel (no thumbnails). The button overhangs the header's padding, so the
+  header keeps its height: `layoutProbe.js` at 1280×800, 1920×1080 and
+  390×844 against the last commit shows only the title moving right of
+  the button and `main` becoming `position: relative`.
+- **Map** (`themes/newholland/mapControls.js`): one toolbar on the map's
+  left edge (zoom in and out; recentre, which follows, and whole map;
+  layers), the Layers panel opening beside it (closed at start), and a
+  metric scale bottom-right. The field panel sits top-right and drops to
+  the bottom-right corner when a popup would cover it.
+- **Slot zoom** (`mapView.js` `defaultZoom`, `followControl.js`
+  `slotZoom`): following zooms to the slot's own zoom and keeps it as the
+  slot changes size, until you zoom by hand (wheel, pinch, double-click,
+  the zoom buttons); recentre goes back to it. Measured: about 505 m
+  across the 676 px map at 1180×820, 150 m across a phone's. The per-slot
+  memory is T4.
+- **Popups** (`popupPlacement.js`): the theme passes `inset`, the strip
+  popups keep clear of (New Holland: 76 px for the toolbar). The class the
+  field panel gets is now `moved`; each theme's CSS says where it goes.
+- **Saved per device:** `fs25companion.screen` (the last screen, per
+  theme), plus the theme and palette keys from T1.
+- **Font:** `theme.css` asks for Archivo first, but the font files are not
+  in `web/vendor/fonts/` yet, so the system sans shows. Adding them is a
+  download, waiting for a yes.
+- **Checked:** test.html (113 checks, 22 new: season names, fuel levels,
+  alerts, control states and labels, every control's icon, the readout and
+  pill, theme checks, the renderer's parts, the Settings panel, the URL
+  without theme, slot zoom, the popup inset) and pytest (75). In the
+  browser pane with the replay and a sample vehicle: 1180×820 in day and
+  night against the Map and Settings artboards; 1133×744, 1194×834,
+  1280×800, 1366×768, 1376×1032, 1920×1080, 2560×1440, 3440×1440, 800×1280
+  and 820×1180 portrait and 390×844, with no horizontal scroll, no
+  overflowing column or tab bar, and every button 44 px or more. Phones
+  scroll the screen, with the map at least as tall as its toolbar.
+- **To confirm in game:** `env.season` is read as 0 = spring (like the
+  game's Season enum); the replay says "Summer" on day 1, so check it
+  against the in-game calendar.
+
 ### T4: Vehicle screen
 
 - The hero readout, condition tiles and implements.
@@ -790,6 +868,7 @@ Done on 2026-10-23. All 49 icons approved, in five batches.
   `web/src/themes/render.js`, `themes/registry.js`, `themes/default/`,
   `themes/newholland/`, `web/src/map/mapFrame.js`, `web/src/ui/dom.js`
   (was `panels/dom.js`), `web/src/ui/icons.js`, `web/src/ui/control.js`,
+  `web/src/ui/settings.js`, `web/src/widgets/controls.js`,
   `web/tools/layoutProbe.js`, `web/tools/icons.html`.
 - **Removed:** `client/icon_atlas.json` (T2).
 - **Docs:** `docs/THEMES.md` (this file), `docs/PLAN.md`.

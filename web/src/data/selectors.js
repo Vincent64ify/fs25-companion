@@ -53,6 +53,46 @@ export function implementsOf(v) {
 }
 
 /**
+ * The vehicle's light switches, undefined for a vehicle without lights.
+ * @param {Vehicle|undefined} v
+ * @returns {{on?: boolean, high?: boolean, left?: boolean, right?: boolean, hazard?: boolean, beacon?: boolean}|undefined}
+ */
+export function lightsOf(v) {
+  return v && v.lights && typeof v.lights === "object" ? v.lights : undefined;
+}
+
+// when a value turns into an alert; fuel's warn level also colours its meter
+export const LIMITS = { fuelWarn: 15, fuelAlarm: 5, tempWarn: 100, tempAlarm: 110, wearWarn: 80 };
+
+/** @param {number|undefined} pct @returns {"warn"|"alarm"|undefined} */
+export function fuelLevel(pct) {
+  if (pct === undefined) return undefined;
+  return pct < LIMITS.fuelAlarm ? "alarm" : pct < LIMITS.fuelWarn ? "warn" : undefined;
+}
+
+/**
+ * What needs the driver's attention, worst first.
+ * @param {Vehicle|undefined} v
+ * @returns {{id: string, level: "warn"|"alarm", text: string, icon: string}[]}
+ */
+export function alerts(v) {
+  /** @type {{id: string, level: "warn"|"alarm", text: string, icon: string}[]} */
+  const out = [];
+  const fuel = fuelPct(v);
+  const fuelAt = fuelLevel(fuel);
+  if (fuelAt) out.push({ id: "fuel", level: fuelAt, text: `Fuel ${Math.round(/** @type {number} */ (fuel))}%`, icon: "diesel" });
+  const temp = engineTemp(v);
+  if (temp !== undefined && temp >= LIMITS.tempWarn) {
+    out.push({ id: "temp", level: temp >= LIMITS.tempAlarm ? "alarm" : "warn", text: `Engine ${Math.round(temp)}°C`, icon: "engineTemp" });
+  }
+  const wear = wearPct(v);
+  if (wear !== undefined && wear >= LIMITS.wearWarn) {
+    out.push({ id: "wear", level: "warn", text: `Wear ${Math.round(wear)}%`, icon: "wear" });
+  }
+  return out.sort((a, b) => (a.level === b.level ? 0 : a.level === "alarm" ? -1 : 1));
+}
+
+/**
  * In-game time of day, "HH:MM".
  * @param {any} env
  * @returns {string|undefined}
@@ -68,6 +108,14 @@ export function weatherName(env) {
   const current = env?.weather?.current;
   if (typeof current === "number") return WEATHER_NAMES[current];
   return current || undefined;
+}
+
+// environment.currentSeason, 0-based like the game's Season enum
+export const SEASON_NAMES = ["Spring", "Summer", "Autumn", "Winter"];
+
+/** @param {any} env @returns {string|undefined} */
+export function seasonName(env) {
+  return typeof env?.season === "number" ? SEASON_NAMES[env.season] : undefined;
 }
 
 /** @param {any} env @returns {[number, number]|undefined} today's min and max, °C */

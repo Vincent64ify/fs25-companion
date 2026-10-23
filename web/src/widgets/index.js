@@ -4,7 +4,7 @@
 import * as vehicle from "./vehicle.js";
 import * as farm from "./farm.js";
 import { implementsWidget } from "./implements.js";
-import { connection, protocolError } from "./status.js";
+import { alerts, connection, protocolError } from "./status.js";
 
 /** @type {Record<string, import("./widget.js").CreateWidget>} */
 export const WIDGETS = {
@@ -13,6 +13,7 @@ export const WIDGETS = {
   implements: implementsWidget,
   connection,
   protocolError,
+  alerts,
 };
 
 /**

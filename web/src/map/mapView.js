@@ -89,6 +89,21 @@ export function coverZoom(size, [minX, minZ, maxX, maxZ]) {
 }
 
 /**
+ * A map slot's own zoom (docs/THEMES.md, Slot zoom): the smaller the slot,
+ * the closer in. Across its short side s (px) it shows a span of
+ * s² / 900 meters, kept between 80 m and the whole map: about 100 m in a
+ * 300 px slot, 1.1 km in a 1000 px one. Never below the cover zoom.
+ * @param {{x: number, y: number}} size the slot in px
+ * @param {WorldBounds} bounds the playable area
+ */
+export function defaultZoom(size, bounds) {
+  const s = Math.min(size.x, size.y);
+  const whole = Math.min(bounds[2] - bounds[0], bounds[3] - bounds[1]);
+  const span = Math.max(80, Math.min((s * s) / 900, whole));
+  return Math.max(Math.log2(s / span), coverZoom(size, bounds));
+}
+
+/**
  * Keep the view inside the bounds: panning stops at their edges and zooming
  * out stops when they just cover the map, so nothing outside them ever
  * shows. Kept up as the map's size changes.

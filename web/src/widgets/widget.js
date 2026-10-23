@@ -6,6 +6,7 @@
 // "dash", Default's rows and gauges).
 
 import { h } from "../ui/dom.js";
+import { icon } from "../ui/icons.js";
 
 /** @typedef {import("../store.js").Store} Store */
 
@@ -27,6 +28,9 @@ import { h } from "../ui/dom.js";
  * @property {(store: Store) => any} read the raw value, undefined when missing
  * @property {(raw: any) => string} text with its unit, for rows ("85°C")
  * @property {(raw: any) => string} [number] the number alone ("85"); default text
+ * @property {string} [icon] a name in ui/icons.js, for the tile and readout variants
+ * @property {(raw: any) => "warn"|"alarm"|undefined} [level] sets data-level on the root
+ * @property {(raw: any) => number} [meter] 0..100: the readout variant adds a bar
  */
 
 /**
@@ -49,15 +53,38 @@ const VARIANTS = {
     const value = h("h2");
     return [value, value];
   },
-  // label, number and unit, each in its own span
+  // label, number and unit, each in its own span (and the icon first)
   tile(def) {
     const value = h("span", { className: "widget-value" });
     const root = h("div", { className: "widget-tile" },
       h("span", { className: "widget-label", text: def.label }), value);
     if (def.unit) root.append(h("span", { className: "widget-unit", text: def.unit }));
+    if (def.icon) root.prepend(icon(def.icon));
+    return [root, value];
+  },
+  // the value alone, as text (a status bar's map name or money)
+  text(def) {
+    const value = h("span", { className: "widget-text" });
+    value.title = def.label;
+    return [value, value];
+  },
+  // a slim readout: number then unit, or label then number when there's no
+  // unit ("Gear F4"); a value with a meter (fuel) starts with its icon and bar
+  readout(def) {
+    const value = h("b", { className: "widget-value" });
+    const root = h("span", { className: "widget-readout" });
+    root.title = def.label;
+    if (def.meter) {
+      if (def.icon) root.append(icon(def.icon));
+      root.append(h("span", { className: "widget-meter" }, h("span")));
+    }
+    if (def.unit) root.append(value, h("small", { text: def.unit }));
+    else root.append(h("small", { text: def.label }), value);
     return [root, value];
   },
 };
+
+const NUMBER_VARIANTS = new Set(["gauge", "tile", "readout"]);
 
 /**
  * @param {ValueDef} def
@@ -71,13 +98,20 @@ export function valueWidget(def, defaultVariant = "row") {
     if (!make) throw new Error(`no widget variant "${variant}"`);
     const [root, value] = make(def);
     if (opts.id) root.id = opts.id;
-    const asNumber = variant === "gauge" || variant === "tile";
+    const asNumber = NUMBER_VARIANTS.has(variant);
+    const bar = /** @type {HTMLElement|null} */ (root.querySelector(".widget-meter > span"));
 
     const render = () => {
       const raw = def.read(store);
       const missing = raw === undefined;
       root.hidden = missing && opts.whenMissing !== "dash";
       value.textContent = missing ? "–" : (asNumber && def.number ? def.number(raw) : def.text(raw));
+      if (def.level) {
+        const level = missing ? undefined : def.level(raw);
+        if (level) root.dataset.level = level;
+        else delete root.dataset.level;
+      }
+      if (bar && def.meter) bar.style.width = missing ? "0" : `${Math.max(0, Math.min(100, def.meter(raw)))}%`;
     };
     for (const topic of def.topics) store.subscribe(topic, render);
     return root;

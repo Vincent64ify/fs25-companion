@@ -4,7 +4,9 @@
 // its edges a popup would stay cut off (close button included). Instead
 // the popup flips below the point when there's no room above, and slides
 // sideways with its tip kept on the point. A box laid over the map (the
-// field panel) moves to the other bottom corner when the popup lands on it.
+// field panel) gets the class "moved" when the popup lands on it; the
+// theme's CSS says where it goes. The theme can also keep popups clear of
+// a strip along the map's edges (New Holland's toolbar): inset.
 
 const PAD = 8;
 /** Leaflet's popup margin + tip, in px (leaflet.css, offset [0, 7]). */
@@ -34,6 +36,21 @@ export function fitPopup(popup, map, pointY) {
   return { below, dx };
 }
 
+/**
+ * The box with px taken off each edge.
+ * @param {Box} box
+ * @param {Partial<Box>} inset
+ * @returns {Box}
+ */
+export function insetBox(box, inset) {
+  return {
+    left: box.left + (inset.left || 0),
+    top: box.top + (inset.top || 0),
+    right: box.right - (inset.right || 0),
+    bottom: box.bottom - (inset.bottom || 0),
+  };
+}
+
 /** @param {Box} a @param {Box} b */
 export function overlaps(a, b) {
   return a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom;
@@ -41,11 +58,12 @@ export function overlaps(a, b) {
 
 /**
  * @param {any} map L.Map
- * @param {{avoid?: HTMLElement}} [opts] avoid: box over the map that moves
- *   to the right (class "on-right") when an open popup lands on it
+ * @param {{avoid?: HTMLElement, inset?: Partial<Box>}} [opts] avoid: box
+ *   over the map that moves aside (class "moved") when an open popup lands
+ *   on it; inset: px along each edge that popups keep clear of
  */
 export function keepPopupsInside(map, opts = {}) {
-  const { avoid } = opts;
+  const { avoid, inset = {} } = opts;
   // every popup: Leaflet pans before "popupopen" fires
   L.Popup.prototype.options.autoPan = false;
 
@@ -63,8 +81,9 @@ export function keepPopupsInside(map, opts = {}) {
     popup.update();
 
     const box = el.getBoundingClientRect();
-    const mapBox = map.getContainer().getBoundingClientRect();
-    const pointY = mapBox.top + map.latLngToContainerPoint(popup.getLatLng()).y;
+    const outer = map.getContainer().getBoundingClientRect();
+    const mapBox = insetBox(outer, inset);
+    const pointY = outer.top + map.latLngToContainerPoint(popup.getLatLng()).y;
     const { below, dx } = fitPopup(box, mapBox, pointY);
     if (below || dx) {
       const height = box.bottom - box.top;
@@ -75,9 +94,9 @@ export function keepPopupsInside(map, opts = {}) {
       popup.update();
     }
     if (avoid && !avoid.hidden) {
-      avoid.classList.remove("on-right");
+      avoid.classList.remove("moved");
       if (overlaps(el.getBoundingClientRect(), avoid.getBoundingClientRect())) {
-        avoid.classList.add("on-right");
+        avoid.classList.add("moved");
       }
     }
   }

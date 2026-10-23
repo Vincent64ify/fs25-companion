@@ -322,6 +322,119 @@ check("render: switching moves the frame", [shown(), rframe.el.parentElement?.cl
       [["vehicle"], true]);
 check("render: chrome widgets", app.querySelectorAll(".value-column .widget-tile").length, 2);
 
+// --- New Holland style (T3): selectors, controls, chrome, settings, slot zoom ---
+
+check("season names", [sel.seasonName({ season: 0 }), sel.seasonName({ season: 3 }), sel.seasonName({})],
+      ["Spring", "Winter", undefined]);
+check("fuel level", [10, 4, 50, undefined].map(sel.fuelLevel), ["warn", "alarm", undefined, undefined]);
+check("alerts: worst first", sel.alerts({ fuel: 10, fuelCapacity: 100, motorTemp: 112, wear: 0.85 })
+  .map((a) => `${a.id}:${a.level}`), ["temp:alarm", "fuel:warn", "wear:warn"]);
+check("alerts: none when fine, none on foot", [sel.alerts({ fuel: 90, fuelCapacity: 100, motorTemp: 85 }).length,
+  sel.alerts(undefined).length], [0, 0]);
+
+const { controlGroup, CONTROLS } = await import("./src/widgets/controls.js");
+const cs = createStore();
+const lightsGroup = controlGroup({ label: "Lights", controls: ["lights", "beacon", "hazard"] }, cs);
+const implGroup = controlGroup({ label: "Implement", implementName: true,
+  controls: ["implementRaised", "implementLowered", "implementOn", "pto"] }, cs);
+const states = (g) => [...g.querySelectorAll(".control")].map((b) => b.dataset.state);
+check("controls: unavailable on foot", [states(lightsGroup), states(implGroup)],
+  [["unavailable", "unavailable", "unavailable"], ["unavailable", "unavailable", "unavailable", "unavailable"]]);
+cs.set("vehicles", { controlledId: 1, vehicles: [{ id: 1, lights: { on: true, beacon: false, hazard: true },
+  implements: [{ name: "Seeder", lowered: true, turnedOn: false }] }] });
+check("controls: state from the game", [states(lightsGroup), states(implGroup)],
+  [["on", "off", "on"], ["off", "on", "off", "unavailable"]]);
+check("controls: implement's name in the label, aria", [implGroup.querySelector("h2").textContent,
+  lightsGroup.querySelector(".control").getAttribute("aria-label"),
+  lightsGroup.querySelector(".control").getAttribute("aria-pressed")],
+  ["Implement · Seeder", "Lights, on", "true"]);
+const iconsT3 = await import("./src/ui/icons.js");
+check("controls: every control's icon exists", Object.entries(CONTROLS).filter(([, c]) => !iconsT3.hasIcon(c.icon))
+  .map(([id]) => id), []);
+
+// widgets: the tab bar's readout, the status bar's pill and alerts
+const readoutFuel = createWidget("fuel", cs, { variant: "readout" });
+const readoutGear = createWidget("gear", cs, { variant: "readout" });
+cs.set("vehicles", { controlledId: 1, vehicles: [{ id: 1, fuel: 10, fuelCapacity: 100, gear: "F4" }] });
+check("readout: number and unit, or label and number", [readoutFuel.textContent, readoutGear.textContent],
+      ["10%", "GearF4"]);
+check("readout: fuel's level and meter", [readoutFuel.dataset.level,
+  readoutFuel.querySelector(".widget-meter > span").style.width, !!readoutGear.querySelector(".icon")],
+  ["warn", "10%", false]);
+const pill = createWidget("dayClock", cs);
+cs.set("env", { day: 6, season: 0, dayTimeMinutes: 584 });
+check("day and time pill", pill.textContent, "Spring · Day 609:44");
+const chips = createWidget("alerts", cs);
+check("alert chips", [chips.hidden, chips.querySelector(".alert-chip")?.dataset.level], [false, "warn"]);
+
+// the theme check knows controls, icons, the status bar's parts and readouts
+check("theme check: controls, icons, status parts, readout", checkTheme({
+  id: "x", palettes: [], mapControls: "edge", css: "",
+  chrome: { status: { start: ["nope1"], end: [{ widget: "money", variant: "text" }] },
+    controls: [{ label: "L", controls: ["lights", "nope2"] }] },
+  screens: [{ id: "a", label: "A", icon: "nope3", slots: [{ controls: true }], readout: ["nope4"] }],
+}), ['chrome.status.start: no widget "nope1"', 'chrome.controls: no control "nope2"',
+  'screen a: no icon "nope3"', 'screen a readout: no widget "nope4"']);
+
+// the renderer: status bar parts, the control slot, the readout follows its screen, settings in main
+const { createSettings } = await import("./src/ui/settings.js");
+const picked = [];
+const fakeSettings = createSettings({
+  themes: [{ id: "default", label: "Default", palettes: [] }, { id: "nh", label: "NH", palettes: ["day", "night"] }],
+  theme: { id: "nh", label: "NH", palettes: ["day", "night"] }, palette: "day",
+  onTheme: (id) => picked.push(`theme ${id}`), onPalette: (p) => picked.push(`palette ${p}`),
+});
+const app2 = document.createElement("div");
+const ui2 = renderTheme({
+  id: "x", label: "X", palettes: [], mapControls: "edge", css: "",
+  chrome: { status: { start: ["mapName"], centre: ["dayClock"], end: ["money"] },
+    controls: [{ label: "Lights", controls: ["lights", "beacon"] }] },
+  screens: [
+    { id: "map", label: "Map", icon: "map", slots: [{ map: "full" }, { controls: true }], readout: ["speed"] },
+    { id: "vehicle", label: "Vehicle", slots: [{ widget: "speed", variant: "tile" }] },
+  ],
+}, app2, createStore(), createMapFrame(createStore()), fakeSettings);
+check("render: status bar parts, settings button first", [...app2.querySelector(".status-bar").children]
+  .map((p) => `${p.className}:${p.children.length}`), ["status-start:2", "status-centre:1", "status-end:1"]);
+check("render: control slot, tab icon, settings layer in main", [
+  app2.querySelectorAll('.screen[data-screen="map"] .control-column .control').length,
+  !!app2.querySelector('.tab[data-screen="map"] svg'), fakeSettings.layer.parentElement?.className,
+], [2, true, "screens"]);
+const readoutShown = () => !app2.querySelector('.tab-readout[data-screen="map"]').hidden;
+const onMap = readoutShown();
+ui2.showScreen?.("vehicle");
+check("render: the readout shows with its screen only", [onMap, readoutShown(), app2.dataset.screen],
+      [true, false, "vehicle"]);
+
+// settings: the button opens and closes; choices go to the callbacks
+const sb = fakeSettings.button;
+sb.click();
+const openNow = !fakeSettings.layer.hidden;
+sb.click();
+check("settings: the button toggles the panel", [openNow, fakeSettings.layer.hidden, sb.getAttribute("aria-expanded")],
+      [true, true, "false"]);
+fakeSettings.layer.querySelector('[data-palette="night"]').click();
+const defaultRadio = fakeSettings.layer.querySelector('input[value="default"]');
+defaultRadio.checked = true;
+defaultRadio.dispatchEvent(new Event("change"));
+check("settings: palette and theme choices",
+  [picked, fakeSettings.layer.querySelector('[data-palette="night"]').getAttribute("aria-checked")],
+  [["palette night", "theme default"], "true"]);
+const { withoutParams } = await import("./src/themes/registry.js");
+check("URL without theme, pairing kept", withoutParams("?pair=123&theme=nh&palette=night", ["theme", "palette"]),
+      "?pair=123");
+
+// slot zoom (mapView.js defaultZoom): span across the short side, in meters
+const { defaultZoom } = await import("./src/map/mapView.js");
+const spanAt = (x, y, b = terrainBounds(4096)) => Math.round(Math.min(x, y) / 2 ** defaultZoom({ x, y }, b));
+check("slot zoom: ~100 m in 300 px, ~1.1 km in 1000 px, 80 m at least",
+      [spanAt(300, 300), spanAt(1000, 600), spanAt(1000, 1000), spanAt(150, 200)], [100, 400, 1111, 80]);
+check("slot zoom: never below the cover zoom", spanAt(3000, 3000, terrainBounds(2048)) <= 2048, true);
+
+const { insetBox } = await import("./src/map/popupPlacement.js");
+check("popup box: inset from the toolbar", insetBox(mapBox, { left: 76 }), { left: 76, top: 0, right: 500, bottom: 500 });
+
+
 // --- icons (ui/icons.js) --------------------------------------------------------
 
 const { ICON_GROUPS, hasIcon, icon } = await import("./src/ui/icons.js");

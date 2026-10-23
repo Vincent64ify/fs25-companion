@@ -4,13 +4,36 @@
 // saved choice, then Default. Switching theme reloads the page.
 
 import defaultTheme from "./default/theme.js";
+import newHolland from "./newholland/theme.js";
 
 /** @typedef {import("./render.js").Theme} Theme */
 
-/** @type {Theme[]} */
-export const THEMES = [defaultTheme];
+/** @type {Theme[]} the first is the fallback */
+export const THEMES = [defaultTheme, newHolland];
 
 export const STORAGE_KEYS = { theme: "fs25companion.theme", palette: "fs25companion.palette" };
+
+/**
+ * Save the device's choice; a URL override of the same key would win over
+ * it, so the caller drops that from the URL (withoutParams).
+ * @param {"theme"|"palette"} key
+ * @param {string} value
+ */
+export function saveChoice(key, value) {
+  try { localStorage.setItem(STORAGE_KEYS[key], value); } catch { /* private mode */ }
+}
+
+/**
+ * location.search without some parameters, the others kept (?pair=, ?backend=).
+ * @param {string} search
+ * @param {string[]} names
+ */
+export function withoutParams(search, names) {
+  const params = new URLSearchParams(search);
+  for (const name of names) params.delete(name);
+  const rest = params.toString();
+  return rest ? `?${rest}` : "";
+}
 
 /** @returns {{theme?: string, palette?: string}} the device's saved choice */
 export function savedChoice() {

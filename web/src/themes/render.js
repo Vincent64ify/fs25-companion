@@ -5,14 +5,23 @@
 // map frame moves into the visible screen's map slot.
 
 import { createWidget, WIDGETS } from "../widgets/index.js";
+import { controlGroup, CONTROLS } from "../widgets/controls.js";
 import { h } from "../ui/dom.js";
+import { hasIcon, icon } from "../ui/icons.js";
 
 /** @typedef {import("../store.js").Store} Store */
 /** @typedef {import("../map/mapFrame.js").MapFrame} MapFrame */
+/** @typedef {import("../ui/settings.js").Settings} Settings */
+/** @typedef {import("../widgets/controls.js").ControlGroup} ControlGroup */
 
 /**
- * A place on a screen: a widget, or the map.
- * @typedef {{widget: string, variant?: string} | {map: "full"|"mini"}} Slot
+ * A widget by id, or with the variant to draw it in.
+ * @typedef {string | {widget: string, variant?: string}} WidgetRef
+ */
+
+/**
+ * A place on a screen: a widget, the map, or the theme's control groups.
+ * @typedef {{widget: string, variant?: string} | {map: "full"|"mini"} | {controls: true}} Slot
  */
 
 /**
@@ -22,6 +31,12 @@ import { h } from "../ui/dom.js";
  * @property {string} label
  * @property {string} [icon]
  * @property {Slot[]} slots
+ * @property {WidgetRef[]} [readout] widgets in the tab bar while this screen shows
+ */
+
+/**
+ * The status bar: left, centre and right. A plain list is the left part.
+ * @typedef {WidgetRef[] | {start?: WidgetRef[], centre?: WidgetRef[], end?: WidgetRef[]}} StatusBar
  */
 
 /**
@@ -32,9 +47,9 @@ import { h } from "../ui/dom.js";
  * @property {string[]} palettes "day", "night"; empty: one look only
  * @property {"corners"|"edge"} mapControls where the map's buttons go
  * @property {string} css the theme's stylesheet, from index.html
- * @property {{status?: string[], values?: string[], controls?: string[]}} [chrome]
+ * @property {{status?: StatusBar, values?: string[], controls?: ControlGroup[]}} [chrome]
  * @property {Screen[]} [screens]
- * @property {(app: HTMLElement, store: Store, frame: MapFrame) => Rendered} [build]
+ * @property {(app: HTMLElement, store: Store, frame: MapFrame, settings?: Settings) => Rendered} [build]
  *   draws the theme itself, ignoring chrome and screens
  */
 
@@ -43,9 +58,19 @@ import { h } from "../ui/dom.js";
  * @property {(id: string) => void} [showScreen]
  */
 
+/** @param {WidgetRef} ref @returns {{widget: string, variant?: string}} */
+const asRef = (ref) => (typeof ref === "string" ? { widget: ref } : ref);
+
+/** @param {StatusBar|undefined} status */
+function statusParts(status) {
+  if (!status) return { start: [], centre: [], end: [] };
+  if (Array.isArray(status)) return { start: status, centre: [], end: [] };
+  return { start: status.start || [], centre: status.centre || [], end: status.end || [] };
+}
+
 /**
- * What's wrong with a theme's data: unknown widget ids, screens with more
- * than one map slot, duplicate screen ids.
+ * What's wrong with a theme's data: unknown widget, control or icon names,
+ * screens with more than one map slot, duplicate screen ids.
  * @param {Theme} theme
  * @param {string[]} [widgetIds]
  * @returns {string[]}
@@ -54,22 +79,36 @@ export function checkTheme(theme, widgetIds = Object.keys(WIDGETS)) {
   /** @type {string[]} */
   const errors = [];
   const known = new Set(widgetIds);
-  const want = (/** @type {string} */ id, /** @type {string} */ where) => {
+  const want = (/** @type {WidgetRef} */ ref, /** @type {string} */ where) => {
+    const id = asRef(ref).widget;
     if (!known.has(id)) errors.push(`${where}: no widget "${id}"`);
   };
-  for (const part of /** @type {const} */ (["status", "values"])) {
-    for (const id of theme.chrome?.[part] || []) want(id, `chrome.${part}`);
+  const wantIcon = (/** @type {string|undefined} */ name, /** @type {string} */ where) => {
+    if (name && !hasIcon(name)) errors.push(`${where}: no icon "${name}"`);
+  };
+  const chrome = theme.chrome || {};
+  for (const [part, refs] of Object.entries(statusParts(chrome.status))) {
+    for (const ref of refs) want(ref, `chrome.status.${part}`);
+  }
+  for (const id of chrome.values || []) want(id, "chrome.values");
+  for (const group of chrome.controls || []) {
+    for (const id of group.controls) {
+      if (!CONTROLS[id]) errors.push(`chrome.controls: no control "${id}"`);
+      else wantIcon(CONTROLS[id].icon, `control ${id}`);
+    }
   }
   const seen = new Set();
   for (const screen of theme.screens || []) {
     if (seen.has(screen.id)) errors.push(`screen "${screen.id}" twice`);
     seen.add(screen.id);
+    wantIcon(screen.icon, `screen ${screen.id}`);
     let maps = 0;
     for (const slot of screen.slots) {
       if ("map" in slot) maps++;
-      else want(slot.widget, `screen ${screen.id}`);
+      else if ("widget" in slot) want(slot.widget, `screen ${screen.id}`);
     }
     if (maps > 1) errors.push(`screen ${screen.id}: ${maps} map slots, at most 1`);
+    for (const ref of screen.readout || []) want(ref, `screen ${screen.id} readout`);
   }
   return errors;
 }
@@ -80,59 +119,90 @@ export function checkTheme(theme, widgetIds = Object.keys(WIDGETS)) {
  * @param {HTMLElement} app
  * @param {Store} store
  * @param {MapFrame} frame
+ * @param {Settings} [settings] the Settings button and panel (ui/settings.js)
  * @returns {Rendered}
  */
-export function renderTheme(theme, app, store, frame) {
-  if (theme.build) return theme.build(app, store, frame);
+export function renderTheme(theme, app, store, frame, settings) {
+  if (theme.build) return theme.build(app, store, frame, settings);
   const errors = checkTheme(theme);
   if (errors.length) throw new Error(`theme ${theme.id}: ${errors.join("; ")}`);
 
   const chrome = theme.chrome || {};
   const screens = theme.screens || [];
-  const status = h("header", { className: "status-bar" },
-    ...(chrome.status || []).map((id) => createWidget(id, store)));
-  const values = h("aside", { className: "value-column" },
-    ...(chrome.values || []).map((id) => createWidget(id, store, { variant: "tile" })));
-  // the controls arrive with ui/control.js (Themes T3)
-  const controls = h("aside", { className: "control-column" });
+  /** @param {WidgetRef[]} refs */
+  const widgets = (refs) => refs.map((ref) => {
+    const { widget, variant } = asRef(ref);
+    return createWidget(widget, store, { variant });
+  });
 
-  /** @type {Map<string, {el: HTMLElement, mapSlot: HTMLElement|null, tab: HTMLElement}>} */
+  const parts = statusParts(chrome.status);
+  const status = h("header", { className: "status-bar" },
+    h("div", { className: "status-start" }, ...(settings ? [settings.button] : []), ...widgets(parts.start)),
+    h("div", { className: "status-centre" }, ...widgets(parts.centre)),
+    h("div", { className: "status-end" }, ...widgets(parts.end)));
+  const values = chrome.values?.length
+    ? h("aside", { className: "value-column" },
+      ...chrome.values.map((id) => createWidget(id, store, { variant: "tile" })))
+    : null;
+
+  /** @type {Map<string, {el: HTMLElement, mapSlot: HTMLElement|null, tab: HTMLElement, readout: HTMLElement|null}>} */
   const built = new Map();
   const main = h("main", { className: "screens" });
-  const tabs = h("nav", { className: "tab-bar" });
+  const tabList = h("div", { className: "tabs" });
+  const tabs = h("nav", { className: "tab-bar" }, tabList);
+  tabs.setAttribute("aria-label", "Screens");
   for (const screen of screens) {
     const el = h("section", { className: "screen", hidden: true });
     el.dataset.screen = screen.id;
+    el.setAttribute("aria-label", screen.label);
     /** @type {HTMLElement|null} */
     let mapSlot = null;
     for (const slot of screen.slots) {
       if ("map" in slot) {
         mapSlot = h("div", { className: `map-slot map-${slot.map}` });
         el.append(mapSlot);
+      } else if ("controls" in slot) {
+        const column = h("aside", { className: "control-column" },
+          ...(chrome.controls || []).map((group) => controlGroup(group, store)));
+        column.setAttribute("aria-label", "Controls");
+        el.append(column);
       } else {
         el.append(h("div", { className: "slot" }, createWidget(slot.widget, store, { variant: slot.variant })));
       }
     }
-    const tab = h("button", { className: "tab", text: screen.label });
+    const tab = h("button", { className: "tab" },
+      ...(screen.icon ? [icon(screen.icon)] : []), h("span", { className: "tab-label", text: screen.label }));
     tab.setAttribute("type", "button");
+    tab.title = screen.label;
     tab.dataset.screen = screen.id;
     tab.addEventListener("click", () => showScreen(screen.id));
-    tabs.append(tab);
+    tabList.append(tab);
+    const readout = screen.readout?.length
+      ? h("div", { className: "tab-readout", hidden: true }, ...widgets(screen.readout))
+      : null;
+    if (readout) {
+      readout.dataset.screen = screen.id;
+      readout.setAttribute("aria-label", "Vehicle readout");
+      tabs.append(readout);
+    }
     main.append(el);
-    built.set(screen.id, { el, mapSlot, tab });
+    built.set(screen.id, { el, mapSlot, tab, readout });
   }
+  if (settings) main.append(settings.layer);
 
   /** @param {string} id */
   function showScreen(id) {
     for (const [screenId, s] of built) {
       const shown = screenId === id;
       s.el.hidden = !shown;
+      if (s.readout) s.readout.hidden = !shown;
       s.tab.setAttribute("aria-pressed", String(shown));
       if (shown && s.mapSlot) frame.moveTo(s.mapSlot);
     }
+    app.dataset.screen = id;
   }
 
-  app.replaceChildren(status, values, main, controls, tabs);
+  app.replaceChildren(...[status, values, main, tabs].filter((el) => el !== null));
   if (screens.length) showScreen(screens[0].id);
   return { showScreen };
 }

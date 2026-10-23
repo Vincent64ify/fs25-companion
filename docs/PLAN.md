@@ -51,7 +51,7 @@ style, after the IntelliView 12. Today's look stays as the Default theme.
 | T1 | Foundation: themes as data, widgets, tokens. No visible change |
 | T2 | Our own SVG icon set, in the cab-symbol style |
 | T3 | New Holland style: chrome and Map screen |
-| T4 | Vehicle screen with a mini-map |
+| T4 | Vehicle screen: hero readout, condition tiles, implements, vehicle card |
 | T5 | Responsive pass across tablets and monitors |
 | T6 | More data from the game (can start any time) |
 

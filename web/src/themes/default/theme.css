@@ -12,11 +12,12 @@ header {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 10px;
   padding: 10px 16px;
   border-bottom: 1px solid var(--border);
 }
 
-h1 { font-size: 18px; margin: 0; }
+h1 { font-size: 18px; margin: 0; flex: 1; }
 
 .conn {
   font-size: 13px;
@@ -35,6 +36,7 @@ h1 { font-size: 18px; margin: 0; }
 }
 
 main {
+  position: relative;
   flex: 1;
   min-height: 0;
   display: flex;
@@ -141,3 +143,70 @@ main {
   padding: 6px 10px 8px;
 }
 .map-legend.open .legend-panel { display: block; }
+
+/* --- Settings: the button at the header's left, its panel under it ------ */
+
+.settings-button {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  /* into the header's padding, so the header keeps its height */
+  margin: -4px 0;
+  padding: 0 12px 0 9px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text);
+  font: 600 13px var(--font);
+  cursor: pointer;
+}
+.settings-button .icon { width: 16px; height: 16px; }
+.settings-button:hover { border-color: var(--muted); }
+.settings-button[aria-expanded="true"] { border-color: var(--accent); background: rgba(34, 211, 238, 0.12); }
+
+.settings-layer { position: absolute; inset: 0; z-index: 2000; }
+.settings-layer[hidden] { display: none; }
+.settings-backdrop { position: absolute; inset: 0; }
+.settings-panel {
+  position: absolute;
+  left: 4px;
+  top: 0;
+  width: min(330px, 100% - 8px);
+  max-height: calc(100% - 12px);
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.55);
+}
+.settings-panel h2 { margin: 0 0 4px; font-size: 16px; }
+.settings-group { display: flex; flex-direction: column; gap: 8px; margin: 0; padding: 0; border: 0; }
+.settings-group legend {
+  margin-bottom: 2px;
+  padding: 0;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--muted);
+}
+.theme-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  cursor: pointer;
+}
+.theme-card:has(input:checked) { border-color: var(--accent); background: rgba(34, 211, 238, 0.08); }
+.theme-card input { margin: 2px 0 0; width: 18px; height: 18px; accent-color: var(--accent); }
+.theme-thumb, .theme-check { display: none; }
+.theme-text { display: flex; flex-direction: column; gap: 2px; }
+.theme-name { font-size: 14px; font-weight: 600; }
+.theme-note { font-size: 13px; color: var(--muted); }
+.settings-note { margin: 2px 0 0; font-size: 12px; color: var(--muted); }

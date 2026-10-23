@@ -1,0 +1,110 @@
+// @ts-check
+// The Settings button and panel, the same in every theme (docs/THEMES.md,
+// Settings entry): the button sits top-left in the header and opens and
+// closes the panel (shown pressed while open). The panel starts with the
+// theme, then Day / Night for a theme with palettes. The theme decides
+// where both go; the panel's layer (a backdrop plus the panel) fills its
+// parent, which is the main area under the header.
+
+import { h } from "./dom.js";
+import { icon } from "./icons.js";
+
+/** @typedef {import("../themes/render.js").Theme} Theme */
+
+const PALETTE_ICONS = { day: "sun", night: "dayNight" };
+
+/**
+ * @typedef {Object} Settings
+ * @property {HTMLButtonElement} button
+ * @property {HTMLElement} layer the backdrop and the panel; goes in the main area
+ * @property {(open: boolean) => void} setOpen
+ */
+
+/**
+ * @param {Object} opts
+ * @param {Theme[]} opts.themes in the order the panel lists them
+ * @param {Theme} opts.theme the one showing
+ * @param {string|undefined} opts.palette
+ * @param {(id: string) => void} opts.onTheme saves and reloads
+ * @param {(palette: string) => void} opts.onPalette saves and applies
+ * @returns {Settings}
+ */
+export function createSettings({ themes, theme, palette, onTheme, onPalette }) {
+  const button = /** @type {HTMLButtonElement} */ (h("button", { className: "settings-button" },
+    icon("settings"), h("span", { text: "Settings" })));
+  button.type = "button";
+  button.setAttribute("aria-controls", "settings-panel");
+
+  const cards = themes.map((t) => {
+    const input = /** @type {HTMLInputElement} */ (h("input"));
+    input.type = "radio";
+    input.name = "theme";
+    input.value = t.id;
+    input.checked = t.id === theme.id;
+    input.addEventListener("change", () => { if (input.checked) onTheme(t.id); });
+    const thumb = h("span", { className: "theme-thumb" }, ...Array.from({ length: 6 }, () => h("span")));
+    thumb.dataset.thumb = t.id;
+    thumb.setAttribute("aria-hidden", "true");
+    // a tick drawn in CSS: it's a mark, not one of the icon set's symbols
+    const check = h("span", { className: "theme-check" });
+    check.setAttribute("aria-hidden", "true");
+    return h("label", { className: "theme-card" }, input, thumb,
+      h("span", { className: "theme-text" },
+        h("span", { className: "theme-name", text: t.label }),
+        h("span", { className: "theme-note", text: t.note || "" })),
+      check);
+  });
+  const themeSet = h("fieldset", { className: "settings-group" },
+    h("legend", { text: "Theme" }), ...cards,
+    h("p", { className: "settings-note", text: "Saved on this device. Switching theme reloads the dashboard." }));
+
+  const panel = h("section", { id: "settings-panel", className: "settings-panel" },
+    h("h2", { text: "Settings" }), themeSet);
+  panel.setAttribute("aria-label", "Settings");
+
+  if (theme.palettes.length) {
+    const choices = theme.palettes.map((p) => {
+      const b = /** @type {HTMLButtonElement} */ (h("button", {},
+        icon(/** @type {Record<string, string>} */ (PALETTE_ICONS)[p] || "dayNight"),
+        h("span", { text: p[0].toUpperCase() + p.slice(1) })));
+      b.type = "button";
+      b.setAttribute("role", "radio");
+      b.dataset.palette = p;
+      b.addEventListener("click", () => {
+        onPalette(p);
+        mark(p);
+      });
+      return b;
+    });
+    const mark = (/** @type {string|undefined} */ current) => {
+      for (const b of choices) b.setAttribute("aria-checked", String(b.dataset.palette === current));
+    };
+    mark(palette);
+    const group = h("div", { className: "palette-switch" }, ...choices);
+    group.setAttribute("role", "radiogroup");
+    group.setAttribute("aria-label", "Day or night");
+    panel.append(h("fieldset", { className: "settings-group" },
+      h("legend", { text: "Display" }), group,
+      h("p", { className: "settings-note", text: "Saved on this device. Nothing switches by itself." })));
+  }
+
+  const backdrop = h("div", { className: "settings-backdrop" });
+  const layer = h("div", { className: "settings-layer", hidden: true }, backdrop, panel);
+
+  /** @param {boolean} open */
+  function setOpen(open) {
+    layer.hidden = !open;
+    button.setAttribute("aria-expanded", String(open));
+    if (open) /** @type {HTMLElement|null} */ (panel.querySelector("input:checked"))?.focus();
+  }
+  setOpen(false);
+  button.addEventListener("click", () => setOpen(layer.hidden));
+  backdrop.addEventListener("click", () => setOpen(false));
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && !layer.hidden) {
+      setOpen(false);
+      button.focus();
+    }
+  });
+  return { button, layer, setOpen };
+}

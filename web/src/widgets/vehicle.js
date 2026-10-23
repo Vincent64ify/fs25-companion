@@ -3,7 +3,8 @@
 
 import { valueWidget } from "./widget.js";
 import {
-  controlledVehicle, engineTemp as engineTempOf, fuelPct, operatingHours, vehicleName as nameOf, wearPct,
+  controlledVehicle, engineTemp as engineTempOf, fuelLevel, fuelPct, LIMITS, operatingHours,
+  vehicleName as nameOf, wearPct,
 } from "../data/selectors.js";
 import { fmt } from "../ui/dom.js";
 
@@ -18,43 +19,46 @@ export const vehicleName = valueWidget({
 }, "title");
 
 export const speed = valueWidget({
-  label: "Speed", unit: "km/h", topics: VEHICLE,
+  label: "Speed", unit: "km/h", icon: "speed", topics: VEHICLE,
   read: (store) => num(controlledVehicle(store)?.speed),
   text: (v) => `${fmt(v)} km/h`, number: fmt,
 }, "gauge");
 
 export const rpm = valueWidget({
-  label: "Engine speed", unit: "rpm", topics: VEHICLE,
+  label: "Engine speed", unit: "rpm", icon: "rpm", topics: VEHICLE,
   read: (store) => num(controlledVehicle(store)?.rpm),
   text: (v) => `${fmt(v)} rpm`, number: fmt,
 }, "gauge");
 
 export const gear = valueWidget({
-  label: "Gear", topics: VEHICLE,
+  label: "Gear", icon: "gear", topics: VEHICLE,
   read: (store) => controlledVehicle(store)?.gear ?? undefined,
   text: String,
 }, "gauge");
 
 export const fuel = valueWidget({
-  label: "Fuel", unit: "%", topics: VEHICLE,
+  label: "Fuel", unit: "%", icon: "diesel", topics: VEHICLE,
   read: (store) => fuelPct(controlledVehicle(store)),
   text: pct, number: (v) => String(Math.round(v)),
+  level: fuelLevel, meter: (v) => v,
 });
 
 export const wear = valueWidget({
-  label: "Wear", unit: "%", topics: VEHICLE,
+  label: "Wear", unit: "%", icon: "wear", topics: VEHICLE,
   read: (store) => wearPct(controlledVehicle(store)),
   text: pct, number: (v) => String(Math.round(v)),
+  level: (v) => (v >= LIMITS.wearWarn ? "warn" : undefined),
 });
 
 export const engineTemp = valueWidget({
-  label: "Engine temp", unit: "°C", topics: VEHICLE,
+  label: "Engine temp", unit: "°C", icon: "engineTemp", topics: VEHICLE,
   read: (store) => engineTempOf(controlledVehicle(store)),
   text: (v) => Math.round(v) + "°C", number: (v) => String(Math.round(v)),
+  level: (v) => (v >= LIMITS.tempAlarm ? "alarm" : v >= LIMITS.tempWarn ? "warn" : undefined),
 });
 
 export const hours = valueWidget({
-  label: "Hours", unit: "h", topics: VEHICLE,
+  label: "Hours", unit: "h", icon: "hours", topics: VEHICLE,
   read: (store) => operatingHours(controlledVehicle(store)),
   text: (v) => v.toFixed(1) + " h", number: (v) => v.toFixed(1),
 });

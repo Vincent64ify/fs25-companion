@@ -216,7 +216,7 @@ dd { margin: 0; }
 }
 .field-info[hidden] { display: none; }
 /* moved aside by an open popup that would land on it (popupPlacement.js) */
-.field-info.on-right { left: auto; right: 10px; }
+.field-info.moved { left: auto; right: 10px; }
 .field-info-head {
   display: flex;
   align-items: center;

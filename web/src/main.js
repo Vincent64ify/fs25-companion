@@ -20,10 +20,14 @@ import { createHotspotsLayer } from "./map/layers/hotspotsLayer.js";
 import { createVehiclesLayer } from "./map/layers/vehiclesLayer.js";
 import { createPlayerLayer } from "./map/layers/playerLayer.js";
 import { createFieldInfoPanel } from "./panels/fieldInfoPanel.js";
-import { chooseTheme, savedChoice } from "./themes/registry.js";
+import { chooseTheme, saveChoice, savedChoice, THEMES, withoutParams } from "./themes/registry.js";
 import { renderTheme } from "./themes/render.js";
 import { addFollowButtons, addLegendControl } from "./themes/default/mapControls.js";
+import { addEdgeControls, TOOLBAR_INSET } from "./themes/newholland/mapControls.js";
+import { createSettings } from "./ui/settings.js";
 import { $ } from "./ui/dom.js";
+
+const SCREEN_KEY = "fs25companion.screen";
 
 /** @param {string} href resolves once loaded (or failed: the page still works) */
 function loadStylesheet(href) {
@@ -43,16 +47,48 @@ document.documentElement.dataset.theme = theme.id;
 if (palette) document.documentElement.dataset.palette = palette;
 await loadStylesheet(theme.css);
 
+// the device's choice; a URL override of the same key would win over it
+const settings = createSettings({
+  themes: THEMES, theme, palette,
+  onTheme(id) {
+    saveChoice("theme", id);
+    location.search = withoutParams(location.search, ["theme", "palette"]);
+  },
+  onPalette(p) {
+    saveChoice("palette", p);
+    document.documentElement.dataset.palette = p;
+    if (new URLSearchParams(location.search).has("palette")) {
+      history.replaceState(null, "", location.pathname + withoutParams(location.search, ["palette"]) + location.hash);
+    }
+  },
+});
+
 const store = createStore();
 const frame = createMapFrame(store);
-renderTheme(theme, $("app"), store, frame);
+const app = $("app");
+const rendered = renderTheme(theme, app, store, frame, settings);
+
+// the screen shown last on this device, per theme
+if (rendered.showScreen) {
+  /** @type {Record<string, string>} */
+  let screens = {};
+  try { screens = JSON.parse(localStorage.getItem(SCREEN_KEY) || "{}") || {}; } catch { /* private mode */ }
+  if (screens[theme.id] && app.querySelector(`.screen[data-screen="${screens[theme.id]}"]`)) {
+    rendered.showScreen(screens[theme.id]);
+  }
+  app.querySelector(".tab-bar")?.addEventListener("click", () => {
+    screens[theme.id] = app.dataset.screen || "";
+    try { localStorage.setItem(SCREEN_KEY, JSON.stringify(screens)); } catch { /* private mode */ }
+  });
+}
 
 // --- map -------------------------------------------------------------------
 
-const map = createMapView(frame.mapEl, { zoomControl: theme.mapControls === "corners" });
+const corners = theme.mapControls === "corners";
+const map = createMapView(frame.mapEl, { zoomControl: corners });
 frame.map = map;
-const follow = createFollow(map);
-if (theme.mapControls === "corners") addFollowButtons(map, follow);
+const follow = createFollow(map, { slotZoom: !corners });
+if (corners) addFollowButtons(map, follow);
 createOverviewLayer(map, store, { onNewMap: follow.onNewMap });
 addCursorReadout(map);
 
@@ -68,10 +104,11 @@ const layers = [
 ];
 for (const layer of layers) layer.leafletLayer.addTo(map);
 const legend = buildLegend(map, layers);
-if (theme.mapControls === "corners") addLegendControl(map, legend);
+if (corners) addLegendControl(map, legend);
+else addEdgeControls(map, follow, legend);
 
 createFieldInfoPanel(store, frame.fieldInfo);
-keepPopupsInside(map, { avoid: frame.fieldInfo });
+keepPopupsInside(map, { avoid: frame.fieldInfo, inset: corners ? {} : TOOLBAR_INSET });
 
 // --- animation -------------------------------------------------------------
 
