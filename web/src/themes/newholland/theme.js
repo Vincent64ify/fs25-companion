@@ -21,7 +21,7 @@ export default {
       { label: "Lights", controls: ["lights", "highBeam", "beacon", "hazard", "turnLeft", "turnRight"] },
       { label: "Drive", controls: ["cruiseDown", "cruise", "cruiseUp", "engineOn", "aiWorker"] },
       { label: "Implement", implementName: true,
-        controls: ["implementLowered", "fold", "implementOn", "hitch"] },
+        controls: ["implementLowered", "fold", "implementOn", "hitch", "toolPrev", "toolNext"] },
     ],
   },
   screens: [

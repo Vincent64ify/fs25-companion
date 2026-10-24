@@ -15,7 +15,17 @@
 --      "cruise":{"state":"on","speed":15,"maxSpeed":40},"aiActive":false,"hitched":true,
 --      "implement":{"name":"Lemken Rubin 12","lowered":true,"canLower":true,"turnedOn":false,
 --                   "canTurnOn":false,"foldable":true,"unfolded":true,"foldMoving":false},
---      "implements":[{"lowered":true,"turnedOn":false}]}
+--      "implements":[{"lowered":true,"turnedOn":false}],
+--      "rig":[{"id":7,"name":"JCB Fastrac iCON 4160","depth":0,"selectable":true,"selected":false},
+--             {"id":9,"parent":7,"depth":1,"side":"rear","selectable":true,"selected":true,
+--              "name":"Lemken Rubin 12","lowered":true,...}],
+--      "keys":{"lower":9,"fold":9,"turnOn":9}}
+--
+-- `rig` (C3) is the controlled vehicle, then everything attached, depth
+-- first, with the implement fields above for each tool; `keys` names the
+-- tool each implement key (lower, fold, turn on) acts on right now, which
+-- isn't always the selected one (the game keeps an action only one tool
+-- has live).
 --
 -- On foot: {"inVehicle":false}.
 
@@ -73,6 +83,9 @@ local function cabOf(vehicle)
     if selected ~= nil then
         cab.implement = VehicleState.implement(selected)
     end
+    -- C3: the whole rig and which tool each implement key acts on
+    cab.rig = VehicleState.rig(vehicle)
+    cab.keys = VehicleState.keys()
     return cab
 end
 

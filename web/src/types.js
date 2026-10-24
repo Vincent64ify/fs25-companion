@@ -73,6 +73,18 @@
  * @property {boolean} [hitched] something is attached
  * @property {SelectedImplement} [implement] the one the implement keys act on
  * @property {{lowered: boolean, turnedOn: boolean}[]} [implements]
+ * @property {RigEntry[]} [rig] the vehicle, then everything attached, depth
+ *   first (mod 0.7.0, Controls C3)
+ * @property {{lower?: number, fold?: number, turnOn?: number}} [keys] the
+ *   rig id of the tool each implement key acts on now; not always the
+ *   selected one (the game keeps an action only one tool has live)
+ */
+
+/**
+ * One object in the cab's rig: the controlled vehicle (depth 0) or a tool
+ * hanging on it. Tools also carry the SelectedImplement fields.
+ * @typedef {SelectedImplement & {id?: number, parent?: number, depth: number, side?: "front"|"rear",
+ *   selectable?: boolean, selected?: boolean}} RigEntry
  */
 
 /**

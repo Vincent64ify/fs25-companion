@@ -422,6 +422,7 @@ COMMAND_ACTIONS = frozenset({
     "engine.toggle", "cruise.toggle", "cruise.down", "cruise.up", "ai.toggle",
     "implement.lower", "implement.fold", "implement.turnOn", "hitch.toggle",
     "cruise.set",
+    "implement.select", "implement.next", "implement.previous", "implement.detach",
 })
 
 # Actions that carry a number ({"value": ...}) and its allowed range. Any
@@ -429,6 +430,9 @@ COMMAND_ACTIONS = frozenset({
 COMMAND_VALUES = {
     # the cruise control's set speed for the current direction, km/h
     "cruise.set": (1.0, 250.0),
+    # a tool's id, the cab's rig (C3)
+    "implement.select": (0, 2**31),
+    "implement.detach": (0, 2**31),
 }
 
 

@@ -31,9 +31,10 @@ const PALETTE_ICONS = { day: "sun", night: "dayNight" };
  * @param {(id: string) => void} opts.onTheme saves and reloads
  * @param {(palette: string) => void} opts.onPalette saves and applies
  * @param {KeepAwake} [opts.keepAwake]
+ * @param {() => import("../commands.js").RoundTrips} [opts.roundTrips] the controls' round trips
  * @returns {Settings}
  */
-export function createSettings({ themes, theme, palette, onTheme, onPalette, keepAwake }) {
+export function createSettings({ themes, theme, palette, onTheme, onPalette, keepAwake, roundTrips }) {
   const button = /** @type {HTMLButtonElement} */ (h("button", { className: "settings-button" },
     icon("settings"), h("span", { text: "Settings" })));
   button.type = "button";
@@ -120,6 +121,28 @@ export function createSettings({ themes, theme, palette, onTheme, onPalette, kee
       h("p", { className: "settings-note", text: screenNotes.join(" ") })));
   }
 
+  // Controls C3: tap to the mod's answer, for the last commands
+  /** @type {(() => void)|undefined} */
+  let showTrips;
+  if (roundTrips) {
+    const value = h("b", { className: "round-trip-value" });
+    const detail = h("span", { className: "round-trip-detail" });
+    showTrips = () => {
+      const t = roundTrips();
+      const ms = (/** @type {number} */ n) => `${Math.round(n)} ms`;
+      value.textContent = t.count && t.median !== undefined ? ms(t.median) : "–";
+      detail.textContent = t.count && t.last !== undefined && t.max !== undefined
+        ? `median of the last ${t.count} · last ${ms(t.last)} · slowest ${ms(t.max)}`
+        : "Tap a control to measure";
+    };
+    panel.append(h("fieldset", { className: "settings-group" },
+      h("legend", { text: "Controls" }),
+      h("div", { className: "round-trip" }, h("span", { text: "Round trip" }), value), detail,
+      h("p", { className: "settings-note", text: "From a tap to the game's answer, on this device." })));
+  }
+  /** @type {ReturnType<typeof setInterval>|undefined} */
+  let tripTimer;
+
   const backdrop = h("div", { className: "settings-backdrop" });
   const layer = h("div", { className: "settings-layer", hidden: true }, backdrop, panel);
 
@@ -127,6 +150,11 @@ export function createSettings({ themes, theme, palette, onTheme, onPalette, kee
   function setOpen(open) {
     layer.hidden = !open;
     button.setAttribute("aria-expanded", String(open));
+    clearInterval(tripTimer);
+    if (open && showTrips) {
+      showTrips();
+      tripTimer = setInterval(showTrips, 1000);
+    }
     if (open) /** @type {HTMLElement|null} */ (panel.querySelector("input:checked"))?.focus();
   }
   setOpen(false);

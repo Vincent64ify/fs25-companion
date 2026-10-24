@@ -366,6 +366,156 @@ function VehicleState.implement(object)
     return out
 end
 
+-- Rig (Controls C3) ---------------------------------------------------------
+-- The tractor and everything attached, and which tool each implement key
+-- acts on. Verified live with the selection spike (mod 0.6.4, PLAN.md C3):
+-- root:setSelectedObject(entry of root.selectableObjects) selects one tool
+-- directly; a joint's z in its vehicle's frame says front (>= 0) or rear;
+-- some keys stay with a tool that isn't selected (fold stayed on the
+-- cultivator with the loader selected), as the game intends.
+
+local function rootOf(vehicle)
+    local root = Api.tryCall(vehicle, "getRootVehicle")
+    return type(root) == "table" and root or vehicle
+end
+VehicleState.rootOf = rootOf
+
+-- the vehicle behind a selectable object (object.vehicle) or the object
+local function vehicleOf(object)
+    if type(object) == "table" and type(object.vehicle) == "table" then
+        return object.vehicle
+    end
+    return object
+end
+
+-- the root's selectable objects in the game's order (what G cycles)
+function VehicleState.selectables(root)
+    local list = {}
+    if type(root) == "table" and type(root.selectableObjects) == "table" then
+        for _, object in ipairs(root.selectableObjects) do
+            if type(object) == "table" then
+                list[#list + 1] = { object = object, vehicle = vehicleOf(object) }
+            end
+        end
+    end
+    return list
+end
+
+-- "front" or "rear" from the attacher joint, nil when unknown
+local function sideOf(parent, jointIndex)
+    local spec = parent.spec_attacherJoints
+    local joints = type(spec) == "table" and spec.attacherJoints or nil
+    local joint = type(joints) == "table" and jointIndex ~= nil and joints[jointIndex] or nil
+    if type(joint) ~= "table" or joint.jointTransform == nil or parent.rootNode == nil
+        or localToLocal == nil then
+        return nil
+    end
+    local ok, _, _, z = pcall(localToLocal, joint.jointTransform, parent.rootNode, 0, 0, 0)
+    if not ok or type(z) ~= "number" then
+        return nil
+    end
+    return z >= 0 and "front" or "rear"
+end
+
+local MAX_RIG_DEPTH = 6
+
+-- every attached object, depth first: {object, parent, depth, side}; a
+-- tool on a tool (a loader's bucket) takes its parent's side
+function VehicleState.attachedTree(vehicle)
+    local out = {}
+    local function walk(parent, depth, parentSide)
+        local attached = Api.tryCall(parent, "getAttachedImplements")
+        if type(attached) ~= "table" then
+            return
+        end
+        for _, entry in pairs(attached) do
+            local object = type(entry) == "table" and entry.object or nil
+            if type(object) == "table" then
+                local side = parentSide or sideOf(parent, entry.jointDescIndex)
+                out[#out + 1] = { object = object, parent = parent, depth = depth, side = side }
+                if depth < MAX_RIG_DEPTH then
+                    walk(object, depth + 1, side)
+                end
+            end
+        end
+    end
+    walk(vehicle, 1, nil)
+    return out
+end
+
+-- the object whose live event an input action would run now (the first
+-- active one), or nil
+function VehicleState.keyTarget(name)
+    local binding = g_inputBinding
+    if type(binding) ~= "table" or type(binding.nameActions) ~= "table"
+        or type(binding.actionEvents) ~= "table" then
+        return nil
+    end
+    local action = binding.nameActions[name]
+    local events = action ~= nil and binding.actionEvents[action] or nil
+    if type(events) ~= "table" then
+        return nil
+    end
+    for _, event in pairs(events) do
+        if type(event) == "table" and event.isActive ~= false and type(event.targetObject) == "table" then
+            return event.targetObject
+        end
+    end
+    return nil
+end
+
+-- the implement keys, by the cab's name for them
+VehicleState.KEYS = { lower = "LOWER_IMPLEMENT", fold = "IMPLEMENT_EXTRA2", turnOn = "IMPLEMENT_EXTRA" }
+
+-- the cab's rig: the controlled vehicle first, then what's attached, each
+-- with its id, parent's id, depth, side, whether the game can select it
+-- and has it selected; the tools also carry their implement state
+function VehicleState.rig(vehicle)
+    local root = rootOf(vehicle)
+    local selectable = {}
+    for _, entry in ipairs(VehicleState.selectables(root)) do
+        selectable[entry.vehicle] = true
+    end
+    local selected = Api.tryCall(root, "getSelectedVehicle")
+    local function mark(e, object)
+        e.id = object.id
+        e.selectable = selectable[object] == true
+        e.selected = selected == object
+        return e
+    end
+    local rig = { mark({ name = Api.tryCall(vehicle, "getFullName") or vehicle.typeName, depth = 0 }, vehicle) }
+    for _, node in ipairs(VehicleState.attachedTree(vehicle)) do
+        local e = mark(VehicleState.implement(node.object), node.object)
+        e.parent = node.parent.id
+        e.depth = node.depth
+        e.side = node.side
+        rig[#rig + 1] = e
+    end
+    return rig
+end
+
+-- which object's id each implement key acts on right now
+function VehicleState.keys()
+    local out = {}
+    for key, input in pairs(VehicleState.KEYS) do
+        local target = VehicleState.keyTarget(input)
+        if target ~= nil then
+            out[key] = target.id
+        end
+    end
+    return out
+end
+
+-- the attached object with this id, or nil
+function VehicleState.attachedById(vehicle, id)
+    for _, node in ipairs(VehicleState.attachedTree(vehicle)) do
+        if node.object.id == id then
+            return node.object
+        end
+    end
+    return nil
+end
+
 -- whether an AI worker drives the vehicle
 function VehicleState.aiActive(vehicle)
     return Api.tryCall(vehicle, "getIsAIActive") == true

@@ -845,6 +845,91 @@ check("implement rows: title, icons, chips, wear", [q(implRows, "h2"),
   ["Attached · 2", ["implement:true", "weight:false"], ["Lowered:on", "Working:active", "Raised:off", "Off:off"],
    ["12%"], "Weight", true]);
 
+// --- Controls C3: picking one implement ---------------------------------------
+
+// the selection spike's rig: tractor, loader with its bucket, cultivator at the rear
+const c3Rig = (selected, keys) => ({ inVehicle: true, hitched: true, implements: [], keys,
+  implement: { name: "Loader", canLower: false },
+  rig: [
+    { id: 3, name: "Fastrac", depth: 0, selectable: true, selected: selected === 3 },
+    { id: 5, name: "Loader", depth: 1, parent: 3, side: "front", selectable: true, selected: selected === 5, canLower: false },
+    { id: 6, name: "Bucket", depth: 2, parent: 5, side: "front", selectable: true, selected: selected === 6 },
+    { id: 9, name: "Terria", depth: 1, parent: 3, side: "rear", selectable: true, selected: selected === 9,
+      canLower: true, lowered: false, foldable: true, unfolded: true, foldMoving: false, canTurnOn: false },
+  ] });
+const c3s = createStore();
+const c3Sent = [];
+const c3Group = controlGroup({ label: "Implement", implementName: true,
+  controls: ["implementLowered", "fold", "implementOn", "toolPrev", "toolNext"] }, c3s,
+  (action, value) => { c3Sent.push([action, value]); return Promise.resolve({ ok: true }); });
+const [c3Low, c3Fold, c3On, c3Prev, c3Next] = c3Group.querySelectorAll(".control");
+const c3val = (b) => (b.dataset.value !== undefined ? b.querySelector(".control-value").textContent : "");
+c3s.set("cab", c3Rig(5, { fold: 9 }));
+check("C3: a key acts on its tool, named when it isn't the selected one",
+  [q(c3Group, "h2"), c3Fold.dataset.state, lbl(c3Fold), c3val(c3Fold), c3Low.dataset.state, c3On.dataset.state],
+  ["Implement · Loader", "on", "Fold", "Terria", "unavailable", "unavailable"]);
+c3s.set("cab", c3Rig(9, { lower: 9, fold: 9 }));
+check("C3: the tool selected: no name under the button",
+  [q(c3Group, "h2"), c3Low.dataset.state, lbl(c3Low), c3val(c3Low), c3val(c3Fold)],
+  ["Implement · Terria", "off", "Lower", "", ""]);
+c3s.set("cab", c3Rig(9, { lower: 3 }));
+check("C3: a key on the vehicle itself acts on the selected implement", c3Low.dataset.state, "unavailable");
+tap(c3Next);
+tap(c3Prev);
+await new Promise((r) => setTimeout(r, 0));
+check("C3: next and previous tool are G both ways", [c3Next.dataset.state === "unavailable", c3Sent],
+  [false, [["implement.next", undefined], ["implement.previous", undefined]]]);
+c3s.set("cab", { inVehicle: true, implement: { name: "Rubin", canLower: true, lowered: true } });
+check("C3: a mod without the rig: the selected implement, no Prev / Next",
+  [c3Low.dataset.state, c3Next.dataset.state, q(c3Group, "h2")], ["on", "unavailable", "Implement · Rubin"]);
+
+// rows: a tap selects in game, the selected one has Detach
+const { implementsWidget } = await import("./src/widgets/implements.js");
+const c3rs = createStore();
+const rowSent = [];
+let rowAnswer = { ok: true };
+const rows = implementsWidget(c3rs, { variant: "rows",
+  // @ts-ignore a test hook
+  send: (action, value) => { rowSent.push([action, value]); return Promise.resolve(rowAnswer); } });
+c3rs.set("vehicles", { controlledId: 3, vehicles: [{ id: 3, implements: [
+  { id: 5, name: "Loader", depth: 1 }, { id: 6, name: "Bucket", depth: 2 }, { id: 9, name: "Terria", depth: 1 }] }] });
+c3rs.set("cab", c3Rig(9, {}));
+const rowEls = () => [...rows.querySelectorAll(".impl-row")];
+check("C3 rows: the game's selection is marked, the others can be picked",
+  [rowEls().map((r) => `${r.dataset.selected}:${r.dataset.pick ?? "-"}:${r.dataset.side}`),
+    rows.querySelectorAll(".impl-detach").length, q(rows, ".impl-selected")],
+  [["false:true:front", "false:true:front", "true:-:rear"], 1, "Selected"]);
+rowEls()[1].click();
+await Promise.resolve();
+check("C3 rows: a tap selects that tool in game, pending until it shows",
+  [rowSent, rowEls()[1].dataset.pending], [[["implement.select", 6]], "true"]);
+c3rs.set("cab", c3Rig(6, {}));
+check("C3 rows: G in game (or the tap) moves the mark", rowEls().map((r) => r.dataset.selected), ["false", "true", "false"]);
+rowSent.length = 0;
+rowAnswer = { ok: false, reason: "can't detach now" };
+rows.querySelector(".impl-detach").click();
+await Promise.resolve(); await Promise.resolve();
+check("C3 rows: Detach sends that tool, says when the game refuses",
+  [rowSent, q(rows, ".impl-detach span"), rows.querySelector(".impl-detach").dataset.state],
+  [[["implement.detach", 6]], "Not now", "error"]);
+c3rs.set("cab", { inVehicle: true });
+check("C3 rows: without the rig, rows only show", [rowEls().some((r) => r.dataset.pick), rows.querySelectorAll(".impl-detach").length],
+  [false, 0]);
+
+// the round trip readout's numbers
+let fake = 0;
+let rtSeq = 0;
+const rtCmd = createCommander(() => true, { prefix: "rt", now: () => fake });
+const emptyTrips = rtCmd.roundTrips();
+for (const ms of [20, 40, 30]) {
+  const run = rtCmd.send("lights.toggle");
+  fake += ms;
+  rtCmd.ack({ id: `rt-${rtCmd.pending() && ++rtSeq}`, ok: true });
+  await run;
+}
+check("round trips: median, last and slowest of the answered commands", [emptyTrips, rtCmd.roundTrips()],
+  [{ count: 0 }, { count: 3, last: 30, median: 30, max: 40 }]);
+
 check("theme check: slots inside groups", checkTheme({
   id: "x", palettes: [], css: "",
   screens: [{ id: "a", label: "A", slots: [{ map: "full" }, { group: "g", slots: [{ widget: "nope" }, { map: "mini" }] }] }],

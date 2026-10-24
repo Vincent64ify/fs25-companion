@@ -12,7 +12,7 @@
 
 Companion = Companion or {}
 
-Companion.VERSION = "0.6.4"
+Companion.VERSION = "0.7.0"
 Companion.DIR_NAME = "FS25_Companion"
 Companion.STREAM_FILE = "stream.ndjson"
 Companion.COMMAND_DIR = "cmd/"
@@ -122,14 +122,11 @@ function Companion:loadMap(name)
         commands = state.commands,
         time = 0,
     }
-    -- C3 selection spike: ccRig, ccSelect <n>, ccKeys in the console
-    Companion.SelectionProbe.register()
     log(string.format("streaming to %s%s (session %s)",
         dir, Companion.STREAM_FILE, state.ctx.sessionId))
 end
 
 function Companion:deleteMap()
-    Companion.SelectionProbe.unregister()
     if state.transport ~= nil then
         state.transport:close()
     end

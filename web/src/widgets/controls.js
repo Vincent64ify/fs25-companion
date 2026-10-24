@@ -8,12 +8,17 @@
 //
 // One button per toggle (Controls C2): it sends the toggle and shows the
 // game's state, never a pair of on and off buttons. The implement controls
-// act on the implement selected in game, as its keys do; the group's label
-// names it. A control whose `moving` is true shows pending (a fold
-// running) until the game reports the end state.
+// act as their keys do: on the tool the key's live event belongs to
+// (cab.keys, Controls C3), which is usually the one selected in game (the
+// group's label names it), but the game keeps an action only one tool has
+// live whatever is selected (fold stays with the cultivator while the
+// loader is selected), and the button then names that tool. ‹ › select
+// the previous or next tool, as G does. A control whose `moving` is true
+// shows pending (a fold running) until the game reports the end state.
 
 import { createControl } from "../ui/control.js";
-import { cabOf, controlledVehicle, cruiseOf, implementsOf, lightsOf, ptoOf } from "../data/selectors.js";
+import { cabOf, controlledVehicle, cruiseOf, implementsOf, keyTool, lightsOf, ptoOf, rigOf, selectedInRig }
+  from "../data/selectors.js";
 import { sendCommand } from "../connection.js";
 import { speedToKmh, speedUnit, speedValue, unitsOf } from "../data/units.js";
 import { h } from "../ui/dom.js";
@@ -84,6 +89,45 @@ export function selectedImplement(/** @type {any} */ v, /** @type {any} */ cab) 
   const first = impls(v)[0];
   return first ? { name: first.name, lowered: first.lowered === true, turnedOn: first.turnedOn === true } : undefined;
 }
+
+/**
+ * The tool an implement key acts on: the one its live event belongs to
+ * (cab.keys), else (older mods, or the key's event on the vehicle itself)
+ * the selected implement. undefined: no tool's key is live.
+ * @param {"lower"|"fold"|"turnOn"} key
+ * @returns {(v: any, cab: any) => import("../types.js").SelectedImplement|undefined}
+ */
+export const toolFor = (key) => (v, cab) => {
+  const tool = keyTool(cab, key);
+  if (tool === null) {
+    // the key's event belongs to the vehicle (depth 0): the selected one
+    const id = cab.keys?.[key];
+    return id !== undefined && rigOf(cab)[0]?.id === id ? selectedImplement(v, cab) : undefined;
+  }
+  return tool ?? selectedImplement(v, cab);
+};
+
+/**
+ * The tool's name under the button when the key acts on another tool than
+ * the one selected in game ("Fold" · "TERRIA 6040").
+ * @param {"lower"|"fold"|"turnOn"} key
+ */
+export const toolNote = (key) => (/** @type {any} */ v, /** @type {any} */ cab) => {
+  const tool = keyTool(cab, key);
+  const selected = selectedInRig(cab);
+  return tool && selected && tool.id !== selected.id ? tool.name : undefined;
+};
+
+/** the name the Implement group's label shows: the game's selection */
+export function selectedName(/** @type {any} */ v, /** @type {any} */ cab) {
+  const selected = selectedInRig(cab);
+  if (selected) return selected.name;
+  return selectedImplement(v, cab)?.name;
+}
+
+/** ‹ ›: there is more than one thing to select (never "on") */
+const canCycle = (/** @type {any} */ v, /** @type {any} */ cab) =>
+  (rigOf(cab).filter((e) => e.selectable).length > 1 ? false : undefined);
 
 /** the cab's value, or the vehicles topic's without the cab */
 const either = (/** @type {any} */ v, /** @type {any} */ cab, /** @type {(src: any) => any} */ pick) =>
@@ -237,25 +281,30 @@ export const CONTROLS = {
   // state ("Raise", lit, while lowered)
   implementLowered: { label: "Lower", icon: "hitchDown", action: "implement.lower", progressive: true,
     read: (v, cab) => {
-      const i = selectedImplement(v, cab);
+      const i = toolFor("lower")(v, cab);
       return i && i.canLower !== false ? i.lowered === true : undefined;
     },
-    labels: (v, cab) => (selectedImplement(v, cab)?.lowered
-      ? { label: "Raise", icon: "hitchUp" } : { label: "Lower", icon: "hitchDown" }) },
+    labels: (v, cab) => (toolFor("lower")(v, cab)?.lowered
+      ? { label: "Raise", icon: "hitchUp" } : { label: "Lower", icon: "hitchDown" }),
+    value: toolNote("lower") },
   fold: { label: "Unfold", icon: "fold", action: "implement.fold", progressive: true, read: (v, cab) => {
-    const i = selectedImplement(v, cab);
+    const i = toolFor("fold")(v, cab);
     return i && i.foldable ? i.unfolded === true : undefined;
-  }, moving: (v, cab) => selectedImplement(v, cab)?.foldMoving === true,
+  }, moving: (v, cab) => toolFor("fold")(v, cab)?.foldMoving === true,
+  value: toolNote("fold"),
   labels: (v, cab) => {
-    const i = selectedImplement(v, cab);
+    const i = toolFor("fold")(v, cab);
     // a fold started in game: which way it goes is a guess from where it was
     if (i?.foldMoving) return { label: i.unfolded ? "Folding…" : "Unfolding…" };
     return { label: i?.unfolded ? "Fold" : "Unfold" };
   } },
   implementOn: { label: "Work", icon: "implementOn", action: "implement.turnOn", read: (v, cab) => {
-    const i = selectedImplement(v, cab);
+    const i = toolFor("turnOn")(v, cab);
     return i && (!cab || i.canTurnOn) ? i.turnedOn === true : undefined;
-  } },
+  }, value: toolNote("turnOn") },
+  // select the previous or next tool in the game's order, as G does (C3)
+  toolPrev: { label: "Prev tool", icon: "toolPrev", action: "implement.previous", read: canCycle },
+  toolNext: { label: "Next tool", icon: "toolNext", action: "implement.next", read: canCycle },
   // the attach key (Q): attaches what's in range or detaches the selected
   // implement, as the game decides; pending until what's attached changes
   hitch: { label: "Hitch", icon: "hitch", action: "hitch.toggle",
@@ -330,7 +379,7 @@ export function controlGroup(group, store, send = sendCommand) {
       ui.set(on === undefined ? "unavailable" : moving ? "pending" : on ? "on" : "off");
     }
     if (group.implementName) {
-      const name = selectedImplement(v, cab)?.name;
+      const name = selectedName(v, cab);
       title.textContent = name ? `${group.label} · ${name}` : group.label;
     }
   };

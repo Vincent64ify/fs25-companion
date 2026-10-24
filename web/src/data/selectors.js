@@ -216,7 +216,7 @@ export const mainFill = (fills) => fills.find((f) => f.level > 0) || fills[0];
 /**
  * An attached implement, as the mod sends it. hitch: 0 raised .. 1 lowered;
  * pto missing for an implement without one.
- * @typedef {{name?: string, typeName?: string, category?: string, categoryTitle?: string,
+ * @typedef {{id?: number, name?: string, typeName?: string, category?: string, categoryTitle?: string,
  *   depth?: number, lowered?: boolean, turnedOn?: boolean, wear?: number, pto?: boolean,
  *   hitch?: number, fills?: Fill[]}} Implement
  */
@@ -228,6 +228,36 @@ export const mainFill = (fills) => fills.find((f) => f.level > 0) || fills[0];
  */
 export function implementsOf(v) {
   return (v && v.implements) || [];
+}
+
+/**
+ * The cab's rig (Controls C3): the vehicle, then what's attached; empty on
+ * foot or from a mod before 0.7.0.
+ * @param {import("../types.js").Cab|undefined} cab
+ * @returns {import("../types.js").RigEntry[]}
+ */
+export function rigOf(cab) {
+  return cab && cab.inVehicle && Array.isArray(cab.rig) ? cab.rig : [];
+}
+
+/**
+ * The rig entry the game has selected (what G moved to), if any.
+ * @param {import("../types.js").Cab|undefined} cab
+ */
+export const selectedInRig = (cab) => rigOf(cab).find((e) => e.selected === true);
+
+/**
+ * The tool an implement key acts on right now (cab.keys): null when the
+ * mod says no tool's key is live, undefined when it doesn't say (a mod
+ * before 0.7.0).
+ * @param {import("../types.js").Cab|undefined} cab
+ * @param {"lower"|"fold"|"turnOn"} key
+ * @returns {import("../types.js").RigEntry|null|undefined}
+ */
+export function keyTool(cab, key) {
+  if (!cab || !cab.inVehicle || !cab.keys || !Array.isArray(cab.rig)) return undefined;
+  const id = cab.keys[key];
+  return cab.rig.find((e) => e.depth > 0 && e.id === id) ?? null;
 }
 
 /**

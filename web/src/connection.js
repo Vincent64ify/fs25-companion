@@ -39,6 +39,9 @@ const commander = createCommander((msg) => {
  */
 export const sendCommand = (action, value) => commander.send(action, value);
 
+/** the last commands' round trips, tap to the mod's answer (Settings) */
+export const roundTrips = () => commander.roundTrips();
+
 async function resolvePairing() {
   const pair = (params.get("pair") || "").trim();
   if (pair) return pair;

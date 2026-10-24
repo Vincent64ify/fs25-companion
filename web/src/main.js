@@ -6,7 +6,7 @@
 // file under map/layers/ and registering it below. The theme (themes/)
 // decides the chrome, the screens and where the map goes.
 
-import { connect } from "./connection.js";
+import { connect, roundTrips } from "./connection.js";
 import { createStore } from "./store.js";
 import { addCursorReadout, createMapView, remeasure } from "./map/mapView.js";
 import { createMapFrame } from "./map/mapFrame.js";
@@ -52,6 +52,7 @@ await loadStylesheet(theme.css);
 const settings = createSettings({
   themes: THEMES, theme, palette,
   keepAwake: createKeepAwake(),
+  roundTrips,
   onTheme(id) {
     saveChoice("theme", id);
     location.search = withoutParams(location.search, ["theme", "palette"]);

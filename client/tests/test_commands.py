@@ -187,6 +187,21 @@ def test_cruise_set_writes_its_value_and_checks_the_range(tmp_path):
     assert [a["data"]["reason"] for a in acks] == ["value not allowed"] * 3
 
 
+def test_implement_select_and_detach_carry_the_tools_id(tmp_path):
+    writer, acks, _ = make(tmp_path)
+    writer.submit("1", "implement.select", 5)
+    assert attrs(tmp_path / "cmd" / "1.xml")["action"] == "SELECT_IMPLEMENT"
+    assert attrs(tmp_path / "cmd" / "1.xml")["value"] == "5.000"
+    writer.submit("2", "implement.next")
+    assert attrs(tmp_path / "cmd" / "2.xml")["action"] == "SELECT_NEXT_IMPLEMENT"
+    assert "value" not in attrs(tmp_path / "cmd" / "2.xml")
+    writer.submit("3", "implement.detach", 9)
+    assert attrs(tmp_path / "cmd" / "3.xml")["action"] == "DETACH_IMPLEMENT"
+    writer.submit("4", "implement.select")
+    writer.submit("5", "implement.next", 3)
+    assert [a["data"]["reason"] for a in acks] == ["value not allowed"] * 2
+
+
 def test_cruise_set_one_in_the_game_the_latest_waits(tmp_path):
     writer, acks, _ = make(tmp_path)
     writer.submit("a", "cruise.set", 10)

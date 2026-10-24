@@ -216,6 +216,8 @@ local function collectImplements(vehicle, depth, out)
         if object ~= nil then
             local info = storeInfo(object)
             out[#out + 1] = {
+                -- the cab's rig and the select / detach commands use it (C3)
+                id = object.id,
                 name = Api.tryCall(object, "getFullName") or object.typeName,
                 typeName = object.typeName,
                 category = info.category,

@@ -54,11 +54,19 @@ ACTIONS = {
     "hitch.toggle": "HITCH",
     # the cruise set speed for the current direction, km/h
     "cruise.set": "CRUISE_SET_SPEED",
+    # C3: pick one implement; select and detach carry the tool's id (the
+    # cab's rig), next and previous are G both ways
+    "implement.select": "SELECT_IMPLEMENT",
+    "implement.next": "SELECT_NEXT_IMPLEMENT",
+    "implement.previous": "SELECT_PREVIOUS_IMPLEMENT",
+    "implement.detach": "DETACH_IMPLEMENT",
 }
 
 # actions that carry a value, and its range; the backend checks the same
 VALUES = {
     "cruise.set": (1.0, 250.0),
+    "implement.select": (0, 2**31),
+    "implement.detach": (0, 2**31),
 }
 
 # latest wins: one in the game at a time, the newest waits

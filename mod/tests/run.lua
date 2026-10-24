@@ -23,7 +23,6 @@ load("src/Transport.lua")
 load("src/Scheduler.lua")
 load("src/VehicleState.lua")
 load("src/Commands.lua")
-load("src/SelectionProbe.lua")
 
 local Json, Geo, Transport, Scheduler =
     Companion.Json, Companion.Geo, Companion.Transport, Companion.Scheduler
@@ -673,10 +672,11 @@ local function commandStubs(dir)
             }
         end,
     }
-    return function(id, session, action, ref)
+    return function(id, session, action, ref, value)
         local f = assert(io.open(string.format("%s%d.xml", dir, id), "w"))
-        f:write(string.format('<command session="%s" id="%d" action="%s" ref="%s"/>',
-            session, id, action, ref or ("r" .. id)))
+        f:write(string.format('<command session="%s" id="%d" action="%s" ref="%s"%s/>',
+            session, id, action, ref or ("r" .. id),
+            value ~= nil and string.format(' value="%.3f"', value) or ""))
         f:close()
     end
 end
@@ -1048,6 +1048,135 @@ test("commands C2: an absolute cruise speed, clamped, for the current direction"
     eq(ack.reason, "no speed")
 end)
 
+-- Controls C3: the rig, the implement keys' tools, selecting and detaching -
+
+-- the selection spike's rig: a tractor with a front loader, a bucket on
+-- the loader and a cultivator at the rear, in the game's order
+local function c3Rig()
+    local vehicle, cultivator = c2Tractor()
+    cultivator.id = 9
+    local bucket = { id = 6, typeName = "shovelLeveler", getFullName = function() return "Albutt Bucket" end }
+    local loader = {
+        id = 5, typeName = "attachableFrontloader", rootNode = "loaderNode",
+        getFullName = function() return "Quicke Q6M" end,
+        attached = { { object = bucket, jointDescIndex = 1 } },
+        getAttachedImplements = function(self) return self.attached end,
+        spec_attacherJoints = { attacherJoints = { { jointTransform = "bucketJoint" } } },
+        detachImplementByObject = function(self, object)
+            if self.attached[1] and self.attached[1].object == object then
+                self.attached = {}
+            end
+        end,
+    }
+    bucket.getAttacherVehicle = function() return loader end
+    loader.getAttacherVehicle = function() return vehicle end
+    vehicle.rootNode = "tractorNode"
+    vehicle.getFullName = function() return "JCB Fastrac" end
+    vehicle.spec_attacherJoints = { attacherJoints = {
+        [5] = { jointTransform = "rearJoint" }, [6] = { jointTransform = "frontJoint" } } }
+    vehicle.attached = { { object = loader, jointDescIndex = 6 }, { object = cultivator, jointDescIndex = 5 } }
+    local z = { frontJoint = 0.69, bucketJoint = 2.90, rearJoint = -2.95 }
+    localToLocal = function(node) return 0, 0, z[node] end
+    vehicle.selectableObjects = { { vehicle = vehicle }, { vehicle = loader }, { vehicle = bucket },
+        { vehicle = cultivator } }
+    vehicle.selection = 4
+    vehicle.getSelectedVehicle = function(self) return self.selectableObjects[self.selection].vehicle end
+    vehicle.setSelectedObject = function(self, object)
+        for i, o in ipairs(self.selectableObjects) do
+            if o == object then
+                self.selection = i
+            end
+        end
+    end
+    return vehicle, loader, bucket, cultivator
+end
+
+test("cab C3: the rig in order, front or rear, selected, and the keys' tools", function()
+    load("src/collectors/Cab.lua")
+    local Cab = Companion.Collectors.Cab
+    Cab.reset()
+    local vehicle, loader = c3Rig()
+    bindInputs({ "LOWER_IMPLEMENT" }, loader)
+    local actions = g_inputBinding.actionEvents
+    -- fold stays with the cultivator whatever is selected, as in the spike
+    local fold = { name = "IMPLEMENT_EXTRA2" }
+    g_inputBinding.nameActions.IMPLEMENT_EXTRA2 = fold
+    actions[fold] = { { isActive = true, targetObject = vehicle.attached[2].object, callback = function() end } }
+    local cab = Cab.collect({})
+    local rig = cab.rig
+    eq(#rig, 4, "tractor, loader, bucket, cultivator")
+    eq(rig[1].name, "JCB Fastrac")
+    eq(rig[1].depth, 0)
+    eq(rig[1].id, 3)
+    eq(rig[2].name, "Quicke Q6M")
+    eq(rig[2].side, "front", "loader: z 0.69")
+    eq(rig[2].parent, 3)
+    eq(rig[3].name, "Albutt Bucket")
+    eq(rig[3].side, "front", "the bucket takes the loader's side")
+    eq(rig[3].parent, 5)
+    eq(rig[3].depth, 2)
+    eq(rig[4].side, "rear", "cultivator: z -2.95")
+    eq(rig[4].selected, true)
+    eq(rig[4].selectable, true)
+    eq(rig[4].foldable, true, "tools carry their implement state")
+    eq(rig[2].selected, false)
+    eq(cab.keys.lower, 5, "lower acts on the loader")
+    eq(cab.keys.fold, 9, "fold stays with the cultivator")
+    eq(cab.keys.turnOn, nil, "no turn-on event")
+    -- an inactive event acts on nothing
+    actions[g_inputBinding.nameActions.LOWER_IMPLEMENT][1].isActive = false
+    eq(Cab.collect({}).keys.lower, nil, "inactive: no tool")
+    g_inputBinding = nil
+    localToLocal = nil
+end)
+
+test("commands C3: select a tool by id, next and previous, detach a chosen one", function()
+    if TMP_DIR == nil then
+        return
+    end
+    local vehicle, loader, bucket = c3Rig()
+    local dir = TMP_DIR .. "/c3cmd_"
+    local write = commandStubs(dir)
+    local commands = Companion.Commands.new(dir, "S3", function() end)
+    local n = 0
+    local function run(action, value)
+        n = n + 1
+        write(n, "S3", action, nil, value)
+        return commands:poll()
+    end
+    local ack = run("SELECT_IMPLEMENT", 5)
+    eq(ack.ok, true, "select the loader")
+    eq(ack.via, "setter")
+    eq(vehicle.selection, 2)
+    eq(run("SELECT_IMPLEMENT", 6).ok, true, "the bucket on its own")
+    eq(vehicle.selection, 3)
+    ack = run("SELECT_IMPLEMENT", 42)
+    eq(ack.ok, false)
+    eq(ack.reason, "not selectable")
+    -- G's events missing: one step in the game's order, round the end
+    eq(run("SELECT_NEXT_IMPLEMENT").ok, true)
+    eq(vehicle.selection, 4)
+    eq(run("SELECT_NEXT_IMPLEMENT").ok, true)
+    eq(vehicle.selection, 1, "round the end")
+    eq(run("SELECT_PREVIOUS_IMPLEMENT").ok, true)
+    eq(vehicle.selection, 4)
+    -- with G's event: the key runs
+    local calls = bindInputs({ "SWITCH_IMPLEMENT", "SWITCH_IMPLEMENT_BACK" }, vehicle)
+    eq(run("SELECT_NEXT_IMPLEMENT").via, "SWITCH_IMPLEMENT")
+    eq(run("SELECT_PREVIOUS_IMPLEMENT").via, "SWITCH_IMPLEMENT_BACK")
+    eq(#calls.SWITCH_IMPLEMENT, 1)
+    g_inputBinding = nil
+    -- detach the bucket from the loader, whatever is selected
+    bucket.isDetachAllowed = function() return false, "lower it first" end
+    ack = run("DETACH_IMPLEMENT", 6)
+    eq(ack.ok, false)
+    eq(ack.reason, "can't detach now")
+    bucket.isDetachAllowed = function() return true end
+    eq(run("DETACH_IMPLEMENT", 6).ok, true, "detached")
+    eq(#loader.attached, 0)
+    eq(run("DETACH_IMPLEMENT", 6).reason, "not attached")
+end)
+
 test("cab C2: the selected implement, its fold, AI and hitch", function()
     load("src/collectors/Cab.lua")
     local Cab = Companion.Collectors.Cab
@@ -1073,9 +1202,14 @@ test("cab C2: the selected implement, its fold, AI and hitch", function()
     implement.getIsAnimationPlaying = nil
     implement.spec_foldable.foldAnimTime = 0.5
     eq(Cab.collect({}).implement.foldMoving, true, "moving by the fold's time")
-    -- the tractor itself selected: the first attached implement
+    -- the tractor itself selected: the implement controls show the first
+    -- attached implement; only the rig's selection changes
     vehicle.getSelectedVehicle = function(self) return self end
-    eq(Cab.collect({}), nil, "same implement, nothing changed")
+    cab = Cab.collect({})
+    eq(cab.implement.name, "Rubin 12", "the first attached implement")
+    eq(cab.rig[1].selected, true, "the tractor selected in the rig")
+    eq(cab.rig[2].selected, false)
+    eq(Cab.collect({}), nil, "nothing changed")
     vehicle.attached = {}
     cab = Cab.collect({})
     eq(cab.hitched, false)

@@ -215,6 +215,64 @@ local function detach(_, implement)
     return true
 end
 
+-- Selection (C3) -----------------------------------------------------------
+-- The dashboard picks a tool and the game selects it, as G would after
+-- enough presses (PLAN.md C3, verified in the selection spike).
+
+-- select the tool (or the tractor) with this id
+local function selectTarget(vehicle, _, id)
+    local root = VehicleState.rootOf(vehicle)
+    if type(root.setSelectedObject) ~= "function" then
+        return false, "can't select"
+    end
+    for _, entry in ipairs(VehicleState.selectables(root)) do
+        if entry.vehicle.id == id then
+            root:setSelectedObject(entry.object)
+            return true
+        end
+    end
+    return false, "not selectable"
+end
+
+-- the next (1) or previous (-1) one in the game's order, when G's own
+-- action has no event
+local function selectStep(step)
+    return function(vehicle)
+        local root = VehicleState.rootOf(vehicle)
+        local list = VehicleState.selectables(root)
+        if #list < 2 or type(root.setSelectedObject) ~= "function" then
+            return false, "nothing to select"
+        end
+        local selected = Api.tryCall(root, "getSelectedVehicle")
+        local at = 1
+        for i, entry in ipairs(list) do
+            if entry.vehicle == selected then
+                at = i
+            end
+        end
+        root:setSelectedObject(list[(at - 1 + step) % #list + 1].object)
+        return true
+    end
+end
+
+-- detach the tool with this id from what it hangs on
+local function detachTarget(vehicle, _, id)
+    local object = VehicleState.attachedById(vehicle, id)
+    if object == nil then
+        return false, "not attached"
+    end
+    local allowed = Api.tryCallAll(object, "isDetachAllowed")
+    if allowed == false then
+        return false, "can't detach now"
+    end
+    local attacher = Api.tryCall(object, "getAttacherVehicle")
+    if type(attacher) ~= "table" or type(attacher.detachImplementByObject) ~= "function" then
+        return false, "can't detach"
+    end
+    attacher:detachImplementByObject(object)
+    return true
+end
+
 -- Actions ------------------------------------------------------------------
 -- The actions a command may run; anything else is refused. The backend
 -- and the client keep their own lists (by dashboard action name).
@@ -247,6 +305,12 @@ Commands.ACTIONS = {
     -- first try ran DETACH for an attached implement, which isn't what Q
     -- does.)
     HITCH = { inputs = { "ATTACH" }, fallback = detach },
+    -- C3: the value is the tool's id (the cab's rig)
+    SELECT_IMPLEMENT = { direct = selectTarget },
+    -- G and its other way
+    SELECT_NEXT_IMPLEMENT = { inputs = { "SWITCH_IMPLEMENT" }, fallback = selectStep(1) },
+    SELECT_PREVIOUS_IMPLEMENT = { inputs = { "SWITCH_IMPLEMENT_BACK" }, fallback = selectStep(-1) },
+    DETACH_IMPLEMENT = { direct = detachTarget },
 }
 
 local ATTRIBUTES = { "session", "id", "action", "ref", "value" }

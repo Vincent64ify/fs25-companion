@@ -172,6 +172,9 @@ const PATHS = {
     '<path d="M5 20.5a7 7 0 0 1 14 0"/>',
   // the engine block (ISO engine symbol)
   engineOn: ENGINE,
+  // the previous or next tool (G): a chevron over the implement's tines
+  toolPrev: IMPLEMENT + '<path d="M14.5 3.5L9.5 8l5 4.5"/>',
+  toolNext: IMPLEMENT + '<path d="M9.5 3.5l5 4.5-5 4.5"/>',
 };
 
 /** The icons by group, in the order the contact sheet shows them. */
@@ -186,7 +189,7 @@ export const ICON_GROUPS = {
   "Map and tabs": ["map", "zoomIn", "zoomOut", "recentre", "wholeMap", "layers"],
   Controls: ["lights", "highBeam", "beacon", "hazard", "turnLeft", "turnRight", "cruise",
              "cruiseDown", "cruiseUp", "pto", "hitchUp", "hitchDown", "fold", "hitch", "implementOn",
-             "aiWorker", "engineOn"],
+             "aiWorker", "engineOn", "toolPrev", "toolNext"],
 };
 
 /** @param {string} name */
