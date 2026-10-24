@@ -1042,9 +1042,66 @@ PLAN.md, Open checks). A wrong guess leaves the value out, nothing breaks.
   `spec_drivable`, `spec_attacherJoints`, `spec_powerConsumer` and
   `spec_aiJobVehicle` tables, for the live check.
 
+### Implement screen (design, 2026-10-24)
+
+Approved by Vincent on 2026-10-24 in the Claude Design canvas
+"FS25 Companion: Implement screen" (board C · Hybrid, private, on
+claude.ai). It's a third tab, **Implement**, after Map and Vehicle, and
+answers "what is my tool doing and when must I act", where Vehicle
+answers "how is my tractor". Not built yet.
+
+- **Layout (regular):** the usual chrome. The main area has rows
+  `132 | 1fr`; the detail row has columns `1fr | 250`; the control column
+  is 268 wide, as on the other screens.
+- **Rig band** (top, readout-card colours): the job in words ("Seeding",
+  "Harvesting · Wheat", "Delivering · Grain mill" for an AI worker),
+  speed, PTO and when the first tank runs out. Under it, the hitch chain
+  as tiles in driving order: rear tools on the left, the tractor, front
+  tools on the right. Each tile has its icon badge (yellow while
+  working), name, state line and a thin bar per fill unit. The picked
+  tile has a yellow outline. With one tool, the band shows just the
+  tractor and that tool.
+- **Implement card** (the picked tool): ‹ › buttons (and a swipe) to move
+  between tools, icon, name, category and side, a Working chip; then
+  four stat tiles: Lift (bar, Raised to Lowered, "Hitch 40%" while it
+  moves), Work, PTO, Speed against the tool's working speed limit. Then
+  the tool's own buttons: Raise, Lower, Work, PTO, Fold, Detach. Then its
+  tanks: a big meter per fill unit with litres and a time estimate; the
+  tank that runs out first gets a "Runs out first" chip.
+- **Details card:** wear, working width, area done this run, folding,
+  whether the game has this tool selected, Show on map.
+- **Control column:** Lights and Drive as on Map and Vehicle, plus All
+  implements (Raise all, Lower all, Attach). The per-tool buttons live on
+  the implement card, so the column needs no Implement group here.
+- **Combines:** the harvester's own grain tank is a tile and the
+  implement card's tanks show it ("full in ≈ 3 min", "Call a trailer");
+  Pipe and Unload join its buttons.
+- **Trailers:** a Load stat (all trailers together) replaces Lift;
+  Tipping and Cover replace Work and PTO.
+- **Estimates** come from the dashboard alone: the fill level's change
+  over the last 60 s gives litres per minute, then minutes to empty or
+  full. Shown as "≈", hidden when the rate is unsteady or zero.
+- **Data already sent (T6):** name, category, depth, lowered, turnedOn,
+  pto, hitch, wear, fills, ai job.
+- **New data the mod needs** (dashed purple on the boards):
+  - front or rear: the attacher joint's type or side;
+  - working speed limit (`getSpeedLimit`);
+  - working width (the work areas);
+  - folding state (`spec_foldable`);
+  - the tool the game has selected (`getSelectedImplement`);
+  - pipe out or in, tipping or not, cover state;
+  - a combine's crop.
+- **Controls:** C2 wires Raise, Lower, Work, PTO (they act on the game's
+  selected implement, so a tap first selects the picked tool in game),
+  Raise all, Lower all and Attach. C3 adds Fold, Detach, Pipe, Unload,
+  Tipping and Cover. Until then those buttons show as unavailable.
+- **Open:** whether picking a tile also selects the tool in game before
+  any button is pressed; compact (portrait) layout, likely the band as a
+  scrolling row and the card full width.
+
 ### Later
 
-- Implements, Fields and Farm screens.
+- Building the Implement screen (designed above); Fields and Farm screens.
 - The shop picture on the vehicle card (see Vehicle pictures).
 - Layout editing.
 - More brands: Fendt FendtONE, John Deere G5, Massey Ferguson Datatronic,
