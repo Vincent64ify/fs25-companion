@@ -16,6 +16,11 @@ stream; the file is deleted then.
 
 A command that can't be written (no game session, replay) is answered at
 once with a command_ack of our own, so the dashboard isn't left waiting.
+
+`cruise.set` carries a value (the set speed, km/h, written as value="..")
+and comes many times a second while a −/+ button is held. Only one is in
+the game at a time: a newer one waits until the mod answers the last, and
+replaces any that was waiting (that one is answered as superseded).
 """
 
 import logging
@@ -31,7 +36,33 @@ log = logging.getLogger("companion.commands")
 # anything else is refused before a file is written.
 ACTIONS = {
     "lights.toggle": "TOGGLE_LIGHTS",
+    "highBeam.toggle": "TOGGLE_HIGH_BEAM_LIGHT",
+    "beacon.toggle": "TOGGLE_BEACON_LIGHTS",
+    "hazard.toggle": "TOGGLE_TURNLIGHT_HAZARD",
+    "turnLeft.toggle": "TOGGLE_TURNLIGHT_LEFT",
+    "turnRight.toggle": "TOGGLE_TURNLIGHT_RIGHT",
+    "engine.toggle": "TOGGLE_MOTOR_STATE",
+    "cruise.toggle": "TOGGLE_CRUISE_CONTROL",
+    "cruise.down": "CRUISE_SPEED_DOWN",
+    "cruise.up": "CRUISE_SPEED_UP",
+    "ai.toggle": "TOGGLE_AI",
+    # the selected implement, as its keys act on it
+    "implement.lower": "LOWER_IMPLEMENT",
+    "implement.fold": "FOLD_IMPLEMENT",
+    "implement.turnOn": "TURN_ON_IMPLEMENT",
+    # the attach key (Q)
+    "hitch.toggle": "HITCH",
+    # the cruise set speed for the current direction, km/h
+    "cruise.set": "CRUISE_SET_SPEED",
 }
+
+# actions that carry a value, and its range; the backend checks the same
+VALUES = {
+    "cruise.set": (1.0, 250.0),
+}
+
+# latest wins: one in the game at a time, the newest waits
+COALESCE = {"cruise.set"}
 
 # poll the stream fast for this long after a command, so the ack and the
 # new cab state go out as soon as the mod writes them
@@ -40,10 +71,19 @@ FAST_POLL_S = 2.0
 Envelope = Dict[str, Any]
 
 
-def ack_envelope(ref: str, reason: str) -> Envelope:
-    """A failed command_ack from the client itself (seq 0: not the mod's)."""
+def ack_envelope(ref: str, reason: str, ok: bool = False) -> Envelope:
+    """A command_ack from the client itself (seq 0: not the mod's)."""
     return {"v": 1, "seq": 0, "t": 0, "topic": "command_ack",
-            "data": {"ref": ref, "ok": False, "reason": reason}}
+            "data": {"ref": ref, "ok": ok, "reason": reason}}
+
+
+def value_ok(action: str, value: Any) -> bool:
+    limits = VALUES.get(action)
+    if limits is None:
+        return value is None
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return False
+    return limits[0] <= value <= limits[1]
 
 
 class CommandWriter:
@@ -58,6 +98,9 @@ class CommandWriter:
         self.session: Optional[str] = None
         self.next_id = 1
         self.fast_until = 0.0
+        # action -> the id in the game; action -> (ref, value) waiting
+        self._in_game: Dict[str, int] = {}
+        self._waiting: Dict[str, Any] = {}
 
     def on_hello(self, hello: Dict[str, Any]) -> None:
         session = hello.get("sessionId")
@@ -66,6 +109,8 @@ class CommandWriter:
         if session != self.session:
             self.session = session
             self.next_id = mod_next
+            self._in_game.clear()
+            self._waiting.clear()
             if mod_next == 1:
                 # a new game session: what's left in cmd/ belongs to an older one
                 self._clear()
@@ -82,11 +127,20 @@ class CommandWriter:
             (self.cmd_dir / f"{cid}.xml").unlink()
         except OSError:
             pass
+        for action, in_game in list(self._in_game.items()):
+            if in_game <= cid:
+                del self._in_game[action]
+                waiting = self._waiting.pop(action, None)
+                if waiting is not None:
+                    self.submit(waiting[0], action, waiting[1])
 
-    def submit(self, ref: str, action: str) -> None:
+    def submit(self, ref: str, action: str, value: Any = None) -> None:
         game_action = ACTIONS.get(action)
         if game_action is None:
             self.put(ack_envelope(ref, "action not allowed"))
+            return
+        if not value_ok(action, value):
+            self.put(ack_envelope(ref, "value not allowed"))
             return
         if self.cmd_dir is None:
             self.put(ack_envelope(ref, "no game (replay)"))
@@ -94,24 +148,35 @@ class CommandWriter:
         if self.session is None:
             self.put(ack_envelope(ref, "game not running"))
             return
+        if action in COALESCE and action in self._in_game:
+            replaced = self._waiting.get(action)
+            if replaced is not None:
+                self.put(ack_envelope(replaced[0], "superseded", ok=True))
+            self._waiting[action] = (ref, value)
+            self.fast_until = self.clock() + FAST_POLL_S
+            return
         cid = self.next_id
         try:
-            self.write(cid, game_action, ref)
+            self.write(cid, game_action, ref, value)
         except OSError as e:
             log.warning("cannot write command %d: %s", cid, e)
             self.put(ack_envelope(ref, "cannot write the command file"))
             return
         self.next_id = cid + 1
+        if action in COALESCE:
+            self._in_game[action] = cid
         self.fast_until = self.clock() + FAST_POLL_S
 
-    def write(self, cid: int, game_action: str, ref: str) -> Path:
+    def write(self, cid: int, game_action: str, ref: str, value: Any = None) -> Path:
         assert self.cmd_dir is not None
         self.cmd_dir.mkdir(parents=True, exist_ok=True)
         path = self.cmd_dir / f"{cid}.xml"
         tmp = path.with_name(path.name + ".tmp")
         text = ('<?xml version="1.0" encoding="utf-8" standalone="no"?>\n'
                 f"<command session={quoteattr(str(self.session))} id=\"{cid}\" "
-                f"action={quoteattr(game_action)} ref={quoteattr(ref)}/>\n")
+                f"action={quoteattr(game_action)} ref={quoteattr(ref)}"
+                + (f' value="{float(value):.3f}"' if value is not None else "")
+                + "/>\n")
         tmp.write_text(text, encoding="utf-8")
         # read it back once before the rename: the mod's first open is then
         # cheap (C0: 0.07-0.23 ms instead of 3.5-19 ms)

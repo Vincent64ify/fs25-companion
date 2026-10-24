@@ -9,11 +9,13 @@ The first message names the role.
     client -> backend:  {"type": "map_assets", "mapId": str, "hash": str}
                         after uploading; relayed to viewers
     viewer -> backend:  {"type": "hello", "role": "viewer"}
-    viewer -> backend:  {"type": "command", "id": str, "action": str}
+    viewer -> backend:  {"type": "command", "id": str, "action": str, "value"?: number}
                         a tap on a control; the action must be in
-                        protocol.COMMAND_ACTIONS ("lights.toggle"). Anything
-                        else a viewer sends is ignored.
-    backend -> client:  {"type": "command", "ref": str, "action": str}
+                        protocol.COMMAND_ACTIONS ("lights.toggle"), and a
+                        value only for an action in COMMAND_VALUES, in its
+                        range ("cruise.set": km/h). Anything else a viewer
+                        sends is ignored.
+    backend -> client:  {"type": "command", "ref": str, "action": str, "value"?: number}
                         to the paired client only; ref is the backend's own
                         reference (viewers' ids may clash)
     client -> backend:  {"type": "envelope", "envelope": {topic: "command_ack",
@@ -49,7 +51,7 @@ from starlette.websockets import WebSocketDisconnect
 
 from .assets import valid_ref
 from .protocol import (COMMAND_ACTIONS, EVENT_TOPICS, ProtocolVersionError, ValidationError,
-                       parse_envelope)
+                       command_value_ok, parse_envelope)
 from .sessions import Session, SessionRegistry, safe_send
 
 log = logging.getLogger("companion.ws")
@@ -184,6 +186,10 @@ async def handle_command(ws: WebSocket, session: Session, msg: dict) -> None:
     if action not in COMMAND_ACTIONS:
         await refuse("action not allowed")
         return
+    value = msg.get("value")
+    if not command_value_ok(action, value):
+        await refuse("value not allowed")
+        return
     client = session.client
     if client is None:
         await refuse("game client not connected")
@@ -193,7 +199,10 @@ async def handle_command(ws: WebSocket, session: Session, msg: dict) -> None:
     session.commands[ref] = (ws, viewer_id)
     while len(session.commands) > MAX_PENDING_COMMANDS:
         session.commands.popitem(last=False)
-    await safe_send(client, {"type": "command", "ref": ref, "action": action})
+    forward = {"type": "command", "ref": ref, "action": action}
+    if value is not None:
+        forward["value"] = value
+    await safe_send(client, forward)
 
 
 async def handle_viewer(ws: WebSocket, session: Session) -> None:

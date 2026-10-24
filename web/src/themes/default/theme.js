@@ -3,7 +3,7 @@
 // with the same markup the old index.html had, so it can't drift: header
 // and connection pill, the banner, then the square map beside the panel of
 // cards. Its additions are the Settings button at the header's left and a
-// Controls card (Lights, the first control wired to the game).
+// Controls card with the same controls as New Holland's column.
 
 import { createWidget } from "../../widgets/index.js";
 import { controlGroup } from "../../widgets/controls.js";
@@ -34,7 +34,11 @@ export default {
         w("vehicleName"),
         h("div", { className: "gauges" }, w("speed"), w("rpm"), w("gear"))),
       h("div", { className: "card controls-card" },
-        controlGroup({ label: "Controls", controls: ["lights"] }, store)),
+        controlGroup({ label: "Lights",
+          controls: ["lights", "highBeam", "beacon", "hazard", "turnLeft", "turnRight"] }, store),
+        controlGroup({ label: "Drive", controls: ["cruiseDown", "cruise", "cruiseUp", "engineOn", "aiWorker"] }, store),
+        controlGroup({ label: "Implement", implementName: true,
+          controls: ["implementLowered", "fold", "implementOn", "hitch"] }, store)),
       listCard("Vehicle", ["fuel", "fuelUsage?", "def?", "cruise?", "load?", "wear", "engineTemp", "hours", "position"]),
       listCard("Farm", ["weather", "temperature", "clock", "day", "money", "mapName", "playerName"]),
       w("implements", { variant: "card", id: "impl-card" }));

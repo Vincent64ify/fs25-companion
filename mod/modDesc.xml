@@ -2,12 +2,12 @@
 <modDesc descVersion="105">
     <author>fs25-companion</author>
     <authorContact>https://github.com/Vincent64ify/fs25-companion</authorContact>
-    <version>0.5.2</version>
+    <version>0.6.3</version>
     <title>
         <en>FS25 Companion</en>
     </title>
     <description>
-        <en><![CDATA[Streams live game state (map, player, vehicles, sell points, shops, productions, farmlands, fields and crops, time and weather) to modSettings/FS25_Companion/stream.ndjson for the FS25 Companion browser map. It changes your game only when you tap a control on the dashboard (lights), and never your savegames.]]></en>
+        <en><![CDATA[Streams live game state (map, player, vehicles, sell points, shops, productions, farmlands, fields and crops, time and weather) to modSettings/FS25_Companion/stream.ndjson for the FS25 Companion browser map. It changes your game only when you tap a control on the dashboard (lights, engine, cruise, implement), and never your savegames.]]></en>
     </description>
     <iconFilename>icon.png</iconFilename>
     <multiplayer supported="true" />

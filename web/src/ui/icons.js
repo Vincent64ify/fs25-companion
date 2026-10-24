@@ -30,8 +30,8 @@ const CLOUD = '<path d="M7 18.5h10.5a3.8 3.8 0 0 0 .3-7.6A5.6 5.6 0 0 0 6.9 11a3
 /** The cloud raised by dy, for rain, fog and storm underneath. */
 const cloudUp = (dy) => `<g transform="translate(0 ${-dy})">${CLOUD}</g>`;
 // a dial open at the bottom, with ticks
-const DIAL = '<path d="M6.3 18.7A8 8 0 1 1 17.7 18.7M12 7.5v1M17.5 13h-1M6.5 13h1"/>' +
-  '<circle cx="12" cy="13" r="1.6" fill="currentColor"/>';
+const DIAL_RIM = '<path d="M6.3 18.7A8 8 0 1 1 17.7 18.7M12 7.5v1M17.5 13h-1M6.5 13h1"/>';
+const DIAL = DIAL_RIM + '<circle cx="12" cy="13" r="1.6" fill="currentColor"/>';
 
 /** Inner markup of each icon, in the 24 × 24 box. */
 const PATHS = {
@@ -152,6 +152,15 @@ const PATHS = {
   turnRight: `<g transform="matrix(-1 0 0 1 24 0)">${TURN}</g>`,
   // a speedometer held at its set point: the needle runs past the dial
   cruise: DIAL + '<path d="M12 13L5 6"/>',
+  // the cruise dial with a minus or a plus: the set speed one step down or up
+  cruiseDown: DIAL_RIM + '<path d="M9 14h6"/>',
+  cruiseUp: DIAL_RIM + '<path d="M9 14h6M12 11v6"/>',
+  // a folded implement from behind: the wings stand up on their hinges,
+  // the dashed arcs are their swing down to work
+  fold: '<path d="M8 18h8M8 18V9.5M16 18V9.5M10.5 18v2.5M13.5 18v2.5"/>' +
+    '<path d="M8 9.5a8.5 8.5 0 0 0-6 2.5M16 9.5a8.5 8.5 0 0 1 6 2.5" stroke-dasharray="1.6 2"/>',
+  // two drawbars coupled: one's eye round the other's pin
+  hitch: '<path d="M2.5 12h7M16.5 12h5M13 5v14M11 5h4"/><circle cx="13" cy="12" r="3.5"/>',
   // the PTO housing over a splined shaft (ISO PTO symbol)
   pto: '<path d="M4 19.5V6h16v13.5"/>' + gear(12, 13.5),
   hitchUp: HITCH + '<path d="M19 15.5V4M15.5 7.5L19 4l3.5 3.5"/>',
@@ -176,7 +185,8 @@ export const ICON_GROUPS = {
                  "fullscreen", "exitFullscreen", "keepAwake"],
   "Map and tabs": ["map", "zoomIn", "zoomOut", "recentre", "wholeMap", "layers"],
   Controls: ["lights", "highBeam", "beacon", "hazard", "turnLeft", "turnRight", "cruise",
-             "pto", "hitchUp", "hitchDown", "implementOn", "aiWorker", "engineOn"],
+             "cruiseDown", "cruiseUp", "pto", "hitchUp", "hitchDown", "fold", "hitch", "implementOn",
+             "aiWorker", "engineOn"],
 };
 
 /** @param {string} name */

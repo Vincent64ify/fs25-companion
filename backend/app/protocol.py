@@ -220,7 +220,22 @@ class CabImplement(TopicModel):
 
 class CabCruise(TopicModel):
     state: str
+    # the set speed and the highest one, km/h
     speed: Optional[float] = None
+    maxSpeed: Optional[float] = None
+
+
+class SelectedImplement(TopicModel):
+    """The implement the game's implement keys act on."""
+    name: Optional[str] = None
+    lowered: bool = False
+    canLower: bool = True
+    turnedOn: bool = False
+    canTurnOn: bool = False
+    foldable: bool = False
+    # None: foldable, but the game doesn't say which end it's at
+    unfolded: Optional[bool] = None
+    foldMoving: bool = False
 
 
 class Cab(TopicModel):
@@ -228,8 +243,14 @@ class Cab(TopicModel):
     inVehicle: bool = False
     vehicleId: Optional[Union[int, str]] = None
     engineOn: Optional[bool] = None
+    # off, starting or on: starting takes a few seconds in game
+    engineState: Optional[str] = None
     lights: Optional[Lights] = None
     cruise: Optional[CabCruise] = None
+    aiActive: Optional[bool] = None
+    # something is attached to the vehicle
+    hitched: Optional[bool] = None
+    implement: Optional[SelectedImplement] = None
     implements: List[CabImplement] = []
 
 
@@ -241,6 +262,8 @@ class CommandAck(TopicModel):
     action: Optional[str] = None
     ok: bool
     reason: Optional[str] = None
+    # what ran: the input action's name, or "setter"
+    via: Optional[str] = None
 
 
 class Vehicles(TopicModel):
@@ -394,8 +417,30 @@ EVENT_TOPICS = {"command_ack"}
 # The commands a dashboard may send ({"type": "command", "id", "action"}).
 # The only list on the backend; the client and the mod keep their own.
 COMMAND_ACTIONS = frozenset({
-    "lights.toggle",
+    "lights.toggle", "highBeam.toggle", "beacon.toggle", "hazard.toggle",
+    "turnLeft.toggle", "turnRight.toggle",
+    "engine.toggle", "cruise.toggle", "cruise.down", "cruise.up", "ai.toggle",
+    "implement.lower", "implement.fold", "implement.turnOn", "hitch.toggle",
+    "cruise.set",
 })
+
+# Actions that carry a number ({"value": ...}) and its allowed range. Any
+# other action carries none.
+COMMAND_VALUES = {
+    # the cruise control's set speed for the current direction, km/h
+    "cruise.set": (1.0, 250.0),
+}
+
+
+def command_value_ok(action: str, value: Any) -> bool:
+    """Whether value fits the action: a number in range for an action in
+    COMMAND_VALUES, else absent."""
+    limits = COMMAND_VALUES.get(action)
+    if limits is None:
+        return value is None
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return False
+    return limits[0] <= value <= limits[1]
 
 
 def parse_envelope(raw: Any) -> Dict[str, Any]:
@@ -417,5 +462,6 @@ def parse_envelope(raw: Any) -> Dict[str, Any]:
 
 __all__ = [
     "PROTOCOL_VERSION", "ProtocolVersionError", "ValidationError",
-    "Envelope", "TOPIC_MODELS", "EVENT_TOPICS", "COMMAND_ACTIONS", "parse_envelope",
+    "Envelope", "TOPIC_MODELS", "EVENT_TOPICS", "COMMAND_ACTIONS", "COMMAND_VALUES",
+    "command_value_ok", "parse_envelope",
 ]

@@ -760,9 +760,327 @@ test("commands: next file in order, session and allow-list checked, input event 
     ack = commands:poll()
     eq(ack.ok, false)
     eq(ack.reason, "failed in game")
-    eq(#logged, 1, "logged once")
+    eq(#logged, 3, "the setter and the input path logged once each, then the failure")
+    eq(logged[3]:find("failed", 1, true) ~= nil, true)
     eq(commands:info().next, 6)
     g_inputBinding = nil
+end)
+
+-- Controls C2: every action, the selected implement, the cab's new state ----
+
+-- an input binding where the given input actions have one active event
+-- each; calls[name] collects the values they were called with
+local function bindInputs(names, target)
+    local calls, nameActions, actionEvents = {}, {}, {}
+    for _, name in ipairs(names) do
+        local action = { name = name }
+        nameActions[name] = action
+        actionEvents[action] = { {
+            isActive = true, targetObject = target,
+            callback = function(_, actionName, value)
+                calls[actionName] = calls[actionName] or {}
+                table.insert(calls[actionName], value)
+            end,
+        } }
+    end
+    g_inputBinding = { nameActions = nameActions, actionEvents = actionEvents }
+    return calls
+end
+
+local function c2Tractor()
+    local implement = {
+        typeName = "cultivator",
+        lowered = false, on = false, unfolded = false, foldDirection = 1,
+        getFullName = function() return "Rubin 12" end,
+        getIsLowered = function(self) return self.lowered end,
+        getIsTurnedOn = function(self) return self.on end,
+        getIsUnfolded = function(self) return self.unfolded end,
+        getToggledFoldDirection = function(self) return self.foldDirection end,
+        setFoldState = function(self, direction) self.foldedTo = direction end,
+        setIsTurnedOn = function(self, on) self.on = on end,
+        spec_foldable = { foldingParts = { { animationName = "fold" } } },
+        spec_turnOnVehicle = {},
+        playing = false,
+        getIsAnimationPlaying = function(self, name) return name == "fold" and self.playing end,
+    }
+    local vehicle = {
+        id = 3,
+        spec_lights = { lightsTypesMask = 1, beaconLightsActive = false, turnLightState = 0 },
+        spec_motorized = {},
+        spec_drivable = { cruiseControl = { state = 0, speed = 12, maxSpeed = 40, speedReverse = 9 } },
+        started = true,
+        getIsMotorStarted = function(self) return self.started end,
+        stopMotor = function(self) self.started = false end,
+        startMotor = function(self) self.started = true end,
+        getCruiseControlState = function(self) return self.spec_drivable.cruiseControl.state end,
+        setCruiseControlState = function(self, s) self.spec_drivable.cruiseControl.state = s end,
+        setCruiseControlMaxSpeed = function(self, speed, reverse)
+            self.spec_drivable.cruiseControl.speed = speed
+            self.reverseSet = reverse
+        end,
+        setLightsTypesMask = function(self, m) self.spec_lights.lightsTypesMask = m end,
+        setBeaconLightsVisibility = function(self, on) self.spec_lights.beaconLightsActive = on end,
+        setTurnLightState = function(self, s) self.spec_lights.turnLightState = s end,
+        getIsAIActive = function() return false end,
+        attached = { { object = implement } },
+        getAttachedImplements = function(self) return self.attached end,
+        getSelectedVehicle = function(self) return self.attached[1] and self.attached[1].object or self end,
+        handleLowerImplementEvent = function(_, object) object.lowered = not object.lowered end,
+        detachImplementByObject = function(self, object)
+            if self.attached[1] and self.attached[1].object == object then
+                self.attached = {}
+            end
+        end,
+    }
+    implement.getAttacherVehicle = function() return vehicle end
+    local player = { vehicle = vehicle }
+    player.getCurrentVehicle = function(self) return self.vehicle end
+    g_localPlayer = player
+    Lights = nil
+    return vehicle, implement, player
+end
+
+local function c2Commands()
+    local dir = TMP_DIR .. "/c2cmd_"
+    local write = commandStubs(dir)
+    local logged = {}
+    local commands = Companion.Commands.new(dir, "S2", function(m) logged[#logged + 1] = m end)
+    local n = 0
+    local function run(action)
+        n = n + 1
+        write(n, "S2", action)
+        return commands:poll()
+    end
+    return run, logged
+end
+
+test("commands C2: each action runs its input event, as the key does", function()
+    if TMP_DIR == nil then
+        print("skip commands C2 test (no TMP_DIR)")
+        return
+    end
+    local vehicle = c2Tractor()
+    local run = c2Commands()
+    local expected = {
+        TOGGLE_HIGH_BEAM_LIGHT = "TOGGLE_HIGH_BEAM_LIGHT",
+        TOGGLE_BEACON_LIGHTS = "TOGGLE_BEACON_LIGHTS",
+        TOGGLE_TURNLIGHT_HAZARD = "TOGGLE_TURNLIGHT_HAZARD",
+        TOGGLE_TURNLIGHT_LEFT = "TOGGLE_TURNLIGHT_LEFT",
+        TOGGLE_TURNLIGHT_RIGHT = "TOGGLE_TURNLIGHT_RIGHT",
+        TOGGLE_MOTOR_STATE = "TOGGLE_MOTOR_STATE",
+        TOGGLE_CRUISE_CONTROL = "TOGGLE_CRUISE_CONTROL",
+        TOGGLE_AI = "TOGGLE_AI",
+        LOWER_IMPLEMENT = "LOWER_IMPLEMENT",
+        FOLD_IMPLEMENT = "IMPLEMENT_EXTRA2",
+        TURN_ON_IMPLEMENT = "IMPLEMENT_EXTRA",
+        HITCH = "ATTACH",
+    }
+    local names = {}
+    for _, input in pairs(expected) do
+        names[#names + 1] = input
+    end
+    names[#names + 1] = "DETACH"
+    local calls = bindInputs(names, vehicle)
+    for action, input in pairs(expected) do
+        local ack = run(action)
+        eq(ack.ok, true, action)
+        eq(ack.via, input, action .. " via")
+        eq(calls[input] ~= nil and calls[input][1], 1, action .. " input value")
+    end
+    eq(calls.DETACH, nil, "Hitch is the attach key (Q), never DETACH")
+    -- nothing attached: still the attach key
+    vehicle.attached = {}
+    eq(run("HITCH").via, "ATTACH", "nothing attached: ATTACH")
+    g_inputBinding = nil
+end)
+
+test("commands C2: setters when no key event is active, single cruise steps", function()
+    if TMP_DIR == nil then
+        return
+    end
+    local vehicle, implement, player = c2Tractor()
+    local run, logged = c2Commands()
+    g_inputBinding = nil
+    local function setter(action)
+        local ack = run(action)
+        eq(ack.ok, true, action .. " ok (" .. tostring(ack.reason) .. ")")
+        eq(ack.via, "setter", action .. " via")
+    end
+    setter("TOGGLE_HIGH_BEAM_LIGHT")
+    eq(vehicle.spec_lights.lightsTypesMask, 9, "high beam bit set, front lights kept")
+    setter("TOGGLE_BEACON_LIGHTS")
+    eq(vehicle.spec_lights.beaconLightsActive, true)
+    setter("TOGGLE_TURNLIGHT_LEFT")
+    eq(vehicle.spec_lights.turnLightState, 1)
+    setter("TOGGLE_TURNLIGHT_HAZARD")
+    eq(vehicle.spec_lights.turnLightState, 3, "left to hazard")
+    setter("TOGGLE_TURNLIGHT_HAZARD")
+    eq(vehicle.spec_lights.turnLightState, 0, "hazard off")
+    setter("TOGGLE_MOTOR_STATE")
+    eq(vehicle.started, false, "engine stopped")
+    setter("TOGGLE_CRUISE_CONTROL")
+    eq(vehicle.spec_drivable.cruiseControl.state, 1, "cruise on")
+    setter("CRUISE_SPEED_UP")
+    eq(vehicle.spec_drivable.cruiseControl.speed, 13, "one km/h up")
+    eq(vehicle.reverseSet, 9, "the reverse speed kept")
+    setter("CRUISE_SPEED_DOWN")
+    setter("CRUISE_SPEED_DOWN")
+    eq(vehicle.spec_drivable.cruiseControl.speed, 11, "two down")
+    -- in reverse: still the one set speed, the game's reverse value untouched
+    vehicle.movingDirection = -1
+    setter("CRUISE_SPEED_UP")
+    eq(vehicle.spec_drivable.cruiseControl.speed, 12, "the main speed, also in reverse")
+    eq(vehicle.reverseSet, 9, "the reverse value passed through")
+    vehicle.movingDirection = 1
+    vehicle.spec_drivable.cruiseControl.speed = 40
+    setter("CRUISE_SPEED_UP")
+    eq(vehicle.spec_drivable.cruiseControl.speed, 40, "not past the top speed")
+    setter("LOWER_IMPLEMENT")
+    eq(implement.lowered, true)
+    setter("FOLD_IMPLEMENT")
+    eq(implement.foldedTo, 1, "folds the way the game says")
+    setter("TURN_ON_IMPLEMENT")
+    eq(implement.on, true)
+    local ack = run("TOGGLE_AI")
+    eq(ack.ok, false, "AI: only through its key")
+    eq(ack.reason, "not available now")
+    setter("HITCH")
+    eq(#vehicle.attached, 0, "detached")
+    ack = run("HITCH")
+    eq(ack.ok, false, "nothing to attach in range")
+    eq(ack.reason, "nothing in range")
+    ack = run("FOLD_IMPLEMENT")
+    eq(ack.reason, "no implement", "implement actions need one")
+    -- the cruise step goes through the axis when there's no setter
+    vehicle.setCruiseControlMaxSpeed = nil
+    local calls = bindInputs({ "AXIS_CRUISE_CONTROL" }, vehicle)
+    ack = run("CRUISE_SPEED_DOWN")
+    eq(ack.via, "AXIS_CRUISE_CONTROL")
+    eq(calls.AXIS_CRUISE_CONTROL[1], -1, "the axis, down")
+    g_inputBinding = nil
+    -- each path is logged once
+    local seen = {}
+    for _, line in ipairs(logged) do
+        assert(not seen[line], "logged twice: " .. line)
+        seen[line] = true
+    end
+    assert(seen["command CRUISE_SPEED_UP via setter"], "the path is logged")
+    player.vehicle = nil
+    eq(run("TOGGLE_MOTOR_STATE").reason, "not in a vehicle")
+end)
+
+test("vehicle state C2: motor state, driving direction, both cruise speeds", function()
+    local VS = Companion.VehicleState
+    MotorState = { OFF = 1, STARTING = 2, ON = 3, IGNITION = 4 }
+    local v = { spec_motorized = {}, motorState = 2 }
+    v.getMotorState = function(self) return self.motorState end
+    eq(VS.engineState(v), "starting")
+    v.motorState = 3
+    eq(VS.engineState(v), "on")
+    v.motorState = 4
+    eq(VS.engineState(v), "off", "ignition only: off")
+    MotorState = nil
+    eq(VS.engineState({ spec_motorized = {}, getIsMotorStarted = function() return true end }), "on",
+        "no motor states: on / off")
+    eq(VS.engineState({}), nil, "no engine")
+    eq(VS.reversing({ getMotor = function() return { currentDirection = -1 } end }), true, "the motor's direction")
+    eq(VS.reversing({ getGearInfoToDisplay = function() return "R" end }), true, "a reverse gear")
+    eq(VS.reversing({ getGearInfoToDisplay = function() return "-2" end }), true)
+    eq(VS.reversing({ getGearInfoToDisplay = function() return "3" end, movingDirection = 1 }), false)
+    local c = VS.cruise({ spec_drivable = { cruiseControl = { state = 1, speed = 15, speedReverse = 8, maxSpeed = 40 } },
+        movingDirection = -1 })
+    eq(c.speed, 15, "the one set speed")
+    eq(c.maxSpeed, 40)
+    eq(c.speedReverse, nil, "no reverse speed on the dashboard")
+    eq(c.reverse, nil)
+    -- the reverse cruise check goes to the log once per vehicle, first time in reverse
+    VS.resetDiagnostics()
+    local logged = {}
+    local log = function(m) logged[#logged + 1] = m end
+    local v = { id = 4, typeName = "tractor", movingDirection = 1,
+        spec_drivable = { cruiseControl = { speed = 3, speedReverse = 33, maxSpeedReverse = 33 } },
+        getMotor = function() return { maxBackwardSpeed = 9.2, getMaximumBackwardSpeed = function() return 9.2 end } end }
+    eq(VS.dumpReverseCruise(v, log), false, "forward: nothing")
+    v.movingDirection = -1
+    eq(VS.dumpReverseCruise(v, log), true, "the first time in reverse")
+    eq(VS.dumpReverseCruise(v, log), false, "once per vehicle")
+    eq(#logged, 1)
+    assert(logged[1]:find("speedReverse=33", 1, true), logged[1])
+    assert(logged[1]:find("motor:getMaximumBackwardSpeed=9.2", 1, true), logged[1])
+    assert(logged[1]:find("maxBackwardSpeed=9.2", 1, true), logged[1])
+end)
+
+test("commands C2: an absolute cruise speed, clamped, for the current direction", function()
+    if TMP_DIR == nil then
+        return
+    end
+    local vehicle = c2Tractor()
+    g_inputBinding = nil
+    local dir = TMP_DIR .. "/c2set_"
+    commandStubs(dir)
+    local commands = Companion.Commands.new(dir, "S3", function() end)
+    local n = 0
+    local function set(value)
+        n = n + 1
+        local f = assert(io.open(string.format("%s%d.xml", dir, n), "w"))
+        f:write(string.format('<command session="S3" id="%d" action="CRUISE_SET_SPEED" ref="r%d"%s/>',
+            n, n, value and (' value="' .. value .. '"') or ""))
+        f:close()
+        return commands:poll()
+    end
+    local cc = vehicle.spec_drivable.cruiseControl
+    local ack = set("23.500")
+    eq(ack.ok, true)
+    eq(ack.via, "setter")
+    eq(cc.speed, 23.5, "the forward speed set")
+    eq(vehicle.reverseSet, 9, "the reverse one kept")
+    set("99")
+    eq(cc.speed, 40, "clamped to the top speed")
+    set("0.2")
+    eq(cc.speed, 1, "at least 1")
+    vehicle.movingDirection = -1
+    set("12")
+    eq(cc.speed, 12, "in reverse: still the main set speed")
+    eq(vehicle.reverseSet, 9, "the reverse value passed through")
+    ack = set(nil)
+    eq(ack.ok, false, "no value")
+    eq(ack.reason, "no speed")
+end)
+
+test("cab C2: the selected implement, its fold, AI and hitch", function()
+    load("src/collectors/Cab.lua")
+    local Cab = Companion.Collectors.Cab
+    Cab.reset()
+    local vehicle, implement = c2Tractor()
+    local cab = Cab.collect({})
+    eq(cab.aiActive, false)
+    eq(cab.hitched, true)
+    eq(cab.implement.name, "Rubin 12", "the selected implement")
+    eq(cab.implement.foldable, true)
+    eq(cab.implement.unfolded, false)
+    eq(cab.implement.foldMoving, false)
+    eq(cab.implement.canTurnOn, true)
+    eq(cab.implement.canLower, true)
+    implement.playing = true
+    eq(Cab.collect({}).implement.foldMoving, true, "fold running: sent")
+    implement.playing = false
+    implement.unfolded = true
+    cab = Cab.collect({})
+    eq(cab.implement.foldMoving, false, "fold done")
+    eq(cab.implement.unfolded, true)
+    -- no animation API: the fold's time between the ends
+    implement.getIsAnimationPlaying = nil
+    implement.spec_foldable.foldAnimTime = 0.5
+    eq(Cab.collect({}).implement.foldMoving, true, "moving by the fold's time")
+    -- the tractor itself selected: the first attached implement
+    vehicle.getSelectedVehicle = function(self) return self end
+    eq(Cab.collect({}), nil, "same implement, nothing changed")
+    vehicle.attached = {}
+    cab = Cab.collect({})
+    eq(cab.hitched, false)
+    eq(cab.implement, nil, "nothing attached")
+    eq(Companion.VehicleState.implement({ spec_foldable = { foldingParts = {} } }).foldable, false,
+        "a foldable spec without parts doesn't fold")
 end)
 
 -- Whole mod against a stubbed game -----------------------------------------
@@ -965,7 +1283,7 @@ test("whole mod streams every topic", function()
     mod:update(16)
     local frame = lines(readFile(TMP_DIR .. "/FS25_Companion/stream.ndjson"))
     assert(frame[before + 1]:find('"topic":"command_ack"', 1, true), "ack first: " .. tostring(frame[before + 1]))
-    assert(frame[before + 1]:find('"data":{"action":"TOGGLE_LIGHTS","id":1,"ok":true,"ref":"b7"}', 1, true),
+    assert(frame[before + 1]:find('"data":{"action":"TOGGLE_LIGHTS","id":1,"ok":true,"ref":"b7","via":"setter"}', 1, true),
         frame[before + 1])
     assert(frame[before + 2]:find('"topic":"cab"', 1, true), "then the cab: " .. tostring(frame[before + 2]))
     assert(frame[before + 2]:find('"on":true', 1, true), "lights on in the cab")

@@ -126,7 +126,7 @@ and the mod each accept only actions from the known list.
 |---|---|---|
 | C0 | Spike: can the mod see and read a client-written file every frame, fresh and cheaply; can it run an action by name; round-trip time ([spike/README.md](../spike/README.md#command-spike-c0)) | done on Windows 2026-10-24 (results below); macOS to run |
 | C1 | One control (lights) end to end: protocol, backend relay, client file writer, mod reader, ack, `cab` topic | done 2026-10-24: works live on Windows (mod 0.5.0); light stages as dots (0.5.1) and the reverse-light fix (0.5.2) confirmed live |
-| C2 | The first control set in both themes, held controls with auto-release | |
+| C2 | The first control set in both themes, held controls with auto-release | done 2026-10-24: works live on Windows (mod 0.6.3, after three live rounds); held controls (press / release) moved to C3 |
 | C3 | Targeted actions (cruise speed, detach a chosen implement), round-trip readout in Settings | |
 | C4 | Live check on Windows and macOS, multiplayer as client and host | |
 
@@ -195,6 +195,94 @@ and the mod each accept only actions from the known list.
   the live stream). With stages known, "on" now means a stage is on (or,
   from the mask alone, one of the stages' own lights). Confirmed live
   (Vincent, 2026-10-24).
+
+**C2 as built (2026-10-24, mod 0.6.0).** One button per toggle: it sends
+the toggle and shows the game's state from `cab`; no on/off pairs (the
+old Raise / Lower pair is one Lower button).
+- Controls, in both themes (New Holland's column; Default's Controls card,
+  now with the same three groups):
+  - Lights: Lights, High beam, Beacon, Hazard, Turn L, Turn R.
+  - Drive: Cruise −, Cruise, Cruise + (the set speed one km/h per tap),
+    Engine, AI worker.
+  - Implement (the selected one, named in the group label): Lower,
+    Unfold (pending while the fold runs, on once the game reports it
+    unfolded), Work (turn on), Hitch (detach what's attached, else attach
+    what's in range).
+  - New icons: fold, hitch, cruiseDown, cruiseUp.
+- Input action names come from the game's own `inputBinding.xml`: fold is
+  `IMPLEMENT_EXTRA2` (X), turn on `IMPLEMENT_EXTRA` (B), lower
+  `LOWER_IMPLEMENT` (V), attach / detach `ATTACH` (Q) / `DETACH`, cruise
+  speed the axis `AXIS_CRUISE_CONTROL`. There is no `IMPLEMENT_FOLD`.
+- Mod: every action runs its input event first, as the key does (the
+  implement keys' events belong to the selected implement), else the
+  specialization's setter (FS22 names, guarded): `setLightsTypesMask`,
+  `setBeaconLightsVisibility`, `setTurnLightState`, `startMotor` /
+  `stopMotor`, `setCruiseControlState`, `handleLowerImplementEvent`,
+  `setFoldState(getToggledFoldDirection())`, `setIsTurnedOn`,
+  `detachImplementByObject`. Cruise −/+ use `setCruiseControlMaxSpeed`
+  first (one exact step), the axis second. AI has no setter. The ack's
+  `via` says which ran, and log.txt gets "command <action> via <what>"
+  once per path.
+- `cab` gains `aiActive`, `hitched` and `implement` (the selected one: name,
+  lowered, canLower, turnedOn, canTurnOn, foldable, unfolded, foldMoving).
+  The selected implement is `getSelectedVehicle()`, else
+  `getSelectedImplement().object`, else the first attached; a fold runs
+  while a folding part's animation plays (`getIsAnimationPlaying`), else
+  while `foldAnimTime` is between the ends. Unverified in FS25.
+- Held controls: none of the C2 set needs one (cruise −/+ are single
+  steps), so press / release with auto-release moves to C3 with the front
+  loader.
+- Without the game, against a stand-in for the mod: every button 29–78 ms
+  tap to new state; Unfold stayed pending for the 1.5 s fold, then on; the
+  New Holland column fits 1180×820 without scrolling.
+- First live test (Vincent): every button ran its input event (log.txt),
+  the engine fell back to the setter once. Fixed in mod 0.6.1:
+  - Pending is a "loading" border: a dash running clockwise round the
+    button (SVG stroke-dashoffset) in the accent colour; a slow pulse with
+    reduced motion.
+  - Engine: `cab.engineState` (off / starting / on, `getMotorState`); the
+    button stays pending from the tap until the game reports it running
+    (and while it starts from a key in game).
+  - Hitch is exactly the attach key: `ATTACH` (Q), whatever is selected;
+    the first build ran `DETACH` for an attached implement. Pending until
+    what's attached changes; after 1.5 s with no change it says "None in
+    range" quietly. Lit while something is attached.
+  - Cruise: FS25 keeps a set speed for forward and one for reverse. The
+    button toggles as the key does and shows the set speed for the way the
+    vehicle drives ("15 km/h", "R 8 km/h"); −/+ change that one. `cab` and
+    `vehicles` carry `speedReverse` and `reverse` (the motor's direction,
+    else a reverse gear, else the way it moves).
+- Second round (mod 0.6.2):
+  - Cruise −/+ hold to repeat: a tap is one step (1 km/h, or 1 mph);
+    held, it repeats after 400 ms every 120 ms, every 50 ms after 1.5 s.
+    The dashboard keeps the target, shows it on the Cruise button at once
+    (pending), never past the vehicle's top set speed (`cab.cruise.maxSpeed`
+    / `maxSpeedReverse`), and sends it as an absolute `cruise.set {value}`
+    (km/h) at most every 50 ms, one at a time. The client holds a newer one
+    until the mod answers the last, latest wins (the replaced one is
+    answered "superseded"). The mod's `CRUISE_SET_SPEED` clamps it and sets
+    the speed for the current direction (`setCruiseControlMaxSpeed`).
+    Commands may carry a value: `protocol.COMMAND_VALUES` gives each
+    action's range, checked by the backend and the client. Against the
+    stand-in: 15 to 40 km/h in 2.5 s held, confirmed 21 ms after release.
+  - Labels name what a tap will do, as the game's help does; lit is the
+    state: "Lower" / "Raise" (with the hitch icon turning), "Unfold" /
+    "Fold", and "Lowering…", "Raising…", "Folding…", "Unfolding…" while it
+    runs. Hitch keeps its name (attach or detach isn't known in advance).
+- Third round (mod 0.6.3): no reverse cruise speed. Live, the L90H has
+  none, and the Fastrac iCON 4160 and the Valtra T195 Active (reverse
+  driving position) use the main set speed in reverse; the stream showed
+  `speedReverse` 33 = `maxSpeedReverse` 33, so the HUD's number while
+  reversing looks like the reverse speed limit, not a set speed. Cruise
+  and −/+ now always show and set the one main set speed (no "R"); a
+  step goes from the number on the button. To find out what that HUD
+  number is, the first time each vehicle reverses log.txt gets a
+  "reverse cruise check" line: the cruise control's fields and the
+  motor's speed limits (not sent to the dashboard).
+- Live (Vincent, 2026-10-24): all of C2 works with 0.6.3. The reverse
+  cruise check on the Volvo L90H: `speedReverse` = `maxSpeedReverse` = 46
+  km/h = the motor's `getMaximumBackwardSpeed()` (12.78 m/s), so the HUD's
+  number while reversing is the vehicle's top reverse speed.
 
 **Risks.** If the mod can't re-read a client-written file, fall back to key
 presses (Windows first). Calling action callbacks by name may differ per

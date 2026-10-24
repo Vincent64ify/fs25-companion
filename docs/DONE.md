@@ -421,5 +421,14 @@ Changes since Phase 4 (2026-10-21 to 2026-10-22):
   through its input event and answers with `command_ack` and the new
   `cab` topic in the same frame. Works live on Windows (Vincent: each tap
   steps the light stages like the key). Mod 0.5.1 adds the stage and
-  stage count to the lights, shown as dots on the button. Details in
-  PLAN.md, "C1 as built".
+  stage count to the lights, shown as dots on the button; 0.5.2 keeps the
+  reverse lights from reading as Lights on. Details in PLAN.md, "C1 as
+  built".
+- **C2, the first control set** (2026-10-24, mod 0.6.3, works live on
+  Windows): one state-showing button per toggle for the lights, cruise
+  (−/+ tap or hold, one set speed), engine (pending until it runs), AI
+  worker and the selected implement (Lower / Raise, Unfold / Fold, Work,
+  Hitch as the Q key), in both themes, with a running border while the
+  game gets there; `cab` carries the motor state and the selected
+  implement and its fold; commands may carry a value (`cruise.set`).
+  Details in PLAN.md, "C2 as built".

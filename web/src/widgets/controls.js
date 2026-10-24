@@ -5,10 +5,17 @@
 // an action sends it on a tap (connection.js sendCommand). A theme lists
 // them in labelled groups; on foot, or without the data, a control is
 // unavailable.
+//
+// One button per toggle (Controls C2): it sends the toggle and shows the
+// game's state, never a pair of on and off buttons. The implement controls
+// act on the implement selected in game, as its keys do; the group's label
+// names it. A control whose `moving` is true shows pending (a fold
+// running) until the game reports the end state.
 
 import { createControl } from "../ui/control.js";
 import { cabOf, controlledVehicle, cruiseOf, implementsOf, lightsOf, ptoOf } from "../data/selectors.js";
 import { sendCommand } from "../connection.js";
+import { speedToKmh, speedUnit, speedValue, unitsOf } from "../data/units.js";
 import { h } from "../ui/dom.js";
 
 /** @typedef {import("../store.js").Store} Store */
@@ -26,6 +33,19 @@ import { h } from "../ui/dom.js";
  *   protocol.COMMAND_ACTIONS); without one the control only shows the state
  * @property {(v: import("../types.js").Vehicle|undefined, cab: import("../types.js").Cab|undefined) => import("../ui/control.js").ControlDots|undefined} [dots]
  *   steps shown as dots under the label
+ * @property {(v: import("../types.js").Vehicle|undefined, cab: import("../types.js").Cab|undefined) => boolean|undefined} [moving]
+ *   the game is still getting there (a fold running): shown as pending
+ * @property {{ms: number, key?: (v: any, cab: any) => string, hint?: string, quiet?: string[]}} [settle]
+ *   stay pending after the ack until the game's state changes (key; by
+ *   default the control's own state), at most ms (ui/control.js)
+ * @property {(v: any, cab: any, units: import("../data/units.js").Units, store: Store) => string|undefined} [value]
+ *   a value line under the label
+ * @property {(v: any, cab: any) => {label: string, icon?: string}|undefined} [labels]
+ *   the label (and icon) for the game's state: what a tap will do, as the
+ *   game's help names it ("Raise" while lowered)
+ * @property {boolean} [progressive] "Raising…" while its command runs
+ * @property {-1|1} [hold] a held step: the cruise set speed down or up
+ *   (cruise.set with the target, see cruiseStepper)
  */
 
 /** the light switches from the cab when the mod sends it, else from vehicles */
@@ -53,30 +73,195 @@ export function lightStageDots(/** @type {any} */ v, /** @type {any} */ cab) {
   return { lit: l.on ? 1 : 0, count: stages };
 }
 const impls = (/** @type {any} */ v) => implementsOf(v);
-const anyImpl = (/** @type {(i: any) => boolean} */ test) => (/** @type {any} */ v) =>
-  (impls(v).length ? impls(v).some(test) : undefined);
+
+/**
+ * The implement the implement controls act on: the cab's selected one, or
+ * (without the cab, older mods) the first in the vehicles topic.
+ * @returns {import("../types.js").SelectedImplement|undefined}
+ */
+export function selectedImplement(/** @type {any} */ v, /** @type {any} */ cab) {
+  if (cab) return cab.inVehicle ? cab.implement || undefined : undefined;
+  const first = impls(v)[0];
+  return first ? { name: first.name, lowered: first.lowered === true, turnedOn: first.turnedOn === true } : undefined;
+}
+
+/** the cab's value, or the vehicles topic's without the cab */
+const either = (/** @type {any} */ v, /** @type {any} */ cab, /** @type {(src: any) => any} */ pick) =>
+  (cab ? (cab.inVehicle ? pick(cab) : undefined) : (v ? pick(v) : undefined));
+const bool = (/** @type {any} */ x) => (typeof x === "boolean" ? x : undefined);
+
+/** what's attached, as a key that changes when an implement comes or goes */
+function attachedSet(/** @type {any} */ v, /** @type {any} */ cab) {
+  if (cab) return cab.inVehicle ? `${(cab.implements || []).length}:${cab.implement?.name ?? ""}` : "";
+  return impls(v).map((/** @type {any} */ i) => i.name).join("|");
+}
+
+/**
+ * The cruise control's set speed ("15 km/h"): the one the game holds when
+ * cruise control is on. (There's no reverse one to show: live, vehicles
+ * use this one in reverse, and the HUD's number while reversing is
+ * something else; see mod/src/Commands.lua.)
+ * @returns {string|undefined}
+ */
+export function cruiseSetSpeed(/** @type {any} */ v, /** @type {any} */ cab,
+  /** @type {import("../data/units.js").Units} */ units, /** @type {Store|undefined} */ store = undefined) {
+  const now = cruiseNow(v, cab);
+  if (!now) return undefined;
+  // while −/+ are held: the speed asked for, before the game confirms it
+  const target = store?.get("cruiseTarget");
+  const kmh = typeof target?.kmh === "number" ? target.kmh : now.kmh;
+  return `${Math.round(speedValue(kmh, units))} ${speedUnit(units)}`;
+}
+
+/** the set speed (km/h) and the highest one */
+function cruiseNow(/** @type {any} */ v, /** @type {any} */ cab) {
+  const c = cab ? (cab.inVehicle ? cab.cruise : undefined) : cruiseOf(v);
+  if (!c || typeof c.speed !== "number") return undefined;
+  return { kmh: c.speed, max: typeof c.maxSpeed === "number" ? c.maxSpeed : 250 };
+}
+
+export const CRUISE_SEND_MS = 50;
+export const CRUISE_SETTLE_MS = 1500;
+
+/**
+ * The cruise −/+ buttons, shared per store. Each tick moves a target one
+ * step (1 km/h or 1 mph) from the set speed in use, shown at once on the
+ * Cruise button (store key cruiseTarget, pending), and sends it as an
+ * absolute cruise.set at most every 50 ms, one at a time, latest wins.
+ * The target goes once the game's speed matches it after the release, or
+ * 1.5 s after the last answer.
+ * @param {Store} store
+ * @param {(action: string, value?: number) => Promise<import("../commands.js").CommandResult>} send
+ */
+export function cruiseStepper(store, send) {
+  /** @type {number|undefined} km/h */
+  let target;
+  let held = 0;
+  let inflight = false;
+  let dirty = false;
+  let lastSent = -Infinity;
+  /** @type {ReturnType<typeof setTimeout>|undefined} */
+  let sendTimer;
+  /** @type {ReturnType<typeof setTimeout>|undefined} */
+  let clearTimer;
+  const now = () => cruiseNow(controlledVehicle(store), cabOf(store));
+  const publish = () => store.set("cruiseTarget", target === undefined ? undefined : { kmh: target });
+  const drop = () => { clearTimeout(clearTimer); target = undefined; publish(); };
+  const idle = () => !held && !inflight && !dirty;
+
+  async function flush() {
+    if (target === undefined) return;
+    if (inflight) { dirty = true; return; }
+    const wait = CRUISE_SEND_MS - (performance.now() - lastSent);
+    if (wait > 0) {
+      clearTimeout(sendTimer);
+      sendTimer = setTimeout(flush, wait);
+      return;
+    }
+    inflight = true;
+    dirty = false;
+    lastSent = performance.now();
+    const result = await send("cruise.set", Math.round(target * 1000) / 1000);
+    inflight = false;
+    if (!result.ok) { dirty = false; drop(); return; }
+    if (dirty) flush();
+    else if (idle()) settle();
+  }
+
+  function settle() {
+    clearTimeout(clearTimer);
+    const cur = now();
+    if (!cur || target === undefined || Math.abs(cur.kmh - target) < 0.05) { drop(); return; }
+    clearTimer = setTimeout(drop, CRUISE_SETTLE_MS);
+  }
+
+  store.subscribe("cab", () => {
+    if (target !== undefined && idle()) {
+      const cur = now();
+      if (cur && Math.abs(cur.kmh - target) < 0.05) drop();
+    }
+  });
+
+  return {
+    /** @param {-1|1} dir */
+    tick(dir) {
+      const cur = now();
+      if (!cur) return;
+      clearTimeout(clearTimer);
+      const units = unitsOf(store);
+      const shown = speedValue(target ?? cur.kmh, units);
+      // one step from the number on the button, in the player's unit
+      const next = Math.max(1, Math.round(shown) + dir);
+      // never past the vehicle's top set speed: the game wouldn't go there
+      target = Math.min(cur.max, speedToKmh(next, units));
+      publish();
+      flush();
+    },
+    start: () => { held += 1; },
+    end() {
+      held = Math.max(0, held - 1);
+      if (idle()) settle();
+    },
+  };
+}
+
+/** @type {WeakMap<object, ReturnType<typeof cruiseStepper>>} */
+const steppers = new WeakMap();
 
 /** @type {Record<string, ControlDef>} */
 export const CONTROLS = {
   lights: { label: "Lights", icon: "lights", read: light("on"), action: "lights.toggle", dots: lightStageDots },
-  highBeam: { label: "High beam", icon: "highBeam", read: light("high") },
-  beacon: { label: "Beacon", icon: "beacon", read: light("beacon") },
-  hazard: { label: "Hazard", icon: "hazard", tint: "alarm", read: light("hazard") },
-  turnLeft: { label: "Turn L", icon: "turnLeft", tint: "ok", read: light("left") },
-  turnRight: { label: "Turn R", icon: "turnRight", tint: "ok", read: light("right") },
-  engineOn: { label: "Engine", icon: "engineOn", read: (v, cab) => {
-    const src = cab ? (cab.inVehicle ? cab : undefined) : v;
-    return src && typeof src.engineOn === "boolean" ? src.engineOn : undefined;
-  } },
-  cruise: { label: "Cruise", icon: "cruise", read: (v, cab) => {
+  highBeam: { label: "High beam", icon: "highBeam", read: light("high"), action: "highBeam.toggle" },
+  beacon: { label: "Beacon", icon: "beacon", read: light("beacon"), action: "beacon.toggle" },
+  hazard: { label: "Hazard", icon: "hazard", tint: "alarm", read: light("hazard"), action: "hazard.toggle" },
+  turnLeft: { label: "Turn L", icon: "turnLeft", tint: "ok", read: light("left"), action: "turnLeft.toggle" },
+  turnRight: { label: "Turn R", icon: "turnRight", tint: "ok", read: light("right"), action: "turnRight.toggle" },
+  // starting takes a few seconds in game: pending until it runs
+  engineOn: { label: "Engine", icon: "engineOn", action: "engine.toggle",
+    read: (v, cab) => either(v, cab, (src) => bool(src.engineOn)),
+    moving: (v, cab) => cab?.inVehicle === true && cab.engineState === "starting",
+    settle: { ms: 10000 } },
+  cruise: { label: "Cruise", icon: "cruise", action: "cruise.toggle", read: (v, cab) => {
     const c = cab ? (cab.inVehicle ? cab.cruise : undefined) : cruiseOf(v);
     return c ? c.state !== "off" : undefined;
+  }, value: cruiseSetSpeed },
+  // held: the set speed down or up, a step per tick; never "on"
+  cruiseDown: { label: "Cruise −", icon: "cruiseDown", action: "cruise.set", hold: -1,
+    read: (v, cab) => (CONTROLS.cruise.read(v, cab) === undefined ? undefined : false) },
+  cruiseUp: { label: "Cruise +", icon: "cruiseUp", action: "cruise.set", hold: 1,
+    read: (v, cab) => (CONTROLS.cruise.read(v, cab) === undefined ? undefined : false) },
+  aiWorker: { label: "AI worker", icon: "aiWorker", action: "ai.toggle",
+    read: (v, cab) => either(v, cab, (src) => (cab ? bool(src.aiActive) : src.isAI === true)) },
+  // the selected implement
+  // the label is what a tap will do, as the game's help says it; lit: the
+  // state ("Raise", lit, while lowered)
+  implementLowered: { label: "Lower", icon: "hitchDown", action: "implement.lower", progressive: true,
+    read: (v, cab) => {
+      const i = selectedImplement(v, cab);
+      return i && i.canLower !== false ? i.lowered === true : undefined;
+    },
+    labels: (v, cab) => (selectedImplement(v, cab)?.lowered
+      ? { label: "Raise", icon: "hitchUp" } : { label: "Lower", icon: "hitchDown" }) },
+  fold: { label: "Unfold", icon: "fold", action: "implement.fold", progressive: true, read: (v, cab) => {
+    const i = selectedImplement(v, cab);
+    return i && i.foldable ? i.unfolded === true : undefined;
+  }, moving: (v, cab) => selectedImplement(v, cab)?.foldMoving === true,
+  labels: (v, cab) => {
+    const i = selectedImplement(v, cab);
+    // a fold started in game: which way it goes is a guess from where it was
+    if (i?.foldMoving) return { label: i.unfolded ? "Folding…" : "Unfolding…" };
+    return { label: i?.unfolded ? "Fold" : "Unfold" };
   } },
-  aiWorker: { label: "AI worker", icon: "aiWorker", read: (v) => (v ? v.isAI === true : undefined) },
-  implementRaised: { label: "Raise", icon: "hitchUp", read: anyImpl((i) => i.lowered === false) },
-  implementLowered: { label: "Lower", icon: "hitchDown", read: anyImpl((i) => i.lowered === true) },
-  implementOn: { label: "Work", icon: "implementOn", read: anyImpl((i) => i.turnedOn === true) },
-  // unavailable without an implement that has a PTO
+  implementOn: { label: "Work", icon: "implementOn", action: "implement.turnOn", read: (v, cab) => {
+    const i = selectedImplement(v, cab);
+    return i && (!cab || i.canTurnOn) ? i.turnedOn === true : undefined;
+  } },
+  // the attach key (Q): attaches what's in range or detaches the selected
+  // implement, as the game decides; pending until what's attached changes
+  hitch: { label: "Hitch", icon: "hitch", action: "hitch.toggle",
+    read: (v, cab) => either(v, cab, (src) => (cab ? src.hitched === true : impls(src).length > 0)),
+    settle: { ms: 1500, key: attachedSet, hint: "None in range", quiet: ["nothing in range"] } },
+  // a status, not a button: unavailable without an implement that has a PTO
   pto: { label: "PTO", icon: "pto", read: ptoOf },
 };
 
@@ -84,22 +269,47 @@ export const CONTROLS = {
  * @typedef {Object} ControlGroup
  * @property {string} label "Lights"
  * @property {string[]} controls ids in CONTROLS
- * @property {boolean} [implementName] add the first implement's name to the label
+ * @property {boolean} [implementName] add the selected implement's name to the label
  */
 
 /**
  * One labelled group of controls, kept up to date.
  * @param {ControlGroup} group
  * @param {Store} store
- * @param {(action: string) => Promise<import("../commands.js").CommandResult>} [send]
+ * @param {(action: string, value?: number) => Promise<import("../commands.js").CommandResult>} [send]
  */
 export function controlGroup(group, store, send = sendCommand) {
+  let stepper = steppers.get(store);
+  if (!stepper && group.controls.some((id) => CONTROLS[id]?.hold)) {
+    stepper = cruiseStepper(store, send);
+    steppers.set(store, stepper);
+  }
   const title = h("h2", { className: "control-group-label", text: group.label });
   const items = group.controls.map((id) => {
     const def = CONTROLS[id];
     if (!def) throw new Error(`no control "${id}"`);
     const action = def.action;
-    return { def, ui: createControl(def, action ? () => send(action) : undefined) };
+    const settle = def.settle && {
+      ms: def.settle.ms, hint: def.settle.hint, quiet: def.settle.quiet,
+      key: () => {
+        const v = controlledVehicle(store);
+        const cab = cabOf(store);
+        return def.settle?.key ? def.settle.key(v, cab) : String(def.read(v, cab));
+      },
+    };
+    const dir = def.hold;
+    const hold = dir && stepper ? {
+      tick: () => stepper?.tick(dir),
+      end: () => stepper?.end(),
+    } : undefined;
+    if (hold && stepper) {
+      const tick = hold.tick;
+      let down = false;
+      hold.tick = () => { if (!down) { down = true; stepper?.start(); } tick(); };
+      const end = hold.end;
+      hold.end = () => { if (down) { down = false; end(); } };
+    }
+    return { def, ui: createControl(def, action && !hold ? () => send(action) : undefined, settle, hold) };
   });
   const el = h("section", { className: "control-group" }, title,
     h("div", { className: "control-grid" }, ...items.map((i) => i.ui.el)));
@@ -110,14 +320,23 @@ export function controlGroup(group, store, send = sendCommand) {
     for (const { def, ui } of items) {
       const on = def.read(v, cab);
       if (def.dots) ui.setDots(on === undefined ? undefined : def.dots(v, cab));
-      ui.set(on === undefined ? "unavailable" : on ? "on" : "off");
+      const moving = on !== undefined && (def.moving ? def.moving(v, cab) === true
+        : def === CONTROLS.cruise ? store.get("cruiseTarget") !== undefined : false);
+      if (def.value) ui.setValue(on === undefined ? undefined : def.value(v, cab, unitsOf(store), store));
+      if (def.labels && on !== undefined) {
+        const l = def.labels(v, cab);
+        if (l) ui.setLabel(l.label, l.icon);
+      }
+      ui.set(on === undefined ? "unavailable" : moving ? "pending" : on ? "on" : "off");
     }
     if (group.implementName) {
-      const name = impls(v)[0]?.name;
+      const name = selectedImplement(v, cab)?.name;
       title.textContent = name ? `${group.label} · ${name}` : group.label;
     }
   };
   store.subscribe("vehicles", update);
   store.subscribe("cab", update);
+  store.subscribe("env", update);
+  store.subscribe("cruiseTarget", update);
   return el;
 }

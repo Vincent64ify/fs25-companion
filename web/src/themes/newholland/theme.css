@@ -402,7 +402,39 @@ button { font: inherit; color: inherit; }
   color: var(--on-text);
   box-shadow: var(--on-lift);
 }
-.control[data-state="pending"] { border-style: dashed; border-color: var(--select); }
+/* pending: a dash running clockwise round the edge (ui/control.js loadingRing);
+   with reduced motion the whole edge pulses slowly instead */
+.control { position: relative; }
+.control-ring {
+  position: absolute;
+  inset: -1px;
+  width: calc(100% + 2px);
+  height: calc(100% + 2px);
+  overflow: visible;
+  pointer-events: none;
+  display: none;
+}
+.control[data-state="pending"] .control-ring { display: block; }
+.control-ring rect {
+  width: 100%;
+  height: 100%;
+  rx: 16px;
+  fill: none;
+  stroke: var(--select);
+  stroke-width: 3;
+  stroke-linecap: round;
+  stroke-dasharray: 24 76;
+  animation: control-ring 1.1s linear infinite;
+}
+@keyframes control-ring { to { stroke-dashoffset: -100; } }
+@keyframes control-pulse { 50% { opacity: 0.3; } }
+@media (prefers-reduced-motion: reduce) {
+  .control-ring rect { stroke-dasharray: none; animation: control-pulse 1.8s ease-in-out infinite; }
+}
+/* a value line (the cruise set speed) and a quiet hint (nothing in range) */
+.control-value { display: none; font-size: 11px; font-weight: 600; line-height: 1; opacity: 0.85; white-space: nowrap; }
+.control[data-value] .control-value { display: block; }
+.control[data-hint] .control-label { color: var(--muted); }
 .control[data-state="unavailable"] { opacity: 0.45; box-shadow: none; }
 /* a control wired to the game (it has no aria-disabled): pressed on touch-down */
 .control:not([aria-disabled]) { cursor: pointer; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
@@ -413,7 +445,7 @@ button { font: inherit; color: inherit; }
    current one; lit dots glow in the "on" text colour */
 .control-dots { display: none; gap: 4px; height: 6px; margin-top: -2px; }
 .control[data-dots] .control-dots { display: flex; }
-.control[data-dots] { gap: 4px; }
+.control[data-dots], .control[data-value] { gap: 4px; }
 .control-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; opacity: 0.22; }
 .control-dot.lit { opacity: 1; box-shadow: 0 0 4px currentColor; }
 

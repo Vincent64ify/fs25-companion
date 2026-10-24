@@ -338,14 +338,14 @@ const { controlGroup, CONTROLS } = await import("./src/widgets/controls.js");
 const cs = createStore();
 const lightsGroup = controlGroup({ label: "Lights", controls: ["lights", "beacon", "hazard"] }, cs);
 const implGroup = controlGroup({ label: "Implement", implementName: true,
-  controls: ["implementRaised", "implementLowered", "implementOn", "pto"] }, cs);
+  controls: ["implementLowered", "fold", "implementOn", "pto"] }, cs);
 const states = (g) => [...g.querySelectorAll(".control")].map((b) => b.dataset.state);
 check("controls: unavailable on foot", [states(lightsGroup), states(implGroup)],
   [["unavailable", "unavailable", "unavailable"], ["unavailable", "unavailable", "unavailable", "unavailable"]]);
 cs.set("vehicles", { controlledId: 1, vehicles: [{ id: 1, lights: { on: true, beacon: false, hazard: true },
   implements: [{ name: "Seeder", lowered: true, turnedOn: false }] }] });
 check("controls: state from the game", [states(lightsGroup), states(implGroup)],
-  [["on", "off", "on"], ["off", "on", "off", "unavailable"]]);
+  [["on", "off", "on"], ["on", "unavailable", "off", "unavailable"]]);
 check("controls: implement's name in the label, aria", [implGroup.querySelector("h2").textContent,
   lightsGroup.querySelector(".control").getAttribute("aria-label"),
   lightsGroup.querySelector(".control").getAttribute("aria-pressed")],
@@ -377,7 +377,9 @@ const tapGroup = controlGroup({ label: "Lights", controls: ["lights", "beacon"] 
 const [lightsBtn, beaconBtn] = tapGroup.querySelectorAll(".control");
 const tap = (el) => el.dispatchEvent(new PointerEvent("pointerdown", { button: 0, bubbles: true }));
 check("controls: only wired ones are buttons",
-  [lightsBtn.hasAttribute("aria-disabled"), beaconBtn.getAttribute("aria-disabled")], [false, "true"]);
+  [lightsBtn.hasAttribute("aria-disabled"), beaconBtn.hasAttribute("aria-disabled"),
+   controlGroup({ label: "P", controls: ["pto"] }, ccs).querySelector(".control").getAttribute("aria-disabled")],
+  [false, false, "true"]);
 tap(lightsBtn);
 check("controls: no command while unavailable", presses.length, 0);
 ccs.set("vehicles", { controlledId: 1, vehicles: [{ id: 1, lights: { on: false, beacon: true } }] });
@@ -429,6 +431,156 @@ dcs.set("cab", cabL({ on: false, stage: 0, stages: 3 }));
 const offDots = dotState();
 dcs.set("cab", { inVehicle: false });
 check("light stages: all dim when off, none on foot", [offDots, dotState()], [[true, "000"], [false, ""]]);
+
+// Controls C2: one button per toggle, the selected implement, fold pending
+const c2 = createStore();
+const sentC2 = [];
+const c2send = (action) => { sentC2.push(action); return Promise.resolve({ ok: true }); };
+const drive = controlGroup({ label: "Drive", controls: ["cruiseDown", "cruise", "cruiseUp", "engineOn", "aiWorker"] }, c2, c2send);
+const impl = controlGroup({ label: "Implement", implementName: true,
+  controls: ["implementLowered", "fold", "implementOn", "hitch"] }, c2, c2send);
+const c2cab = (extra) => ({ inVehicle: true, vehicleId: 3, engineOn: true, aiActive: false, hitched: true,
+  cruise: { state: "on", speed: 15 }, lights: { on: false }, implements: [],
+  implement: { name: "Rubin 12", lowered: false, canLower: true, turnedOn: false, canTurnOn: false,
+    foldable: true, unfolded: false, foldMoving: false }, ...extra });
+c2.set("cab", c2cab({}));
+check("C2: drive and implement state from the cab", [states(drive), states(impl), impl.querySelector("h2").textContent],
+  [["off", "on", "off", "on", "off"], ["off", "off", "unavailable", "on"], "Implement · Rubin 12"]);
+c2.set("cab", c2cab({ implement: { ...c2cab({}).implement, foldMoving: true } }));
+check("C2: a running fold shows pending", states(impl)[1], "pending");
+c2.set("cab", c2cab({ implement: { ...c2cab({}).implement, unfolded: true } }));
+check("C2: then the end state", states(impl)[1], "on");
+c2.set("cab", c2cab({ hitched: false, implement: undefined }));
+check("C2: nothing attached: hitch off, implement controls unavailable, plain label",
+  [states(impl), impl.querySelector("h2").textContent], [["unavailable", "unavailable", "unavailable", "off"], "Implement"]);
+c2.set("cab", c2cab({ cruise: undefined }));
+check("C2: cruise steps need cruise control", states(drive).slice(0, 3), ["unavailable", "unavailable", "unavailable"]);
+c2.set("cab", c2cab({}));
+for (const b of [...drive.querySelectorAll(".control"), ...impl.querySelectorAll(".control")]) {
+  // the cruise −/+ are held controls, checked below
+  if (b.dataset.state !== "unavailable" && !/Cruise [−+]/.test(b.textContent)) tap(b);
+}
+await Promise.resolve(); await Promise.resolve();
+check("C2: each button sends its own action", sentC2,
+  ["cruise.toggle", "engine.toggle", "ai.toggle", "implement.lower", "implement.fold", "hitch.toggle"]);
+
+// C2 feedback: running border, settle (engine, hitch), cruise set speed
+const fb = createStore();
+let answer;
+const fbSend = () => new Promise((r) => { answer = r; });
+const fbGroup = controlGroup({ label: "F", controls: ["engineOn", "hitch", "cruise"] }, fb, fbSend);
+const [engBtn, hitchBtn, cruiseBtn] = fbGroup.querySelectorAll(".control");
+const fbCab = (extra) => ({ inVehicle: true, engineOn: false, engineState: "off", hitched: true,
+  cruise: { state: "off", speed: 15, speedReverse: 8, reverse: false },
+  implement: { name: "Rubin 12" }, implements: [{ lowered: false, turnedOn: false }], ...extra });
+fb.set("cab", fbCab({}));
+check("feedback: every control has the running border", !!engBtn.querySelector("svg.control-ring rect[pathLength='100']"), true);
+tap(engBtn);
+answer({ ok: true });
+await Promise.resolve(); await Promise.resolve(); await Promise.resolve();
+const afterAck = engBtn.dataset.state;
+fb.set("cab", fbCab({ engineState: "starting" }));
+const starting = engBtn.dataset.state;
+fb.set("cab", fbCab({ engineState: "on", engineOn: true }));
+await Promise.resolve(); await Promise.resolve();
+check("feedback: the engine stays pending after the ack, while starting, until it runs",
+  [afterAck, starting, engBtn.dataset.state, "error" in engBtn.dataset], ["pending", "pending", "on", false]);
+fb.set("cab", fbCab({ engineState: "starting" }));
+check("feedback: starting from a key in game shows pending too", engBtn.dataset.state, "pending");
+fb.set("cab", fbCab({}));
+tap(hitchBtn);
+answer({ ok: false, reason: "nothing in range" });
+await Promise.resolve(); await Promise.resolve(); await Promise.resolve();
+check("feedback: hitch with nothing in range: a quiet hint, not a failure",
+  [hitchBtn.dataset.state, "hint" in hitchBtn.dataset, "error" in hitchBtn.dataset, hitchBtn.querySelector(".control-label").textContent],
+  ["on", true, false, "None in range"]);
+tap(hitchBtn);
+answer({ ok: true });
+await new Promise((r) => setTimeout(r, 50));
+const hitchWaiting = hitchBtn.dataset.state;
+fb.set("cab", fbCab({ hitched: false, implement: undefined, implements: [] }));
+await Promise.resolve(); await Promise.resolve();
+check("feedback: hitch pending until what's attached changes", [hitchWaiting, hitchBtn.dataset.state], ["pending", "off"]);
+const val = () => cruiseBtn.querySelector(".control-value").textContent;
+const cruiseFwd = val();
+fb.set("cab", fbCab({ cruise: { state: "on", speed: 15, speedReverse: 8, reverse: true } }));
+const cruiseRev = val();
+fb.set("env", { units: { miles: true } });
+check("feedback: cruise shows its one set speed, also in reverse",
+  [cruiseFwd, cruiseRev, val(), cruiseBtn.hasAttribute("data-value")], ["15 km/h", "15 km/h", "9 mph", true]);
+
+
+// C2 round 3: hold to repeat the cruise speed, labels that follow the game
+const hs = createStore();
+const holdSent = [];
+const hsSend = (action, value) => { holdSent.push([action, value]); return Promise.resolve({ ok: true }); };
+const hsGroup = controlGroup({ label: "D", controls: ["cruiseDown", "cruise", "cruiseUp"] }, hs, hsSend);
+const [downBtn, cruiseB, upBtn] = hsGroup.querySelectorAll(".control");
+hs.set("cab", { inVehicle: true, cruise: { state: "on", speed: 15, speedReverse: 8, reverse: false }, implements: [] });
+const cval = () => cruiseB.querySelector(".control-value").textContent;
+upBtn.dispatchEvent(new PointerEvent("pointerdown", { button: 0, bubbles: true, pointerId: 7 }));
+const firstShown = [cval(), cruiseB.dataset.state, upBtn.dataset.state];
+await new Promise((r) => setTimeout(r, 900));
+upBtn.dispatchEvent(new PointerEvent("pointerup", { button: 0, bubbles: true, pointerId: 7 }));
+await new Promise((r) => setTimeout(r, 80));
+const heldTo = cval();
+const steps = Number(heldTo.split(" ")[0]) - 15;
+check("hold: the target shows at once, pending, and the button reads as held", firstShown, ["16 km/h", "pending", "pending"]);
+// about 6 steps in 0.9 s; timers can run late on a busy page, so only "it repeats"
+check("hold: it repeats while held, sends absolute speeds, the last one last",
+  [steps >= 2 && steps <= 8, holdSent.every(([a]) => a === "cruise.set"), holdSent.at(-1)[1], holdSent.length <= steps + 1],
+  [true, true, 15 + steps, true]);
+hs.set("cab", { inVehicle: true, cruise: { state: "on", speed: 15 + steps, speedReverse: 8, reverse: false }, implements: [] });
+check("hold: the game confirms: no longer pending", [cval(), cruiseB.dataset.state, upBtn.dataset.state],
+  [`${15 + steps} km/h`, "on", "off"]);
+holdSent.length = 0;
+hs.set("cab", { inVehicle: true, cruise: { state: "on", speed: 15, speedReverse: 8, reverse: true }, implements: [] });
+downBtn.click();
+await new Promise((r) => setTimeout(r, 80));
+check("hold: in reverse, still the one set speed, one step by keyboard", [holdSent, cval()], [[["cruise.set", 14]], "14 km/h"]);
+hs.set("cab", { inVehicle: true, cruise: { state: "on", speed: 14, speedReverse: 8, reverse: true }, implements: [] });
+holdSent.length = 0;
+hs.set("env", { units: { miles: true } });
+upBtn.click();
+await new Promise((r) => setTimeout(r, 80));
+check("hold: steps of 1 mph in miles", [Math.round(holdSent[0][1] / 1.609344 * 100) / 100, cval()], [10, "10 mph"]);
+
+const { icon: iconOf } = await import("./src/ui/icons.js");
+const ls = createStore();
+let lsAnswer;
+const lsGroup = controlGroup({ label: "I", controls: ["implementLowered", "fold"] }, ls,
+  () => new Promise((r) => { lsAnswer = r; }));
+const [lowBtn, foldBtn] = lsGroup.querySelectorAll(".control");
+const lbl = (b) => b.querySelector(".control-label").textContent;
+const lsCab = (impl) => ({ inVehicle: true, hitched: true, implements: [], implement: { name: "Rubin", canLower: true,
+  lowered: false, foldable: true, unfolded: false, foldMoving: false, ...impl } });
+ls.set("cab", lsCab({}));
+const raisedLabels = [lbl(lowBtn), lbl(foldBtn), lowBtn.querySelector("svg")?.innerHTML === iconOf("hitchDown").innerHTML];
+ls.set("cab", lsCab({ lowered: true, unfolded: true }));
+check("labels: what a tap will do, as the game's help says it",
+  [raisedLabels, [lbl(lowBtn), lbl(foldBtn), lowBtn.dataset.state, foldBtn.dataset.state,
+    lowBtn.querySelector("svg").innerHTML === iconOf("hitchUp").innerHTML]],
+  [["Lower", "Unfold", true], ["Raise", "Fold", "on", "on", true]]);
+tap(lowBtn);
+const raising = lbl(lowBtn);
+lsAnswer({ ok: true });
+ls.set("cab", lsCab({ lowered: false, unfolded: true }));
+await Promise.resolve(); await Promise.resolve();
+check("labels: \"Raising…\" while it runs, then the next action", [raising, lbl(lowBtn), lowBtn.getAttribute("aria-label")],
+  ["Raising…", "Lower", "Lower, off"]);
+tap(foldBtn);
+lsAnswer({ ok: true });
+ls.set("cab", lsCab({ unfolded: false, foldMoving: true }));
+await Promise.resolve(); await Promise.resolve();
+const folding = [lbl(foldBtn), foldBtn.dataset.state];
+ls.set("cab", lsCab({ unfolded: false, foldMoving: false }));
+check("labels: \"Folding…\" through the fold, then \"Unfold\"", [folding, lbl(foldBtn), foldBtn.dataset.state],
+  [["Folding…", "pending"], "Unfold", "off"]);
+ls.set("cab", lsCab({ unfolded: false, foldMoving: true }));
+check("labels: a fold started by the key in game", lbl(foldBtn), "Unfolding…");
+
+const ids = Object.keys(CONTROLS);
+check("C2: one button per toggle, no on/off pairs", ids.filter((id) => /Raised|Off$/.test(id)), []);
 const iconsT3 = await import("./src/ui/icons.js");
 check("controls: every control's icon exists", Object.entries(CONTROLS).filter(([, c]) => !iconsT3.hasIcon(c.icon))
   .map(([id]) => id), []);

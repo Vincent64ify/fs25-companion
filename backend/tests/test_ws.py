@@ -199,3 +199,37 @@ def test_client_cannot_send_commands_and_pending_ones_fail_when_it_leaves():
         assert recv(viewer) == {"type": "client_status", "connected": False}
         assert recv(viewer) == {"type": "command_ack", "id": "p1", "ok": False,
                                 "reason": "game client disconnected"}
+
+
+def test_c2_actions_reach_the_client():
+    client = TestClient(create_app())
+    with client.websocket_connect("/ws?pair=c2") as game, \
+            client.websocket_connect("/ws?pair=c2") as viewer:
+        game.send_text(json.dumps({"type": "hello", "role": "client"}))
+        assert recv(game)["type"] == "welcome"
+        viewer_hello(viewer)
+        for action in ("implement.fold", "implement.lower", "hitch.toggle", "cruise.up", "ai.toggle"):
+            command(viewer, "c-" + action, action=action)
+            assert recv(game)["action"] == action
+        command(viewer, "x", action="implement.explode")
+        assert recv(viewer)["reason"] == "action not allowed"
+
+
+def test_cruise_set_carries_a_checked_value():
+    client = TestClient(create_app())
+    with client.websocket_connect("/ws?pair=val") as game, \
+            client.websocket_connect("/ws?pair=val") as viewer:
+        game.send_text(json.dumps({"type": "hello", "role": "client"}))
+        assert recv(game)["type"] == "welcome"
+        viewer_hello(viewer)
+        viewer.send_text(json.dumps({"type": "command", "id": "s1", "action": "cruise.set", "value": 23.5}))
+        got = recv(game)
+        assert (got["action"], got["value"]) == ("cruise.set", 23.5)
+        for bad in (None, "fast", True, 0, 999):
+            viewer.send_text(json.dumps({"type": "command", "id": "b", "action": "cruise.set", "value": bad}))
+            assert recv(viewer)["reason"] == "value not allowed"
+        # a value on an action that takes none
+        viewer.send_text(json.dumps({"type": "command", "id": "c", "action": "lights.toggle", "value": 3}))
+        assert recv(viewer)["reason"] == "value not allowed"
+        command(viewer, "ok")
+        assert "value" not in recv(game)

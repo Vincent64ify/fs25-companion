@@ -86,7 +86,8 @@ class WebSocketRelay:
     """Sends the outbox to the backend. The backend answers the client's
     hello with a ``welcome`` carrying a token, which authorizes map asset
     uploads. ``on_connect`` (an async callable) runs after every connect;
-    ``on_command(ref, action)`` for each command the backend forwards."""
+    ``on_command(ref, action, value)`` for each command the backend
+    forwards (value None for actions without one)."""
 
     def __init__(self, backend: str, pairing: str, outbox: Outbox):
         self.backend = backend
@@ -96,7 +97,7 @@ class WebSocketRelay:
         self.sent = 0
         self.token: Optional[str] = None
         self.on_connect: Optional[Callable[[], Awaitable[None]]] = None
-        self.on_command: Optional[Callable[[str, str], None]] = None
+        self.on_command: Optional[Callable[[str, str, Any], None]] = None
         self._ws = None
         self._hooks: set = set()
 
@@ -169,4 +170,4 @@ class WebSocketRelay:
             return
         ref, action = msg.get("ref"), msg.get("action")
         if isinstance(ref, str) and isinstance(action, str) and self.on_command is not None:
-            self.on_command(ref, action)
+            self.on_command(ref, action, msg.get("value"))

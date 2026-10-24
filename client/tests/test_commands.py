@@ -145,7 +145,7 @@ def test_forwarder_passes_hellos_and_acks_on():
 def test_relay_hands_commands_to_on_command():
     relay = WebSocketRelay("ws://h", "1", Outbox())
     got = []
-    relay.on_command = lambda ref, action: got.append((ref, action))
+    relay.on_command = lambda ref, action, value=None: got.append((ref, action))
     relay.handle_message('{"type": "command", "ref": "4", "action": "lights.toggle"}')
     relay.handle_message('{"type": "replaced"}')
     relay.handle_message('{"type": "command", "ref": 4}')
@@ -160,3 +160,57 @@ def test_refs_are_escaped(tmp_path, ref):
     text = (tmp_path / "cmd" / "1.xml").read_text(encoding="utf-8")
     import xml.etree.ElementTree as ET
     assert ET.fromstring(text.split("?>", 1)[1]).get("ref") == ref
+
+
+def test_every_backend_action_maps_to_a_mod_action(tmp_path):
+    import sys
+    sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+    from backend.app.protocol import COMMAND_ACTIONS
+    assert set(commands_mod.ACTIONS) == set(COMMAND_ACTIONS)
+    lua = (Path(__file__).resolve().parents[2] / "mod" / "src" / "Commands.lua").read_text(encoding="utf-8")
+    allowed = set(re.findall(r"^    ([A-Z_]+) = \{", lua, re.M))
+    assert set(commands_mod.ACTIONS.values()) == allowed, "the mod allows exactly what the client sends"
+    writer, acks, _ = make(tmp_path)
+    writer.submit("9", "implement.fold")
+    assert attrs(tmp_path / "cmd" / "1.xml")["action"] == "FOLD_IMPLEMENT"
+    assert acks == []
+
+
+def test_cruise_set_writes_its_value_and_checks_the_range(tmp_path):
+    writer, acks, _ = make(tmp_path)
+    writer.submit("1", "cruise.set", 23.5)
+    assert attrs(tmp_path / "cmd" / "1.xml")["value"] == "23.500"
+    assert attrs(tmp_path / "cmd" / "1.xml")["action"] == "CRUISE_SET_SPEED"
+    writer.submit("2", "cruise.set", 999)
+    writer.submit("3", "cruise.set", "fast")
+    writer.submit("4", "lights.toggle", 5)
+    assert [a["data"]["reason"] for a in acks] == ["value not allowed"] * 3
+
+
+def test_cruise_set_one_in_the_game_the_latest_waits(tmp_path):
+    writer, acks, _ = make(tmp_path)
+    writer.submit("a", "cruise.set", 10)
+    writer.submit("b", "cruise.set", 11)  # waits
+    writer.submit("c", "cruise.set", 12)  # replaces b
+    writer.submit("d", "lights.toggle")   # other actions go straight in
+    files = sorted(p.name for p in (tmp_path / "cmd").iterdir())
+    assert files == ["1.xml", "2.xml"]
+    assert attrs(tmp_path / "cmd" / "2.xml")["action"] == "TOGGLE_LIGHTS"
+    assert [(a["data"]["ref"], a["data"]["ok"], a["data"]["reason"]) for a in acks] == [("b", True, "superseded")]
+    # the mod answers 1: the waiting one (12) goes in
+    writer.on_ack({"id": 1, "ok": True})
+    assert attrs(tmp_path / "cmd" / "3.xml")["value"] == "12.000"
+    assert attrs(tmp_path / "cmd" / "3.xml")["ref"] == "c"
+    writer.on_ack({"id": 2, "ok": True})  # the lights: nothing waiting moves
+    writer.on_ack({"id": 3, "ok": True})
+    writer.submit("e", "cruise.set", 13)
+    assert attrs(tmp_path / "cmd" / "4.xml")["value"] == "13.000"
+
+
+def test_relay_passes_the_value_on():
+    relay = WebSocketRelay("ws://h", "1", Outbox())
+    got = []
+    relay.on_command = lambda ref, action, value: got.append((ref, action, value))
+    relay.handle_message('{"type": "command", "ref": "4", "action": "cruise.set", "value": 21}')
+    relay.handle_message('{"type": "command", "ref": "5", "action": "lights.toggle"}')
+    assert got == [("4", "cruise.set", 21), ("5", "lights.toggle", None)]

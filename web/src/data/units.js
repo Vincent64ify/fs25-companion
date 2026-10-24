@@ -41,6 +41,8 @@ export const unitsOf = (store) => unitsFrom(store.get("env"));
 export const speedUnit = (u) => (u.miles ? "mph" : "km/h");
 /** @param {number} kmh @param {Units} u */
 export const speedValue = (kmh, u) => (u.miles ? kmh / KM_PER_MILE : kmh);
+/** the other way: a speed in the player's unit, in km/h @param {number} value @param {Units} u */
+export const speedToKmh = (value, u) => (u.miles ? value * KM_PER_MILE : value);
 
 /** @param {Units} u */
 export const tempUnit = (u) => (u.fahrenheit ? "°F" : "°C");

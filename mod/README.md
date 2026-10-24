@@ -62,8 +62,8 @@ sent again.
 | `farmland_grid` | once per map, and after each rotation | farmland id per 4 m cell (at most 512 cells a side), run-length encoded: cell, cols, rows, originX, originZ, runs [id, count, ...] |
 | `crop_types` | once per map, and after each rotation | fruits[] (index, name, title, color and colorBlindColor as the game's [r, g, b], numGrowthStates, minHarvest, maxHarvest, withered, cut, minPrepare, maxPrepare, regrows, shownOnMap, stateNames), groundTypes (FieldGroundType name → value), levels (lime, plow, spray maximums) |
 | `field_outlines` | once per map, and after each rotation | fields[]: id, points [x1, z1, x2, z2, ...] from the field's polygon point nodes (or its density map polygon) |
-| `cab` | every frame, sent only on change | inVehicle, vehicleId, engineOn, lights (on, high, beacon, hazard, left, right, stage: the light key's step with 0 = off, stages), cruise (state, speed), implements[] (lowered, turnedOn) |
-| `command_ack` | the frame a command runs, then `cab` | id (the file's number), ref, action, ok, reason |
+| `cab` | every frame, sent only on change | inVehicle, vehicleId, engineOn, lights (on, high, beacon, hazard, left, right, stage: the light key's step with 0 = off, stages), engineState (off, starting, on), cruise (state, speed, maxSpeed), aiActive, hitched, implement (the selected one: name, lowered, canLower, turnedOn, canTurnOn, foldable, unfolded, foldMoving), implements[] (lowered, turnedOn) |
+| `command_ack` | the frame a command runs, then `cab` | id (the file's number), ref, action, ok, reason, via (the input action that ran, or "setter") |
 | `fields` | every 15 s | fields[]: id, farmlandId, x, z (field sign), areaHa and the game's fieldState: fruitTypeIndex (0 = none), growthState, groundType, sprayLevel, sprayType, limeLevel, plowLevel, rollerLevel, stubbleShredLevel, weedState, stoneLevel |
 
 A collector whose API call fails drops only its own topic (or a single
@@ -101,8 +101,13 @@ leaves the value out):
   are from the FS22 spec, with the old mod's names as a fallback; the
   light stages from `lightStates` / `currentLightState` (FS22 names), else
   matched by mask
-- commands: `TOGGLE_LIGHTS` through its input event (the lights should
-  cycle as the key does); the fallback sets `setLightsTypesMask` 0 / 1
+- commands: `TOGGLE_LIGHTS` through its input event cycles the lights as
+  the key does (confirmed, C1). The C2 actions and their setter fallbacks
+  are listed in `Commands.ACTIONS`; log.txt's "command … via …" lines say
+  which path each took
+- the selected implement (`getSelectedVehicle`), fold state
+  (`getIsUnfolded`, `getIsAnimationPlaying`, `foldAnimTime`),
+  `getAllowsLowering`, `spec_turnOnVehicle`
 - rotation: does reopening with `"w"` truncate the file?
 - fields: is `field.fieldState` kept current by the game (does the crop
   change on the dashboard after sowing or harvesting)? Do the outlines from

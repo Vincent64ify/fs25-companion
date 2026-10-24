@@ -69,7 +69,24 @@
  * @property {{on?: boolean, high?: boolean, left?: boolean, right?: boolean, hazard?: boolean, beacon?: boolean, stage?: number, stages?: number}} [lights]
  *   stage: the light key's step, 0 = off, of stages (mod 0.5.1)
  * @property {{state: string, speed?: number}} [cruise]
+ * @property {boolean} [aiActive]
+ * @property {boolean} [hitched] something is attached
+ * @property {SelectedImplement} [implement] the one the implement keys act on
  * @property {{lowered: boolean, turnedOn: boolean}[]} [implements]
+ */
+
+/**
+ * The selected implement (cab.implement). unfolded is undefined when the
+ * game doesn't say; foldMoving while a fold animation runs.
+ * @typedef {Object} SelectedImplement
+ * @property {string} [name]
+ * @property {boolean} [lowered]
+ * @property {boolean} [canLower]
+ * @property {boolean} [turnedOn]
+ * @property {boolean} [canTurnOn]
+ * @property {boolean} [foldable]
+ * @property {boolean|null} [unfolded]
+ * @property {boolean} [foldMoving]
  */
 
 /**

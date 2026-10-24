@@ -31,12 +31,13 @@ const commander = createCommander((msg) => {
 });
 
 /**
- * Send a command to the game ("lights.toggle"); resolves with the mod's
- * answer, or a failure after 2 s without one.
+ * Send a command to the game ("lights.toggle", or "cruise.set" with a
+ * value); resolves with the mod's answer, or a failure after 2 s without one.
  * @param {string} action
+ * @param {number} [value]
  * @returns {Promise<import("./commands.js").CommandResult>}
  */
-export const sendCommand = (action) => commander.send(action);
+export const sendCommand = (action, value) => commander.send(action, value);
 
 async function resolvePairing() {
   const pair = (params.get("pair") || "").trim();

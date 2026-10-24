@@ -141,4 +141,11 @@ def test_cab_and_command_ack():
     with pytest.raises(ValidationError):
         parse_envelope({**ack, "data": {"id": 3}})  # ok is required
     assert "command_ack" in EVENT_TOPICS
-    assert COMMAND_ACTIONS == {"lights.toggle"}
+    assert {"lights.toggle", "implement.fold", "hitch.toggle", "cruise.up"} <= COMMAND_ACTIONS
+    assert "engine.explode" not in COMMAND_ACTIONS
+    parse_envelope({**cab, "data": {**cab["data"], "aiActive": False, "hitched": True,
+                                    "implement": {"name": "Rubin 12", "lowered": True, "foldable": True,
+                                                  "unfolded": None, "foldMoving": True}}})
+    with pytest.raises(ValidationError):
+        parse_envelope({**cab, "data": {**cab["data"], "implement": {"foldMoving": "maybe"}}})
+    parse_envelope({**ack, "data": {**ack["data"], "via": "IMPLEMENT_EXTRA2"}})

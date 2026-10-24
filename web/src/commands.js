@@ -35,14 +35,16 @@ export function createCommander(transmit, opts = {}) {
   return {
     /**
      * @param {string} action "lights.toggle"
+     * @param {number} [value] for actions that carry one ("cruise.set": km/h)
      * @returns {Promise<CommandResult>}
      */
-    send(action) {
+    send(action, value) {
       const id = `${prefix}-${++seq}`;
       return new Promise((resolve) => {
         const timer = setTimeout(() => settle(id, { ok: false, reason: "no answer" }), timeoutMs);
         pending.set(id, { resolve, timer });
-        if (!transmit({ type: "command", id, action })) {
+        const msg = value === undefined ? { type: "command", id, action } : { type: "command", id, action, value };
+        if (!transmit(msg)) {
           settle(id, { ok: false, reason: "not connected" });
         }
       });
