@@ -4,7 +4,7 @@
 // layer's drop-down and colour key (the fields' colour mode). Choices are
 // remembered in localStorage, as is whether the panel is open. This builds
 // the panel only; each theme decides where it shows and how it opens
-// (Default: themes/default/mapControls.js).
+// (New Holland: themes/newholland/mapControls.js).
 
 /** @typedef {import("../types.js").MapLayer} MapLayer */
 

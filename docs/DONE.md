@@ -427,6 +427,9 @@ Changes since Phase 4 (2026-10-21 to 2026-10-22):
 - **Implement screen design** (`f2c1178`, 2026-10-24): the hybrid design
   (rig band plus a card for the picked implement) approved and written into
   THEMES.md. Not built yet.
+- **Default removed** (2026-10-24): the original dashboard theme, its
+  corner map buttons and layout probe are gone; New Holland style is the
+  only theme and the default. The theme mechanism stays for more brands.
 
 ## Controls
 

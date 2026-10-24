@@ -9,7 +9,6 @@ export default {
   label: "New Holland style",
   note: "Inspired by the IntelliView 12. Not affiliated with New Holland.",
   palettes: ["day", "night"],
-  mapControls: "edge",
   css: "src/themes/newholland/theme.css",
   chrome: {
     status: {

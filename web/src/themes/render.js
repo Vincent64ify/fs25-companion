@@ -1,8 +1,7 @@
 // @ts-check
 // The theme contract, and the one renderer that turns a theme's data into
-// its chrome and screens. A theme with its own build() (Default) draws
-// itself instead. Screens are built once and switched with `hidden`; the
-// map frame moves into the visible screen's map slot.
+// its chrome and screens. Screens are built once and switched with
+// `hidden`; the map frame moves into the visible screen's map slot.
 
 import { createWidget, WIDGETS } from "../widgets/index.js";
 import { controlGroup, CONTROLS } from "../widgets/controls.js";
@@ -44,16 +43,13 @@ import { hasIcon, icon } from "../ui/icons.js";
 
 /**
  * @typedef {Object} Theme
- * @property {string} id "default", "newholland"
+ * @property {string} id "newholland"
  * @property {string} label shown in the theme selector
  * @property {string} [note] under the label ("Not affiliated with ...")
  * @property {string[]} palettes "day", "night"; empty: one look only
- * @property {"corners"|"edge"} mapControls where the map's buttons go
  * @property {string} css the theme's stylesheet, from index.html
  * @property {{status?: StatusBar, values?: string[], controls?: ControlGroup[]}} [chrome]
  * @property {Screen[]} [screens]
- * @property {(app: HTMLElement, store: Store, frame: MapFrame, settings?: Settings) => Rendered} [build]
- *   draws the theme itself, ignoring chrome and screens
  */
 
 /**
@@ -130,7 +126,6 @@ export function checkTheme(theme, widgetIds = Object.keys(WIDGETS)) {
  * @returns {Rendered}
  */
 export function renderTheme(theme, app, store, frame, settings) {
-  if (theme.build) return theme.build(app, store, frame, settings);
   const errors = checkTheme(theme);
   if (errors.length) throw new Error(`theme ${theme.id}: ${errors.join("; ")}`);
 

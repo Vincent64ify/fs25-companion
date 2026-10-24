@@ -57,7 +57,8 @@ These decisions hold for all the work below:
 
 Planned in [THEMES.md](THEMES.md): themes based on the brands' in-cab
 terminals, each with its own layout and screens. The first is a New Holland
-style, after the IntelliView 12. Today's look stays as the Default theme.
+style, after the IntelliView 12. The old Default theme was removed on
+2026-10-24: New Holland style is the default until more brands come.
 
 | Phase | What | Status |
 |---|---|---|

@@ -4,7 +4,7 @@
     python scripts/app_icons.py
 
 The drawing is web/icons/icon.svg (the tractor of src/ui/icons.js on
-Default's slate), redrawn here with Pillow, so change both together:
+a dark slate), redrawn here with Pillow, so change both together:
 - icon-192.png and icon-512.png: rounded, like the SVG;
 - icon-maskable-512.png and apple-touch-icon.png (180): the whole square,
   since Android and iOS cut their own shape out of it, with the drawing

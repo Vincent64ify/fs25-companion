@@ -1,10 +1,9 @@
 // @ts-check
 // The controlled vehicle's attached implements: lowered (and where the
 // hitch is while it moves), on, PTO, wear and fill levels.
-// Variants: "list" (a <ul>), "card" (Default: titled card around the list),
-// both hidden while nothing is attached; "rows" (the Vehicle screen: one
-// row per implement with its icon, state chips and wear bar, and a line
-// saying so when nothing is attached).
+// Variants: "list" (a <ul>, hidden while nothing is attached); "rows" (the
+// Vehicle screen: one row per implement with its icon, state chips and wear
+// bar, and a line saying so when nothing is attached).
 
 import { controlledVehicle, fillName, fillPct, implementsOf, kindLabel, vehicleKind } from "../data/selectors.js";
 import { h } from "../ui/dom.js";
@@ -101,16 +100,13 @@ function implementRows(store, opts = {}) {
 /** @type {import("./widget.js").CreateWidget} */
 export function implementsWidget(store, opts = {}) {
   if (opts.variant === "rows") return implementRows(store, opts);
-  const list = h("ul");
-  const root = opts.variant === "card"
-    ? h("div", { className: "card" }, h("h3", { text: "Implements" }), list)
-    : list;
+  const root = h("ul");
   if (opts.id) root.id = opts.id;
 
   store.subscribe("vehicles", () => {
     const impls = implementsOf(controlledVehicle(store));
     root.hidden = impls.length === 0;
-    list.replaceChildren(...impls.map((impl) => h("li", { text: implementLine(impl) })));
+    root.replaceChildren(...impls.map((impl) => h("li", { text: implementLine(impl) })));
   });
   return root;
 }

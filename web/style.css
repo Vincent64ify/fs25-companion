@@ -2,7 +2,7 @@
    Each theme's own layout is in src/themes/<id>/theme.css, loaded after
    this file; only the active theme's is loaded. */
 
-/* Interface tokens, with Default's values. A theme overrides them, per
+/* Interface tokens: neutral dark values. A theme overrides them, per
    palette with [data-palette="day|night"] on <html>. */
 :root {
   --font: system-ui, -apple-system, sans-serif;

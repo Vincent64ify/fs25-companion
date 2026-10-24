@@ -3,7 +3,7 @@
 // create(store, {variant}) returns an element that keeps itself up to date.
 // Variants differ in markup only; themes style them. Without data a widget
 // hides itself, or shows "–" when the theme asks for it (whenMissing:
-// "dash", Default's rows and gauges).
+// "dash", New Holland's condition tiles).
 
 import { h } from "../ui/dom.js";
 import { icon } from "../ui/icons.js";

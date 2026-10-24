@@ -285,10 +285,10 @@ check("widget without data: dash or hidden", [fuelRow.hidden, fuelRow.textConten
 ws.set("vehicles", { controlledId: 7, vehicles: [{ ...tractor, speed: 12.6 }] });
 check("widget row, tile and gauge", [fuelRow.querySelector("dd").textContent, fuelTile.hidden,
   fuelTile.textContent, speedGauge.textContent], ["38%", false, "Fuel38%", "13km/h"]);
-const impls = createWidget("implements", ws, { variant: "card" });
-check("implements card", [impls.hidden, impls.querySelector("li").textContent], [false, "Plough – lowered"]);
+const impls = createWidget("implements", ws);
+check("implements list", [impls.hidden, impls.querySelector("li").textContent], [false, "Plough – lowered"]);
 ws.set("vehicles", { controlledId: 7, vehicles: [{ id: 7 }] });
-check("implements card hides when empty", impls.hidden, true);
+check("implements list hides when empty", impls.hidden, true);
 check("implement line", implementLine({ name: "Seeder", depth: 2, turnedOn: true, wear: 0.25 }),
       "  Seeder – on, wear 25%");
 
@@ -297,20 +297,24 @@ check("implement line", implementLine({ name: "Seeder", depth: 2, turnedOn: true
 const { chooseTheme } = await import("./src/themes/registry.js");
 const { checkTheme, renderTheme } = await import("./src/themes/render.js");
 const fakeThemes = [
-  { id: "default", palettes: [] },
+  { id: "plain", palettes: [] },
   { id: "nh", palettes: ["day", "night"] },
 ];
 const pick = (search, saved = {}) => (({ theme, palette }) => [theme.id, palette])(chooseTheme(search, saved, fakeThemes));
-check("theme: Default when nothing is chosen", pick(""), ["default", undefined]);
+check("theme: the first when nothing is chosen", pick(""), ["plain", undefined]);
 check("theme: the device's choice", pick("", { theme: "nh", palette: "night" }), ["nh", "night"]);
-check("theme: the URL wins", pick("?theme=nh&palette=day", { theme: "default" }), ["nh", "day"]);
+check("theme: the URL wins", pick("?theme=nh&palette=day", { theme: "plain" }), ["nh", "day"]);
 check("theme: with ?pair= and ?backend=", pick("?pair=123456&theme=nh&backend=ws://x"), ["nh", "day"]);
 check("theme: unknown theme or palette falls back", [pick("?theme=nope"), pick("?theme=nh&palette=pink")],
-      [["default", undefined], ["nh", "day"]]);
-check("theme: palette only for themes that have them", pick("?palette=night"), ["default", undefined]);
-check("real themes are valid", (await import("./src/themes/registry.js")).THEMES.flatMap((t) => checkTheme(t)), []);
+      [["plain", undefined], ["nh", "day"]]);
+check("theme: palette only for themes that have them", pick("?palette=night"), ["plain", undefined]);
+const { THEMES } = await import("./src/themes/registry.js");
+check("real themes are valid", THEMES.flatMap((t) => checkTheme(t)), []);
+check("theme: New Holland is the default, and a saved old Default falls back to it",
+  [THEMES[0].id, chooseTheme("", { theme: "default" }).theme.id, chooseTheme("?theme=default", {}).palette],
+  ["newholland", "newholland", "day"]);
 check("theme check: unknown widget, two map slots", checkTheme({
-  id: "x", palettes: [], mapControls: "edge", css: "",
+  id: "x", palettes: [], css: "",
   chrome: { values: ["speed", "nope"] },
   screens: [{ id: "a", label: "A", slots: [{ map: "full" }, { map: "mini" }] }],
 }), ['chrome.values: no widget "nope"', "screen a: 2 map slots, at most 1"]);
@@ -321,7 +325,7 @@ const rs = createStore();
 const app = document.createElement("div");
 const rframe = createMapFrame(rs);
 const ui = renderTheme({
-  id: "x", label: "X", palettes: [], mapControls: "edge", css: "",
+  id: "x", label: "X", palettes: [], css: "",
   chrome: { status: ["clock"], values: ["speed", "fuel"] },
   screens: [
     { id: "map", label: "Map", slots: [{ map: "full" }] },
@@ -617,7 +621,7 @@ check("alert chips", [chips.hidden, chips.querySelector(".alert-chip")?.dataset.
 
 // the theme check knows controls, icons, the status bar's parts and readouts
 check("theme check: controls, icons, status parts, readout", checkTheme({
-  id: "x", palettes: [], mapControls: "edge", css: "",
+  id: "x", palettes: [], css: "",
   chrome: { status: { start: ["nope1"], end: [{ widget: "money", variant: "text" }] },
     controls: [{ label: "L", controls: ["lights", "nope2"] }] },
   screens: [{ id: "a", label: "A", icon: "nope3", slots: [{ controls: true }], readout: ["nope4"] }],
@@ -628,13 +632,13 @@ check("theme check: controls, icons, status parts, readout", checkTheme({
 const { createSettings } = await import("./src/ui/settings.js");
 const picked = [];
 const fakeSettings = createSettings({
-  themes: [{ id: "default", label: "Default", palettes: [] }, { id: "nh", label: "NH", palettes: ["day", "night"] }],
+  themes: [{ id: "plain", label: "Plain", palettes: [] }, { id: "nh", label: "NH", palettes: ["day", "night"] }],
   theme: { id: "nh", label: "NH", palettes: ["day", "night"] }, palette: "day",
   onTheme: (id) => picked.push(`theme ${id}`), onPalette: (p) => picked.push(`palette ${p}`),
 });
 const app2 = document.createElement("div");
 const ui2 = renderTheme({
-  id: "x", label: "X", palettes: [], mapControls: "edge", css: "",
+  id: "x", label: "X", palettes: [], css: "",
   chrome: { status: { start: ["mapName"], centre: ["dayClock"], end: ["money"] },
     controls: [{ label: "Lights", controls: ["lights", "beacon"] }] },
   screens: [
@@ -662,12 +666,12 @@ sb.click();
 check("settings: the button toggles the panel", [openNow, fakeSettings.layer.hidden, sb.getAttribute("aria-expanded")],
       [true, true, "false"]);
 fakeSettings.layer.querySelector('[data-palette="night"]').click();
-const defaultRadio = fakeSettings.layer.querySelector('input[value="default"]');
-defaultRadio.checked = true;
-defaultRadio.dispatchEvent(new Event("change"));
+const plainRadio = fakeSettings.layer.querySelector('input[value="plain"]');
+plainRadio.checked = true;
+plainRadio.dispatchEvent(new Event("change"));
 check("settings: palette and theme choices",
   [picked, fakeSettings.layer.querySelector('[data-palette="night"]').getAttribute("aria-checked")],
-  [["palette night", "theme default"], "true"]);
+  [["palette night", "theme plain"], "true"]);
 
 // --- T5: full screen and keep-awake (ui/screenMode.js), in Settings and the status bar ---
 const screenMode = await import("./src/ui/screenMode.js");
@@ -716,7 +720,7 @@ check("keep-awake: unsupported without the Wake Lock API (a plain LAN address)",
 
 // Settings: a Screen group with keep-awake where supported; full screen is the status bar's button only
 const fsSettings = createSettings({
-  themes: [{ id: "default", label: "Default", palettes: [] }], theme: { id: "default", label: "Default", palettes: [] },
+  themes: [{ id: "plain", label: "Plain", palettes: [] }], theme: { id: "plain", label: "Plain", palettes: [] },
   palette: undefined, onTheme: () => {}, onPalette: () => {},
   keepAwake: { supported: true, wanted: () => keep.wanted(), set: (on) => keep.set(on) },
 });
@@ -729,7 +733,7 @@ check("settings: Screen group with keep-awake, no full-screen toggle", [
   !!fsSettings.layer.querySelector('[data-choice="fullscreen"]'),
 ], [["Theme", "Screen"], "true", "false", false, false]);
 const plainSettings = createSettings({
-  themes: [{ id: "default", label: "Default", palettes: [] }], theme: { id: "default", label: "Default", palettes: [] },
+  themes: [{ id: "plain", label: "Plain", palettes: [] }], theme: { id: "plain", label: "Plain", palettes: [] },
   palette: undefined, onTheme: () => {}, onPalette: () => {},
   keepAwake: { supported: false, wanted: () => false, set: () => {} },
 });
@@ -842,12 +846,12 @@ check("implement rows: title, icons, chips, wear", [q(implRows, "h2"),
    ["12%"], "Weight", true]);
 
 check("theme check: slots inside groups", checkTheme({
-  id: "x", palettes: [], mapControls: "edge", css: "",
+  id: "x", palettes: [], css: "",
   screens: [{ id: "a", label: "A", slots: [{ map: "full" }, { group: "g", slots: [{ widget: "nope" }, { map: "mini" }] }] }],
 }), ['screen a: no widget "nope"', "screen a: 2 map slots, at most 1"]);
 const app3 = document.createElement("div");
 const ui3 = renderTheme({
-  id: "x", label: "X", palettes: [], mapControls: "edge", css: "",
+  id: "x", label: "X", palettes: [], css: "",
   screens: [
     { id: "vehicle", label: "Vehicle", slots: [{ group: "cards", slots: [{ widget: "fuel", variant: "condition", whenMissing: "dash" }] }] },
     { id: "map", label: "Map", slots: [{ map: "full" }] },

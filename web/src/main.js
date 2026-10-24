@@ -23,7 +23,6 @@ import { createPlayerLayer } from "./map/layers/playerLayer.js";
 import { createFieldInfoPanel } from "./panels/fieldInfoPanel.js";
 import { chooseTheme, saveChoice, savedChoice, THEMES, withoutParams } from "./themes/registry.js";
 import { renderTheme } from "./themes/render.js";
-import { addFollowButtons, addLegendControl } from "./themes/default/mapControls.js";
 import { addEdgeControls, TOOLBAR_INSET } from "./themes/newholland/mapControls.js";
 import { createSettings } from "./ui/settings.js";
 import { createKeepAwake } from "./ui/screenMode.js";
@@ -88,16 +87,14 @@ if (rendered.showScreen) {
 
 // --- map -------------------------------------------------------------------
 
-const corners = theme.mapControls === "corners";
-const map = createMapView(frame.mapEl, { zoomControl: corners });
+const map = createMapView(frame.mapEl, { zoomControl: false });
 frame.map = map;
 // each theme's map slot keeps its own view (New Holland: zoom, follow, where you left it)
 const follow = createFollow(map, {
-  slotZoom: !corners,
-  slot: corners ? undefined : `${theme.id}/${rendered.mapScreen || "map"}`,
+  slotZoom: true,
+  slot: `${theme.id}/${rendered.mapScreen || "map"}`,
   mapId: () => store.get("hello")?.mapId,
 });
-if (corners) addFollowButtons(map, follow);
 createOverviewLayer(map, store, { onNewMap: follow.onNewMap });
 addCursorReadout(map);
 
@@ -115,8 +112,7 @@ const layers = [
 ];
 for (const layer of layers) layer.leafletLayer.addTo(map);
 const legend = buildLegend(map, layers);
-if (corners) addLegendControl(map, legend);
-else addEdgeControls(map, follow, legend);
+addEdgeControls(map, follow, legend);
 fadeIdleControls(map);
 
 createFieldInfoPanel(store, frame.fieldInfo);
@@ -129,7 +125,7 @@ app.addEventListener("showonmap", () => {
   }
   follow.recentre();
 });
-keepPopupsInside(map, { avoid: frame.fieldInfo, inset: corners ? {} : TOOLBAR_INSET });
+keepPopupsInside(map, { avoid: frame.fieldInfo, inset: TOOLBAR_INSET });
 
 // --- animation -------------------------------------------------------------
 

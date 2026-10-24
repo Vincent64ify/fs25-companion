@@ -1,15 +1,15 @@
 // @ts-check
 // Which theme and palette this device shows: the URL wins
 // (?theme=newholland&palette=night, for bookmarks), then the device's
-// saved choice, then Default. Switching theme reloads the page.
+// saved choice, then the first theme (New Holland style). Switching theme
+// reloads the page; a saved theme that no longer exists falls back too.
 
-import defaultTheme from "./default/theme.js";
 import newHolland from "./newholland/theme.js";
 
 /** @typedef {import("./render.js").Theme} Theme */
 
 /** @type {Theme[]} the first is the fallback */
-export const THEMES = [defaultTheme, newHolland];
+export const THEMES = [newHolland];
 
 export const STORAGE_KEYS = { theme: "fs25companion.theme", palette: "fs25companion.palette" };
 

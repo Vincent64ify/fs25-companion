@@ -7,20 +7,23 @@
 > (T3)"; T4 (Vehicle screen) done on 2026-10-23, see "As built (T4)"; T5
 > (responsive pass, full screen, home screen) done on 2026-10-23, see "As
 > built (T5)"; T6 (more data from the game) built on 2026-10-24, see "As
-> built (T6)", and waiting for a live check.
+> built (T6)", and waiting for a live check. The Default theme was removed
+> on 2026-10-24 (see "Default removed"): New Holland style is the only
+> theme, and the default, until more brands come.
 
 ## Goal
 
 The user chooses how the dashboard looks. A theme recreates the in-cab
 terminal of a tractor brand (layout, colours, feel) with a modern finish.
 - **First theme:** New Holland style, after the IntelliView 12.
-- **Default theme:** today's dashboard, which stays exactly as it is.
+- **Default theme:** the original dashboard, kept through T6, removed on
+  2026-10-24. New Holland style is now the default.
 
 ## Words used in this plan
 
 | Word | Meaning |
 |---|---|
-| Theme | A complete look: chrome, screens, palettes. "Default", "New Holland style". |
+| Theme | A complete look: chrome, screens, palettes. "New Holland style". |
 | Palette | A theme's colours for day or for night. |
 | Size class | compact, regular or wide. Layouts adapt to the screen's size, not to a device model. |
 | Chrome | The parts around the screens: status bar, value column, control column, tab bar. |
@@ -34,7 +37,7 @@ terminal of a tractor brand (layout, colours, feel) with a modern finish.
 
 | Topic | Decision |
 |---|---|
-| Default theme | Today's layout, unchanged. Its only addition is a small Settings button at the header's left, which arrives with the second theme. |
+| Default theme | Removed on 2026-10-24 (see "Default removed"). Until then: the original layout, plus a Settings button at the header's left. |
 | Settings entry | The same in every theme: a "Settings" button with the sliders icon, top-left, opening a panel that starts with Theme. The same button opens and closes it (shown pressed while open); the panel has no close button and sits in the main area, under the header, never over it (T0 review). |
 | First theme | New Holland style, based on the IntelliView 12 (T7 LWB, T7 HD, T8, T9). |
 | Naming | Brand + "style" in the selector, with the note "Inspired by the IntelliView 12. Not affiliated with New Holland." No logos, emblems or official artwork. Internal id: `newholland`. |
@@ -1103,6 +1106,22 @@ answers "how is my tractor". Not built yet.
   any button is pressed; compact (portrait) layout, likely the band as a
   scrolling row and the card full width.
 
+### Default removed (2026-10-24)
+
+The original dashboard no longer made sense next to New Holland style, so
+it is gone; the theme mechanism stays for the next brands.
+- **Removed:** `themes/default/` (its build, CSS and corner map buttons),
+  `web/tools/layoutProbe.js` (it recorded Default's layout), the theme
+  contract's `build()` and `mapControls` (only Default used them), the
+  implements widget's `card` variant, and Default's thumbnail in the
+  Settings panel.
+- **Default theme:** `THEMES` is `[newHolland]`, so with no choice, or a
+  saved `default` from before, a device shows New Holland style (Day).
+- **Map:** `main.js` always draws the edge toolbar, with slot zoom and the
+  slot's saved view. `fs25companion.follow` is no longer written.
+- **Settings:** the Theme group lists New Holland style only; a new theme
+  is a folder under `themes/` added to `THEMES` in `registry.js`.
+
 ### Later
 
 - Building the Implement screen (designed above); Fields and Farm screens.
@@ -1118,11 +1137,12 @@ answers "how is my tractor". Not built yet.
   `map/mapView.js`, `map/popupPlacement.js`, `web/test.html`,
   `mod/src/collectors/Vehicles.lua` (T4: brand and shop category).
 - **New:** `web/src/data/selectors.js`, `web/src/widgets/`,
-  `web/src/themes/render.js`, `themes/registry.js`, `themes/default/`,
-  `themes/newholland/`, `web/src/map/mapFrame.js`, `web/src/ui/dom.js`
+  `web/src/themes/render.js`, `themes/registry.js`, `themes/default/`
+  (removed 2026-10-24), `themes/newholland/`, `web/src/map/mapFrame.js`, `web/src/ui/dom.js`
   (was `panels/dom.js`), `web/src/ui/icons.js`, `web/src/ui/control.js`,
   `web/src/ui/settings.js`, `web/src/widgets/controls.js`,
-  `web/src/widgets/vehicleScreen.js`, `web/tools/layoutProbe.js`,
+  `web/src/widgets/vehicleScreen.js`, `web/tools/layoutProbe.js` (removed
+  2026-10-24),
   `web/tools/icons.html`, `web/src/ui/screenMode.js` and
   `web/src/widgets/screen.js` (T5: full screen, keep-awake),
   `web/manifest.json`, `web/icons/` and `scripts/app_icons.py` (T5: home

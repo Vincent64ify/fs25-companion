@@ -61,9 +61,9 @@ Browser dashboard: Leaflet map in world coordinates, one layer per feature
   farmland borders shaded by owner, and fields coloured like the PDA's
   filters (crop, growth, fertilizer, lime, plowing, weeds), with a legend
   that remembers your choices. Tap a field for its details.
-- **Themes.** The Settings button (top-left) picks how the dashboard looks,
-  saved per device: **Default**, the map beside a panel of cards, or the
-  **New Holland style**, after the IntelliView 12 terminal, with a status
+- **Themes.** The dashboard is styled after a tractor's in-cab terminal.
+  For now there is one theme, **New Holland style**, after the IntelliView
+  12 terminal (more brands later, picked in Settings), with a status
   bar, a map toolbar, the vehicle's lights, engine and implement state, a
   speed and fuel readout, a Vehicle screen (speed arc, gear and rpm, fuel,
   temperature, wear, hours and the attached implements), and a Day / Night

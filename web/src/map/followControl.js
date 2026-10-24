@@ -1,8 +1,8 @@
 // @ts-check
 // "Follow me" keeps the player centred; dragging the map turns it off.
 // "Whole map" zooms out to the terrain. The follow choice is remembered.
-// This is the logic only: each theme draws its own buttons (Default:
-// themes/default/mapControls.js) and listens with onChange.
+// This is the logic only: each theme draws its own buttons (New Holland:
+// themes/newholland/mapControls.js) and listens with onChange.
 //
 // With slotZoom (New Holland style), following zooms to the slot's own
 // zoom (mapView.js defaultZoom), and keeps it as the slot changes size
