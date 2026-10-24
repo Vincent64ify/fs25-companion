@@ -42,7 +42,7 @@ terminal of a tractor brand (layout, colours, feel) with a modern finish.
 | First theme | New Holland style, based on the IntelliView 12 (T7 LWB, T7 HD, T8, T9). |
 | Naming | Brand + "style" in the selector, with the note "Inspired by the IntelliView 12. Not affiliated with New Holland." No logos, emblems or official artwork. Internal id: `newholland`. |
 | What a theme changes | Everything: its own chrome and screens, not just colours. |
-| Screens (v1) | Map and Vehicle. Implements, Fields and Farm screens come later. |
+| Screens (v1) | Map and Vehicle. Implement is designed; Fields, Farm, Work and Yard come later (see Later). |
 | Customising | Fixed layouts now. Layouts are stored as data, so an edit mode can come later. |
 | Night mode | A manual Day / Night switch, saved per device. Nothing switches by itself. |
 | Targets | Landscape tablets of any brand and second PC monitors. Phones keep working (compact class) but aren't a design target. |
@@ -1131,7 +1131,27 @@ it is gone; the theme mechanism stays for the next brands.
 
 ### Later
 
-- Building the Implement screen (designed above); Fields and Farm screens.
+- Building the Implement screen (designed above).
+- **More screens** (brainstorm, 2026-10-24): four more tabs, which fill the
+  tab bar's seven slots (Map, Vehicle, Implement, Fields, Farm, Work,
+  Yard). Not designed yet. Suggested order:
+  1. **Fields:** the fields as a to-do list: crop, growth stage, ready to
+     harvest, and what each needs (lime, fertiliser, plough, weeds,
+     rolling), most urgent first; tap one to see it on the Map. The
+     weather forecast and a crop calendar live here too. Needs no new mod
+     data: the `fields` and `crop_types` topics have it.
+  2. **Farm:** money and finances (loan, income and costs today and this
+     year), what's in the silos and storage, and the market: where each
+     crop sells best and what the stock is worth there. Needs the
+     `prices` topic (PLAN.md, Later) and a storage and finance topic.
+  3. **Work:** hired workers and contracts side by side: job, progress,
+     time left, reward or hourly cost; plus vehicles that need fuel or
+     repair. Workers are partly sent already; contracts, and fuel and
+     wear for vehicles not being driven, are new.
+  4. **Yard:** animals and production points, the buildings that need
+     feeding: headcount, food, water, straw, health and outputs to
+     collect for each barn; running or not, missing inputs and full
+     outputs for each production. Needs the most new mod data.
 - The shop picture on the vehicle card (see Vehicle pictures).
 - Layout editing.
 - More brands: Fendt FendtONE, John Deere G5, Massey Ferguson Datatronic,
