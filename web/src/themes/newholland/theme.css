@@ -198,7 +198,7 @@ button { font: inherit; color: inherit; }
 /* Safari's full-screen X sits over the top-left corner (widgets/screen.js):
    the Settings button moves clear of it */
 :root[data-fullscreen="close-button"] .status-bar {
-  padding-left: calc(64px + env(safe-area-inset-left, 0px));
+  padding-left: calc(92px + env(safe-area-inset-left, 0px));
 }
 .status-start, .status-end { display: flex; align-items: center; gap: 12px; min-width: 0; }
 .status-end { justify-content: flex-end; }
