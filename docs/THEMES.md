@@ -1053,33 +1053,56 @@ PLAN.md, Open checks). A wrong guess leaves the value out, nothing breaks.
 
 Approved by Vincent on 2026-10-24 in the Claude Design canvas
 "FS25 Companion: Implement screen" (board C · Hybrid, private, on
-claude.ai). It's a third tab, **Implement**, after Map and Vehicle, and
-answers "what is my tool doing and when must I act", where Vehicle
-answers "how is my tractor". Not built yet.
+claude.ai), then brought in line with the C3 decisions the same evening
+(this text wins where the canvas differs). It's the third of the seven
+tabs, **Implement**, after Map and Vehicle, in New Holland style (the only
+theme), and answers "what is my tool doing and when must I act", where
+Vehicle answers "how is my tractor". Not built yet.
 
 - **Layout (regular):** the usual chrome. The main area has rows
   `132 | 1fr`; the detail row has columns `1fr | 250`; the control column
   is 268 wide, as on the other screens.
-- **Rig band** (top, readout-card colours): the job in words ("Seeding",
-  "Harvesting · Wheat", "Delivering · Grain mill" for an AI worker),
-  speed, PTO and when the first tank runs out. Under it, the hitch chain
+- **Rig band** (top, readout-card colours, the screen's main card): the
+  job in words ("Seeding", "Harvesting · Wheat", "Delivering · Grain mill"
+  for an AI worker), speed, PTO, when the first tank runs out, and the
+  **Engine** button, as on the Vehicle screen's readout card (blue while
+  on, a green dot while the engine runs). Under it, the rig from `cab.rig`
   as tiles in driving order: rear tools on the left, the tractor, front
-  tools on the right. Each tile has its icon badge (yellow while
-  working), name, state line and a thin bar per fill unit. The picked
-  tile has a yellow outline. With one tool, the band shows just the
-  tractor and that tool.
-- **Implement card** (the picked tool): ‹ › buttons (and a swipe) to move
-  between tools, icon, name, category and side, a Working chip; then
-  four stat tiles: Lift (bar, Raised to Lowered, "Hitch 40%" while it
-  moves), Work, PTO, Speed against the tool's working speed limit. Then
-  the tool's own buttons: Raise, Lower, Work, PTO, Fold, Detach. Then its
-  tanks: a big meter per fill unit with litres and a time estimate; the
-  tank that runs out first gets a "Runs out first" chip.
-- **Details card:** wear, working width, area done this run, folding,
-  whether the game has this tool selected, Show on map.
-- **Control column:** Lights and Drive as on Map and Vehicle, plus All
-  implements (Raise all, Lower all, Attach). The per-tool buttons live on
-  the implement card, so the column needs no Implement group here.
+  tools on the right; a tool on a tool (a bucket on a loader) sits next to
+  its parent. Each tile has its icon badge (yellow while working, as in
+  the Attached rows), name, state line and a thin bar per fill unit. With
+  one tool, the band shows just the tractor and that tool.
+- **Selected tile:** the tool the game has selected. The band is dark by
+  day and at night, so the selected tile always takes the night selection
+  (yellow, dark ink), the same colours as a selected Attached row at
+  night; on the Vehicle screen's light card by day that row is dark blue.
+- **Implement card** (the selected tool): its own ‹ › (and a swipe) to
+  select the previous or next tool, icon, name, category and side, a
+  Working chip; then four stat tiles: Lift (bar, Raised to Lowered,
+  "Hitch 40%" while it moves), Work, PTO, Speed against the tool's working
+  speed limit. Then the tool's buttons, the same controls as the Vehicle
+  screen's Implement group and working exactly like the game's keys:
+  **Lower / Raise** (one button, its label follows the state), **Work**,
+  **Fold / Unfold**, and **Detach**. PTO is a stat, not a button (the game
+  has no PTO key). A button whose key would act on another tool, through
+  the game's shortcut for an action only one tool has, shows that tool's
+  model under its label ("Fold" · "TERRIA 6040", brand dropped, "…" when
+  too long). A button the tool can't do is unavailable, not hidden. Then
+  its tanks: a big meter per fill unit with litres and a time estimate;
+  the tank that runs out first gets a "Runs out first" chip.
+- **Details card:** wear, working width, area done this run, folding
+  state, Show on map.
+- **Control column:** Lights and Drive as on Map and Vehicle, without the
+  Engine (it's on the rig band), plus All implements: **Lower all / Raise
+  all** (the game's lower-all key, one toggle) and **Hitch** (exactly the
+  Q key). The per-tool buttons live on the implement card, so the column
+  needs no Implement group here, and no Prev / Next tool (the card's ‹ ›
+  do that).
+- **Front loader:** a tile like any other, with state and Detach only: no
+  arm, tool or crane controls from the dashboard. Its tool (a bucket, a
+  bale fork) is selectable on its own, so it gets its own tile, with a
+  fill bar when it has a fill level. The implement card for either shows
+  the stats and Detach; Lower, Work and Fold are unavailable.
 - **Combines:** the harvester's own grain tank is a tile and the
   implement card's tanks show it ("full in ≈ 3 min", "Call a trailer");
   Pipe and Unload join its buttons.
@@ -1088,28 +1111,26 @@ answers "how is my tractor". Not built yet.
 - **Estimates** come from the dashboard alone: the fill level's change
   over the last 60 s gives litres per minute, then minutes to empty or
   full. Shown as "≈", hidden when the rate is unsteady or zero.
-- **Data already sent (T6):** name, category, depth, lowered, turnedOn,
-  pto, hitch, wear, fills, ai job.
+- **Selecting = selecting in game** (Vincent, 2026-10-24, built in C3):
+  tapping a tile, ‹ › or a swipe selects that tool in game the same frame
+  (`implement.select`, `implement.previous` / `next`), so G is never
+  needed; G pressed in game moves the selected tile too. The dashboard
+  keeps no pick of its own.
+- **Data already sent:** T6: name, category, depth, lowered, turnedOn,
+  pto, hitch, wear, fills, ai job. C3: `cab.rig` (id, parent, depth,
+  side, selectable, selected, each tool's state), `cab.keys` (which tool
+  lower, fold and turn on would act on), each implement's `id` and
+  `brand`.
 - **New data the mod needs** (dashed purple on the boards):
-  - front or rear: the attacher joint's type or side;
   - working speed limit (`getSpeedLimit`);
   - working width (the work areas);
-  - folding state (`spec_foldable`);
-  - the whole rig as a tree with the tool the game has selected (`cab.rig`);
   - pipe out or in, tipping or not, cover state;
   - a combine's crop.
-- **Picking = selecting in game** (Vincent, 2026-10-24): tapping a tile,
-  ‹ › or a swipe selects that tool in game right away, so G is never
-  needed; G pressed in game moves the picked tile too. The dashboard keeps
-  no pick of its own. Needs the mod's rig tree (`cab.rig`, see
-  [PLAN.md](PLAN.md) C3). The front loader is a tile like any other (state,
-  Detach), its tool gets its own tile when it has a fill level; no loader
-  or crane controls.
-- **Controls:** C2 wires Raise, Lower, Work, PTO (they act on the game's
-  selected implement, which is the picked tile), Raise all, Lower all and
-  Attach. C3 adds Select, the target on every card button, Fold, Detach,
-  Pipe, Unload, Tipping and Cover. Until then those buttons show as
-  unavailable.
+- **Controls:** already built (C2, C3): Lower / Raise, Work, Fold, Hitch,
+  Select, Prev / Next tool, Detach, Engine, and the tool name on a button.
+  New with this screen: Lower all / Raise all, Pipe, Unload, Tipping and
+  Cover, each as the game's key. Until a control exists its button shows
+  as unavailable.
 - **Open:** compact (portrait) layout, likely the band as a scrolling row
   and the card full width.
 

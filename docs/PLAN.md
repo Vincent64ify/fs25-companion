@@ -17,11 +17,11 @@ it relies on, are in [DONE.md](DONE.md). Small fixes go in
   (fuel usage, DEF, cruise, fill levels, PTO, hitch, AI job, units), is
   built and waiting for a live check. The season, the engine-on reading and
   the map positions are confirmed in game.
-- Controls C0 to C2 are done and work live on Windows (mod 0.6.3): lights,
-  cruise, engine, AI worker and the selected implement from the dashboard,
-  with the game's state shown the same frame. Next is C3.
-- The Implement screen is designed (see [THEMES.md](THEMES.md#implement-screen-design-2026-10-24)),
-  not built. The Map's field and farmland panel is one land panel
+- Controls C0 to C3 are done and work live on Windows (mod 0.7.1): lights,
+  cruise, engine, AI worker and the implements from the dashboard, with
+  the game's state shown the same frame; tapping a tool selects it in game.
+- The Implement screen is designed and aligned with C3 (see [THEMES.md](THEMES.md#implement-screen-design-2026-10-24)),
+  not built. It's next. The Map's field and farmland panel is one land panel
   (`3648def`).
 - macOS is still to test, and a few things are still to confirm in game (see
   [Open checks](#open-checks)).
