@@ -4,7 +4,7 @@ What's next for FS25 Companion. What's already built, and the game API facts
 it relies on, are in [DONE.md](DONE.md). Small fixes go in
 [NEXT.md](NEXT.md).
 
-## Where things stand (2026-10-23)
+## Where things stand (2026-10-24)
 
 - Phases 0 to 4 of the rework are built and run live on Windows (Solek, and
   Kinlaig, a paid DLC map): the file stream, the client and backend, and the
@@ -15,7 +15,14 @@ it relies on, are in [DONE.md](DONE.md). Small fixes go in
   too; it fits every tablet and monitor size checked, goes full screen, and
   can be added to a tablet's home screen. T6, more data from the game
   (fuel usage, DEF, cruise, fill levels, PTO, hitch, AI job, units), is
-  built and waiting for a live check.
+  built and waiting for a live check. The season, the engine-on reading and
+  the map positions are confirmed in game.
+- Controls C0 to C2 are done and work live on Windows (mod 0.6.3): lights,
+  cruise, engine, AI worker and the selected implement from the dashboard,
+  with the game's state shown the same frame. Next is C3.
+- The Implement screen is designed (see [THEMES.md](THEMES.md#implement-screen-design-2026-10-24)),
+  not built. The Map's field and farmland panel is one land panel
+  (`3648def`).
 - macOS is still to test, and a few things are still to confirm in game (see
   [Open checks](#open-checks)).
 
@@ -62,7 +69,7 @@ style, after the IntelliView 12. Today's look stays as the Default theme.
 | T5 | Responsive pass across tablets and monitors, full screen, home screen | done 2026-10-23 |
 | T6 | More data from the game (can start any time) | built 2026-10-24, live check open |
 
-## After that: Controls (control the game from the dashboard)
+## Now: Controls (control the game from the dashboard)
 
 Buttons that trigger in-game actions, for example lights, beacon, hazard,
 turn signals, engine, cruise control, PTO / implement on, lower / raise,
@@ -126,8 +133,8 @@ and the mod each accept only actions from the known list.
 |---|---|---|
 | C0 | Spike: can the mod see and read a client-written file every frame, fresh and cheaply; can it run an action by name; round-trip time ([spike/README.md](../spike/README.md#command-spike-c0)) | done on Windows 2026-10-24 (results below); macOS to run |
 | C1 | One control (lights) end to end: protocol, backend relay, client file writer, mod reader, ack, `cab` topic | done 2026-10-24: works live on Windows (mod 0.5.0); light stages as dots (0.5.1) and the reverse-light fix (0.5.2) confirmed live |
-| C2 | The first control set in both themes, held controls with auto-release | done 2026-10-24: works live on Windows (mod 0.6.3, after three live rounds); held controls (press / release) moved to C3 |
-| C3 | Targeted actions (cruise speed, detach a chosen implement), round-trip readout in Settings | |
+| C2 | The first control set in both themes, held controls with auto-release | done 2026-10-24 (`112c665`): works live on Windows (mod 0.6.3, after three live rounds); reverse cruise dropped; held controls (press / release) moved to C3 |
+| C3 | Targeted actions (cruise speed, detach a chosen implement), held controls with auto-release (front loader), round-trip readout in Settings | next, not started |
 | C4 | Live check on Windows and macOS, multiplayer as client and host | |
 
 **C0 results (Windows, 2026-10-24).** The channel works:
@@ -314,19 +321,12 @@ Built, but not yet confirmed in game:
   Then switch the game to miles, Fahrenheit, acres and pounds and check
   the dashboard follows. If a value is missing, run the spike: its
   `controlledDetail` now dumps the specs these come from.
-- **Season:** read 0-based, `env.season` showed Autumn in August. The mod
-  now sends `env.month` from `environment.currentPeriod` (1 = March) and the
-  status bar names the season from it (Mar-May spring ... Dec-Feb winter);
-  check it against the in-game calendar.
-- **Engine on:** `spec_motorized.engineStarted` was always nil, so the
-  engine read as off. Now `getIsMotorStarted()`, else `isMotorStarted`;
-  check the readout's Engine on/off and the Engine control.
-- **Positions:** compare the player marker and the hotspots with the in-game
-  PDA at three spots: a map corner, the centre and a sell point.
 - **Overview image:** see it in a live session on a map whose image the
   client can read. Kinlaig is a DLC map, so it shows the plain stand-in.
 - **Fields:** how fresh `fieldState` is, outline accuracy against the PDA,
-  the colour space of `defaultMapColor`, and what `weedState` means.
+  the colour space of `defaultMapColor`, what `weedState` means (the
+  dashboard counts anything above 0 as weeds), and whether `rollerLevel`
+  above 0 means the field needs rolling, as the land panel guesses.
 - **Hitched implements:** check that `attached` (from
   `getAttacherVehicle()`) hides them on the map.
 - **macOS:** a live run on a Mac, or at least the client in replay mode.

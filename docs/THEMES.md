@@ -294,7 +294,11 @@ These are left out of this project:
   are served only by their own backend, and are never committed or
   uploaded to claude.ai.
 
-## Controls (state only for now)
+## Controls
+
+The themes first showed the controls as state only, as planned below. Since
+Controls C1 and C2 (2026-10-24, see [PLAN.md](PLAN.md)) they send commands
+through the command channel and show the game's state from `cab`.
 
 - **Component:** `web/src/ui/control.js`, an icon button with four states:
   off, on, pending, unavailable. Touch targets are at least 48 px.

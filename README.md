@@ -101,7 +101,8 @@ web/           Browser dashboard (src/ modules, vendor/leaflet, vendor/fonts)
 | 3 | PDA layers: sell points, shops, productions, animals; all vehicles; farmland ownership | ✅ runs live |
 | 4 | Fields: outlines, crop and growth colours (PDA colours), field info panel | ✅ runs live |
 | themes | In-cab terminal styles: New Holland style chrome, Map and Vehicle screens, tablet sizes, full screen (T0 to T5), more game data (T6) | ✅ done; T6 waits for a live check, see [THEMES.md](docs/THEMES.md) |
-| later | Game controls from the dashboard, sell prices, missions, AI workers, multiplayer farm colours, tray app | ideas, see [PLAN.md](docs/PLAN.md) |
+| controls | Game controls from the dashboard through an in-mod command channel (C0 to C4) | C0 to C2 work live on Windows; C3 next, see [PLAN.md](docs/PLAN.md) |
+| later | Implement screen (designed), sell prices, missions, AI workers, multiplayer farm colours, tray app | ideas, see [PLAN.md](docs/PLAN.md) |
 
 The checks still open for Phases 1 to 4 are in [docs/PLAN.md](docs/PLAN.md#open-checks).
 

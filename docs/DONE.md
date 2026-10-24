@@ -125,6 +125,14 @@ These results override any API guesses later in this document.
   `getCategoryByName(item.categoryName).title` work: "JCB" and "Medium
   Tractors" (`TRACTORSM`) for a Fastrac iCON 4160, "Volvo" and
   `WHEELLOADERVEHICLES` for the L90H.
+- **Season** (confirmed by Vincent, 2026-10-24): `environment.currentPeriod`
+  is the month, 1 = March, sent as `env.month`; the status bar names the
+  season from it (Mar-May spring ... Dec-Feb winter) and matches the game's
+  calendar. The 0-based `env.season` had shown Autumn in August.
+- **Engine on** (confirmed by Vincent, 2026-10-24): `getIsMotorStarted()`,
+  else `isMotorStarted`. `spec_motorized.engineStarted` was always nil.
+- **Positions** (confirmed by Vincent, 2026-10-24): the player marker and
+  the place markers line up with the in-game map.
 
 ---
 
@@ -373,6 +381,11 @@ Changes since Phase 4 (2026-10-21 to 2026-10-22):
   popup would land on it.
 - **Docs:** the command channel design for dashboard buttons (`51b0862`),
   and the Themes and layouts plan (`ab36061`, [THEMES.md](THEMES.md)).
+- **Land panel** (`3648def`, 2026-10-24): a tap on a field shows one panel
+  with the field (area, crop, growth with a stage bar, needs) and the
+  farmland it sits on (owner, area, fields, price when for sale); a tap
+  outside fields shows the farmland alone. The farmland popup is gone. The
+  map's top-corner controls fade after 3 s idle.
 
 ## Themes T0 to T6
 
@@ -404,18 +417,22 @@ Changes since Phase 4 (2026-10-21 to 2026-10-22):
   (status-bar button in New Holland, Settings toggle in both themes), keep
   the screen on where the browser allows it, a web-app manifest with our
   own icons, and safe-area padding for the home-screen app.
-- **T6, more data from the game** (2026-10-24, not yet checked live): fuel
+- **T6, more data from the game** (2026-10-24, merged with the New Holland
+  live-test fixes as PR #2, `d0dbe36`; the T6 values are not yet checked
+  live): fuel
   usage, DEF, cruise control, the vehicle's and implements' fill levels,
   PTO, hitch position and the AI worker's job in the stream, with the
   player's units and currency; widgets, controls, implement rows and
   popups show them. Two new icons (DEF, fill level).
+- **Implement screen design** (`f2c1178`, 2026-10-24): the hybrid design
+  (rig band plus a card for the picked implement) approved and written into
+  THEMES.md. Not built yet.
 
 ## Controls
 
 - **C0, command channel spike** (`564f49c`): the mod reads a file the
   client writes, every frame, in about 20 ms round trip; see PLAN.md.
-- **C1, lights end to end** (2026-10-24, mod 0.5.0, not yet checked
-  live): the dashboard's Lights control sends `lights.toggle`; the backend
+- **C1, lights end to end** (2026-10-24, mod 0.5.0 to 0.5.2): the dashboard's Lights control sends `lights.toggle`; the backend
   relays allow-listed commands from viewers to the client and the acks
   back; the client writes `cmd/<n>.xml`; the mod runs `TOGGLE_LIGHTS`
   through its input event and answers with `command_ack` and the new
@@ -424,8 +441,8 @@ Changes since Phase 4 (2026-10-21 to 2026-10-22):
   stage count to the lights, shown as dots on the button; 0.5.2 keeps the
   reverse lights from reading as Lights on. Details in PLAN.md, "C1 as
   built".
-- **C2, the first control set** (2026-10-24, mod 0.6.3, works live on
-  Windows): one state-showing button per toggle for the lights, cruise
+- **C2, the first control set** (`112c665`, 2026-10-24, mod 0.6.3, works
+  live on Windows): one state-showing button per toggle for the lights, cruise
   (−/+ tap or hold, one set speed), engine (pending until it runs), AI
   worker and the selected implement (Lower / Raise, Unfold / Fold, Work,
   Hitch as the Q key), in both themes, with a running border while the
