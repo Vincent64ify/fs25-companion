@@ -5,11 +5,10 @@
 
 import { cropCatalog, cropName, growthClass, prettyName } from "../map/fieldStyle.js";
 import { myFarmId } from "../store.js";
+import { areaText, METRIC, moneyText, unitsOf } from "../data/units.js";
 
 /** @typedef {import("../types.js").FieldState} FieldState */
 /** @typedef {import("../types.js").Farmland} Farmland */
-
-const money = (/** @type {number} */ v) => "$" + Math.round(v).toLocaleString();
 
 /**
  * [label, value] rows for a field.
@@ -17,17 +16,18 @@ const money = (/** @type {number} */ v) => "$" + Math.round(v).toLocaleString();
  * @param {Farmland|undefined} farmland
  * @param {ReturnType<typeof cropCatalog>} catalog
  * @param {number} farmId the viewer's farm
+ * @param {import("../data/units.js").Units} [units] for the area and price
  * @returns {[string, string][]}
  */
-export function fieldRows(field, farmland, catalog, farmId) {
+export function fieldRows(field, farmland, catalog, farmId, units = METRIC) {
   /** @type {[string, string][]} */
   const rows = [];
-  if (typeof field.areaHa === "number") rows.push(["Area", `${field.areaHa.toFixed(2)} ha`]);
+  if (typeof field.areaHa === "number") rows.push(["Area", areaText(field.areaHa, units)]);
   if (farmland) {
     let owner;
     if (farmland.farmId === farmId) owner = "You";
     else if (farmland.farmId) owner = `Farm ${farmland.farmId}`;
-    else owner = typeof farmland.price === "number" ? `For sale, ${money(farmland.price)}` : "For sale";
+    else owner = typeof farmland.price === "number" ? `For sale, ${moneyText(farmland.price, units)}` : "For sale";
     rows.push(["Owner", owner]);
     rows.push(["Farmland", farmland.name || String(farmland.id)]);
   } else if (field.farmlandId) {
@@ -77,7 +77,7 @@ export function createFieldInfoPanel(store, box) {
     /** @type {Farmland|undefined} */
     const farmland = (store.get("farmlands")?.farmlands || [])
       .find((/** @type {Farmland} */ f) => f.id === field.farmlandId);
-    const rows = fieldRows(field, farmland, cropCatalog(store.get("crop_types")), myFarmId(store));
+    const rows = fieldRows(field, farmland, cropCatalog(store.get("crop_types")), myFarmId(store), unitsOf(store));
 
     const head = document.createElement("div");
     head.className = "field-info-head";
@@ -109,6 +109,12 @@ export function createFieldInfoPanel(store, box) {
   for (const key of ["selectedField", "fields", "farmlands", "crop_types", "hello"]) {
     store.subscribe(key, render);
   }
+  // env arrives every second: draw again only when the units change
+  let units = "";
+  store.subscribe("env", () => {
+    const now = JSON.stringify(unitsOf(store));
+    if (now !== units) { units = now; render(); }
+  });
   // a new map: the old field number means nothing
   store.subscribe("field_outlines", (topic) => {
     const id = store.get("selectedField");

@@ -2,12 +2,15 @@
 // Every vehicle on the map except the one the player drives (the player
 // arrow is that one) and implements hitched to another vehicle (the PDA
 // shows only what pulls them). Updates arrive twice a second; each marker
-// glides between them. Tap a vehicle for its name and speed.
+// glides between them. Tap a vehicle for its name, speed and, for an AI
+// worker, its job.
 
 import { worldToLatLng } from "../mapView.js";
 import { createGlide, showPose } from "../glide.js";
 import { vehicleIcon, vehicleSwatch } from "../icons.js";
 import { myFarmId } from "../../store.js";
+import { aiJobText } from "../../data/selectors.js";
+import { speedUnit, speedValue, unitsOf } from "../../data/units.js";
 
 /** @typedef {import("../../types.js").Vehicle} Vehicle */
 /** @typedef {import("../icons.js").VehicleKind} VehicleKind */
@@ -36,16 +39,16 @@ function kindOf(v, farmId) {
   return v.farmId === farmId ? "own" : "other";
 }
 
-/** @param {Vehicle} v */
-function popupContent(v) {
+/** @param {Vehicle} v @param {import("../../data/units.js").Units} units */
+export function popupContent(v, units) {
   const div = document.createElement("div");
   div.className = "vehicle-popup";
   const name = document.createElement("strong");
   name.textContent = v.name || v.typeName || "Vehicle";
   div.append(name);
   const lines = [];
-  if (v.isAI) lines.push("AI worker");
-  if (typeof v.speed === "number") lines.push(`${Math.round(v.speed)} km/h`);
+  if (v.isAI) lines.push(["AI worker", aiJobText(v)].filter(Boolean).join(": "));
+  if (typeof v.speed === "number") lines.push(`${Math.round(speedValue(v.speed, units))} ${speedUnit(units)}`);
   if (v.typeName && v.name) lines.push(v.typeName);
   for (const text of lines) {
     const line = document.createElement("div");
@@ -84,7 +87,7 @@ export function createVehiclesLayer(map, store) {
           icon: vehicleIcon(kind, ai), pane: "vehicles", keyboard: false,
         });
         const t = /** @type {Track} */ ({ marker, glide: createGlide({ maxGlideMs: 700 }), kind, ai, data: v, shown: null });
-        marker.bindPopup(() => popupContent(t.data), { offset: [0, -6] });
+        marker.bindPopup(() => popupContent(t.data, unitsOf(store)), { offset: [0, -6] });
         groups[kind].addLayer(marker);
         tracks.set(key, t);
         track = t;
@@ -98,7 +101,7 @@ export function createVehiclesLayer(map, store) {
       }
       track.data = v;
       track.glide.push(v, now);
-      if (track.marker.isPopupOpen()) track.marker.setPopupContent(popupContent(v));
+      if (track.marker.isPopupOpen()) track.marker.setPopupContent(popupContent(v, unitsOf(store)));
     }
     for (const [key, track] of tracks) {
       if (seen.has(key)) continue;

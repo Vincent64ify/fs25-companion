@@ -2,6 +2,7 @@
 // The link to the game: the connection pill and the protocol-error banner.
 
 import { alerts as alertsOf, connectionStatus, controlledVehicle } from "../data/selectors.js";
+import { unitsOf } from "../data/units.js";
 import { h } from "../ui/dom.js";
 import { icon } from "../ui/icons.js";
 
@@ -48,7 +49,7 @@ export function protocolError(store, opts = {}) {
 }
 
 /**
- * Alert chips (low fuel, hot engine, worn): selectors.js alerts(), worst
+ * Alert chips (low fuel or DEF, hot engine, worn): selectors.js alerts(), worst
  * first. Hidden while there are none.
  * @type {import("./widget.js").CreateWidget}
  */
@@ -57,8 +58,8 @@ export function alerts(store, opts = {}) {
   root.setAttribute("role", "status");
   if (opts.id) root.id = opts.id;
   let last = "";
-  store.subscribe("vehicles", () => {
-    const list = alertsOf(controlledVehicle(store));
+  const render = () => {
+    const list = alertsOf(controlledVehicle(store), unitsOf(store));
     const key = JSON.stringify(list);
     if (key === last) return;
     last = key;
@@ -68,6 +69,8 @@ export function alerts(store, opts = {}) {
       chip.dataset.level = a.level;
       return chip;
     }));
-  });
+  };
+  store.subscribe("vehicles", render);
+  store.subscribe("env", render);
   return root;
 }

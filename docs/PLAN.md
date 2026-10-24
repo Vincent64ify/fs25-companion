@@ -13,8 +13,9 @@ it relies on, are in [DONE.md](DONE.md). Small fixes go in
   icon set, and the New Holland style's chrome, Map screen and Vehicle
   screen in day and night, chosen from a Settings panel that Default has
   too; it fits every tablet and monitor size checked, goes full screen, and
-  can be added to a tablet's home screen. Next is T6, more data from the
-  game.
+  can be added to a tablet's home screen. T6, more data from the game
+  (fuel usage, DEF, cruise, fill levels, PTO, hitch, AI job, units), is
+  built and waiting for a live check.
 - macOS is still to test, and a few things are still to confirm in game (see
   [Open checks](#open-checks)).
 
@@ -59,7 +60,7 @@ style, after the IntelliView 12. Today's look stays as the Default theme.
 | T3 | New Holland style: chrome and Map screen | done 2026-10-23 |
 | T4 | Vehicle screen: hero readout, condition tiles, implements, vehicle card | done 2026-10-23 |
 | T5 | Responsive pass across tablets and monitors, full screen, home screen | done 2026-10-23 |
-| T6 | More data from the game (can start any time) | next |
+| T6 | More data from the game (can start any time) | built 2026-10-24, live check open |
 
 ## After that: control the game from the dashboard
 
@@ -120,8 +121,20 @@ Built, but not yet confirmed in game:
   doesn't answer the request), Keep screen on over `localhost`, and on an
   iPad: Add to Home Screen, then the app without bars and the safe areas
   around its status bar and home indicator.
-- **Season:** the status bar reads `env.season` as 0 = spring. The replay
-  shows "Summer" on day 1; check it against the in-game calendar.
+- **Game data (T6):** in a tractor with DEF and cruise control, a seeder
+  with a PTO on the rear hitch, and a combine with an AI worker: check
+  fuel usage against the HUD, DEF, the cruise state and speed, the PTO
+  chip, the hitch while it moves, the fill meters and the worker's job.
+  Then switch the game to miles, Fahrenheit, acres and pounds and check
+  the dashboard follows. If a value is missing, run the spike: its
+  `controlledDetail` now dumps the specs these come from.
+- **Season:** read 0-based, `env.season` showed Autumn in August. The mod
+  now sends `env.month` from `environment.currentPeriod` (1 = March) and the
+  status bar names the season from it (Mar-May spring ... Dec-Feb winter);
+  check it against the in-game calendar.
+- **Engine on:** `spec_motorized.engineStarted` was always nil, so the
+  engine read as off. Now `getIsMotorStarted()`, else `isMotorStarted`;
+  check the readout's Engine on/off and the Engine control.
 - **Positions:** compare the player marker and the hotspots with the in-game
   PDA at three spots: a map corner, the centre and a sell point.
 - **Overview image:** see it in a live session on a map whose image the

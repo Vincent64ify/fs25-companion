@@ -35,6 +35,9 @@ export default {
         { widget: "rpm", variant: "readout" },
         { widget: "fuel", variant: "readout" },
         { widget: "engineTemp", variant: "readout" },
+        { widget: "fuelUsage", variant: "readout" },
+        // only while cruise control holds a speed
+        { widget: "cruiseSpeed", variant: "readout" },
       ],
     },
     {
@@ -50,6 +53,9 @@ export default {
             { widget: "engineTemp", variant: "condition", whenMissing: "dash" },
             { widget: "wear", variant: "condition", whenMissing: "dash" },
             { widget: "hours", variant: "condition", whenMissing: "dash" },
+            // only for engines with DEF, vehicles with a load
+            { widget: "def", variant: "condition" },
+            { widget: "load", variant: "condition" },
           ] },
           { widget: "implements", variant: "rows" },
         ] },

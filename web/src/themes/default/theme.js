@@ -19,9 +19,11 @@ export default {
   build(app, store, frame, settings) {
     /** @param {string} id @param {import("../../widgets/widget.js").WidgetOptions} [opts] */
     const w = (id, opts) => createWidget(id, store, { whenMissing: "dash", ...opts });
+    // an id ending in "?" hides its row without data (DEF on an engine without it)
     /** @param {string} title @param {string[]} ids */
     const listCard = (title, ids) => h("div", { className: "card" },
-      h("h3", { text: title }), h("dl", {}, ...ids.map((id) => w(id))));
+      h("h3", { text: title }), h("dl", {}, ...ids.map((id) => (id.endsWith("?")
+        ? w(id.slice(0, -1), { whenMissing: "hide" }) : w(id)))));
 
     const header = h("header", {}, ...(settings ? [settings.button] : []),
       h("h1", { text: "FS25 Companion" }), w("connection", { id: "connection" }));
@@ -29,7 +31,7 @@ export default {
       h("div", { className: "card" },
         w("vehicleName"),
         h("div", { className: "gauges" }, w("speed"), w("rpm"), w("gear"))),
-      listCard("Vehicle", ["fuel", "wear", "engineTemp", "hours", "position"]),
+      listCard("Vehicle", ["fuel", "fuelUsage?", "def?", "cruise?", "load?", "wear", "engineTemp", "hours", "position"]),
       listCard("Farm", ["weather", "temperature", "clock", "day", "money", "mapName", "playerName"]),
       w("implements", { variant: "card", id: "impl-card" }));
     const main = h("main", {}, panel, ...(settings ? [settings.layer] : []));

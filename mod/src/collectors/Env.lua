@@ -1,7 +1,8 @@
 -- Env.lua
--- Time, day, weather, temperatures and money, once per second.
--- Weather and money calls come from the old telemetry mod and are not
--- verified against FS25 yet; each value is guarded and left out on failure.
+-- Time, day, weather, temperatures, money and the player's units, once per
+-- second. Weather and money calls come from the old telemetry mod, the unit
+-- settings from the FS22 script docs; none is verified against FS25 yet, and
+-- each value is guarded and left out on failure.
 
 Companion = Companion or {}
 Companion.Collectors = Companion.Collectors or {}
@@ -50,6 +51,40 @@ local function farmMoney()
     return out
 end
 
+-- GameSettings.SETTING.* ids, with FS22's names if the table is missing
+local UNIT_SETTINGS = {
+    { key = "miles", setting = "USE_MILES", name = "useMiles" },
+    { key = "fahrenheit", setting = "USE_FAHRENHEIT", name = "useFahrenheit" },
+    { key = "acres", setting = "USE_ACRE", name = "useAcre" },
+}
+-- GS_MONEY_EURO 1, GS_MONEY_DOLLAR 2, GS_MONEY_POUND 3
+local MONEY_SYMBOLS = { "€", "$", "£" }
+
+local function settingValue(setting, name)
+    local ids = type(GameSettings) == "table" and GameSettings.SETTING or nil
+    local id = type(ids) == "table" and ids[setting] or name
+    return Api.tryCall(g_gameSettings, "getValue", id)
+end
+
+-- the units the player picked in the game's settings: miles, fahrenheit
+-- and acres (booleans) and the currency symbol. Nil when nothing is known;
+-- the dashboard then shows metric units.
+local function unitSettings()
+    local out = {}
+    for _, unit in ipairs(UNIT_SETTINGS) do
+        local value = settingValue(unit.setting, unit.name)
+        if type(value) == "boolean" then
+            out[unit.key] = value
+        end
+    end
+    local symbol = Api.tryCall(g_i18n, "getCurrencySymbol", true)
+    if type(symbol) ~= "string" or symbol == "" then
+        symbol = MONEY_SYMBOLS[settingValue("MONEY_UNIT", "moneyUnit")]
+    end
+    out.currency = symbol
+    return next(out) ~= nil and out or nil
+end
+
 Companion.Collectors.Env = {
     topic = "env",
     interval = 1000,
@@ -58,10 +93,20 @@ Companion.Collectors.Env = {
         local environment = mission.environment
         local data = {
             money = farmMoney(),
+            units = unitSettings(),
         }
         if environment ~= nil then
             data.day = environment.currentDay
             data.season = environment.currentSeason
+            -- the game's period: 1 = March ... 12 = February, as its calendar
+            -- shows it. The dashboard names the season from it.
+            local period = environment.currentPeriod
+            if type(period) ~= "number" then
+                period = Api.tryCall(environment, "getPeriodFromDay", environment.currentDay)
+            end
+            if type(period) == "number" then
+                data.month = (math.floor(period) + 1) % 12 + 1
+            end
             if type(environment.dayTime) == "number" then
                 data.dayTimeMinutes = math.floor(environment.dayTime / 60000)
             end

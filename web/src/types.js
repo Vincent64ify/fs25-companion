@@ -48,7 +48,10 @@
 
 /**
  * One entry of the vehicles topic. Only the controlled vehicle carries the
- * dashboard detail (rpm, fuel, implements, ...).
+ * dashboard detail (rpm, fuel, implements, ...; since Themes T6 also
+ * fuelUsage, def and defCapacity, cruise {state, speed, maxSpeed}, pto and
+ * fills, see data/selectors.js). An AI worker's vehicle carries ai {job,
+ * description, helper}.
  * @typedef {Pose & {
  *   id: number|string, name?: string, typeName?: string, farmId?: number,
  *   isAI?: boolean, motorized?: boolean, attached?: boolean, speed?: number,

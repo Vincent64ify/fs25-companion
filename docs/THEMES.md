@@ -6,7 +6,8 @@
 > T3 (New Holland chrome and Map screen) done on 2026-10-23, see "As built
 > (T3)"; T4 (Vehicle screen) done on 2026-10-23, see "As built (T4)"; T5
 > (responsive pass, full screen, home screen) done on 2026-10-23, see "As
-> built (T5)". Next: T6 (more data from the game).
+> built (T5)"; T6 (more data from the game) built on 2026-10-24, see "As
+> built (T6)", and waiting for a live check.
 
 ## Goal
 
@@ -997,6 +998,49 @@ Done on 2026-10-23.
   `getFillUnitFillLevel`, and the spike's `controlledDetail` dump.
 - **Done when:** the values are in the stream, with tests. Widgets show them
   as they arrive.
+
+#### As built (T6)
+
+Built on 2026-10-24. The names come from the FS22 script docs and are
+guarded like the old telemetry mod's; none is confirmed in FS25 yet (see
+PLAN.md, Open checks). A wrong guess leaves the value out, nothing breaks.
+- **Stream** (`Vehicles.lua`, controlled vehicle): `fuelUsage` (l/h, kWh/h
+  for electric: `spec_motorized.lastFuelUsageDisplay`, else
+  `lastFuelUsage`); `def` and `defCapacity` (the DEF consumer fill unit);
+  `cruise` `{state: off|on|full, speed, maxSpeed}` (km/h, from
+  `getCruiseControlState/Speed/MaxSpeed`, else `spec_drivable.cruiseControl`);
+  `pto` (true when an attached implement's PTO turns, missing without one);
+  `fills` (the vehicle's own fill units without fuel, DEF and air, and
+  without units the HUD hides: `{unit, level, capacity, fillType,
+  fillTitle}`, no fill type when empty). Each implement adds `pto`
+  (`spec_powerConsumer.ptoRpm > 0`, then `getDoConsumePtoPower()`), `hitch`
+  (0 raised to 1 lowered: the attacher joint's `moveAlpha` between its
+  `upperAlpha` and `lowerAlpha`; missing for a joint that doesn't move) and
+  `fills`. Every vehicle a worker drives adds `ai` `{job, description,
+  helper}` (`getJob()`, then `getCurrentHelper()`).
+- **Units** (`Env.lua`): `env.units` `{miles, fahrenheit, acres, currency}`
+  from `g_gameSettings:getValue` (`useMiles`, `useFahrenheit`, `useAcre`)
+  and `g_i18n:getCurrencySymbol(true)`, else the `moneyUnit` setting. The
+  mod keeps sending metric; `data/units.js` converts speeds, temperatures,
+  areas and money on the dashboard, and falls back to metric and "$" (as
+  before) without settings. Litres stay litres.
+- **Dashboard:** new widgets `fuelUsage`, `def` (meter, warns under 10 %,
+  alarm under 3 %, and an alert chip), `cruise` ("Off", "Full" or the set
+  speed), `cruiseSpeed` (a readout shown only while cruise holds a speed)
+  and `load` (the vehicle's first loaded unit). The Cruise and PTO controls
+  show the game's state. Implement rows get a PTO chip, "Hitch 40%" while
+  the hitch moves, and a meter per fill unit; the Default list says "PTO"
+  and "seeds 58%". An AI worker's popup and the readout card name its job.
+  Value widgets may take a `unit` function, so units follow the settings.
+- **Layouts:** New Holland's Map readout adds fuel usage and the cruise
+  speed (both dropped on compact); its condition row takes DEF and Load
+  only when there is data, as one row of five or six tiles, with smaller
+  numbers and no detail under 1100 px. Default's Vehicle card adds Fuel
+  usage, DEF, Cruise and Load rows, each hidden without data, so on foot
+  and with older mods it looks as before.
+- **Spike:** the `controlledDetail` dump adds the cruise getters and the
+  `spec_drivable`, `spec_attacherJoints`, `spec_powerConsumer` and
+  `spec_aiJobVehicle` tables, for the live check.
 
 ### Later
 

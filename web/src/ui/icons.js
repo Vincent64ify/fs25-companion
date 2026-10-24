@@ -48,6 +48,11 @@ const PATHS = {
   electric: '<path d="M13 2.5L5.5 13.5h6l-1 8 8-11h-6z"/>',
   // a gas cylinder with its valve
   methane: '<rect x="7" y="7" width="10" height="14.5" rx="4"/><path d="M10 7V3.5h4V7M7 12h10"/>',
+  // a drop with its fill line: DEF (AdBlue)
+  def: '<path d="M12 3c3.5 4.4 6 7.6 6 11a6 6 0 0 1-12 0c0-3.4 2.5-6.6 6-11z"/>' +
+    '<path d="M8 14.5c1.3-.9 2.7-.9 4 0s2.7.9 4 0"/>',
+  // a hopper with its fill line: a fill level (tank, trailer, grain tank)
+  fill: '<path d="M3.5 4.5h17l-3.5 12H7z"/><path d="M5.3 10.5h13.4M10 16.5v3.5h4v-3.5"/>',
   engine: ENGINE,
   // a thermometer beside the engine: coolant temperature
   engineTemp: '<path d="M5 3.5v11"/><circle cx="5" cy="17.5" r="2.5"/><path d="M5 7h1.5M5 10h1.5"/>' +
@@ -162,7 +167,7 @@ const PATHS = {
 
 /** The icons by group, in the order the contact sheet shows them. */
 export const ICON_GROUPS = {
-  Vehicle: ["speed", "rpm", "gear", "diesel", "electric", "methane", "engine", "engineTemp",
+  Vehicle: ["speed", "rpm", "gear", "diesel", "electric", "methane", "def", "fill", "engine", "engineTemp",
             "wear", "hours", "position", "tractor"],
   "Vehicle types": ["harvester", "loader", "trailer", "truck", "implement", "weight"],
   Alerts: ["warn", "battery", "oil", "checkEngine", "snow"],

@@ -374,7 +374,7 @@ Changes since Phase 4 (2026-10-21 to 2026-10-22):
 - **Docs:** the command channel design for dashboard buttons (`51b0862`),
   and the Themes and layouts plan (`ab36061`, [THEMES.md](THEMES.md)).
 
-## Themes T0 to T5
+## Themes T0 to T6
 
 2026-10-23; the details are in each phase's "As built" note in
 [THEMES.md](THEMES.md).
@@ -404,3 +404,8 @@ Changes since Phase 4 (2026-10-21 to 2026-10-22):
   (status-bar button in New Holland, Settings toggle in both themes), keep
   the screen on where the browser allows it, a web-app manifest with our
   own icons, and safe-area padding for the home-screen app.
+- **T6, more data from the game** (2026-10-24, not yet checked live): fuel
+  usage, DEF, cruise control, the vehicle's and implements' fill levels,
+  PTO, hitch position and the AI worker's job in the stream, with the
+  player's units and currency; widgets, controls, implement rows and
+  popups show them. Two new icons (DEF, fill level).

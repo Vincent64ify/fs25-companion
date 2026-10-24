@@ -155,12 +155,17 @@ body { background: var(--bg); }
 /* The safe areas are 0 in a browser tab. Added to the home screen
    (manifest.json), the page runs under the iPad's status bar and home
    indicator: the bars grow into them, the content keeps clear. */
+/* The dashboard is the screen's size and never scrolls: pinned to the
+   viewport, so nothing (Safari's pull-to-refresh, a reload that restores a
+   scroll offset) can leave it wider than the screen and sliding sideways. */
+html, body { overflow: hidden; overscroll-behavior-x: none; }
 #app {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
   display: grid;
   grid-template-rows: calc(56px + env(safe-area-inset-top, 0px)) minmax(0, 1fr)
     calc(64px + env(safe-area-inset-bottom, 0px));
-  height: 100vh;
-  height: 100dvh;
   background: var(--ground);
   color: var(--text);
   font-family: var(--font);
@@ -190,6 +195,11 @@ button { font: inherit; color: inherit; }
   white-space: nowrap;
 }
 .status-bar :focus-visible { outline-color: var(--bar-text); }
+/* Safari's full-screen X sits over the top-left corner (widgets/screen.js):
+   the Settings button moves clear of it */
+:root[data-fullscreen="close-button"] .status-bar {
+  padding-left: calc(64px + env(safe-area-inset-left, 0px));
+}
 .status-start, .status-end { display: flex; align-items: center; gap: 12px; min-width: 0; }
 .status-end { justify-content: flex-end; }
 /* thin rules between the right-hand items; the full-screen button has none */
@@ -568,11 +578,27 @@ button { font: inherit; color: inherit; }
   min-width: 0;
   min-height: 0;
 }
+/* four tiles, five or six with DEF and a load: one row of as many as are
+   shown */
 .slot-group[data-group="conditions"] {
   grid-column: 1 / -1;
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
   gap: 12px;
+}
+/* a narrow tablet with DEF or a load: smaller tiles, so the numbers fit */
+@media (max-width: 1100px) {
+  .slot-group[data-group="conditions"]:has(> .slot:nth-child(n+5) > .widget-condition:not([hidden])) { gap: 8px; }
+  .slot-group[data-group="conditions"]:has(> .slot:nth-child(n+5) > .widget-condition:not([hidden])) .widget-condition {
+    padding: 12px 10px;
+  }
+  .slot-group[data-group="conditions"]:has(> .slot:nth-child(n+5) > .widget-condition:not([hidden])) .widget-value {
+    font-size: 26px;
+  }
+  .slot-group[data-group="conditions"]:has(> .slot:nth-child(n+5) > .widget-condition:not([hidden])) .widget-detail {
+    display: none;
+  }
 }
 .slot { display: grid; min-width: 0; min-height: 0; }
 .slot:has(> [hidden]) { display: none; }
@@ -792,8 +818,8 @@ button { font: inherit; color: inherit; }
 .widget-number .widget-unit { font-size: 14px; color: var(--muted); }
 .widget-detail { margin-left: auto; font-size: 13px; color: var(--muted); white-space: nowrap; }
 .widget-note { font-size: 13px; color: var(--muted); }
-.widget-condition .widget-meter, .impl-wear .widget-meter { width: auto; height: 6px; border-radius: 3px; }
-.widget-condition .widget-meter > span, .impl-wear .widget-meter > span { border-radius: 3px; }
+.widget-condition .widget-meter, .impl-wear .widget-meter, .impl-fill .widget-meter { width: auto; height: 6px; border-radius: 3px; }
+.widget-condition .widget-meter > span, .impl-wear .widget-meter > span, .impl-fill .widget-meter > span { border-radius: 3px; }
 .widget-condition[data-level] { border-color: var(--warn-border); }
 .widget-condition[data-level] .widget-head .icon { background: var(--warn-fill); color: #0A1A33; }
 .widget-condition[data-level] .widget-value, .widget-condition[data-level] .widget-unit { color: var(--warn); }
@@ -816,7 +842,7 @@ button { font: inherit; color: inherit; }
 .impl-list { min-height: 0; margin: 0; padding: 0; overflow-y: auto; list-style: none; }
 .impl-row {
   display: grid;
-  grid-template-columns: 44px minmax(0, 1fr) auto auto 150px;
+  grid-template-columns: 44px minmax(0, 1fr) auto auto auto 150px;
   align-items: center;
   gap: 14px;
   padding: 12px 16px;
@@ -857,9 +883,12 @@ button { font: inherit; color: inherit; }
 .impl-chip:has(.impl-dot)[data-state="off"] { background: transparent; font-weight: 500; }
 .impl-chip[data-state="off"] .impl-dot { display: none; }
 .impl-dot { width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
-.impl-wear { display: flex; flex-direction: column; gap: 5px; grid-column: 5; }
-.impl-wear > div { display: flex; justify-content: space-between; font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
-.impl-wear b { color: var(--text); font-weight: 600; }
+.impl-wear, .impl-fill { display: flex; flex-direction: column; gap: 5px; }
+.impl-wear { grid-column: -2; grid-row: 1; }
+/* a fill level: its own line under the name and chips */
+.impl-fill { grid-column: 2 / -1; }
+.impl-wear > div, .impl-fill > div { display: flex; justify-content: space-between; font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.impl-wear b, .impl-fill b { color: var(--text); font-weight: 600; }
 .impl-empty { margin: 0; padding: 16px; font-size: 14px; color: var(--muted); }
 
 /* --- Settings (ui/settings.js): in the main area, under the status bar -------- */
@@ -1048,7 +1077,7 @@ button { font: inherit; color: inherit; }
   /* unselected tabs drop to icons; the readout keeps speed, rpm and fuel */
   .tab:not([aria-pressed="true"]) { padding: 0; }
   .tab:not([aria-pressed="true"]) .tab-label { display: none; }
-  .tab-readout > :nth-child(2), .tab-readout > :nth-child(5) { display: none !important; }
+  .tab-readout > :nth-child(2), .tab-readout > :nth-child(n+5) { display: none !important; }
 }
 
 /* phones work, but aren't a design target: fewer words in the bars */
@@ -1068,10 +1097,10 @@ button { font: inherit; color: inherit; }
   .slot-group[data-group="vehicle"] > .slot:first-child { min-height: 296px; }
   .vehicle-figure { flex: none; height: 150px; }
   .vehicle-figure .icon { height: 140px; }
-  .slot-group[data-group="conditions"] { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .slot-group[data-group="conditions"] { grid-auto-flow: row; grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .impl-row { grid-template-columns: 44px minmax(0, 1fr) auto; }
   .impl-row > .impl-chip ~ .impl-chip { grid-column: 3; }
-  .impl-wear { grid-column: 2 / -1; }
+  .impl-wear { grid-column: 2 / -1; grid-row: auto; }
 }
 
 @media (prefers-reduced-motion: reduce) {

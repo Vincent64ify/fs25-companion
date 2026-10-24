@@ -358,6 +358,54 @@ test("hotspots: PDA points only, named, sorted", function()
     eq(list[5].name, "Farm house")
 end)
 
+test("vehicles: T6 values from spec fields, missing ones left out", function()
+    load("src/collectors/Vehicles.lua")
+    getWorldTranslation = function() return 0, 0, 0 end
+    localDirectionToWorld = function() return 0, 0, -1 end
+    FillType = { UNKNOWN = 0, DIESEL = 1, DEF = 2 }
+    g_fillTypeManager = nil
+    g_storeManager, g_brandManager = nil, nil
+    local trailer = {
+        id = 2, typeName = "trailer",
+        -- an empty unit, a hidden one and one without capacity
+        spec_fillUnit = { fillUnits = {
+            { capacity = 500, fillLevel = 0, fillType = 0 },
+            { capacity = 100, fillLevel = 50, fillType = 9, showOnHud = false },
+            { capacity = 0, fillLevel = 0 },
+        } },
+        -- turned on, but no PTO
+        spec_powerConsumer = { ptoRpm = 0 },
+        getIsTurnedOn = function() return true end,
+    }
+    local tractor = {
+        id = 1, rootNode = 1, typeName = "tractor",
+        spec_motorized = { lastFuelUsage = -0.01 },
+        spec_drivable = { cruiseControl = { state = 2, speed = 22.25, maxSpeed = 50 } },
+        -- a drawbar: upper and lower alpha alike
+        spec_attacherJoints = { attacherJoints = { { moveAlpha = 0, upperAlpha = 0, lowerAlpha = 0 } } },
+        getAttachedImplements = function() return { { object = trailer, jointDescIndex = 1 } } end,
+        getIsAIActive = function() return true end,
+        spec_aiJobVehicle = { job = { getTitle = function() return "" end } },
+    }
+    g_localPlayer = { getCurrentVehicle = function() return tractor end }
+    g_currentMission = { vehicleSystem = { vehicles = { tractor } } }
+    local v = Companion.Collectors.Vehicles.collect({}).vehicles[1]
+    eq(v.fuelUsage, 0, "usage from lastFuelUsage, never negative")
+    eq(v.def, nil, "no DEF unit")
+    eq(v.cruise.state, "full", "cruise from the spec")
+    eq(v.cruise.speed, 22.3)
+    eq(v.fills, nil, "no fill units")
+    eq(v.pto, nil, "no implement with a PTO")
+    eq(v.ai, nil, "a job without a title or helper")
+    local impl = v.implements[1]
+    eq(impl.hitch, nil, "a drawbar has no hitch position")
+    eq(impl.pto, nil, "no PTO")
+    eq(#impl.fills, 1, "only the empty unit")
+    eq(impl.fills[1].capacity, 500)
+    eq(impl.fills[1].level, 0)
+    eq(impl.fills[1].fillType, nil, "empty: no fill type")
+end)
+
 test("farmlands: owner, price and area per farmland", function()
     load("src/collectors/Farmlands.lua")
     g_farmlandManager = { farmlands = {
@@ -501,6 +549,9 @@ local function stubGame()
         getIsLowered = function() return true end,
         getIsTurnedOn = function() return false end,
         getDamageAmount = function() return 0.25 end,
+        spec_powerConsumer = { ptoRpm = 540 },
+        getDoConsumePtoPower = function() return true end,
+        getFillUnits = function() return { { capacity = 1000, fillLevel = 250, fillType = 5 } } end,
     }
     local vehicle = {
         id = 7, rootNode = 55, typeName = "tractor", configFileName = "data/t7.xml",
@@ -510,10 +561,20 @@ local function stubGame()
         getLastSpeed = function() return 5 end,
         getOperatingTime = function() return 7200000 end,
         getDamageAmount = function() return 0.1 end,
-        getConsumerFillUnitIndex = function(_, fillType) return fillType == 1 and 2 or nil end,
-        getFillUnitFillLevel = function(_, unit) return unit == 2 and 150.55 or 0 end,
-        getFillUnitCapacity = function(_, unit) return unit == 2 and 300 or 0 end,
+        getConsumerFillUnitIndex = function(_, fillType) return ({ [1] = 2, [2] = 3 })[fillType] end,
+        getFillUnitFillLevel = function(_, unit) return ({ 4000.44, 150.55, 40 })[unit] end,
+        getFillUnitCapacity = function(_, unit) return ({ 8000, 300, 50 })[unit] end,
+        getFillUnitFillType = function(_, unit) return ({ 6, 1, 2 })[unit] end,
+        -- the cargo unit, then diesel and DEF (consumers: not fill levels)
+        getFillUnits = function() return { {}, {}, {} } end,
+        getCruiseControlState = function() return 1 end,
+        getCruiseControlSpeed = function() return 15 end,
+        getCruiseControlMaxSpeed = function() return 40 end,
+        getAttacherJointByJointDescIndex = function(_, i)
+            return i == 2 and { moveAlpha = 0.65, upperAlpha = 0.2, lowerAlpha = 0.8 } or nil
+        end,
         getTotalMass = function() return 9.5 end,
+        getIsMotorStarted = function() return true end,
         getGearInfoToDisplay = function() return "3", "B", true, false end,
         getMotor = function()
             return {
@@ -523,9 +584,9 @@ local function stubGame()
                 getGear = function() return 4 end,
             }
         end,
-        getAttachedImplements = function() return { { object = implement } } end,
+        getAttachedImplements = function() return { { object = implement, jointDescIndex = 2 } } end,
         spec_motorized = {
-            engineStarted = true, motorTemperature = { value = 80 },
+            engineStarted = false, isMotorStarted = false, motorTemperature = { value = 80 }, lastFuelUsageDisplay = 12.34,
         },
         spec_lights = { isLightOn = true },
         spec_wearable = {},
@@ -543,6 +604,19 @@ local function stubGame()
         getOwnerFarmId = function() return 1 end,
         getAttacherVehicle = function() return vehicle end,
     }
+    local worker = {
+        id = 11, rootNode = 88, typeName = "combine",
+        getFullName = function() return "Combine" end,
+        getOwnerFarmId = function() return 1 end,
+        getIsAIActive = function() return true end,
+        getJob = function()
+            return {
+                getTitle = function() return "Field work" end,
+                getDescription = function() return "Field 1" end,
+            }
+        end,
+        getCurrentHelper = function() return { name = "HELPER01", title = "Anna" } end,
+    }
     local player = {
         farmId = 1, nickname = "Farmer",
         currentVehicle = nil,
@@ -558,7 +632,16 @@ local function stubGame()
     localDirectionToWorld = function() return 0, 0, -1 end
     g_time = 5000
     getAppBasePath = function() return "C:/Games/FS25/" end
-    FillType = { DIESEL = 1, DEF = 2, ELECTRICCHARGE = 3, METHANE = 4 }
+    FillType = { UNKNOWN = 0, DIESEL = 1, DEF = 2, ELECTRICCHARGE = 3, METHANE = 4 }
+    g_fillTypeManager = {
+        getFillTypeByIndex = function(_, i)
+            return ({ [5] = { name = "SEEDS", title = "Seeds" }, [6] = { name = "WHEAT", title = "Wheat" } })[i]
+        end,
+    }
+    g_gameSettings = {
+        values = { useMiles = true, useFahrenheit = false, moneyUnit = 3 },
+        getValue = function(self, id) return self.values[id] end,
+    }
     g_localPlayer = player
     g_storeManager = {
         items = {
@@ -600,9 +683,9 @@ local function stubGame()
                 getName = function() return "Carrefour" end,
             } },
         } },
-        vehicleSystem = { vehicles = { parked, vehicle, hitched } },
+        vehicleSystem = { vehicles = { parked, vehicle, hitched, worker } },
         environment = {
-            currentDay = 3, dayTime = (13 * 60 + 30) * 60000, currentSeason = 1,
+            currentDay = 3, dayTime = (13 * 60 + 30) * 60000, currentSeason = 1, currentPeriod = 6,
             getDayAndDayTime = function(_, time, day) return day, time end,
             weather = {
                 getCurrentMinMaxTemperatures = function() return 12, 21.04 end,
@@ -667,6 +750,20 @@ test("whole mod streams every topic", function()
     assert(text:find('"gear":"3","gearAutomatic":false,"gearGroup":"B"', 1, true), "gear as the speedometer shows it")
     assert(text:find('"fuel":150.6,"fuelCapacity":300,"fuelType":"diesel"', 1, true), "fuel from the fill unit")
     assert(text:find('"wear":0.1', 1, true), "wear from getDamageAmount")
+    assert(text:find('"engineOn":true', 1, true), "engine from getIsMotorStarted, not the spec's fields")
+    assert(text:find('"month":8', 1, true), "period 6 is August")
+    -- T6
+    assert(text:find('"def":40,"defCapacity":50', 1, true), "DEF from its consumer unit")
+    assert(text:find('"fuelUsage":12.3', 1, true), "fuel usage")
+    assert(text:find('"cruise":{"maxSpeed":40,"speed":15,"state":"on"}', 1, true), "cruise control")
+    assert(text:find('"fills":[{"capacity":8000,"fillTitle":"Wheat","fillType":"wheat","level":4000.4,"unit":1}]',
+        1, true), "the vehicle's own fill unit, no fuel or DEF")
+    assert(text:find('"fills":[{"capacity":1000,"fillTitle":"Seeds","fillType":"seeds","level":250,"unit":1}]',
+        1, true), "the implement's fill unit")
+    assert(text:find('"hitch":0.75', 1, true), "hitch position")
+    assert(text:find('"pto":true', 1, true), "PTO")
+    assert(text:find('"ai":{"description":"Field 1","helper":"Anna","job":"Field work"}', 1, true), "AI job")
+    assert(text:find('"units":{"currency":"£","fahrenheit":false,"miles":true}', 1, true), "unit settings")
     -- a broken weather call drops only that value
     assert(text:find('"tempMax":21', 1, true), "env survives a failing weather call")
     assert(text:find('"money":{"1":123457}', 1, true), "money per farm")

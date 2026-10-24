@@ -78,13 +78,24 @@ class Weather(TopicModel):
     next: Optional[Union[int, str]] = None
 
 
+class Units(TopicModel):
+    """The player's unit settings; missing ones mean metric."""
+    miles: Optional[bool] = None
+    fahrenheit: Optional[bool] = None
+    acres: Optional[bool] = None
+    currency: Optional[str] = None
+
+
 class Env(TopicModel):
     day: Optional[int] = None
     dayTimeMinutes: Optional[int] = None
     season: Optional[int] = None
+    # 1 = January; the game's period 1 is March
+    month: Optional[int] = Field(default=None, ge=1, le=12)
     weather: Optional[Weather] = None
     # farmId (as a string) -> money
     money: Optional[Dict[str, float]] = None
+    units: Optional[Units] = None
 
 
 class Pose(TopicModel):
@@ -101,12 +112,28 @@ class Player(Pose):
     farmId: Optional[int] = None
 
 
+class FillLevel(TopicModel):
+    """One fill unit: a trailer's load, a sprayer's tank. An empty unit has
+    no fill type."""
+    unit: Optional[int] = None
+    level: float = Field(default=0, ge=0)
+    capacity: float = Field(gt=0)
+    # the game's fill type name, lower case ("wheat")
+    fillType: Optional[str] = None
+    fillTitle: Optional[str] = None
+
+
 class Implement(TopicModel):
     name: Optional[str] = None
     depth: int = 1
     lowered: bool = False
     turnedOn: bool = False
     wear: Optional[float] = None
+    # the PTO turns; None: no PTO
+    pto: Optional[bool] = None
+    # the hitch holding it, 0 raised .. 1 lowered; None: a fixed joint
+    hitch: Optional[float] = Field(default=None, ge=0, le=1)
+    fills: List[FillLevel] = []
 
 
 class Lights(TopicModel):
@@ -116,6 +143,20 @@ class Lights(TopicModel):
     right: bool = False
     hazard: bool = False
     beacon: bool = False
+
+
+class Cruise(TopicModel):
+    # off, on (holds the set speed) or full (full throttle)
+    state: str
+    # km/h
+    speed: Optional[float] = None
+    maxSpeed: Optional[float] = None
+
+
+class AiWorker(TopicModel):
+    job: Optional[str] = None
+    description: Optional[str] = None
+    helper: Optional[str] = None
 
 
 class Vehicle(Pose):
@@ -131,6 +172,18 @@ class Vehicle(Pose):
     gear: Optional[Union[int, str]] = None
     fuel: Optional[float] = None
     fuelCapacity: Optional[float] = None
+    fuelType: Optional[str] = None
+    # litres (kWh for electric) per hour
+    fuelUsage: Optional[float] = None
+    # DEF (AdBlue), litres
+    def_: Optional[float] = Field(default=None, alias="def")
+    defCapacity: Optional[float] = None
+    cruise: Optional[Cruise] = None
+    # a PTO turns; None: no implement has one
+    pto: Optional[bool] = None
+    # the vehicle's own fill units, without its fuel
+    fills: List[FillLevel] = []
+    ai: Optional[AiWorker] = None
     motorTemp: Optional[float] = None
     engineOn: Optional[bool] = None
     wear: Optional[float] = None

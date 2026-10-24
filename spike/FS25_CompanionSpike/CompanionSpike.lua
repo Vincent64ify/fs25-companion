@@ -784,6 +784,13 @@ local function vehicleDetail(v)
     res.spec_motorized = describe(v.spec_motorized, 1, nil, 200)
     res.spec_wearable = describe(v.spec_wearable, 1, nil, 100)
     res.spec_fillUnit = describe(v.spec_fillUnit, 2, nil, 100)
+    -- Themes T6 candidates: cruise control, hitches, PTO, AI job
+    res.getCruiseControlState = first("getCruiseControlState")
+    res.getCruiseControlSpeed = first("getCruiseControlSpeed")
+    res.spec_drivable = describe(v.spec_drivable, 2, nil, 100)
+    res.spec_attacherJoints = describe(v.spec_attacherJoints, 2, nil, 100)
+    res.spec_powerConsumer = describe(v.spec_powerConsumer, 1, nil, 100)
+    res.spec_aiJobVehicle = describe(v.spec_aiJobVehicle, 2, nil, 100)
     return res
 end
 

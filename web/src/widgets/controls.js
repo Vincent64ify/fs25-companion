@@ -4,7 +4,7 @@
 // groups; on foot, or without the data, a control is unavailable.
 
 import { createControl } from "../ui/control.js";
-import { controlledVehicle, implementsOf, lightsOf } from "../data/selectors.js";
+import { controlledVehicle, cruiseOf, implementsOf, lightsOf, ptoOf } from "../data/selectors.js";
 import { h } from "../ui/dom.js";
 
 /** @typedef {import("../store.js").Store} Store */
@@ -27,8 +27,6 @@ const light = (key) => (/** @type {any} */ v) => {
 const impls = (/** @type {any} */ v) => implementsOf(v);
 const anyImpl = (/** @type {(i: any) => boolean} */ test) => (/** @type {any} */ v) =>
   (impls(v).length ? impls(v).some(test) : undefined);
-// no data yet (T6): shown, but unavailable
-const noData = () => undefined;
 
 /** @type {Record<string, ControlDef>} */
 export const CONTROLS = {
@@ -39,12 +37,13 @@ export const CONTROLS = {
   turnLeft: { label: "Turn L", icon: "turnLeft", tint: "ok", read: light("left") },
   turnRight: { label: "Turn R", icon: "turnRight", tint: "ok", read: light("right") },
   engineOn: { label: "Engine", icon: "engineOn", read: (v) => (v && typeof v.engineOn === "boolean" ? v.engineOn : undefined) },
-  cruise: { label: "Cruise", icon: "cruise", read: noData },
+  cruise: { label: "Cruise", icon: "cruise", read: (v) => { const c = cruiseOf(v); return c ? c.state !== "off" : undefined; } },
   aiWorker: { label: "AI worker", icon: "aiWorker", read: (v) => (v ? v.isAI === true : undefined) },
   implementRaised: { label: "Raise", icon: "hitchUp", read: anyImpl((i) => i.lowered === false) },
   implementLowered: { label: "Lower", icon: "hitchDown", read: anyImpl((i) => i.lowered === true) },
   implementOn: { label: "Work", icon: "implementOn", read: anyImpl((i) => i.turnedOn === true) },
-  pto: { label: "PTO", icon: "pto", read: noData },
+  // unavailable without an implement that has a PTO
+  pto: { label: "PTO", icon: "pto", read: ptoOf },
 };
 
 /**

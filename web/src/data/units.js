@@ -1,0 +1,54 @@
+// @ts-check
+// The player's units, from the game's settings (env.units, Themes T6):
+// miles, Fahrenheit, acres and the currency symbol. The mod sends metric
+// values; these convert them for display. Without settings: metric and "$"
+// (the dashboard's money sign before T6).
+
+/**
+ * @typedef {Object} Units
+ * @property {boolean} miles
+ * @property {boolean} fahrenheit
+ * @property {boolean} acres
+ * @property {string} currency
+ */
+
+/** @type {Units} */
+export const METRIC = Object.freeze({ miles: false, fahrenheit: false, acres: false, currency: "$" });
+
+const KM_PER_MILE = 1.609344;
+const HA_PER_ACRE = 0.40468564224;
+
+/**
+ * The env topic's units, missing ones metric.
+ * @param {any} env
+ * @returns {Units}
+ */
+export function unitsFrom(env) {
+  const u = env?.units;
+  if (!u || typeof u !== "object") return METRIC;
+  return {
+    miles: u.miles === true,
+    fahrenheit: u.fahrenheit === true,
+    acres: u.acres === true,
+    currency: typeof u.currency === "string" && u.currency ? u.currency : METRIC.currency,
+  };
+}
+
+/** @param {{get: (key: string) => any}} store */
+export const unitsOf = (store) => unitsFrom(store.get("env"));
+
+/** @param {Units} u */
+export const speedUnit = (u) => (u.miles ? "mph" : "km/h");
+/** @param {number} kmh @param {Units} u */
+export const speedValue = (kmh, u) => (u.miles ? kmh / KM_PER_MILE : kmh);
+
+/** @param {Units} u */
+export const tempUnit = (u) => (u.fahrenheit ? "°F" : "°C");
+/** @param {number} celsius @param {Units} u */
+export const tempValue = (celsius, u) => (u.fahrenheit ? celsius * 1.8 + 32 : celsius);
+
+/** "1.51 ha" or "3.73 ac". @param {number} ha @param {Units} u */
+export const areaText = (ha, u) => (u.acres ? `${(ha / HA_PER_ACRE).toFixed(2)} ac` : `${ha.toFixed(2)} ha`);
+
+/** "£123,457". @param {number} amount @param {Units} u */
+export const moneyText = (amount, u) => u.currency + Math.round(amount).toLocaleString();

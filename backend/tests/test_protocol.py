@@ -62,6 +62,12 @@ def test_version_mismatch():
     env("field_outlines", {"fields": [{"id": 1, "points": [0, 0, 1, 1, 2]}]}),  # odd points
     env("fields", {"fields": [{"fruitTypeIndex": 1}]}),                 # field without id
     env("crop_types", {"fruits": [{"index": 1, "color": [1, 0]}]}),     # colour without blue
+    env("vehicles", {"vehicles": [{"id": 1, "x": 0, "z": 0,
+                                   "cruise": {"speed": 10}}]}),         # cruise without state
+    env("vehicles", {"vehicles": [{"id": 1, "x": 0, "z": 0,
+                                   "fills": [{"level": 5}]}]}),         # fill without capacity
+    env("vehicles", {"vehicles": [{"id": 1, "x": 0, "z": 0, "implements": [
+        {"name": "Plow", "hitch": 1.5}]}]}),                            # hitch past lowered
 ])
 def test_invalid_envelopes(raw):
     with pytest.raises(ValidationError):
@@ -83,6 +89,23 @@ def test_pda_topics():
                                          "originZ": -4, "runs": [0, 1, 3, 3]}))
     parse_envelope(env("vehicles", {"vehicles": [
         {"id": 302, "x": 0, "z": 0, "motorized": False, "attached": True, "propertyState": 2}]}))
+
+
+def test_vehicle_detail_t6():
+    """Fuel use, DEF, cruise, PTO, fill levels, hitch and AI job (Themes
+    T6), as mod/tests/run.lua's stub game streams them."""
+    tractor = {
+        "id": 7, "x": 10, "z": -20, "fuel": 150.6, "fuelCapacity": 300, "fuelType": "diesel",
+        "fuelUsage": 12.3, "def": 40, "defCapacity": 50,
+        "cruise": {"state": "on", "speed": 15, "maxSpeed": 40}, "pto": True,
+        "fills": [{"unit": 1, "level": 4000.4, "capacity": 8000, "fillType": "wheat", "fillTitle": "Wheat"}],
+        "implements": [{"name": "Plow 3000", "depth": 1, "lowered": True, "pto": True, "hitch": 0.75,
+                        "fills": [{"unit": 1, "level": 0, "capacity": 1000}]}],
+    }
+    worker = {"id": 11, "x": 0, "z": 0, "isAI": True,
+              "ai": {"job": "Field work", "description": "Field 1", "helper": "Anna"}}
+    parse_envelope(env("vehicles", {"vehicles": [tractor, worker], "controlledId": 7}))
+    parse_envelope(env("env", {"units": {"miles": True, "fahrenheit": False, "currency": "£"}}))
 
 
 def test_field_topics():
