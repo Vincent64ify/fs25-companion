@@ -137,7 +137,7 @@ and the mod each accept only actions from the known list.
 | C0 | Spike: can the mod see and read a client-written file every frame, fresh and cheaply; can it run an action by name; round-trip time ([spike/README.md](../spike/README.md#command-spike-c0)) | done on Windows 2026-10-24 (results below); macOS to run |
 | C1 | One control (lights) end to end: protocol, backend relay, client file writer, mod reader, ack, `cab` topic | done 2026-10-24: works live on Windows (mod 0.5.0); light stages as dots (0.5.1) and the reverse-light fix (0.5.2) confirmed live |
 | C2 | The first control set in both themes, held controls with auto-release | done 2026-10-24 (`112c665`): works live on Windows (mod 0.6.3, after three live rounds); reverse cruise dropped; held controls (press / release) moved to C3 |
-| C3 | Pick one implement precisely: the whole rig as a tree, Select (tap a tile selects that tool in game), actions aimed at a chosen tool (detach it, fold it); cruise to a set speed; round-trip readout in Settings. No front loader or crane control | built 2026-10-24 (mod 0.7.0), to check in game: `cab.rig` and `cab.keys`, Select / Prev tool / Next tool / Detach, Attached rows pick a tool, buttons name their tool, round trip in Settings |
+| C3 | Pick one implement precisely: the whole rig as a tree, Select (tap a tile selects that tool in game), actions aimed at a chosen tool (detach it, fold it); cruise to a set speed; round-trip readout in Settings. No front loader or crane control | done 2026-10-24: confirmed live by Vincent (mod 0.7.1, polish up to `6fe5b93`): `cab.rig` and `cab.keys`, Select / Prev tool / Next tool / Detach, Attached rows pick a tool, buttons name their tool, round trip in Settings |
 | C4 | Live check on Windows and macOS, multiplayer as client and host | |
 
 **C0 results (Windows, 2026-10-24).** The channel works:
@@ -349,7 +349,7 @@ Pöttinger Terria 6040 cultivator at the rear:
   dashboard keeps this behaviour and shows which tool each button will
   act on.
 
-**C3 build (mod 0.7.0, 2026-10-24), to check in game.**
+**C3 build (mod 0.7.0, 2026-10-24), confirmed live.**
 - Mod: `cab.rig` (the vehicle, then every attached object depth first: id,
   parent, depth, side, selectable, selected and each tool's implement
   state) and `cab.keys` (the rig id of the tool whose live event each of
@@ -374,6 +374,10 @@ Pöttinger Terria 6040 cultivator at the rear:
   Engine control (`{controls: true, omit: ["engineOn"]}`); Map keeps the
   button. A key with no tool named falls back to the selected implement,
   as in C2.
+- Styling after the live check: the card's Engine button is a column
+  button (blue while on, a green dot while the engine runs); the selected
+  Attached row takes the readout card's dark blue by day and the night
+  selection (yellow, dark ink) at night.
 
 **Risks.** If the mod can't re-read a client-written file, fall back to key
 presses (Windows first). Calling action callbacks by name may differ per
