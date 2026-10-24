@@ -125,7 +125,7 @@ and the mod each accept only actions from the known list.
 | Phase | What | Status |
 |---|---|---|
 | C0 | Spike: can the mod see and read a client-written file every frame, fresh and cheaply; can it run an action by name; round-trip time ([spike/README.md](../spike/README.md#command-spike-c0)) | done on Windows 2026-10-24 (results below); macOS to run |
-| C1 | One control (lights) end to end: protocol, backend relay, client file writer, mod reader, ack, `cab` topic | done 2026-10-24: works live on Windows (mod 0.5.0); light stages as dots (0.5.1), reverse-light fix (0.5.2) to check live |
+| C1 | One control (lights) end to end: protocol, backend relay, client file writer, mod reader, ack, `cab` topic | done 2026-10-24: works live on Windows (mod 0.5.0); light stages as dots (0.5.1) and the reverse-light fix (0.5.2) confirmed live |
 | C2 | The first control set in both themes, held controls with auto-release | |
 | C3 | Targeted actions (cruise speed, detach a chosen implement), round-trip readout in Settings | |
 | C4 | Live check on Windows and macOS, multiplayer as client and host | |
@@ -193,7 +193,8 @@ and the mod each accept only actions from the known list.
 - **Reversing (mod 0.5.2):** the reverse lights are in the same light
   mask, so Lights read "on" while reversing with the stage at 0 (seen in
   the live stream). With stages known, "on" now means a stage is on (or,
-  from the mask alone, one of the stages' own lights).
+  from the mask alone, one of the stages' own lights). Confirmed live
+  (Vincent, 2026-10-24).
 
 **Risks.** If the mod can't re-read a client-written file, fall back to key
 presses (Windows first). Calling action callbacks by name may differ per
