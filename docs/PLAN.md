@@ -124,8 +124,10 @@ lowered and on, AI worker). The mod compares it every frame and sends it
 when something changes, so the dashboard also follows keys pressed in game.
 The 500 ms `vehicles` topic keeps the rest.
 
-**Held controls** (front loader, hitch while held) send `press` and
-`release`; the mod releases by itself 300 ms after the last keep-alive.
+**Held controls** (`press` and `release`, released by the mod 300 ms after
+the last keep-alive) are on hold: the front loader was their only user, and
+Vincent ruled out front loader and crane control from the dashboard
+(2026-10-24, "not efficient").
 
 **Security.** Only paired viewers may send commands; the backend, the client
 and the mod each accept only actions from the known list.
@@ -135,7 +137,7 @@ and the mod each accept only actions from the known list.
 | C0 | Spike: can the mod see and read a client-written file every frame, fresh and cheaply; can it run an action by name; round-trip time ([spike/README.md](../spike/README.md#command-spike-c0)) | done on Windows 2026-10-24 (results below); macOS to run |
 | C1 | One control (lights) end to end: protocol, backend relay, client file writer, mod reader, ack, `cab` topic | done 2026-10-24: works live on Windows (mod 0.5.0); light stages as dots (0.5.1) and the reverse-light fix (0.5.2) confirmed live |
 | C2 | The first control set in both themes, held controls with auto-release | done 2026-10-24 (`112c665`): works live on Windows (mod 0.6.3, after three live rounds); reverse cruise dropped; held controls (press / release) moved to C3 |
-| C3 | Targeted actions (cruise speed, detach a chosen implement), held controls with auto-release (front loader), round-trip readout in Settings | next, not started |
+| C3 | Pick one implement precisely: the whole rig as a tree, Select (tap a tile selects that tool in game), actions aimed at a chosen tool (detach it, fold it); cruise to a set speed; round-trip readout in Settings. No front loader or crane control | next, not started; selection spike first |
 | C4 | Live check on Windows and macOS, multiplayer as client and host | |
 
 **C0 results (Windows, 2026-10-24).** The channel works:
@@ -291,6 +293,37 @@ old Raise / Lower pair is one Lower button).
   cruise check on the Volvo L90H: `speedReverse` = `maxSpeedReverse` = 46
   km/h = the motor's `getMaximumBackwardSpeed()` (12.78 m/s), so the HUD's
   number while reversing is the vehicle's top reverse speed.
+
+**C3 plan: picking one implement (2026-10-24).** In game, G cycles the
+tractor and every tool in turn (for example cultivator, front loader, loader
+tool). On the dashboard the Implement screen's rig strip is the selector
+instead, and it mirrors the game's own selection (Vincent's choice):
+- **Rig tree.** `cab` gains `rig`: the tractor and every attached object,
+  nested (the loader tool hangs off the front loader), each with an `id`,
+  `parent`, name, category, side (front or rear, from the attacher joint),
+  `selectable` and `selected`. Today the mod only sends "the selected one,
+  else the first attached".
+- **Select.** Tapping a tile sends `implement.select {target}`; the mod
+  selects that object in game in the same frame. ‹ › and a swipe on the
+  implement card select the previous or next one in the game's own order.
+  G pressed in game moves the picked tile too, since `cab` follows the
+  selection. The dashboard never keeps a pick of its own.
+- **Targeted actions.** The card's buttons send the `target` with the
+  action. If the game's selection moved in the meantime, the mod selects
+  the target again before it acts (or uses the target's own setter), so
+  Lower or Fold can't land on another tool. Detach detaches that tool
+  (`detachImplementByObject` on its parent). Hitch stays exactly the Q key.
+- **Front loader:** shown as a tile (state, Detach); a loader tool with a
+  fill level gets its own tile and fill bar. No arm or tool controls.
+- **Game API (unverified in FS25):** FS22 selects with
+  `rootVehicle:setSelectedVehicle(vehicle, subIndex)` /
+  `setSelectedObject(object)` and lists `selectableObjects`; the mod already
+  reads `getSelectedVehicle`. Fallback if no setter works: run the cycle
+  action until the target is selected, all in one frame.
+- **First step: selection spike** on Vincent's tractor + cultivator + front
+  loader + tool: log the selection functions and `selectableObjects`, the
+  attach tree, and whether selecting directly works and the implement keys
+  then act on the new selection.
 
 **Risks.** If the mod can't re-read a client-written file, fall back to key
 presses (Windows first). Calling action callbacks by name may differ per

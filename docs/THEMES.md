@@ -1095,16 +1095,23 @@ answers "how is my tractor". Not built yet.
   - working speed limit (`getSpeedLimit`);
   - working width (the work areas);
   - folding state (`spec_foldable`);
-  - the tool the game has selected (`getSelectedImplement`);
+  - the whole rig as a tree with the tool the game has selected (`cab.rig`);
   - pipe out or in, tipping or not, cover state;
   - a combine's crop.
+- **Picking = selecting in game** (Vincent, 2026-10-24): tapping a tile,
+  ‹ › or a swipe selects that tool in game right away, so G is never
+  needed; G pressed in game moves the picked tile too. The dashboard keeps
+  no pick of its own. Needs the mod's rig tree (`cab.rig`, see
+  [PLAN.md](PLAN.md) C3). The front loader is a tile like any other (state,
+  Detach), its tool gets its own tile when it has a fill level; no loader
+  or crane controls.
 - **Controls:** C2 wires Raise, Lower, Work, PTO (they act on the game's
-  selected implement, so a tap first selects the picked tool in game),
-  Raise all, Lower all and Attach. C3 adds Fold, Detach, Pipe, Unload,
-  Tipping and Cover. Until then those buttons show as unavailable.
-- **Open:** whether picking a tile also selects the tool in game before
-  any button is pressed; compact (portrait) layout, likely the band as a
-  scrolling row and the card full width.
+  selected implement, which is the picked tile), Raise all, Lower all and
+  Attach. C3 adds Select, the target on every card button, Fold, Detach,
+  Pipe, Unload, Tipping and Cover. Until then those buttons show as
+  unavailable.
+- **Open:** compact (portrait) layout, likely the band as a scrolling row
+  and the card full width.
 
 ### Default removed (2026-10-24)
 
