@@ -815,10 +815,10 @@ vs.set("vehicles", { controlledId: 1, vehicles: [{ id: 1, name: "New Holland T7.
     { name: "Seed drill", categoryTitle: "Seeders", lowered: true, turnedOn: true, wear: 0.12 },
     { name: "Front weight", category: "WEIGHTS", lowered: false } ] }] });
 check("readout card", [q(readoutCard, ".readout-title"), q(readoutCard, ".readout-sub"),
-  q(readoutCard, ".readout-engine"), q(readoutCard, ".readout-speed"), q(readoutCard, ".arc-max"),
+  readoutCard.querySelector(".readout-engine").dataset.state, q(readoutCard, ".readout-speed"), q(readoutCard, ".arc-max"),
   readoutCard.querySelector(".arc-fill").getAttribute("stroke-dasharray"), q(readoutCard, ".readout-gear"),
   q(readoutCard, ".readout-rpm b"), parseFloat(readoutCard.querySelector(".readout-rpm .widget-meter > span").style.width).toFixed(1)],
-  ["Working", "Seed drill", "Engine on", "14.2", "50", "28.48 100", "4", (1850).toLocaleString(), "84.1"]);
+  ["Working", "Seed drill", "on", "14.2", "50", "28.48 100", "4", (1850).toLocaleString(), "84.1"]);
 check("gear name: as the game says, reverse as R", ["2", "N", "-1", -2, 4, "3H", "-4L", "D", undefined, ""]
   .map((g) => sel.gearName({ id: 1, gear: g })), ["2", "N", "R1", "R2", "4", "3H", "R4L", "D", undefined, undefined]);
 const { gearDetail } = await import("./src/widgets/vehicleScreen.js");
@@ -922,7 +922,7 @@ check("C3 rows: without the rig, rows only show, no ‹ ›",
   [rowEls().some((r) => r.dataset.pick), rows.querySelectorAll(".impl-detach").length, rows.querySelector(".impl-steps").hidden],
   [false, 0, true]);
 
-// the readout card's engine chip is the Engine control on the Vehicle screen
+// the readout card carries the Engine control on the Vehicle screen
 const { vehicleReadout } = await import("./src/widgets/vehicleScreen.js");
 const es = createStore();
 const engineSent = [];
@@ -930,18 +930,19 @@ const readoutEl = vehicleReadout(es, { send: (a) => { engineSent.push(a); return
 es.set("vehicles", { controlledId: 3, vehicles: [{ id: 3, engineOn: false }] });
 es.set("cab", { inVehicle: true, engineOn: false, engineState: "off" });
 const chip = readoutEl.querySelector(".readout-engine");
-const chipShow = () => [chip.tagName, chip.lastChild.textContent, chip.dataset.state];
+const chipShow = () => [chip.classList.contains("control"), chip.querySelector(".control-label").textContent,
+  chip.dataset.state];
 const offShown = chipShow();
-chip.click();
+tap(chip);
 await new Promise((r) => setTimeout(r, 0));
 const tappedShown = chipShow();
 es.set("cab", { inVehicle: true, engineOn: false, engineState: "starting" });
 const startingShown = chipShow();
 es.set("cab", { inVehicle: true, engineOn: true, engineState: "on" });
-check("engine chip: a tap starts the engine, pending until the game has it running",
-  [offShown, engineSent, tappedShown, startingShown, chipShow()],
-  [["BUTTON", "Engine off", "off"], ["engine.toggle"], ["BUTTON", "Starting…", "pending"],
-   ["BUTTON", "Starting…", "pending"], ["BUTTON", "Engine on", "on"]]);
+await new Promise((r) => setTimeout(r, 0));
+check("card's Engine button: the column's control, pending until the game has it running",
+  [offShown, engineSent, tappedShown[2], startingShown[2], chipShow()],
+  [[true, "Engine", "off"], ["engine.toggle"], "pending", "pending", [true, "Engine", "on"]]);
 
 // the round trip readout's numbers
 let fake = 0;

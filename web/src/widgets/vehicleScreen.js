@@ -3,15 +3,16 @@
 // card (what the vehicle is doing, the speed arc, gear and engine speed)
 // and the vehicle card (its kind's icon, name, brand and category, and a
 // button that shows it on the Map screen). The button dispatches a
-// "showonmap" event that bubbles up to main.js. The readout card's engine
-// chip is the Engine control on this screen: a tap starts or stops the
-// engine, pending (the loading ring's pulse) until the game reports the
-// new state, as the Engine button does elsewhere.
+// "showonmap" event that bubbles up to main.js. The readout card carries
+// the Engine control on this screen: the column's own Engine button
+// (widgets/controls.js, so it starts, stops and stays pending the same
+// way), with a green dot while the engine runs.
 
 import {
-  activity, cabOf, controlledVehicle, gearName, kindLabel, modelName, rpmPct, speedScale, vehicleBrand, vehicleKind,
+  activity, controlledVehicle, gearName, kindLabel, modelName, rpmPct, speedScale, vehicleBrand, vehicleKind,
 } from "../data/selectors.js";
 import { sendCommand } from "../connection.js";
+import { controlGroup } from "./controls.js";
 import { speedUnit, speedValue, unitsOf } from "../data/units.js";
 import { fmt, h } from "../ui/dom.js";
 import { icon } from "../ui/icons.js";
@@ -54,31 +55,10 @@ export function vehicleReadout(store, opts = {}) {
   const sub = h("span", { className: "readout-sub" });
   /** @type {(action: string, value?: number) => Promise<import("../commands.js").CommandResult>} */
   const send = /** @type {any} */ (opts).send || sendCommand;
-  const engine = /** @type {HTMLButtonElement} */ (h("button", { className: "readout-engine" },
-    h("span", { className: "readout-dot" }), h("span")));
-  engine.type = "button";
-  /** the engine's state when the tap went out; pending until it changes */
-  /** @type {string|undefined} */
-  let tappedAt;
-  /** @type {ReturnType<typeof setTimeout>|undefined} */
-  let pendingTimer;
-  const engineState = (/** @type {any} */ v) => {
-    const cab = cabOf(store);
-    if (cab?.inVehicle && typeof cab.engineState === "string") return cab.engineState;
-    return typeof v?.engineOn === "boolean" ? (v.engineOn ? "on" : "off") : undefined;
-  };
-  const clearPending = () => { tappedAt = undefined; clearTimeout(pendingTimer); render(); };
-  engine.addEventListener("click", async () => {
-    const now = engineState(controlledVehicle(store));
-    if (tappedAt !== undefined || now === undefined) return;
-    tappedAt = now;
-    clearTimeout(pendingTimer);
-    // starting takes a few seconds in game
-    pendingTimer = setTimeout(clearPending, 10000);
-    render();
-    const result = await send("engine.toggle");
-    if (!result.ok) clearPending();
-  });
+  // the Engine control, out of a one-control group (it keeps its updates)
+  const engine = /** @type {HTMLElement} */ (controlGroup({ label: "Engine", controls: ["engineOn"] }, store, send)
+    .querySelector(".control"));
+  engine.classList.add("readout-engine");
 
   const svg = document.createElementNS(SVG_NS, "svg");
   svg.setAttribute("viewBox", "0 0 200 126");
@@ -123,18 +103,6 @@ export function vehicleReadout(store, opts = {}) {
     title.textContent = what.text;
     sub.textContent = what.detail || "";
     sub.hidden = !what.detail;
-    const state = engineState(v);
-    if (tappedAt !== undefined && state !== tappedAt && state !== "starting") {
-      tappedAt = undefined;
-      clearTimeout(pendingTimer);
-    }
-    engine.hidden = state === undefined;
-    engine.dataset.on = String(state === "on");
-    engine.dataset.state = tappedAt !== undefined || state === "starting" ? "pending" : state || "";
-    engine.setAttribute("aria-pressed", String(state === "on"));
-    /** @type {HTMLElement} */ (engine.lastChild).textContent = state === "starting" ? "Starting…"
-      : tappedAt !== undefined ? (tappedAt === "on" ? "Stopping…" : "Starting…")
-      : state === "on" ? "Engine on" : "Engine off";
 
     // in the player's unit, km/h or mph; the scale follows it
     const units = unitsOf(store);
