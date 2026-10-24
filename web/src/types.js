@@ -60,6 +60,18 @@
  */
 
 /**
+ * The cab topic: what the controls show, for the controlled vehicle, sent
+ * the frame it changes. On foot: {inVehicle: false}.
+ * @typedef {Object} Cab
+ * @property {boolean} inVehicle
+ * @property {number|string} [vehicleId]
+ * @property {boolean} [engineOn]
+ * @property {{on?: boolean, high?: boolean, left?: boolean, right?: boolean, hazard?: boolean, beacon?: boolean}} [lights]
+ * @property {{state: string, speed?: number}} [cruise]
+ * @property {{lowered: boolean, turnedOn: boolean}[]} [implements]
+ */
+
+/**
  * A PDA hotspot. category is MapHotspot.CATEGORY_* (see map/icons.js).
  * @typedef {Object} Hotspot
  * @property {number} category

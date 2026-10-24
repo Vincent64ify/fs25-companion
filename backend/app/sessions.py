@@ -6,7 +6,8 @@ Sessions live in memory only and disappear when the last socket leaves.
 import asyncio
 import json
 import secrets
-from typing import Any, Dict, Optional, Set
+from collections import OrderedDict
+from typing import Any, Dict, Optional, Set, Tuple
 
 from fastapi import WebSocket
 
@@ -31,6 +32,10 @@ class Session:
         self.client_token: Optional[str] = None
         # {"type": "map_assets", "mapId", "hash"}: the map images in use
         self.map_assets: Optional[Dict[str, Any]] = None
+        # commands sent to the client and not answered yet:
+        # backend ref -> (viewer socket, the viewer's own id)
+        self.commands: "OrderedDict[str, Tuple[WebSocket, str]]" = OrderedDict()
+        self.command_seq = 0
         self.lock = asyncio.Lock()
 
     async def broadcast(self, msg: Any) -> None:

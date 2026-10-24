@@ -350,6 +350,59 @@ check("controls: implement's name in the label, aria", [implGroup.querySelector(
   lightsGroup.querySelector(".control").getAttribute("aria-label"),
   lightsGroup.querySelector(".control").getAttribute("aria-pressed")],
   ["Implement · Seeder", "Lights, on", "true"]);
+
+// Controls C1: commands and the cab topic
+const { createCommander } = await import("./src/commands.js");
+const sent = [];
+const cmd = createCommander((m) => { sent.push(m); return true; }, { timeoutMs: 40, prefix: "t" });
+const okRun = cmd.send("lights.toggle");
+cmd.ack({ id: "other", ok: true });
+cmd.ack({ id: "t-1", ok: true });
+const failRun = cmd.send("lights.toggle");
+cmd.ack({ id: "t-2", ok: false, reason: "not in a vehicle" });
+const lateRun = cmd.send("lights.toggle");
+const offline = createCommander(() => false).send("lights.toggle");
+check("commands: message, ack by id, failure, timeout, offline",
+  [sent[0], await okRun, await failRun, await lateRun, await offline, cmd.pending()],
+  [{ type: "command", id: "t-1", action: "lights.toggle" }, { ok: true },
+   { ok: false, reason: "not in a vehicle" }, { ok: false, reason: "no answer" },
+   { ok: false, reason: "not connected" }, 0]);
+
+const ccs = createStore();
+/** @type {((r: any) => void)[]} */
+const answers = [];
+const presses = [];
+const tapGroup = controlGroup({ label: "Lights", controls: ["lights", "beacon"] }, ccs,
+  (action) => { presses.push(action); return new Promise((r) => answers.push(r)); });
+const [lightsBtn, beaconBtn] = tapGroup.querySelectorAll(".control");
+const tap = (el) => el.dispatchEvent(new PointerEvent("pointerdown", { button: 0, bubbles: true }));
+check("controls: only wired ones are buttons",
+  [lightsBtn.hasAttribute("aria-disabled"), beaconBtn.getAttribute("aria-disabled")], [false, "true"]);
+tap(lightsBtn);
+check("controls: no command while unavailable", presses.length, 0);
+ccs.set("vehicles", { controlledId: 1, vehicles: [{ id: 1, lights: { on: false, beacon: true } }] });
+ccs.set("cab", { inVehicle: true, vehicleId: 1, lights: { on: false, beacon: false }, implements: [] });
+check("controls: the cab wins over the vehicles topic", states(tapGroup), ["off", "off"]);
+tap(lightsBtn);
+tap(lightsBtn);
+check("controls: pending at once, one command at a time", [lightsBtn.dataset.state, presses], ["pending", ["lights.toggle"]]);
+ccs.set("cab", { inVehicle: true, vehicleId: 1, lights: { on: true }, implements: [] });
+check("controls: stays pending until the answer", lightsBtn.dataset.state, "pending");
+answers[0]({ ok: true });
+await Promise.resolve(); await Promise.resolve();
+check("controls: then the game's state", [lightsBtn.dataset.state, "error" in lightsBtn.dataset], ["on", false]);
+tap(lightsBtn);
+answers[1]({ ok: false, reason: "not in a vehicle" });
+await Promise.resolve(); await Promise.resolve();
+check("controls: a failure shows briefly, with the reason",
+  [lightsBtn.dataset.state, "error" in lightsBtn.dataset, lightsBtn.textContent, lightsBtn.title],
+  ["on", true, "Failed", "not in a vehicle"]);
+ccs.set("cab", { inVehicle: false });
+check("controls: on foot by the cab: unavailable", states(tapGroup), ["unavailable", "unavailable"]);
+const keyboard = controlGroup({ label: "L", controls: ["lights"] }, ccs, (a) => { presses.push(`key:${a}`); return Promise.resolve({ ok: true }); });
+ccs.set("cab", { inVehicle: true, lights: { on: false } });
+keyboard.querySelector(".control").click();
+check("controls: the keyboard presses too", presses.at(-1), "key:lights.toggle");
 const iconsT3 = await import("./src/ui/icons.js");
 check("controls: every control's icon exists", Object.entries(CONTROLS).filter(([, c]) => !iconsT3.hasIcon(c.icon))
   .map(([id]) => id), []);

@@ -7,6 +7,9 @@ The mod writes whole lines and flushes once per frame. The reader polls:
 * when the file is smaller than the offset, the mod rotated it (reopened
   with "w"): start again from 0 and drop the partial line
 * a missing file just yields nothing until the game creates it
+* every 50 ms, or every 10 ms for 2 s after a dashboard command
+  (FAST_POLL_INTERVAL_S, see client/commands.py), so its ack and the new
+  cab state go out as soon as the mod writes them
 
 Pure Python, no OS-specific code: FS25 doesn't lock the file on Windows
 (verified in Phase 0), and macOS doesn't lock files.
@@ -18,6 +21,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 POLL_INTERVAL_S = 0.05
+FAST_POLL_INTERVAL_S = 0.01
 MAX_READ_BYTES = 4 * 1024 * 1024
 
 

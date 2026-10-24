@@ -50,6 +50,10 @@ Companion.Collectors.Hello = {
             profileDir = ctx.profileDir,
             gameDir = gameDir(),
         }
+        -- where the client writes commands and the next number the mod reads
+        if ctx.commands ~= nil then
+            data.commands = ctx.commands:info()
+        end
 
         local ingameMap = mission.hud ~= nil and mission.hud.ingameMap or nil
         if ingameMap ~= nil then

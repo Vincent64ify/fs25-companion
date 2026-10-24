@@ -2,12 +2,12 @@
 <modDesc descVersion="105">
     <author>fs25-companion</author>
     <authorContact>https://github.com/Vincent64ify/fs25-companion</authorContact>
-    <version>0.4.0</version>
+    <version>0.5.0</version>
     <title>
         <en>FS25 Companion</en>
     </title>
     <description>
-        <en><![CDATA[Streams live game state (map, player, vehicles, sell points, shops, productions, farmlands, fields and crops, time and weather) to modSettings/FS25_Companion/stream.ndjson for the FS25 Companion browser map. Read-only: it doesn't change your game or savegames.]]></en>
+        <en><![CDATA[Streams live game state (map, player, vehicles, sell points, shops, productions, farmlands, fields and crops, time and weather) to modSettings/FS25_Companion/stream.ndjson for the FS25 Companion browser map. It changes your game only when you tap a control on the dashboard (lights), and never your savegames.]]></en>
     </description>
     <iconFilename>icon.png</iconFilename>
     <multiplayer supported="true" />
@@ -17,6 +17,8 @@
         <sourceFile filename="src/Api.lua"/>
         <sourceFile filename="src/Transport.lua"/>
         <sourceFile filename="src/Scheduler.lua"/>
+        <sourceFile filename="src/VehicleState.lua"/>
+        <sourceFile filename="src/Commands.lua"/>
         <sourceFile filename="src/collectors/Hello.lua"/>
         <sourceFile filename="src/collectors/Env.lua"/>
         <sourceFile filename="src/collectors/Player.lua"/>
@@ -27,6 +29,7 @@
         <sourceFile filename="src/collectors/CropTypes.lua"/>
         <sourceFile filename="src/collectors/FieldOutlines.lua"/>
         <sourceFile filename="src/collectors/Fields.lua"/>
+        <sourceFile filename="src/collectors/Cab.lua"/>
         <sourceFile filename="src/Companion.lua"/>
     </extraSourceFiles>
 </modDesc>

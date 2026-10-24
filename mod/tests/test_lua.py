@@ -14,7 +14,7 @@ MOD_ROOT = Path(__file__).resolve().parent.parent
 
 
 def test_lua_suite(tmp_path):
-    (tmp_path / "FS25_Companion").mkdir()
+    (tmp_path / "FS25_Companion" / "cmd").mkdir(parents=True)
     lua = lupa.LuaRuntime()
     lua.globals().MOD_ROOT = MOD_ROOT.as_posix() + "/"
     lua.globals().TMP_DIR = tmp_path.as_posix()

@@ -125,7 +125,7 @@ and the mod each accept only actions from the known list.
 | Phase | What | Status |
 |---|---|---|
 | C0 | Spike: can the mod see and read a client-written file every frame, fresh and cheaply; can it run an action by name; round-trip time ([spike/README.md](../spike/README.md#command-spike-c0)) | done on Windows 2026-10-24 (results below); macOS to run |
-| C1 | One control (lights) end to end: protocol, backend relay, client file writer, mod reader, ack, `cab` topic | |
+| C1 | One control (lights) end to end: protocol, backend relay, client file writer, mod reader, ack, `cab` topic | built 2026-10-24 (mod 0.5.0), live check open |
 | C2 | The first control set in both themes, held controls with auto-release | |
 | C3 | Targeted actions (cruise speed, detach a chosen implement), round-trip readout in Settings | |
 | C4 | Live check on Windows and macOS, multiplayer as client and host | |
@@ -156,6 +156,35 @@ and the mod each accept only actions from the known list.
   commands), against 3.5–19 ms without it. The round trip stays at a 20 ms
   median. C1 uses `XMLFile.load` (both readers cost the same) plus the
   read-back.
+
+**C1 as built (2026-10-24, mod 0.5.0).** Lights is wired in both themes
+(New Holland's control column, and a Controls card in Default).
+- Web: `src/commands.js` (ids, 2 s timeout), `connection.js`
+  `sendCommand`, `ui/control.js` (pending on pointerdown, the game's state
+  after the ack, "Failed" with the reason for 2 s), and the controls read
+  lights, engine and cruise from `cab` when the mod sends it.
+- Backend: the allow-list is `protocol.COMMAND_ACTIONS`; a command goes to
+  the paired client with the backend's own `ref` (two viewers' ids can't
+  clash), and the ack goes back only to the viewer that sent it. Refused
+  at once: an action off the list, no client, and pending commands when
+  the client leaves. `command_ack` is an event: relayed, never stored.
+- Client: `client/commands.py` maps `lights.toggle` to `TOGGLE_LIGHTS`,
+  writes `<n>.xml.tmp`, reads it back, renames it; numbers from 1 per
+  session or from `hello.commands.next` when started mid-session, clears
+  `cmd/` on a new session, deletes each file on its ack, and polls the
+  stream every 10 ms for 2 s after a command. Acks queue in order behind
+  the batch's state, so the cab arrives before the ack.
+- Mod: `Commands.lua` (fileExists for the next number, `XMLFile.load`,
+  session and allow-list, the input event's callbacks, else
+  `setLightsTypesMask`), `collectors/Cab.lua` (every frame, sent on
+  change), `VehicleState.lua` (lights, engine, cruise for `vehicles` and
+  `cab`; the beacon now reads `beaconLightsActive`, as C0 saw).
+- Without the game, with a stand-in for the mod: tap to new state 23 ms
+  (first tap 58 ms) through the real client and backend; with no answer
+  the control falls back after 2.0 s.
+- Live check: in a tractor, tap Lights on the tablet: how it feels, that
+  the lights cycle as the key does, and that a key press in game shows on
+  the dashboard at once.
 
 **Risks.** If the mod can't re-read a client-written file, fall back to key
 presses (Windows first). Calling action callbacks by name may differ per

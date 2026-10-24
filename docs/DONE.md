@@ -409,3 +409,14 @@ Changes since Phase 4 (2026-10-21 to 2026-10-22):
   PTO, hitch position and the AI worker's job in the stream, with the
   player's units and currency; widgets, controls, implement rows and
   popups show them. Two new icons (DEF, fill level).
+
+## Controls
+
+- **C0, command channel spike** (`564f49c`): the mod reads a file the
+  client writes, every frame, in about 20 ms round trip; see PLAN.md.
+- **C1, lights end to end** (2026-10-24, mod 0.5.0, not yet checked
+  live): the dashboard's Lights control sends `lights.toggle`; the backend
+  relays allow-listed commands from viewers to the client and the acks
+  back; the client writes `cmd/<n>.xml`; the mod runs `TOGGLE_LIGHTS`
+  through its input event and answers with `command_ack` and the new
+  `cab` topic in the same frame. Details in PLAN.md, "C1 as built".

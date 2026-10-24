@@ -1,8 +1,8 @@
 -- run.lua
 -- Offline tests for the mod's pure parts: the JSON encoder, the heading
 -- maths, the transport (writes and rotation), the scheduler (isolation of
--- failing collectors, resend after rotation) and the collectors against a
--- stubbed game API.
+-- failing collectors, resend after rotation), the collectors and the
+-- command reader against a stubbed game API.
 --
 -- Runs under plain Lua 5.1+ from the repository root (set TMP_DIR to keep
 -- scratch files out of the system temp folder):
@@ -21,6 +21,8 @@ load("src/Geo.lua")
 load("src/Api.lua")
 load("src/Transport.lua")
 load("src/Scheduler.lua")
+load("src/VehicleState.lua")
+load("src/Commands.lua")
 
 local Json, Geo, Transport, Scheduler =
     Companion.Json, Companion.Geo, Companion.Transport, Companion.Scheduler
@@ -538,6 +540,205 @@ test("crop types: PDA colours, growth stages, ground types, levels", function()
     eq(crops.collect({}).groundTypes, nil, "no FieldGroundType")
 end)
 
+-- Vehicle state, cab and commands ------------------------------------------
+
+test("vehicle state: lights from the mask and turn state, old names as a fallback", function()
+    local VehicleState = Companion.VehicleState
+    Lights = nil
+    local l = VehicleState.lights({ spec_lights = { lightsTypesMask = 1 + 8, beaconLightsActive = true, turnLightState = 3 } })
+    eq(l.on, true, "on")
+    eq(l.high, true, "high beam bit")
+    eq(l.beacon, true, "beacon")
+    eq(l.hazard, true, "hazard")
+    eq(l.left, false, "left")
+    l = VehicleState.lights({ spec_lights = { lightsTypesMask = 0, turnLightState = 1 } })
+    eq(l.on, false, "off")
+    eq(l.high, false)
+    eq(l.left, true, "left turn")
+    eq(l.beacon, false)
+    Lights = { TURNLIGHT_LEFT = 5 }
+    eq(VehicleState.lights({ spec_lights = { turnLightState = 5 } }).left, true, "the game's constants win")
+    Lights = nil
+    l = VehicleState.lights({ spec_lights = { isLightOn = true, beaconOn = true, hazardOn = true } })
+    eq(l.on, true, "old names")
+    eq(l.beacon, true)
+    eq(l.hazard, true)
+    eq(VehicleState.lights({}), nil, "no lights")
+    eq(VehicleState.engineOn({}), nil, "no engine")
+    eq(VehicleState.engineOn({ spec_motorized = {}, getIsMotorStarted = function() return true end }), true)
+end)
+
+local function cabVehicle()
+    local implement = {
+        lowered = true,
+        getIsLowered = function(self) return self.lowered end,
+        getIsTurnedOn = function() return false end,
+    }
+    local vehicle = {
+        id = 7,
+        spec_lights = { lightsTypesMask = 0 },
+        spec_motorized = {},
+        getIsMotorStarted = function() return true end,
+        getCruiseControlState = function() return 0 end,
+        getCruiseControlSpeed = function() return 12 end,
+        getAttachedImplements = function() return { { object = implement } } end,
+    }
+    return vehicle, implement
+end
+
+test("cab: the controlled vehicle's switches, sent only on change", function()
+    load("src/collectors/Cab.lua")
+    local Cab = Companion.Collectors.Cab
+    Cab.reset()
+    local vehicle, implement = cabVehicle()
+    local player = { vehicle = nil }
+    player.getCurrentVehicle = function(self) return self.vehicle end
+    g_localPlayer = player
+    local cab = Cab.collect({})
+    eq(cab.inVehicle, false, "on foot")
+    eq(Cab.collect({}), nil, "unchanged: nothing sent")
+    player.vehicle = vehicle
+    cab = Cab.collect({})
+    eq(cab.inVehicle, true)
+    eq(cab.vehicleId, 7)
+    eq(cab.engineOn, true)
+    eq(cab.lights.on, false)
+    eq(cab.cruise.state, "off")
+    eq(cab.cruise.speed, 12)
+    eq(cab.implements[1].lowered, true)
+    eq(Cab.collect({}), nil, "unchanged")
+    vehicle.spec_lights.lightsTypesMask = 1
+    eq(Cab.collect({}).lights.on, true, "lights on: sent")
+    implement.lowered = false
+    eq(Cab.collect({}).implements[1].lowered, false, "implement raised: sent")
+    eq(Cab.collect({}), nil)
+end)
+
+-- the game's file functions over plain Lua io, and a writer for command
+-- files as the client writes them (into <dir><n>.xml)
+local function commandStubs(dir)
+    fileExists = function(path)
+        local f = io.open(path, "r")
+        if f ~= nil then
+            f:close()
+            return true
+        end
+        return false
+    end
+    deleteFile = function(path) os.remove(path) end
+    createFolder = function() end
+    XMLFile = {
+        loads = 0,
+        load = function(_, path)
+            XMLFile.loads = XMLFile.loads + 1
+            local f = io.open(path, "r")
+            if f == nil then
+                return nil
+            end
+            local text = f:read("*a")
+            f:close()
+            return {
+                getString = function(_, key)
+                    local attr = key:match("#(.+)$")
+                    return text:match(attr .. '="([^"]*)"')
+                end,
+                delete = function() end,
+            }
+        end,
+    }
+    return function(id, session, action, ref)
+        local f = assert(io.open(string.format("%s%d.xml", dir, id), "w"))
+        f:write(string.format('<command session="%s" id="%d" action="%s" ref="%s"/>',
+            session, id, action, ref or ("r" .. id)))
+        f:close()
+    end
+end
+
+test("commands: next file in order, session and allow-list checked, input event first", function()
+    if TMP_DIR == nil then
+        print("skip commands test (no TMP_DIR)")
+        return
+    end
+    -- a file name prefix stands in for the cmd/ folder
+    local dir = TMP_DIR .. "/cmdunit_"
+    local write = commandStubs(dir)
+    local logged = {}
+    local commands = Companion.Commands.new(dir, "S1", function(m) logged[#logged + 1] = m end)
+    eq(commands:info().next, 1)
+    eq(commands:poll(), nil, "no file: nothing")
+    eq(XMLFile.loads, 0, "nothing read without a file")
+
+    local vehicle = { spec_lights = { lightsTypesMask = 0 } }
+    vehicle.setLightsTypesMask = function(self, mask) self.spec_lights.lightsTypesMask = mask end
+    local player = { vehicle = nil }
+    player.getCurrentVehicle = function(self) return self.vehicle end
+    g_localPlayer = player
+    g_inputBinding = nil
+
+    -- a file left from an earlier session is removed, and 1 stays next
+    write(1, "OLD", "TOGGLE_LIGHTS")
+    eq(commands:poll(), nil, "stale session: no ack")
+    eq(fileExists(dir .. "1.xml"), false, "stale file deleted")
+    eq(commands:info().next, 1, "still waiting for this session's 1")
+
+    write(1, "S1", "TOGGLE_LIGHTS", "abc")
+    local ack = commands:poll()
+    eq(ack.id, 1)
+    eq(ack.ref, "abc")
+    eq(ack.ok, false, "on foot")
+    eq(ack.reason, "not in a vehicle")
+    eq(commands:info().next, 2)
+    eq(commands:poll(), nil, "1 is done: waits for 2")
+
+    write(2, "S1", "TOGGLE_ENGINE_EVERYTHING")
+    ack = commands:poll()
+    eq(ack.ok, false)
+    eq(ack.reason, "action not allowed")
+
+    -- in a vehicle with no active input event: the setter
+    player.vehicle = vehicle
+    write(3, "S1", "TOGGLE_LIGHTS")
+    ack = commands:poll()
+    eq(ack.ok, true, "fallback ran")
+    eq(ack.reason, nil)
+    eq(vehicle.spec_lights.lightsTypesMask, 1, "lights on")
+
+    -- the input event's callback, as a key press calls it
+    local calls = {}
+    local action = { name = "TOGGLE_LIGHTS" }
+    g_inputBinding = {
+        nameActions = { TOGGLE_LIGHTS = action },
+        actionEvents = { [action] = {
+            { isActive = false, callback = function() calls[#calls + 1] = "inactive" end },
+            { isActive = true, targetObject = vehicle, callbackState = 4,
+              callback = function(target, name, value, state, analog)
+                  calls[#calls + 1] = { target = target, name = name, value = value, state = state, analog = analog }
+              end },
+        } },
+    }
+    write(4, "S1", "TOGGLE_LIGHTS")
+    ack = commands:poll()
+    eq(ack.ok, true)
+    eq(#calls, 1, "only the active event")
+    eq(calls[1].target, vehicle)
+    eq(calls[1].name, "TOGGLE_LIGHTS")
+    eq(calls[1].value, 1)
+    eq(calls[1].state, 4)
+    eq(calls[1].analog, false)
+    eq(vehicle.spec_lights.lightsTypesMask, 1, "no fallback when the event ran")
+
+    -- the action and its fallback both fail: reported, and the queue goes on
+    g_inputBinding.actionEvents[action] = { { isActive = true, callback = function() error("boom") end } }
+    vehicle.setLightsTypesMask = function() error("boom") end
+    write(5, "S1", "TOGGLE_LIGHTS")
+    ack = commands:poll()
+    eq(ack.ok, false)
+    eq(ack.reason, "failed in game")
+    eq(#logged, 1, "logged once")
+    eq(commands:info().next, 6)
+    g_inputBinding = nil
+end)
+
 -- Whole mod against a stubbed game -----------------------------------------
 -- Loads every file in modDesc order and runs a few frames. Needs TMP_DIR
 -- with an existing FS25_Companion/ folder (createFolder is a game function).
@@ -715,9 +916,14 @@ test("whole mod streams every topic", function()
     load("src/collectors/CropTypes.lua")
     load("src/collectors/FieldOutlines.lua")
     load("src/collectors/Fields.lua")
+    load("src/collectors/Cab.lua")
     load("src/Companion.lua")
     local mod = getListener()
     assert(mod ~= nil, "registered as a mod event listener")
+
+    local writeCommand = commandStubs(TMP_DIR .. "/FS25_Companion/cmd/")
+    vehicle.spec_lights = { lightsTypesMask = 0 }
+    vehicle.setLightsTypesMask = function(self, mask) self.spec_lights.lightsTypesMask = mask end
 
     mod:loadMap("map")
     mod:update(16)
@@ -725,6 +931,22 @@ test("whole mod streams every topic", function()
     -- long enough for the farmland grid (64 slices)
     for _ = 1, 80 do
         mod:update(16)
+    end
+    -- a dashboard command: its ack, then the new cab, in the same frame
+    local session = readFile(TMP_DIR .. "/FS25_Companion/stream.ndjson"):match('"sessionId":"([^"]+)"')
+    local before = #lines(readFile(TMP_DIR .. "/FS25_Companion/stream.ndjson"))
+    writeCommand(1, session, "TOGGLE_LIGHTS", "b7")
+    mod:update(16)
+    local frame = lines(readFile(TMP_DIR .. "/FS25_Companion/stream.ndjson"))
+    assert(frame[before + 1]:find('"topic":"command_ack"', 1, true), "ack first: " .. tostring(frame[before + 1]))
+    assert(frame[before + 1]:find('"data":{"action":"TOGGLE_LIGHTS","id":1,"ok":true,"ref":"b7"}', 1, true),
+        frame[before + 1])
+    assert(frame[before + 2]:find('"topic":"cab"', 1, true), "then the cab: " .. tostring(frame[before + 2]))
+    assert(frame[before + 2]:find('"on":true', 1, true), "lights on in the cab")
+    mod:update(16)
+    local after = lines(readFile(TMP_DIR .. "/FS25_Companion/stream.ndjson"))
+    for i = #frame + 1, #after do
+        assert(not after[i]:find('"topic":"cab"', 1, true), "an unchanged cab isn't sent again")
     end
     mod:deleteMap()
 
@@ -734,6 +956,7 @@ test("whole mod streams every topic", function()
     assert(ls[1]:find('"mapId":"FS25_Test.TestMap"', 1, true), ls[1])
     assert(ls[1]:find('"mapExtensionScaleFactor":0.5', 1, true), ls[1])
     assert(ls[1]:find('"gameDir":"C:/Games/FS25/"', 1, true), ls[1])
+    assert(ls[1]:find('"commands":{"dir":"' .. TMP_DIR .. '/FS25_Companion/cmd/","next":1}', 1, true), ls[1])
     local text = table.concat(ls, "\n")
     -- on foot: heading from the facing direction (east)
     assert(text:find('"heading":90,"inVehicle":false', 1, true), "on-foot player pose")

@@ -122,3 +122,23 @@ def test_field_topics():
         "groundTypes": {"PLOWED": 4}, "levels": {"lime": 3, "plow": 1, "spray": 2}}))
     # Lua writes an empty table as []: no fields yet
     parse_envelope(env("fields", {"fields": []}))
+
+
+def test_cab_and_command_ack():
+    from backend.app.protocol import COMMAND_ACTIONS, EVENT_TOPICS
+    cab = {"v": 1, "seq": 1, "t": 0, "topic": "cab",
+           "data": {"inVehicle": True, "vehicleId": 7, "engineOn": True,
+                    "lights": {"on": True, "high": False, "beacon": True},
+                    "cruise": {"state": "on", "speed": 15},
+                    "implements": [{"lowered": True, "turnedOn": False}]}}
+    assert parse_envelope(cab) is cab
+    parse_envelope({**cab, "data": {"inVehicle": False}})
+    with pytest.raises(ValidationError):
+        parse_envelope({**cab, "data": {"implements": [{"lowered": "very"}]}})
+    ack = {"v": 1, "seq": 2, "t": 0, "topic": "command_ack",
+           "data": {"id": 3, "ref": "12", "action": "TOGGLE_LIGHTS", "ok": True}}
+    parse_envelope(ack)
+    with pytest.raises(ValidationError):
+        parse_envelope({**ack, "data": {"id": 3}})  # ok is required
+    assert "command_ack" in EVENT_TOPICS
+    assert COMMAND_ACTIONS == {"lights.toggle"}

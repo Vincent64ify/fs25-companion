@@ -17,6 +17,7 @@ Companion.Collectors = Companion.Collectors or {}
 
 local Api = Companion.Api
 local Geo = Companion.Geo
+local VehicleState = Companion.VehicleState
 
 local MAX_IMPLEMENT_DEPTH = 6
 
@@ -328,26 +329,12 @@ local function fuelUsage(motorized)
     return Geo.round(math.max(0, usage), 1)
 end
 
--- whether the engine runs: getIsMotorStarted(), else the spec's field.
--- spec_motorized.engineStarted (the first guess) is nil in FS25, so the
--- engine always read as off in the live test.
-local function engineOn(vehicle, motorized)
-    local started = Api.tryCall(vehicle, "getIsMotorStarted")
-    if type(started) == "boolean" then
-        return started
-    end
-    if type(motorized.isMotorStarted) == "boolean" then
-        return motorized.isMotorStarted
-    end
-    return motorized.engineStarted == true
-end
-
 local function motorDetail(vehicle, entry)
     local motorized = vehicle.spec_motorized
     if motorized == nil then
         return
     end
-    entry.engineOn = engineOn(vehicle, motorized)
+    entry.engineOn = VehicleState.engineOn(vehicle)
     fuelDetail(vehicle, motorized, entry)
     entry.fuelUsage = fuelUsage(motorized)
     defDetail(vehicle, entry)
@@ -361,51 +348,6 @@ local function motorDetail(vehicle, entry)
         entry.rpmMax = Geo.round(Api.tryCall(motor, "getMaxRpm"), 0)
         gearDetail(vehicle, motor, entry)
     end
-end
-
-local function lights(vehicle)
-    local spec = vehicle.spec_lights
-    if spec == nil then
-        return nil
-    end
-    return {
-        on = spec.isLightOn == true,
-        high = spec.isLightHighOn == true,
-        left = spec.leftTurnSignalOn == true,
-        right = spec.rightTurnSignalOn == true,
-        hazard = spec.hazardOn == true,
-        beacon = spec.beaconOn == true,
-    }
-end
-
--- Drivable.CRUISECONTROL_STATE_*: OFF 0, ACTIVE 1, FULL 2 (full throttle,
--- no set speed)
-local CRUISE_STATES = { [0] = "off", [1] = "on", [2] = "full" }
-
--- cruise control: its state and the set speed (km/h)
-local function cruiseOf(vehicle)
-    local spec = vehicle.spec_drivable
-    local cruise = spec ~= nil and spec.cruiseControl or nil
-    local state = Api.tryCall(vehicle, "getCruiseControlState")
-    if type(state) ~= "number" and type(cruise) == "table" then
-        state = cruise.state
-    end
-    if CRUISE_STATES[state] == nil then
-        return nil
-    end
-    local speed = Api.tryCall(vehicle, "getCruiseControlSpeed")
-    if type(speed) ~= "number" and type(cruise) == "table" then
-        speed = cruise.speed
-    end
-    local maxSpeed = Api.tryCall(vehicle, "getCruiseControlMaxSpeed")
-    if type(maxSpeed) ~= "number" and type(cruise) == "table" then
-        maxSpeed = cruise.maxSpeed
-    end
-    return {
-        state = CRUISE_STATES[state],
-        speed = Geo.round(speed, 1),
-        maxSpeed = Geo.round(maxSpeed, 1),
-    }
 end
 
 -- whether a PTO turns: nil when no implement has one
@@ -474,8 +416,8 @@ local function vehicleEntry(vehicle, detailed)
     entry.attached = Api.tryCall(vehicle, "getAttacherVehicle") ~= nil
     if detailed then
         motorDetail(vehicle, entry)
-        entry.cruise = cruiseOf(vehicle)
-        entry.lights = lights(vehicle)
+        entry.cruise = VehicleState.cruise(vehicle)
+        entry.lights = VehicleState.lights(vehicle)
         entry.wear = wearOf(vehicle)
         entry.operatingHours = operatingHours(vehicle)
         entry.mass = Geo.round(Api.tryCall(vehicle, "getTotalMass", false), 2)

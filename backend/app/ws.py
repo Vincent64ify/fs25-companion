@@ -9,6 +9,16 @@ The first message names the role.
     client -> backend:  {"type": "map_assets", "mapId": str, "hash": str}
                         after uploading; relayed to viewers
     viewer -> backend:  {"type": "hello", "role": "viewer"}
+    viewer -> backend:  {"type": "command", "id": str, "action": str}
+                        a tap on a control; the action must be in
+                        protocol.COMMAND_ACTIONS ("lights.toggle"). Anything
+                        else a viewer sends is ignored.
+    backend -> client:  {"type": "command", "ref": str, "action": str}
+                        to the paired client only; ref is the backend's own
+                        reference (viewers' ids may clash)
+    client -> backend:  {"type": "envelope", "envelope": {topic: "command_ack",
+                        data: {id, ref, ok, reason}}}
+                        the mod's answer, sent to the viewer that asked
 
     backend -> viewer:  {"type": "snapshot", "topics": {topic: envelope}}
                         sent on connect, and again when a new game session
@@ -19,6 +29,14 @@ The first message names the role.
                         /api/maps/<mapId>/<hash>/overview.png
     backend -> viewer:  {"type": "client_status", "connected": bool}
     backend -> viewer:  {"type": "protocol_error", "message": str}
+    backend -> viewer:  {"type": "command_ack", "id": str, "ok": bool,
+                        "reason": str|null}
+                        to the viewer that sent the command, with its own
+                        id: from the mod, or straight from the backend when
+                        the action isn't allowed or no game client is
+                        connected. The new state follows as the cab topic.
+
+Hosted relay and local mode run this same code.
 """
 
 import asyncio
@@ -30,12 +48,16 @@ from fastapi import APIRouter, WebSocket
 from starlette.websockets import WebSocketDisconnect
 
 from .assets import valid_ref
-from .protocol import ProtocolVersionError, ValidationError, parse_envelope
+from .protocol import (COMMAND_ACTIONS, EVENT_TOPICS, ProtocolVersionError, ValidationError,
+                       parse_envelope)
 from .sessions import Session, SessionRegistry, safe_send
 
 log = logging.getLogger("companion.ws")
 
 HELLO_TIMEOUT_S = 10
+# unanswered commands kept per session; the oldest is dropped beyond this
+MAX_PENDING_COMMANDS = 32
+MAX_COMMAND_ID = 64
 
 
 def create_router(registry: SessionRegistry) -> APIRouter:
@@ -115,6 +137,9 @@ async def handle_client(ws: WebSocket, session: Session) -> None:
                                 session.code, invalid, e.errors()[:1])
                 continue
             session.protocol_error = None
+            if envelope["topic"] in EVENT_TOPICS:
+                await answer_command(session, envelope["data"])
+                continue
             if session.store.apply(envelope):
                 await session.broadcast(session.snapshot_message())
             else:
@@ -131,7 +156,44 @@ async def handle_client(ws: WebSocket, session: Session) -> None:
                 still_connected = session.client is not None
         if not still_connected:
             await session.broadcast({"type": "client_status", "connected": False})
+            for ref in list(session.commands):
+                await answer_command(session, {"ref": ref, "ok": False,
+                                                "reason": "game client disconnected"})
         log.info("client disconnected from %s", session.code)
+
+
+async def answer_command(session: Session, ack: dict) -> None:
+    """Send a command_ack to the viewer whose command it answers."""
+    pending = session.commands.pop(str(ack.get("ref")), None)
+    if pending is None:
+        return
+    viewer, viewer_id = pending
+    await safe_send(viewer, {"type": "command_ack", "id": viewer_id,
+                             "ok": ack.get("ok") is True, "reason": ack.get("reason")})
+
+
+async def handle_command(ws: WebSocket, session: Session, msg: dict) -> None:
+    viewer_id = msg.get("id")
+    if not isinstance(viewer_id, str) or not 0 < len(viewer_id) <= MAX_COMMAND_ID:
+        return
+
+    async def refuse(reason: str) -> None:
+        await safe_send(ws, {"type": "command_ack", "id": viewer_id, "ok": False, "reason": reason})
+
+    action = msg.get("action")
+    if action not in COMMAND_ACTIONS:
+        await refuse("action not allowed")
+        return
+    client = session.client
+    if client is None:
+        await refuse("game client not connected")
+        return
+    session.command_seq += 1
+    ref = str(session.command_seq)
+    session.commands[ref] = (ws, viewer_id)
+    while len(session.commands) > MAX_PENDING_COMMANDS:
+        session.commands.popitem(last=False)
+    await safe_send(client, {"type": "command", "ref": ref, "action": action})
 
 
 async def handle_viewer(ws: WebSocket, session: Session) -> None:
@@ -146,8 +208,14 @@ async def handle_viewer(ws: WebSocket, session: Session) -> None:
     log.info("viewer connected to %s", session.code)
     try:
         while True:
-            # viewers are read-only; ignore anything they send
-            await ws.receive_text()
+            # viewers send only commands; anything else is ignored
+            raw = await ws.receive_text()
+            try:
+                msg = json.loads(raw)
+            except json.JSONDecodeError:
+                continue
+            if isinstance(msg, dict) and msg.get("type") == "command":
+                await handle_command(ws, session, msg)
     except WebSocketDisconnect:
         pass
     finally:

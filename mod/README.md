@@ -5,6 +5,11 @@ one JSON envelope per line. The companion client tails that file. It works
 the same on Windows and macOS, never blocks the game, and doesn't care
 whether the game or the client starts first.
 
+The other way, the client writes the dashboard's commands to
+`cmd/<n>.xml` in the same folder; the mod runs them (only actions on its
+allow-list) and answers with `command_ack` and the `cab` topic in the same
+frame (`src/Commands.lua`, docs/PLAN.md "Controls").
+
 ## Install
 
 ```bash
@@ -27,9 +32,11 @@ src/
   Api.lua         guarded calls for API names not verified in Phase 0
   Transport.lua   file open / write / flush / rotate at 2 MB, seq counter
   Scheduler.lua   runs each collector at its interval, under pcall
+  VehicleState.lua  lights, engine and cruise readers shared by vehicles and cab
+  Commands.lua    reads cmd/<n>.xml every frame, runs allowed input actions
   collectors/     one file per topic (Hello, Env, Player, Vehicles,
                   Hotspots, Farmlands, FarmlandGrid, CropTypes,
-                  FieldOutlines, Fields)
+                  FieldOutlines, Fields, Cab)
   Companion.lua   bootstrap (loaded last)
 tests/run.lua     offline tests with a stubbed game
 ```
@@ -46,7 +53,7 @@ sent again.
 
 | topic | rate | data |
 |---|---|---|
-| `hello` | start, and after each rotation | protocolVersion, modVersion, sessionId, platform, mapId, mapTitle, mapDir, mapXmlFilename, isModMap, terrainSize, ingameMap (world size and map extension values), farmId, playerName, profileDir |
+| `hello` | start, and after each rotation | protocolVersion, modVersion, sessionId, platform, mapId, mapTitle, mapDir, mapXmlFilename, isModMap, terrainSize, ingameMap (world size and map extension values), farmId, playerName, profileDir, commands (dir, next: the command number read next) |
 | `env` | 1 Hz | day, dayTimeMinutes, season, weather (tempMin, tempMax, tempTrend, current, next), money (farmId → money) |
 | `player` | 10 Hz | x, y, z, heading, inVehicle, vehicleId, farmId |
 | `vehicles` | 2 Hz | vehicles[] (every vehicle: id, typeName, name, farmId, x/y/z, heading, isAI, motorized, attached, speed, propertyState) and controlledId. The controlled vehicle also carries rpm, gear, fuel, motorTemp, wear, operatingHours, mass, lights and implements[] |
@@ -55,6 +62,8 @@ sent again.
 | `farmland_grid` | once per map, and after each rotation | farmland id per 4 m cell (at most 512 cells a side), run-length encoded: cell, cols, rows, originX, originZ, runs [id, count, ...] |
 | `crop_types` | once per map, and after each rotation | fruits[] (index, name, title, color and colorBlindColor as the game's [r, g, b], numGrowthStates, minHarvest, maxHarvest, withered, cut, minPrepare, maxPrepare, regrows, shownOnMap, stateNames), groundTypes (FieldGroundType name → value), levels (lime, plow, spray maximums) |
 | `field_outlines` | once per map, and after each rotation | fields[]: id, points [x1, z1, x2, z2, ...] from the field's polygon point nodes (or its density map polygon) |
+| `cab` | every frame, sent only on change | inVehicle, vehicleId, engineOn, lights (on, high, beacon, hazard, left, right), cruise (state, speed), implements[] (lowered, turnedOn) |
+| `command_ack` | the frame a command runs, then `cab` | id (the file's number), ref, action, ok, reason |
 | `fields` | every 15 s | fields[]: id, farmlandId, x, z (field sign), areaHa and the game's fieldState: fruitTypeIndex (0 = none), growthState, groundType, sprayLevel, sprayType, limeLevel, plowLevel, rollerLevel, stubbleShredLevel, weedState, stoneLevel |
 
 A collector whose API call fails drops only its own topic (or a single
@@ -86,7 +95,12 @@ leaves the value out):
 - `getCurrentFacingDirection()` → heading on foot: is it the facing
   direction in world space (same convention as vehicles)?
 - weather (`getWeatherTypeAtTime`, temperatures) and `g_farmManager` money
-- `player.nickname`, vehicle motor/lights/implement fields (from the old mod)
+- `player.nickname`, vehicle motor/implement fields (from the old mod)
+- lights: `beaconLightsActive` is confirmed (C0); `lightsTypesMask` (on,
+  and bit 8 for the high beam) and `turnLightState` (Lights.TURNLIGHT_*)
+  are from the FS22 spec, with the old mod's names as a fallback
+- commands: `TOGGLE_LIGHTS` through its input event (the lights should
+  cycle as the key does); the fallback sets `setLightsTypesMask` 0 / 1
 - rotation: does reopening with `"w"` truncate the file?
 - fields: is `field.fieldState` kept current by the game (does the crop
   change on the dashboard after sowing or harvesting)? Do the outlines from

@@ -21,6 +21,17 @@ export function controlledVehicle(store) {
   return (topic.vehicles || []).find((/** @type {Vehicle} */ v) => v.id === topic.controlledId);
 }
 
+/**
+ * The cab topic: the controlled vehicle's switches, sent the frame they
+ * change (mod 0.5.0 and later; undefined before).
+ * @param {StoreLike} store
+ * @returns {import("../types.js").Cab|undefined}
+ */
+export function cabOf(store) {
+  const cab = store.get("cab");
+  return cab && typeof cab === "object" ? cab : undefined;
+}
+
 /** @param {Vehicle|undefined} v */
 export const vehicleName = (v) => (v ? v.name || v.typeName || "Vehicle" : "On foot");
 

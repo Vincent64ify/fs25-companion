@@ -404,6 +404,11 @@ button { font: inherit; color: inherit; }
 }
 .control[data-state="pending"] { border-style: dashed; border-color: var(--select); }
 .control[data-state="unavailable"] { opacity: 0.45; box-shadow: none; }
+/* a control wired to the game (it has no aria-disabled): pressed on touch-down */
+.control:not([aria-disabled]) { cursor: pointer; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
+.control[data-state="unavailable"]:not([aria-disabled]) { cursor: default; }
+.control[data-error] { border-color: var(--alarm); }
+.control[data-error] .control-label { color: var(--alarm); }
 
 /* --- the map's edge toolbar and its Layers panel (mapControls.js) ------------- */
 

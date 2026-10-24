@@ -106,6 +106,41 @@ main {
   color: var(--muted);
 }
 
+/* Controls card (widgets/controls.js, ui/control.js) */
+.card .control-group-label {
+  margin: 0 0 8px;
+  font-size: 12px;
+  font-weight: normal;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--muted);
+}
+.control-grid { display: flex; flex-wrap: wrap; gap: 8px; }
+.control {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 112px;
+  min-height: 44px;
+  padding: 0 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg);
+  color: var(--text);
+  font: inherit;
+  font-size: 14px;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+.control:not([aria-disabled]) { cursor: pointer; }
+.control .icon { width: 22px; height: 22px; flex: none; }
+.control[data-state="on"] { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+.control[data-state="pending"] { border-style: dashed; border-color: var(--accent); }
+.control[data-state="unavailable"] { opacity: 0.45; }
+.control[data-state="unavailable"]:not([aria-disabled]) { cursor: default; }
+.control[data-error] { border-color: var(--alarm); }
+.control[data-error] .control-label { color: var(--alarm); }
+
 .gauges { display: flex; gap: 12px; }
 .gauge { flex: 1; text-align: center; }
 .gauge span { font-size: 26px; font-weight: 600; }

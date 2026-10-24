@@ -3,7 +3,9 @@
 
 Tails the stream file the companion mod writes
 (<profile>/modSettings/FS25_Companion/stream.ndjson) and forwards every
-envelope to the backend, which serves the browser dashboard.
+envelope to the backend, which serves the browser dashboard. The
+dashboard's commands come back the other way and are written to cmd/ next
+to the stream, where the mod reads them (commands.py).
 
     python client/companion_client.py --local
         start the backend in this process too; open http://localhost:8123
@@ -31,9 +33,11 @@ REPO = CLIENT_DIR.parent
 sys.path.insert(0, str(CLIENT_DIR))
 
 import paths  # noqa: E402
+from commands import CommandWriter  # noqa: E402
 from map_assets import MapPublisher  # noqa: E402
 from relay import Outbox, WebSocketRelay  # noqa: E402
-from transport.file_tail import POLL_INTERVAL_S, FileTail, parse_line  # noqa: E402
+from transport.file_tail import (FAST_POLL_INTERVAL_S, POLL_INTERVAL_S, FileTail,  # noqa: E402
+                                 parse_line)
 from transport.replay import replay  # noqa: E402
 
 log = logging.getLogger("companion")
@@ -87,16 +91,20 @@ def lan_address() -> str:
         return "localhost"
 
 
-def forwarder(outbox: Outbox, on_hello=None):
-    """put(envelope): queue it for the backend and pass each hello on."""
+def forwarder(outbox: Outbox, on_hello=(), on_ack=None):
+    """put(envelope): queue it for the backend, pass each hello to every
+    on_hello hook and each command_ack to on_ack."""
     def put(envelope) -> None:
         outbox.put(envelope)
-        if on_hello is not None and envelope["topic"] == "hello":
-            on_hello(envelope["data"])
+        if envelope["topic"] == "hello":
+            for hook in on_hello:
+                hook(envelope["data"])
+        elif envelope["topic"] == "command_ack" and on_ack is not None:
+            on_ack(envelope["data"])
     return put
 
 
-async def tail(stream: Path, put, record) -> None:
+async def tail(stream: Path, put, record, fast=lambda: False) -> None:
     reader = FileTail(stream)
     waiting_logged = False
     rotations = 0
@@ -117,7 +125,7 @@ async def tail(stream: Path, put, record) -> None:
                 put(envelope)
         if record is not None and lines:
             record.flush()
-        await asyncio.sleep(POLL_INTERVAL_S)
+        await asyncio.sleep(FAST_POLL_INTERVAL_S if fast() else POLL_INTERVAL_S)
 
 
 async def serve_backend(port: int, pairing: str, assets_dir: Path) -> None:
@@ -164,15 +172,18 @@ async def run(args) -> None:
         # the stream file normally sits in <profile>/modSettings/FS25_Companion/
         profile = stream.parents[2] if (stream.parents[2] / "mods").is_dir() else None
 
-    on_hello = None
+    # commands go next to the stream file; a replay has no game to send them to
+    commands = CommandWriter(stream.parent / "cmd" if stream is not None else None, outbox.put)
+    relay.on_command = commands.submit
+    on_hello = [commands.on_hello]
     if not args.no_map_sync:
-        on_hello = MapPublisher(relay, cache / "maps", profile).on_hello
-    put = forwarder(outbox, on_hello)
+        on_hello.append(MapPublisher(relay, cache / "maps", profile).on_hello)
+    put = forwarder(outbox, on_hello, commands.on_ack)
     if stream is None:
         tasks.append(asyncio.create_task(
             replay(args.replay, put, speed=args.speed, loop=args.loop)))
     else:
-        tasks.append(asyncio.create_task(tail(stream, put, record)))
+        tasks.append(asyncio.create_task(tail(stream, put, record, commands.fast)))
     tasks.append(asyncio.create_task(relay.run()))
 
     print("=" * 64)

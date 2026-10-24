@@ -2,9 +2,11 @@
 // Default: the dashboard as it has always looked. It draws itself (build)
 // with the same markup the old index.html had, so it can't drift: header
 // and connection pill, the banner, then the square map beside the panel of
-// cards. Its one addition is the Settings button at the header's left.
+// cards. Its additions are the Settings button at the header's left and a
+// Controls card (Lights, the first control wired to the game).
 
 import { createWidget } from "../../widgets/index.js";
+import { controlGroup } from "../../widgets/controls.js";
 import { h } from "../../ui/dom.js";
 
 /** @type {import("../render.js").Theme} */
@@ -31,6 +33,8 @@ export default {
       h("div", { className: "card" },
         w("vehicleName"),
         h("div", { className: "gauges" }, w("speed"), w("rpm"), w("gear"))),
+      h("div", { className: "card controls-card" },
+        controlGroup({ label: "Controls", controls: ["lights"] }, store)),
       listCard("Vehicle", ["fuel", "fuelUsage?", "def?", "cruise?", "load?", "wear", "engineTemp", "hours", "position"]),
       listCard("Farm", ["weather", "temperature", "clock", "day", "money", "mapName", "playerName"]),
       w("implements", { variant: "card", id: "impl-card" }));

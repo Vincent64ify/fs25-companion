@@ -95,3 +95,107 @@ def test_dashboard_is_served():
     r = TestClient(create_app()).get("/")
     assert r.status_code == 200
     assert "FS25 Companion" in r.text
+
+
+def viewer_hello(ws):
+    ws.send_text(json.dumps({"type": "hello", "role": "viewer"}))
+    msg = recv(ws)
+    while msg["type"] != "client_status":
+        msg = recv(ws)
+    return msg
+
+
+def command(ws, cid, action="lights.toggle"):
+    ws.send_text(json.dumps({"type": "command", "id": cid, "action": action}))
+
+
+def ack_env(ref, ok=True, reason=None, seq=9):
+    data = {"id": 1, "ref": ref, "action": "TOGGLE_LIGHTS", "ok": ok}
+    if reason:
+        data["reason"] = reason
+    return env("command_ack", data, seq=seq)
+
+
+def test_command_goes_to_the_client_and_the_ack_to_its_viewer():
+    client = TestClient(create_app())
+    with client.websocket_connect("/ws?pair=cmd") as game, \
+            client.websocket_connect("/ws?pair=cmd") as tablet, \
+            client.websocket_connect("/ws?pair=cmd") as monitor:
+        game.send_text(json.dumps({"type": "hello", "role": "client"}))
+        assert recv(game)["type"] == "welcome"
+        assert viewer_hello(tablet)["connected"] is True
+        assert viewer_hello(monitor)["connected"] is True
+        send_env(game, hello())
+        assert recv(tablet)["envelope"]["topic"] == "hello"
+        assert recv(monitor)["envelope"]["topic"] == "hello"
+
+        # both viewers use the same id: the backend's ref tells them apart
+        command(tablet, "c1")
+        first = recv(game)
+        command(monitor, "c1")
+        second = recv(game)
+        assert first == {"type": "command", "ref": first["ref"], "action": "lights.toggle"}
+        assert first["ref"] != second["ref"]
+
+        # the mod answers the monitor's first, then the cab topic follows
+        send_env(game, ack_env(second["ref"], ok=False, reason="not in a vehicle"))
+        send_env(game, env("cab", {"inVehicle": True, "vehicleId": 7,
+                                   "lights": {"on": True}, "implements": []}, seq=10))
+        send_env(game, ack_env(first["ref"], seq=11))
+        assert recv(monitor) == {"type": "command_ack", "id": "c1", "ok": False,
+                                 "reason": "not in a vehicle"}
+        assert recv(monitor)["envelope"]["topic"] == "cab"
+        assert recv(tablet)["envelope"]["topic"] == "cab"
+        assert recv(tablet) == {"type": "command_ack", "id": "c1", "ok": True, "reason": None}
+
+        # an ack is an event: not in a later snapshot; the cab is
+        with client.websocket_connect("/ws?pair=cmd") as late:
+            late.send_text(json.dumps({"type": "hello", "role": "viewer"}))
+            assert set(recv(late)["topics"]) == {"hello", "cab"}
+
+        # an ack nobody waits for (answered already) goes nowhere
+        send_env(game, ack_env(first["ref"], seq=12))
+        send_env(game, env("player", {"x": 1, "z": 2}, seq=13))
+        assert recv(tablet)["envelope"]["topic"] == "player"
+
+
+def test_commands_outside_the_allow_list_never_reach_the_client():
+    client = TestClient(create_app())
+    with client.websocket_connect("/ws?pair=deny") as game, \
+            client.websocket_connect("/ws?pair=deny") as viewer:
+        game.send_text(json.dumps({"type": "hello", "role": "client"}))
+        assert recv(game)["type"] == "welcome"
+        viewer_hello(viewer)
+        command(viewer, "x1", action="engine.explode")
+        assert recv(viewer) == {"type": "command_ack", "id": "x1", "ok": False,
+                                "reason": "action not allowed"}
+        command(viewer, {"not": "a string"})  # no id to answer: ignored
+        command(viewer, "x2")
+        # the only thing the client got is the allowed command
+        assert recv(game)["action"] == "lights.toggle"
+
+
+def test_command_without_a_game_client_is_refused():
+    client = TestClient(create_app())
+    with client.websocket_connect("/ws?pair=alone") as viewer:
+        assert viewer_hello(viewer)["connected"] is False
+        command(viewer, "a1")
+        assert recv(viewer) == {"type": "command_ack", "id": "a1", "ok": False,
+                                "reason": "game client not connected"}
+
+
+def test_client_cannot_send_commands_and_pending_ones_fail_when_it_leaves():
+    client = TestClient(create_app())
+    with client.websocket_connect("/ws?pair=gone") as viewer:
+        viewer_hello(viewer)
+        with client.websocket_connect("/ws?pair=gone") as game:
+            game.send_text(json.dumps({"type": "hello", "role": "client"}))
+            assert recv(game)["type"] == "welcome"
+            assert recv(viewer) == {"type": "client_status", "connected": True}
+            # a client sending a command is ignored, not relayed anywhere
+            game.send_text(json.dumps({"type": "command", "id": "z", "action": "lights.toggle"}))
+            command(viewer, "p1")
+            assert recv(game)["type"] == "command"
+        assert recv(viewer) == {"type": "client_status", "connected": False}
+        assert recv(viewer) == {"type": "command_ack", "id": "p1", "ok": False,
+                                "reason": "game client disconnected"}

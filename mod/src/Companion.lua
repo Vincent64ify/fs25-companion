@@ -5,16 +5,22 @@
 -- one JSON envelope per line, one topic per collector. The companion client
 -- tails that file. Nothing here blocks the game or depends on start order:
 -- if the file can't be opened, the mod logs once and stays idle.
+--
+-- The other way, the client writes the dashboard's commands to cmd/ in the
+-- same folder (Commands.lua); each gets a command_ack and the cab topic in
+-- the frame it runs.
 
 Companion = Companion or {}
 
-Companion.VERSION = "0.4.0"
+Companion.VERSION = "0.5.0"
 Companion.DIR_NAME = "FS25_Companion"
 Companion.STREAM_FILE = "stream.ndjson"
+Companion.COMMAND_DIR = "cmd/"
 
 local state = {
     transport = nil,
     scheduler = nil,
+    commands = nil,
     ctx = nil,
     helloSent = false,
     clock = 0,
@@ -99,17 +105,21 @@ function Companion:loadMap(name)
     scheduler:add(collectors.CropTypes)
     scheduler:add(collectors.FieldOutlines)
     scheduler:add(collectors.Fields)
+    scheduler:add(collectors.Cab)
 
     local profile = profileDir()
+    local sessionId = newSessionId()
+    state.commands = Companion.Commands.new(dir .. Companion.COMMAND_DIR, sessionId, log)
     state.transport = transport
     state.scheduler = scheduler
     state.helloSent = false
     state.clock = 0
     state.ctx = {
         modVersion = Companion.VERSION,
-        sessionId = newSessionId(),
+        sessionId = sessionId,
         platform = detectPlatform(profile),
         profileDir = profile,
+        commands = state.commands,
         time = 0,
     }
     log(string.format("streaming to %s%s (session %s)",
@@ -122,7 +132,23 @@ function Companion:deleteMap()
     end
     state.transport = nil
     state.scheduler = nil
+    state.commands = nil
     state.ctx = nil
+end
+
+-- Run the next dashboard command if the client wrote one, then send its ack
+-- and the cab topic in this frame. A failure here drops the command, never
+-- the game.
+local function runCommands(transport, scheduler, ctx)
+    local commands = state.commands
+    if commands == nil then
+        return
+    end
+    local ok, ack = pcall(commands.poll, commands)
+    if ok and ack ~= nil then
+        pcall(transport.send, transport, "command_ack", ctx.time, ack)
+        scheduler:emit("cab", ctx)
+    end
 end
 
 function Companion:update(dt)
@@ -139,6 +165,7 @@ function Companion:update(dt)
         scheduler:emit("hello", ctx)
         state.helloSent = true
     end
+    runCommands(transport, scheduler, ctx)
     scheduler:update(dt, ctx)
 
     local ok, rotated = pcall(transport.flush, transport)

@@ -8,6 +8,10 @@ The client forwards envelopes unchanged; the backend validates them here.
 Topic models allow extra fields: topics may gain fields without a version
 bump, and a topic this file doesn't know yet (a new collector) passes
 through with only the envelope checked. Breaking changes bump ``v``.
+
+``command_ack`` is an event, not state: the mod's answer to one dashboard
+command, relayed to the viewer that sent it and never stored (see
+EVENT_TOPICS). The commands a viewer may send are in COMMAND_ACTIONS.
 """
 
 from typing import Any, Dict, List, Optional, Union
@@ -51,6 +55,12 @@ class IngameMap(TopicModel):
     mapExtensionOffsetZ: Optional[float] = None
 
 
+class CommandDir(TopicModel):
+    """Where the client writes commands, and the number the mod reads next."""
+    dir: Optional[str] = None
+    next: int = Field(default=1, ge=1)
+
+
 class Hello(TopicModel):
     protocolVersion: int
     sessionId: str
@@ -68,6 +78,7 @@ class Hello(TopicModel):
     playerName: Optional[str] = None
     profileDir: Optional[str] = None
     gameDir: Optional[str] = None
+    commands: Optional[CommandDir] = None
 
 
 class Weather(TopicModel):
@@ -197,6 +208,36 @@ class Vehicle(Pose):
     # hitched to another vehicle
     attached: Optional[bool] = None
     propertyState: Optional[int] = None
+
+
+class CabImplement(TopicModel):
+    lowered: bool = False
+    turnedOn: bool = False
+
+
+class CabCruise(TopicModel):
+    state: str
+    speed: Optional[float] = None
+
+
+class Cab(TopicModel):
+    """What the dashboard's controls show, sent the frame it changes."""
+    inVehicle: bool = False
+    vehicleId: Optional[Union[int, str]] = None
+    engineOn: Optional[bool] = None
+    lights: Optional[Lights] = None
+    cruise: Optional[CabCruise] = None
+    implements: List[CabImplement] = []
+
+
+class CommandAck(TopicModel):
+    """The mod's answer to one command: id is the command file's number,
+    ref the backend's reference for it."""
+    id: Optional[int] = None
+    ref: Optional[str] = None
+    action: Optional[str] = None
+    ok: bool
+    reason: Optional[str] = None
 
 
 class Vehicles(TopicModel):
@@ -340,7 +381,18 @@ TOPIC_MODELS = {
     "crop_types": CropTypes,
     "field_outlines": FieldOutlines,
     "fields": Fields,
+    "cab": Cab,
+    "command_ack": CommandAck,
 }
+
+# topics that are events: relayed, never kept in the state store
+EVENT_TOPICS = {"command_ack"}
+
+# The commands a dashboard may send ({"type": "command", "id", "action"}).
+# The only list on the backend; the client and the mod keep their own.
+COMMAND_ACTIONS = frozenset({
+    "lights.toggle",
+})
 
 
 def parse_envelope(raw: Any) -> Dict[str, Any]:
@@ -362,5 +414,5 @@ def parse_envelope(raw: Any) -> Dict[str, Any]:
 
 __all__ = [
     "PROTOCOL_VERSION", "ProtocolVersionError", "ValidationError",
-    "Envelope", "TOPIC_MODELS", "parse_envelope",
+    "Envelope", "TOPIC_MODELS", "EVENT_TOPICS", "COMMAND_ACTIONS", "parse_envelope",
 ]

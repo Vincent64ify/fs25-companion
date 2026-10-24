@@ -69,3 +69,16 @@ def test_replay_feeds_the_fixture_in_order():
     asyncio.run(replay(FIXTURE, got.append, speed=1e9))
     assert got[0]["topic"] == "hello"
     assert [e["seq"] for e in got] == list(range(1, len(got) + 1))
+
+
+def test_acks_queue_in_order_after_the_state_and_are_not_resent():
+    box = Outbox()
+    box.put(hello())
+    box.put(env("command_ack", {"id": 1, "ok": True}, 2))
+    box.put(env("cab", {"inVehicle": True}, 3))
+    box.put(env("command_ack", {"id": 2, "ok": True}, 4))
+    batch = take(box)
+    assert [e["topic"] for e in batch] == ["hello", "cab", "command_ack", "command_ack"]
+    assert [e["data"]["id"] for e in batch[2:]] == [1, 2]
+    box.resend_latest()
+    assert [e["topic"] for e in take(box)] == ["hello", "cab"]

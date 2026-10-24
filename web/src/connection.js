@@ -7,6 +7,8 @@
 //   ?backend=...   backend WebSocket URL (default: this page's origin; the
 //                  backend serves the dashboard)
 
+import { createCommander } from "./commands.js";
+
 /** @typedef {import("./store.js").Store} Store */
 
 const params = new URLSearchParams(location.search);
@@ -18,6 +20,23 @@ export const BACKEND = params.get("backend") ||
 export const HTTP_BASE = params.get("backend")
   ? BACKEND.replace(/^ws/, "http").replace(/\/ws\/?$/, "").replace(/\/$/, "")
   : "";
+
+/** @type {WebSocket|null} */
+let socket = null;
+
+const commander = createCommander((msg) => {
+  if (!socket || socket.readyState !== WebSocket.OPEN) return false;
+  socket.send(JSON.stringify(msg));
+  return true;
+});
+
+/**
+ * Send a command to the game ("lights.toggle"); resolves with the mod's
+ * answer, or a failure after 2 s without one.
+ * @param {string} action
+ * @returns {Promise<import("./commands.js").CommandResult>}
+ */
+export const sendCommand = (action) => commander.send(action);
 
 async function resolvePairing() {
   const pair = (params.get("pair") || "").trim();
@@ -51,6 +70,7 @@ export async function connect(store) {
 
   const open = () => {
     const ws = new WebSocket(`${BACKEND}/ws?pair=${encodeURIComponent(pairing)}`);
+    socket = ws;
     ws.onopen = () => {
       ws.send(JSON.stringify({ type: "hello", role: "viewer" }));
       setStatus({ backend: true });
@@ -78,9 +98,13 @@ export async function connect(store) {
         case "protocol_error":
           store.set("protocolError", msg.message || null);
           break;
+        case "command_ack":
+          commander.ack(msg);
+          break;
       }
     };
     ws.onclose = () => {
+      if (socket === ws) socket = null;
       setStatus({ backend: false, client: false });
       setTimeout(open, 2000);
     };
