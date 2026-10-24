@@ -977,8 +977,28 @@ button { font: inherit; color: inherit; }
 .impl-row { position: relative; border-radius: 12px; }
 .impl-row[data-pick="true"] { cursor: pointer; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
 .impl-row[data-pick="true"]:active { background: var(--chip-off-bg); }
-.impl-row[data-selected="true"] { box-shadow: inset 0 0 0 3px var(--select); }
-.impl-row[data-pending="true"] { box-shadow: inset 0 0 0 3px var(--select); animation: control-pulse 1.1s ease-in-out infinite; }
+/* the selected tool: the readout card's dark blue, light text */
+.impl-row[data-selected="true"] {
+  margin: 4px 8px;
+  border-top-color: transparent;
+  background: var(--readout);
+  box-shadow: var(--readout-lift);
+  color: #FFFFFF;
+}
+.impl-row[data-selected="true"] + .impl-row { border-top-color: transparent; }
+.impl-row[data-selected="true"] .impl-text span,
+.impl-row[data-selected="true"] .impl-wear > div,
+.impl-row[data-selected="true"] .impl-fill > div { color: #BFD0EE; }
+.impl-row[data-selected="true"] .impl-wear b,
+.impl-row[data-selected="true"] .impl-fill b,
+.impl-row[data-selected="true"] .impl-text .impl-selected { color: #FFFFFF; }
+.impl-row[data-selected="true"] .impl-chip { background: rgba(255, 255, 255, 0.12); color: #DCE6F7; }
+.impl-row[data-selected="true"] .impl-chip[data-state="on"] { background: rgba(255, 255, 255, 0.22); color: #FFFFFF; }
+.impl-row[data-selected="true"] .impl-chip:has(.impl-dot)[data-state="off"] { background: transparent; }
+.impl-row[data-selected="true"] .widget-meter { background: rgba(255, 255, 255, 0.18); }
+.impl-row[data-selected="true"] .impl-detach { border-color: rgba(255, 255, 255, 0.3); background: rgba(255, 255, 255, 0.12); color: #FFFFFF; }
+.impl-row[data-selected="true"] .impl-text .impl-detach span { color: inherit; }
+.impl-row[data-pending="true"] { animation: control-pulse 1.1s ease-in-out infinite; }
 .impl-pick { display: flex; align-items: center; gap: 10px; margin-top: 6px; }
 .impl-text .impl-selected { font-size: 12px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text); }
 .impl-detach {
