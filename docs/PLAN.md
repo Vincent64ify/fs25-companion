@@ -62,48 +62,107 @@ style, after the IntelliView 12. Today's look stays as the Default theme.
 | T5 | Responsive pass across tablets and monitors, full screen, home screen | done 2026-10-23 |
 | T6 | More data from the game (can start any time) | built 2026-10-24, live check open |
 
-## After that: control the game from the dashboard
+## After that: Controls (control the game from the dashboard)
 
-Buttons that trigger in-game actions (key binds), for example attach / detach
-an implement, lower / raise, turn on, lights, cruise control.
-- The button icons are our own SVG set, drawn in the cab-symbol style (see
-  [THEMES.md](THEMES.md#icons)).
-- The themes already reserve room for these buttons and show their state.
+Buttons that trigger in-game actions, for example lights, beacon, hazard,
+turn signals, engine, cruise control, PTO / implement on, lower / raise,
+attach / detach and the AI worker. The icons are our own SVG set (see
+[THEMES.md](THEMES.md#icons)), and the themes already reserve room for the
+buttons and show their state.
 
-**A way back into the game.** Today the mod only writes, and Lua file
-handles can't read (Phase 0). Two command channels, in this order:
+Priorities (Vincent, 2026-10-24): a tap must feel instant and the in-game
+state must show on the dashboard right away; no feature may be missing on
+macOS. The main setup is a tablet on the LAN.
 
-1. **Simulated key presses (first).** This is how SIM Dashboard's "button
-   box" works: nothing goes into the game; the PC presses the key.
-   - The dashboard sends `{"action": "ATTACH"}` over its WebSocket. The
-     backend relays it to the paired client only.
-   - The client looks up the player's key for that action in
-     `<profile>/inputBinding.xml`, so rebinds just work.
-   - It presses the key with `SendInput` and scan codes on Windows, or
-     `CGEventPost` on macOS (which needs the Accessibility permission once).
-   - No mod change.
-   - Limits: FS25 must be the focused window, and there's no direct
-     confirmation. The telemetry shows the result, for example the implement
-     leaves the list.
-2. **XML command file (to test in a spike).**
-   - The client writes `modSettings/FS25_Companion/commands.xml`.
-   - The mod polls it every 100–200 ms with the GIANTS XML API
-     (`XMLFile.load` / `loadXMLFile`), which mods use to read their settings.
-   - It runs each new command through the game (attach/detach, lower, turn
-     on, ...) and acknowledges it with a `command_ack` topic.
-   - It works unfocused, needs no OS permission, and allows actions no key
-     has ("detach the rear trailer").
-   - To verify in the spike: can the mod re-read a file the client keeps
-     rewriting, how fast, and at what cost per poll. In multiplayer the
-     server decides what's allowed.
+**Decision: one in-mod command channel, the same on Windows and macOS.**
+Plan doc with the full comparison:
+[Controls: plan](https://claude.ai/artifact/LeewQsC11ChSX2L58XRtBi).
 
-**Security.** Only paired viewers may send commands, and the client accepts
-only actions from a known list, so nobody else on the network can press keys
-on the PC.
+| | Key presses (`SendInput` / `CGEventPost`) | In-mod command channel (chosen) |
+|---|---|---|
+| Feedback after a tap | next `vehicles` tick, up to 500 ms + 50 ms tail | same frame, about 30–50 ms end to end (estimate) |
+| Confirmation | none | `command_ack` with ok or the reason |
+| FS25 must be focused | yes | no |
+| macOS | own code path + Accessibility permission | identical to Windows |
+| Key binds | parse `inputBinding.xml` | not needed: actions by name |
+| Targeted actions (cruise to 18 km/h, detach one implement) | impossible | through the game API |
 
-**Icons.** The key glyphs and HUD icons are inside `dataS.gar`, which is
-encrypted like the DLC maps, so they can't be extracted. We draw our own SVG
-icons instead ([THEMES.md](THEMES.md#icons)).
+Key presses stay a fallback, only if the spike shows the mod can't read
+command files.
+
+**How a tap travels:**
+1. The dashboard shows the control as *pending* on touch-down and sends
+   `{"type":"command","id":"c42","action":"lights.toggle"}` over its
+   WebSocket.
+2. The backend accepts `command` messages from paired viewers only, with an
+   action on a fixed list, and forwards them to the client only.
+3. The client writes `modSettings/FS25_Companion/cmd/<n>.xml` (temp file,
+   read back once, then rename, atomic on NTFS and APFS), numbered from 1
+   per game session. The read-back takes the first-open cost off the
+   game's frame (see the C0 results).
+4. Every frame the mod checks `fileExists` for the next number. When it's
+   there it reads it with the GIANTS XML API, checks the action is allowed
+   now, and runs it through the same action event callback a key press
+   triggers (rebinds, mod actions and multiplayer events just work). Actions
+   no key has go through the game API directly.
+5. In the same frame the mod sends `command_ack {id, ok, reason}` and the
+   `cab` topic, then flushes.
+6. The client forwards the ack, deletes the command file and polls the
+   stream every 10 ms for 2 s after a command (50 ms otherwise).
+
+**The `cab` topic** holds only what the controls show (lights, beacon,
+hazard, turn signals, engine, cruise state and speed, PTO, each implement
+lowered and on, AI worker). The mod compares it every frame and sends it
+when something changes, so the dashboard also follows keys pressed in game.
+The 500 ms `vehicles` topic keeps the rest.
+
+**Held controls** (front loader, hitch while held) send `press` and
+`release`; the mod releases by itself 300 ms after the last keep-alive.
+
+**Security.** Only paired viewers may send commands; the backend, the client
+and the mod each accept only actions from the known list.
+
+| Phase | What | Status |
+|---|---|---|
+| C0 | Spike: can the mod see and read a client-written file every frame, fresh and cheaply; can it run an action by name; round-trip time ([spike/README.md](../spike/README.md#command-spike-c0)) | done on Windows 2026-10-24 (results below); macOS to run |
+| C1 | One control (lights) end to end: protocol, backend relay, client file writer, mod reader, ack, `cab` topic | |
+| C2 | The first control set in both themes, held controls with auto-release | |
+| C3 | Targeted actions (cruise speed, detach a chosen implement), round-trip readout in Settings | |
+| C4 | Live check on Windows and macOS, multiplayer as client and host | |
+
+**C0 results (Windows, 2026-10-24).** The channel works:
+- 50 commands, file written to ack seen: median 19 ms, p95 32 ms, max 43 ms
+  (the game ran at about 90 fps).
+- A file rewritten 10 times was read fresh 10 times out of 10.
+- `fileExists` every frame costs 0.08–0.11 ms on average, 0.37 ms at most.
+- Running an action by name works: `TOGGLE_BEACON_LIGHTS` through
+  `g_inputBinding.actionEvents[<action>]` (keyed by the action, not its
+  name) toggled the beacon, and `cab` showed it in the same frame. The
+  direct setter (`setBeaconLightsVisibility`) works too.
+- `csInput` in a tractor listed 70 active actions, among them ATTACH,
+  DETACH, LOWER_IMPLEMENT, LOWER_ALL_IMPLEMENTS, TOGGLE_LIGHTS,
+  TOGGLE_HIGH_BEAM_LIGHT, TOGGLE_TURNLIGHT_HAZARD / LEFT / RIGHT,
+  TOGGLE_CRUISE_CONTROL, TOGGLE_MOTOR_STATE, TOGGLE_AI and
+  AXIS_FRONTLOADER_ARM.
+- **Never `io.open(path, "r")`:** the game warns "only write mode ('w') is
+  allowed" and opens the file for writing, which empties it (seen in 0.1.1:
+  every reader after it found an empty file). `io.lines` is nil.
+- **Reading cost:** the first open of a new command file costs about 4 ms
+  (3.3–27 ms) with either `loadXMLFile` or `XMLFile.load`; reading the same
+  file again right after costs 0.06 ms. So it's the first open, not the
+  reader, likely Windows scanning a newly written file.
+- **Fix, verified in 0.1.2:** when the client reads its own temp file back
+  before the rename, the mod's first open drops to 0.07–0.23 ms (30 of 30
+  commands), against 3.5–19 ms without it. The round trip stays at a 20 ms
+  median. C1 uses `XMLFile.load` (both readers cost the same) plus the
+  read-back.
+
+**Risks.** If the mod can't re-read a client-written file, fall back to key
+presses (Windows first). Calling action callbacks by name may differ per
+action; the fallback is the specialization's own setter. On a Mac App Store
+install macOS may ask once to let the client into FS25's container, as it
+already does for the stream. In multiplayer the server can refuse an action:
+the ack carries the reason.
 
 ## Open checks
 

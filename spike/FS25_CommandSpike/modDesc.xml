@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8" standalone="no" ?>
+<modDesc descVersion="105">
+    <author>fs25-companion</author>
+    <version>0.1.2</version>
+    <title>
+        <en>FS25 Companion Command Spike</en>
+    </title>
+    <description>
+        <en><![CDATA[Development-only probe for FS25 Companion controls. Reads command files from modSettings/FS25_CommandSpike/cmd/, runs them as game actions and reports timings to results.ndjson. Remove after use.]]></en>
+    </description>
+    <iconFilename>icon.png</iconFilename>
+    <multiplayer supported="false" />
+    <extraSourceFiles>
+        <sourceFile filename="CommandSpike.lua"/>
+    </extraSourceFiles>
+</modDesc>
