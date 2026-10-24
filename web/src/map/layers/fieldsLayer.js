@@ -2,8 +2,8 @@
 // Fields: outlines from field_outlines (once per map), coloured from the
 // fields topic (every 15 s) in one of the PDA's modes: crop, growth,
 // fertilizer, lime, plowing, weeds. Field numbers show when zoomed in.
-// Tap a field to select it: the field info panel shows its details (the
-// selection is the store's "selectedField" key). Tap anywhere else on the
+// Tap a field to select it, or a farmland outside the fields: the land
+// panel shows it (the store's "selection" key). Tap anywhere else on the
 // map to close it.
 
 import { landRenderer, worldToLatLng } from "../mapView.js";
@@ -22,8 +22,10 @@ const SELECTED = { weight: 3, color: "#ffffff", opacity: 1 };
 /**
  * @param {any} map L.Map
  * @param {import("../../store.js").Store} store
+ * @param {{farmlandAt?: (latLng: any) => number|undefined}} [opts] the farmlands
+ *   layer's hit-test, for taps outside the fields
  */
-export function createFieldsLayer(map, store) {
+export function createFieldsLayer(map, store, { farmlandAt } = {}) {
   const renderer = landRenderer(map);
   map.createPane("fieldLabels").style.zIndex = "420";
   const shapes = L.layerGroup();
@@ -75,7 +77,7 @@ export function createFieldsLayer(map, store) {
     const fields = store.get("fields")?.fields || [];
     const catalog = cropCatalog(store.get("crop_types"));
     const states = new Map(fields.map((f) => [f.id, f]));
-    const selected = store.get("selectedField");
+    const selected = store.get("selection")?.field;
     for (const [id, { polygon, label }] of byId) {
       const state = states.get(id);
       const cls = classify(state, catalog, mode);
@@ -123,15 +125,17 @@ export function createFieldsLayer(map, store) {
   });
   store.subscribe("fields", restyle);
   store.subscribe("crop_types", restyle);
-  store.subscribe("selectedField", (id) => {
+  store.subscribe("selection", (selection) => {
     restyle();
-    byId.get(id)?.polygon.bringToFront();
+    byId.get(selection?.field)?.polygon.bringToFront();
   });
   // Every click on the land ends here (markers don't bubble up): a field
-  // selects it, anything else (a farmland, bare map) closes the panel. The
-  // click goes on to the farmlands layer, which opens the farmland popup.
-  map.on("click", () => {
-    store.set("selectedField", picked);
+  // selects it with the farmland under it, a farmland alone selects that,
+  // bare map closes the panel.
+  map.on("click", (/** @type {any} */ e) => {
+    const farmland = farmlandAt?.(e.latlng);
+    store.set("selection", picked != null ? { field: picked, farmland }
+      : farmland != null ? { farmland } : undefined);
     picked = undefined;
   });
   map.on("zoomend", updateLabels);

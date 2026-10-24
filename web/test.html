@@ -164,7 +164,7 @@ check("contains: farmland in the hole", geo.ringsContain(donutWorld.get(2), -2, 
 // --- field colours (map/fieldStyle.js) -------------------------------------
 
 const fs = await import("./src/map/fieldStyle.js");
-const { fieldRows } = await import("./src/panels/fieldInfoPanel.js");
+const { landInfo } = await import("./src/panels/fieldInfoPanel.js");
 check("linear to sRGB", [fs.linearToCss([0, 1, 0.2158605]), fs.linearToCss([0.5, 0.5, 0.5])],
       ["#00ff80", "#bcbcbc"]);
 check("pretty names", [fs.prettyName("STUBBLE_TILLAGE"), fs.prettyName("WHEAT")], ["Stubble tillage", "Wheat"]);
@@ -216,14 +216,29 @@ check("crop key: by area, no crop last", fs.legendKey(keyFields, catalog, "crop"
       ["Sugarbeet", "Wheat", "No crop"]);
 check("growth key: PDA order", fs.legendKey(keyFields, catalog, "growth").map((c) => c.key),
       ["plowed", "growing", "ready"]);
-check("field info rows", fieldRows(
-  { id: 7, areaHa: 3.5, farmlandId: 2, fruitTypeIndex: 1, growthState: 4, groundType: 7, sprayLevel: 1,
-    limeLevel: 0, plowLevel: 1, weedState: 0, stoneLevel: 2 },
-  { id: 2, farmId: 0, price: 259149, name: "2" }, catalog, 1), [
-  ["Area", "3.50 ha"], ["Owner", `For sale, $${(259149).toLocaleString()}`], ["Farmland", "2"],
-  ["Crop", "Wheat"], ["State", "Growing (stage 4 of 8)"], ["Ground", "Sown"], ["Fertilizer", "50%"],
-  ["Lime", "Needed"], ["Plowing", "Not needed"], ["Weeds", "None"], ["Stones", "Level 2"],
-]);
+const landFields = [{ id: 7, areaHa: 3.5, farmlandId: 2, fruitTypeIndex: 1, growthState: 4, groundType: 7,
+  sprayLevel: 1, limeLevel: 0, plowLevel: 1, rollerLevel: 1, weedState: 0, stoneLevel: 2 }, { id: 9, farmlandId: 2 }];
+const landFarmlands = [{ id: 2, farmId: 0, price: 259149, name: "2", areaHa: 5 }, { id: 3, farmId: 1, areaHa: 2 }];
+const farmland2 = { kind: "farmland", badge: "2", title: "Farmland 2", subtitle: "For sale · 5.00 ha",
+  rows: [{ label: "Fields", value: "7, 9" }, { label: "Price", value: `$${(259149).toLocaleString()}` }] };
+check("land info: a field, then the farmland it sits on (the price is the farmland's)",
+  landInfo({ field: 7 }, landFields, landFarmlands, catalog, 1), [{
+    kind: "field", badge: "7", title: "Field 7", subtitle: "3.50 ha",
+    rows: [{ label: "Crop", value: "Wheat" }, { label: "Growth", value: "Growing", tone: undefined },
+      { label: "Needs", value: "Fertilizer · Lime · Rolling · Stones" }],
+    progress: { done: 4, of: 8 },
+  }, farmland2]);
+check("land info: ready to harvest, nothing needed", [
+  landInfo({ field: 1 }, [{ id: 1, fruitTypeIndex: 1, growthState: 8, sprayLevel: 2, limeLevel: 1, plowLevel: 1 }],
+    [], catalog, 1)[0].rows.slice(1),
+  landInfo({ field: 1 }, [{ id: 1, fruitTypeIndex: 1, growthState: 8 }], [], catalog, 1)[0].progress,
+], [[{ label: "Growth", value: "Ready to harvest", tone: "ok" }, { label: "Needs", value: "Nothing" }],
+  { done: 8, of: 8 }]);
+check("land info: a field without a farmland id uses the one tapped", landInfo({ field: 9, farmland: 3 },
+  [{ id: 9 }], landFarmlands, catalog, 1).map((s) => s.title), ["Field 9", "Farmland 3"]);
+check("land info: a farmland alone", landInfo({ farmland: 2 }, landFields, landFarmlands, catalog, 1), [farmland2]);
+check("land info: own farmland, no fields", landInfo({ farmland: 3 }, landFields, landFarmlands, catalog, 1)
+  .map((s) => `${s.subtitle} / ${s.rows[0].value}`), ["Owned · 2.00 ha / None"]);
 
 // --- selectors (data/selectors.js) ------------------------------------------
 
@@ -963,9 +978,10 @@ const { popupContent: vehiclePopup } = await import("./src/map/layers/vehiclesLa
 check("vehicle popup: the AI worker's job and the speed in the player's unit",
   vehiclePopup({ id: 5, x: 0, z: 0, name: "Combine", isAI: true, speed: 16.1, ai: { job: "Field work" } }, imperial).textContent,
   "CombineAI worker: Field work10 mph");
-check("field rows: area and price in the player's units", fieldRows({ id: 1, areaHa: 1 },
-  { id: 2, farmId: 0, price: 1000 }, fs.cropCatalog(undefined), 1, imperial).slice(0, 2),
-  [["Area", "2.47 ac"], ["Owner", `For sale, £${(1000).toLocaleString()}`]]);
+check("land info: area and price in the player's units", landInfo({ field: 1 }, [{ id: 1, areaHa: 1, farmlandId: 2 }],
+  [{ id: 2, farmId: 0, price: 1000, areaHa: 2 }], fs.cropCatalog(undefined), 1, imperial).map((s) => [s.subtitle, s.rows]),
+  [["2.47 ac", []], ["For sale · 4.94 ac",
+    [{ label: "Fields", value: "1" }, { label: "Price", value: `£${(1000).toLocaleString()}` }]]]);
 
 // --- icons (ui/icons.js) --------------------------------------------------------
 

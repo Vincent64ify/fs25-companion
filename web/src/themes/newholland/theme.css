@@ -517,10 +517,16 @@ button { font: inherit; color: inherit; }
 }
 /* an open popup landed on it (popupPlacement.js): down to the bottom corner */
 .field-info.moved { top: auto; bottom: 52px; left: auto; right: 12px; }
-.field-info h3 { color: var(--text); font-size: 16px; font-weight: 700; }
-.field-info dl div { font-size: 14px; }
-.field-info dd { font-weight: 600; }
+.field-info-head { gap: 12px; margin-bottom: 10px; }
+.field-info-badge { min-width: 36px; height: 36px; border-radius: 10px; background: var(--badge); color: var(--badge-ink); font-size: 15px; }
+:root[data-palette="night"] .field-info-part[data-kind="farmland"] .field-info-badge { color: var(--accent-2); }
+.field-info h3 { font-size: 17px; font-weight: 700; }
+.field-info-sub { font-size: 13px; }
+.field-info dl div { font-size: 14px; padding: 3px 0; }
 .field-info-close { width: 44px; height: 44px; margin: -8px -8px -8px 0; border-radius: 12px; }
+.field-info-stages span { background: var(--line); }
+.field-info-part + .field-info-part { margin-top: 12px; padding-top: 12px; }
+:root[data-palette="night"] .field-info-part + .field-info-part { border-top-color: var(--line); }
 
 .leaflet-control-scale {
   margin: 0 12px 12px 0 !important;

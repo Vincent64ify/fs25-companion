@@ -14,6 +14,7 @@ import { createOverviewLayer } from "./map/overviewLayer.js";
 import { createFollow } from "./map/followControl.js";
 import { buildLegend } from "./map/legend.js";
 import { keepPopupsInside } from "./map/popupPlacement.js";
+import { fadeIdleControls } from "./map/idleControls.js";
 import { createFarmlandsLayer } from "./map/layers/farmlandsLayer.js";
 import { createFieldsLayer } from "./map/layers/fieldsLayer.js";
 import { createHotspotsLayer } from "./map/layers/hotspotsLayer.js";
@@ -102,18 +103,21 @@ addCursorReadout(map);
 
 const player = createPlayerLayer(map, store);
 const vehicles = createVehiclesLayer(map, store);
+// before the fields: a tap outside a field selects the farmland
+const farmlands = createFarmlandsLayer(map, store);
 /** @type {import("./types.js").MapLayer[]} in legend order */
 const layers = [
   player,
   vehicles,
   createHotspotsLayer(map, store),
-  createFieldsLayer(map, store),
-  createFarmlandsLayer(map, store),
+  createFieldsLayer(map, store, { farmlandAt: farmlands.farmlandAt }),
+  farmlands,
 ];
 for (const layer of layers) layer.leafletLayer.addTo(map);
 const legend = buildLegend(map, layers);
 if (corners) addLegendControl(map, legend);
 else addEdgeControls(map, follow, legend);
+fadeIdleControls(map);
 
 createFieldInfoPanel(store, frame.fieldInfo);
 

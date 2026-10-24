@@ -72,6 +72,10 @@ dd { margin: 0; }
 
 #map { width: 100%; height: 100%; background: var(--map-bg); }
 
+/* the top corners' controls fade back while idle (map/idleControls.js) */
+#map .leaflet-top .leaflet-control { transition: opacity 0.4s; }
+#map.controls-idle .leaflet-top .leaflet-control { opacity: 0.4; }
+
 #map .terrain-plain { fill: var(--map-terrain); }
 #map .terrain-grid { stroke: rgba(255, 255, 255, 0.07); }
 
@@ -222,11 +226,35 @@ dd { margin: 0; }
 .field-info-head {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  margin-bottom: 4px;
+  gap: 10px;
+  margin-bottom: 8px;
 }
-.field-info h3 { margin: 0; font-size: 15px; color: var(--accent); }
+/* the number: a field's filled, a bare farmland's outlined */
+.field-info-badge {
+  flex: none;
+  display: grid;
+  place-items: center;
+  min-width: 32px;
+  height: 32px;
+  padding: 0 6px;
+  border-radius: var(--radius-sm);
+  background: var(--accent);
+  color: var(--on-accent);
+  font-weight: 700;
+  font-size: 14px;
+}
+.field-info-part[data-kind="farmland"] .field-info-badge {
+  background: transparent;
+  color: var(--accent);
+  box-shadow: inset 0 0 0 2px currentColor;
+}
+.field-info-names { flex: 1; min-width: 0; }
+/* the farmland under a field: its own section below a line */
+.field-info-part + .field-info-part { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border); }
+.field-info h3 { margin: 0; font-size: 15px; color: var(--text); }
+.field-info-sub { color: var(--muted); font-size: 12px; }
 .field-info-close {
+  align-self: flex-start;
   width: 28px;
   height: 28px;
   border: 0;
@@ -239,7 +267,13 @@ dd { margin: 0; }
 }
 .field-info-close:hover { background: var(--border); color: var(--text); }
 .field-info dl div { font-size: 13px; padding: 2px 0; gap: 12px; }
-.field-info dd { text-align: right; }
+.field-info dd { text-align: right; font-weight: 600; }
+.field-info dd[data-tone="ok"] { color: var(--ok); }
+.field-info dd[data-tone="alarm"] { color: var(--alarm); }
+/* growth stages under the Growth row: one segment each, lit up to now */
+.field-info-stages { display: flex; gap: 4px; margin: 4px 0 6px; }
+.field-info-stages span { flex: 1; height: 6px; border-radius: 3px; background: var(--border); }
+.field-info-stages span.lit { background: var(--ok); }
 @media (orientation: portrait), (max-width: 600px) {
   .field-info { bottom: 10px; max-height: 55%; }
 }
@@ -248,7 +282,7 @@ dd { margin: 0; }
   background: var(--popup-bg);
   color: var(--popup-text);
 }
-.vehicle-popup, .farmland-popup { font: 13px var(--font); line-height: 1.4; }
+.vehicle-popup { font: 13px var(--font); line-height: 1.4; }
 /* no room above the point: the popup hangs below it, tip pointing up */
 .leaflet-popup.popup-below .leaflet-popup-tip-container {
   top: -20px;

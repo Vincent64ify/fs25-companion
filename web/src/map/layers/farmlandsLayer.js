@@ -2,15 +2,15 @@
 // Farmlands: outlines traced from the farmland_grid topic (once per map),
 // shaded by owner from the farmlands topic (every 10 s): the viewer's land,
 // other farms' land, and land for sale. Land the farmlands screen doesn't
-// offer (towns, roads) isn't drawn. Tap a farmland for its size and price,
-// also through a field drawn over it: the popup comes from a map click,
-// hit-tested in world meters, not from the shape on top.
+// offer (towns, roads) isn't drawn. farmlandAt hit-tests a map point in
+// world meters, through any field drawn over it: the fields layer uses it
+// to select a farmland (the land panel shows it). The selected farmland
+// gets a white outline, dashed when it's the land under a selected field.
 
 import { landRenderer, latLngToWorld, worldToLatLng } from "../mapView.js";
 import { farmlandSwatch } from "../icons.js";
 import { farmlandOutlines, ringsContain } from "../farmlandGeometry.js";
 import { myFarmId } from "../../store.js";
-import { areaText, moneyText, unitsOf } from "../../data/units.js";
 
 /** @typedef {import("../../types.js").Farmland} Farmland */
 /** @typedef {import("../../types.js").FarmlandGrid} FarmlandGrid */
@@ -29,6 +29,8 @@ const STYLES = {
   other: { color: "#93c5fd", weight: 1, opacity: 0.8, fillColor: "#3b82f6", fillOpacity: 0.18 },
   sale: { color: "#f8fafc", weight: 1, opacity: 0.4, fillColor: "#f8fafc", fillOpacity: 0 },
 };
+const SELECTED = { color: "#ffffff", weight: 3, opacity: 1, dashArray: null };
+const UNDER_FIELD = { color: "#ffffff", weight: 2, opacity: 0.9, dashArray: "6 5" };
 
 /** @param {Farmland|undefined} f @param {number} farmId @returns {FarmlandClass|null} */
 function classOf(f, farmId) {
@@ -36,29 +38,6 @@ function classOf(f, farmId) {
   if (f.farmId === farmId) return "mine";
   if (f.farmId) return "other";
   return f.listed === false ? null : "sale";
-}
-
-/**
- * @param {number} id @param {Farmland|undefined} f @param {number} farmId
- * @param {import("../../data/units.js").Units} units
- */
-function popupContent(id, f, farmId, units) {
-  const div = document.createElement("div");
-  div.className = "farmland-popup";
-  const title = document.createElement("strong");
-  title.textContent = `Farmland ${f?.name || id}`;
-  div.append(title);
-  const lines = [];
-  if (typeof f?.areaHa === "number") lines.push(areaText(f.areaHa, units));
-  if (f?.farmId === farmId) lines.push("Owned by you");
-  else if (f?.farmId) lines.push(`Owned by farm ${f.farmId}`);
-  else if (f) lines.push(typeof f.price === "number" ? `For sale: ${moneyText(f.price, units)}` : "For sale");
-  for (const text of lines) {
-    const line = document.createElement("div");
-    line.textContent = text;
-    div.append(line);
-  }
-  return div;
 }
 
 /**
@@ -99,19 +78,18 @@ export function createFarmlandsLayer(map, store) {
     }
   }
 
-  // Clicks on fields and farmlands bubble up to the map (markers don't).
-  // Only farmlands currently drawn count, so hidden classes stay silent.
-  map.on("click", (/** @type {any} */ e) => {
-    const { x, z } = latLngToWorld(e.latlng);
+  /**
+   * The farmland drawn at a map point (hidden classes don't count).
+   * @param {{lat: number, lng: number}} latLng
+   * @returns {number|undefined}
+   */
+  function farmlandAt(latLng) {
+    const { x, z } = latLngToWorld(latLng);
     for (const [id, shape] of shapes) {
-      if (!map.hasLayer(shape.polygon) || !ringsContain(shape.rings, x, z)) continue;
-      L.popup()
-        .setLatLng(e.latlng)
-        .setContent(popupContent(id, byId().get(id), myFarmId(store), unitsOf(store)))
-        .openOn(map);
-      return;
+      if (map.hasLayer(shape.polygon) && ringsContain(shape.rings, x, z)) return id;
     }
-  });
+    return undefined;
+  }
 
   function byId() {
     /** @type {Farmland[]} */
@@ -122,15 +100,20 @@ export function createFarmlandsLayer(map, store) {
   function shade() {
     const farmlands = byId();
     const farmId = myFarmId(store);
+    const selection = store.get("selection");
+    // under a field: the field's own farmland, as the panel shows it
+    const field = selection?.field != null
+      ? (store.get("fields")?.fields || []).find((/** @type {{id: number}} */ f) => f.id === selection.field) : undefined;
+    const selected = field?.farmlandId ?? selection?.farmland;
+    const style = selection?.field == null ? SELECTED : UNDER_FIELD;
     for (const [id, shape] of shapes) {
       const cls = classOf(farmlands.get(id), farmId);
-      if (cls === shape.cls) continue;
-      if (shape.cls) groups[shape.cls].removeLayer(shape.polygon);
-      shape.cls = cls;
-      if (cls) {
-        shape.polygon.setStyle(STYLES[cls]);
-        groups[cls].addLayer(shape.polygon);
+      if (cls !== shape.cls) {
+        if (shape.cls) groups[shape.cls].removeLayer(shape.polygon);
+        shape.cls = cls;
+        if (cls) groups[cls].addLayer(shape.polygon);
       }
+      if (cls) shape.polygon.setStyle(id === selected ? { ...STYLES[cls], ...style } : { ...STYLES[cls], dashArray: null });
     }
   }
 
@@ -140,11 +123,13 @@ export function createFarmlandsLayer(map, store) {
   });
   store.subscribe("farmlands", shade);
   store.subscribe("hello", shade);
+  store.subscribe("selection", shade);
 
   return {
     id: "farmlands",
     title: "Farmlands",
     leafletLayer: root,
+    farmlandAt,
     legendItems: CLASSES.map((c) => ({
       id: c.id,
       label: c.label,
