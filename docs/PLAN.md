@@ -20,8 +20,10 @@ it relies on, are in [DONE.md](DONE.md). Small fixes go in
 - Controls C0 to C3 are done and work live on Windows (mod 0.7.1): lights,
   cruise, engine, AI worker and the implements from the dashboard, with
   the game's state shown the same frame; tapping a tool selects it in game.
-- The Implement screen is designed and aligned with C3 (see [THEMES.md](THEMES.md#implement-screen-design-2026-10-24)),
-  not built. It's next. The Map's field and farmland panel is one land panel
+- The Implement screen is built (mod 0.8.0, see [THEMES.md](THEMES.md#implement-screen-design-2026-10-24)):
+  the rig band, the implement card with its buttons and tank estimates,
+  the details card, Lower all, Pipe, Unload / Tipping and Cover. Waiting
+  for the live check. The Map's field and farmland panel is one land panel
   (`3648def`).
 - macOS is still to test, and a few things are still to confirm in game (see
   [Open checks](#open-checks)).
@@ -389,6 +391,10 @@ the ack carries the reason.
 ## Open checks
 
 Built, but not yet confirmed in game:
+- **Implement screen (mod 0.8.0):** with a seeder (tank estimates, Runs out
+  first, Speed against its limit, working width, area), a combine with a
+  trailer (Pipe, Unload, the crop, "Call a trailer"), a tipping trailer
+  (Tipping, Cover, Load) and Lower all / Raise all.
 - **New Holland style live:** drive a tractor and check the readout, the
   control indicators (lights, beacon, hazard, turn signals, engine,
   implement lowered and working), the alert chips and Day / Night, on a

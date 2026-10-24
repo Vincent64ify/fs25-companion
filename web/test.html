@@ -1100,6 +1100,161 @@ check("land info: area and price in the player's units", landInfo({ field: 1 }, 
   [["2.47 ac", []], ["For sale · 4.94 ac",
     [{ label: "Fields", value: "1" }, { label: "Price", value: `£${(1000).toLocaleString()}` }]]]);
 
+// --- Implement screen: rig band, implement card, details, estimates ---------------
+
+const sel2 = await import("./src/data/selectors.js");
+check("implement: the rig in driving order: rear tools (farthest first), the vehicle, front tools",
+  sel2.drivingOrder([{ id: 3, depth: 0 }, { id: 5, depth: 1, side: "front" }, { id: 6, depth: 2, side: "front" },
+    { id: 9, depth: 1, side: "rear" }, { id: 10, depth: 2, side: "rear" }]).map((e) => e.id), [10, 9, 3, 5, 6]);
+const jobRig = (extra) => ({ inVehicle: true, rig: [{ id: 1, depth: 0 }, { id: 2, depth: 1, ...extra }] });
+check("implement: the job in words", [
+  sel2.rigJob({ id: 1, implements: [{ id: 2, category: "seeders" }] }, jobRig({ turnedOn: true })).text,
+  sel2.rigJob({ id: 1, implements: [{ id: 2, category: "CULTIVATORS" }] }, jobRig({ lowered: true, canLower: true })).text,
+  sel2.rigJob({ id: 1, crop: { name: "wheat", title: "Wheat" }, implements: [{ id: 2, category: "cutters" }] },
+    { inVehicle: true, rig: [{ id: 1, depth: 0, turnedOn: true }, { id: 2, depth: 1 }] }).text,
+  sel2.rigJob({ id: 1, implements: [{ id: 2 }] }, jobRig({ trailer: true, discharging: true })).text,
+  sel2.rigJob({ id: 1, isAI: true, ai: { job: "Delivering", description: "Grain mill" } }, undefined).text,
+  sel2.rigJob({ id: 1, speed: 20 }, { inVehicle: true, rig: [{ id: 1, depth: 0 }] }).text,
+], ["Seeding", "Cultivating", "Harvesting · Wheat", "Tipping", "Delivering · Grain mill", "Driving"]);
+
+const rt = await import("./src/data/rates.js");
+const line = (perSec, secs, from = 1000) =>
+  Array.from({ length: secs * 2 + 1 }, (_, i) => ({ t: i * 500, level: from + perSec * i * 0.5 }));
+const wobble = line(0, 30).map((s, i) => ({ ...s, level: s.level + (i % 2 ? 40 : -40) }));
+check("implement: a tank's rate from the last minute, hidden when short, unsteady or still", [
+  Math.round(rt.fitRate(line(-2, 30), 4000)), rt.fitRate(line(-2, 10), 4000), rt.fitRate(wobble, 4000),
+  rt.fitRate(line(0, 30), 4000), Math.round(rt.fitRate(line(5, 40), 8000))], [-120, undefined, undefined, undefined, 300]);
+check("implement: time left and its words", [
+  rt.timeLeft({ level: 1200, capacity: 4000 }, -120), rt.timeLeft({ level: 7000, capacity: 10000 }, 1000),
+  rt.timeLeft({ level: 10, capacity: 10 }, 5), rt.minutesText(0.4), rt.minutesText(12.4), rt.minutesText(65)],
+  [{ minutes: 10, full: false }, { minutes: 3, full: true }, undefined, "< 1 min", "≈ 12 min", "≈ 1 h 05 min"]);
+
+// the store's estimates: levels over time, area while lowered
+const rateStore = createStore();
+let rsNow = 0;
+const rates = rt.createRates(rateStore, () => rsNow);
+const rsVehicles = (seeds, lowered) => ({ controlledId: 1, vehicles: [{ id: 1, speed: 10.8, implements: [
+  { id: 2, workWidth: 6, lowered, fills: [{ unit: 1, level: seeds, capacity: 4000 }] }] }] });
+for (let i = 0; i <= 60; i++) { rsNow = i * 500; rateStore.set("vehicles", rsVehicles(3000 - i, i < 40)); }
+check("implement: estimates from the vehicles topic: litres a minute, area worked while lowered",
+  [Math.round(rates.rate(2, { unit: 1, capacity: 4000 }, 0)), Math.round(rates.area(2) * 10000)],
+  [-120, 351]);
+rateStore.set("vehicles", { controlledId: 1, vehicles: [{ id: 1, implements: [] }] });
+check("implement: a detached tool's run is over", rates.area(2), undefined);
+
+// the new controls: lower all, pipe, unload / tipping, cover, detach
+const ics = createStore();
+const icSent = [];
+const icGroup = controlGroup({ label: "x", controls: ["lowerAll", "pipe", "unload", "cover", "detach"] }, ics,
+  (a, value) => { icSent.push([a, value]); return Promise.resolve({ ok: true }); });
+const [icAll, icPipe, icUnload, icCover, icDetach] = icGroup.querySelectorAll(".control");
+const harvest = (extra = {}) => ({ inVehicle: true, implements: [],
+  keys: { pipe: 20, lowerAll: 20, ...(extra.keys || {}) },
+  rig: [{ id: 20, name: "Big Combine", depth: 0, selectable: true, selected: extra.selected === 20,
+    pipe: { out: false, moving: false }, discharging: false, turnedOn: true, canTurnOn: true },
+  { id: 21, name: "Cutter 9", depth: 1, side: "front", selectable: true, selected: extra.selected === 21,
+    canLower: true, lowered: true },
+  { id: 22, name: "Tipper", depth: 1, side: "rear", selectable: true, selected: extra.selected === 22,
+    trailer: true, discharging: extra.tipping === true, cover: { open: false }, canLower: false }] });
+ics.set("vehicles", { controlledId: 20, vehicles: [{ id: 20, name: "Big Combine", implements: [] }] });
+ics.set("cab", harvest({ selected: 21 }));
+const icShow = (b) => `${lbl(b)}:${b.dataset.state}${b.dataset.value !== undefined ? ":" + b.querySelector(".control-value").textContent : ""}`;
+check("implement controls: lower all, the pipe named when it isn't the selected tool, keys off",
+  [icAll, icPipe, icUnload, icCover, icDetach].map(icShow),
+  ["Raise all:on", "Pipe out:off:Big Combine", "Unload:unavailable", "Uncover:unavailable", "Detach:off"]);
+ics.set("cab", harvest({ selected: 22, tipping: true, keys: { unload: 22, cover: 22 } }));
+check("implement controls: a trailer tips, its cover follows the key",
+  [icUnload, icCover].map(icShow), ["Tipping:on", "Uncover:off"]);
+ics.set("cab", harvest({ selected: 20 }));
+check("implement controls: the vehicle selected: no Detach", icShow(icDetach), "Detach:unavailable");
+ics.set("cab", harvest({ selected: 22 }));
+tap(icDetach);
+tap(icAll);
+await new Promise((r) => setTimeout(r, 0));
+check("implement controls: Detach sends the selected tool's id, Lower all the key",
+  icSent, [["implement.detach", 22], ["implement.lowerAll", undefined]]);
+
+// the band and the card
+const { rigBand, implementCard, implementDetails, tankRows, cardStats } = await import("./src/widgets/implementScreen.js");
+const bs = createStore();
+const bandSent = [];
+const band = rigBand(bs, { send: (a, v) => { bandSent.push([a, v]); return Promise.resolve({ ok: true }); } });
+bs.set("vehicles", { controlledId: 3, vehicles: [{ id: 3, name: "JCB Fastrac", brand: "JCB", speed: 11.5, pto: true,
+  engineOn: true, implements: [{ id: 5, name: "Quicke Q6M", brand: "Quicke" }, { id: 6, name: "Albutt Bucket", brand: "Albutt" },
+    { id: 9, name: "PÖTTINGER TERRIA 6040", brand: "Pöttinger", hitch: 0.4, lowered: true,
+      fills: [{ unit: 1, level: 50, capacity: 100 }] }] }] });
+bs.set("cab", c3Rig(5, {}));
+const tileEls = () => [...band.querySelectorAll(".rig-tile")];
+check("rig band: tiles in driving order, the game's selection marked, a bar per tank",
+  [tileEls().map((t) => `${t.querySelector("b").textContent}:${t.dataset.selected}`),
+    tileEls()[0].querySelectorAll(".rig-bars .widget-meter").length, q(band, ".rig-job"), q(band, ".rig-speed")],
+  [["TERRIA 6040:false", "Fastrac:false", "Loader:true", "Bucket:false"], 1, "Driving", "11.5 km/h"]);
+tileEls()[3].click();
+await Promise.resolve();
+check("rig band: a tap selects that tool in game", [bandSent, tileEls()[3].dataset.pending], [[["implement.select", 6]], "true"]);
+bs.set("cab", c3Rig(6, {}));
+check("rig band: the game's selection moves the mark", tileEls().map((t) => t.dataset.selected),
+  ["false", "false", "false", "true"]);
+
+const cardStore = createStore();
+const cardSent = [];
+const card = implementCard(cardStore, { send: (a, v) => { cardSent.push([a, v]); return Promise.resolve({ ok: true }); } });
+const details = implementDetails(cardStore);
+cardStore.set("vehicles", { controlledId: 20, vehicles: [{ id: 20, name: "Big Combine", speed: 14, speedLimit: 10,
+  fills: [{ unit: 1, level: 9000, capacity: 10000, fillType: "wheat", fillTitle: "Wheat" }],
+  implements: [{ id: 21, name: "Cutter 9", category: "cutters", speedLimit: 10, workWidth: 9, wear: 0.25 },
+    { id: 22, name: "Tipper", category: "trailers", fills: [{ unit: 1, level: 6000, capacity: 20000 }] }] }] });
+cardStore.set("cab", harvest({ selected: 20 }));
+const shownButtons = () => [...card.querySelectorAll(".control")].filter((b) => !b.hidden).map(lbl);
+check("implement card: a combine: its pipe and unloading join the buttons; speed against the limit",
+  [q(card, ".impl-card-name"), shownButtons(), [...card.querySelectorAll(".impl-stat-value")].map((e) => e.textContent),
+    card.querySelectorAll(".impl-stat")[3].dataset.level, q(card, ".tank-name")],
+  ["Big Combine", ["Lower", "Work", "Unload", "Unfold", "Pipe out", "Detach"], ["–", "On", "–", "14 / 10 km/h"], "warn", "Wheat"]);
+cardStore.set("cab", harvest({ selected: 22, tipping: true, keys: { unload: 22, cover: 22 } }));
+check("implement card: a trailer: Load (every trailer), Tipping and Cover; its buttons tip and cover",
+  [shownButtons(), [...card.querySelectorAll(".impl-stat-label")].map((e) => e.textContent),
+    [...card.querySelectorAll(".impl-stat-value")].slice(0, 3).map((e) => e.textContent), q(card, ".impl-card-sub")],
+  [["Lower", "Tipping", "Unfold", "Uncover", "Detach"], ["Load", "Tipping", "Cover", "Speed"], ["30%", "On", "Closed"],
+    "Trailer · Rear"]);
+cardStore.set("cab", harvest({ selected: 21 }));
+check("implement details: wear, width, folding for the selected tool",
+  [...details.querySelectorAll("dd")].map((e) => e.textContent), ["25%", "9.0 m", "–", "–"]);
+const swipe = (dx) => {
+  card.dispatchEvent(new PointerEvent("pointerdown", { clientX: 200, clientY: 100, bubbles: true }));
+  card.dispatchEvent(new PointerEvent("pointerup", { clientX: 200 + dx, clientY: 105, bubbles: true }));
+};
+cardSent.length = 0;
+swipe(-120);
+swipe(120);
+swipe(20);
+await new Promise((r) => setTimeout(r, 0));
+check("implement card: a swipe left selects the next tool, right the previous one",
+  cardSent, [["implement.next", undefined], ["implement.previous", undefined]]);
+const tank = (level, minutes, full) => ({ entry: { depth: 1 }, fill: { level, capacity: 1000, fillType: "seeds" },
+  left: minutes === undefined ? undefined : { minutes, full } });
+check("implement card: the tank that runs out first; a filling tank nearly full calls a trailer",
+  [tankRows([tank(500, 30, false), tank(400, 12, false)]).map((t) => t.chips),
+    tankRows([tank(500, 30, false)]).map((t) => t.chips), tankRows([tank(850, 4, true)]).map((t) => [t.chips, t.when])],
+  [[[], ["Runs out first"]], [[]], [[["Call a trailer"], "full in ≈ 4 min"]]]);
+check("implement card: stats without a limit or a lift",
+  cardStats({ depth: 1, id: 2, canLower: false, canTurnOn: false }, { id: 1, speed: 8, implements: [{ id: 2 }] }, [],
+    units.METRIC).map((s) => s.value), ["–", "–", "–", "8.0 km/h"]);
+
+// the theme's Implement screen: the band, card and details, and a column
+// without the Engine and the per-tool buttons, with All implements
+const appI = document.createElement("div");
+renderTheme(THEMES[0], appI, createStore(), createMapFrame(createStore()));
+const implScreen = appI.querySelector('.screen[data-screen="implement"]');
+check("theme: the Implement screen's slots and its column",
+  [!!implScreen.querySelector(".rig-band"), !!implScreen.querySelector(".impl-card"), !!implScreen.querySelector(".impl-details"),
+    [...implScreen.querySelectorAll(".control-column .control-group-label")].map((e) => e.textContent),
+    [...implScreen.querySelectorAll(".control-column .control-label")].slice(-2).map((e) => e.textContent),
+    [...appI.querySelectorAll(".tab")].map((t) => t.dataset.screen)],
+  [true, true, true, ["Lights", "Drive", "All implements"], ["Lower all", "Hitch"], ["map", "vehicle", "implement"]]);
+check("theme check: an added group's controls are checked",
+  checkTheme({ id: "x", palettes: [], css: "", screens: [{ id: "a", label: "A",
+    slots: [{ controls: true, add: [{ label: "g", controls: ["nope"] }] }] }] }), ['screen a: adds no control "nope"']);
+
 // --- icons (ui/icons.js) --------------------------------------------------------
 
 const { ICON_GROUPS, hasIcon, icon } = await import("./src/ui/icons.js");

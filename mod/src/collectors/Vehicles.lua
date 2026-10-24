@@ -5,7 +5,8 @@
 -- player controls also gets the dashboard detail (motor, fuel and its use,
 -- DEF, cruise control, lights, fill levels, PTO, implements with their
 -- hitch position, and its brand and shop category for the Vehicle screen's
--- card).
+-- card; for the Implement screen each implement's working speed limit,
+-- working width and a combine's crop).
 --
 -- The spec field names come from the old telemetry mod (which read them
 -- through the pipe) and from the FS22 script docs (T6: fuel use, DEF,
@@ -206,6 +207,55 @@ local function hitchOf(vehicle, implement)
     return Geo.round(math.max(0, math.min(1, (alpha - upper) / (lower - upper))), 2)
 end
 
+-- Implement screen: the working speed limit, the working width and a
+-- combine's crop. Names from the game's own scripts (the SDK's
+-- gameSource.zip: Vehicle, WorkArea, Combine); guarded.
+
+-- the speed limit, km/h, of the object and what hangs on it (the game's
+-- getSpeedLimit, with wear's reduction); onlyIfWorking: only while one of
+-- them works. Nil without one.
+local function speedLimitOf(object, onlyIfWorking)
+    local limit = Api.tryCall(object, "getSpeedLimit", onlyIfWorking)
+    if type(limit) ~= "number" or limit ~= limit or limit <= 0 or limit >= 1000 then
+        return nil
+    end
+    return Geo.round(limit, 1)
+end
+
+-- the working width, metres: the AI's work area width, else the widest
+-- work area. Nil for a tool without work areas (a trailer).
+local function workWidthOf(object)
+    local width = Api.tryCall(object, "getAIWorkAreaWidth")
+    if type(width) ~= "number" or width <= 0 then
+        width = nil
+        local spec = object.spec_workArea
+        if type(spec) == "table" and type(spec.workAreas) == "table" then
+            for _, area in pairs(spec.workAreas) do
+                if type(area) == "table" and type(area.workWidth) == "number" and area.workWidth > (width or 0) then
+                    width = area.workWidth
+                end
+            end
+        end
+    end
+    return width ~= nil and Geo.round(width, 1) or nil
+end
+
+-- a combine's crop: the last fruit it took in, as its fill type
+-- ({name = "wheat", title = "Wheat"}); nil before it has harvested
+local function cropOf(object)
+    local spec = object.spec_combine
+    local fruit = type(spec) == "table" and spec.lastValidInputFruitType or nil
+    local unknown = type(FruitType) == "table" and FruitType.UNKNOWN or 0
+    if type(fruit) ~= "number" or fruit == unknown then
+        return nil
+    end
+    local fillType = Api.tryCall(g_fruitTypeManager, "getFillTypeByFruitTypeIndex", fruit)
+    if type(fillType) ~= "table" or type(fillType.name) ~= "string" then
+        return nil
+    end
+    return { name = fillType.name:lower(), title = fillType.title }
+end
+
 local function collectImplements(vehicle, depth, out)
     local attached = Api.tryCall(vehicle, "getAttachedImplements")
     if type(attached) ~= "table" then
@@ -230,6 +280,10 @@ local function collectImplements(vehicle, depth, out)
                 pto = ptoOf(object),
                 hitch = hitchOf(vehicle, implement),
                 fills = fillLevels(object),
+                -- the Implement screen
+                speedLimit = speedLimitOf(object),
+                workWidth = workWidthOf(object),
+                crop = cropOf(object),
             }
             if depth < MAX_IMPLEMENT_DEPTH then
                 collectImplements(object, depth + 1, out)
@@ -433,6 +487,10 @@ local function vehicleEntry(vehicle, detailed)
         entry.implements = implements
         entry.pto = anyPto(implements)
         entry.fills = fillLevels(vehicle)
+        -- the Implement screen: a combine's crop, and the rig's speed
+        -- limit while something works
+        entry.crop = cropOf(vehicle)
+        entry.speedLimit = speedLimitOf(vehicle, true)
     end
     return entry
 end

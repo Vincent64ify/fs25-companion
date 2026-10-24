@@ -21,10 +21,10 @@ import { hasIcon, icon } from "../ui/icons.js";
 /**
  * A place on a screen: a widget (and what it shows without data), the map,
  * the theme's control groups (less the ones `omit` names, for a screen
- * that shows them elsewhere), or a group of slots the theme's CSS lays out
- * together (data-group).
+ * that shows them elsewhere, plus the screen's own groups in `add`), or a
+ * group of slots the theme's CSS lays out together (data-group).
  * @typedef {{widget: string, variant?: string, whenMissing?: "hide"|"dash"} | {map: "full"|"mini"}
- *   | {controls: true, omit?: string[]} | {group: string, slots: Slot[]}} Slot
+ *   | {controls: true, omit?: string[], add?: ControlGroup[]} | {group: string, slots: Slot[]}} Slot
  */
 
 /**
@@ -114,6 +114,10 @@ export function checkTheme(theme, widgetIds = Object.keys(WIDGETS)) {
         for (const id of slot.omit || []) {
           if (!CONTROLS[id]) errors.push(`screen ${screen.id}: omits no control "${id}"`);
         }
+        for (const id of (slot.add || []).flatMap((group) => group.controls)) {
+          if (!CONTROLS[id]) errors.push(`screen ${screen.id}: adds no control "${id}"`);
+          else wantIcon(CONTROLS[id].icon, `control ${id}`);
+        }
       }
     }
     if (maps > 1) errors.push(`screen ${screen.id}: ${maps} map slots, at most 1`);
@@ -175,7 +179,8 @@ export function renderTheme(theme, app, store, frame, settings) {
           const omit = new Set(slot.omit || []);
           const groups = (chrome.controls || [])
             .map((group) => ({ ...group, controls: group.controls.filter((id) => !omit.has(id)) }))
-            .filter((group) => group.controls.length);
+            .filter((group) => group.controls.length)
+            .concat(slot.add || []);
           const column = h("aside", { className: "control-column" },
             ...groups.map((group) => controlGroup(group, store)));
           column.setAttribute("aria-label", "Controls");

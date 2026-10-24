@@ -6,6 +6,7 @@ import * as farm from "./farm.js";
 import { implementsWidget } from "./implements.js";
 import { alerts, connection, protocolError } from "./status.js";
 import { vehicleCard, vehicleReadout } from "./vehicleScreen.js";
+import { implementCard, implementDetails, rigBand } from "./implementScreen.js";
 import { fullscreen } from "./screen.js";
 
 /** @type {Record<string, import("./widget.js").CreateWidget>} */
@@ -18,6 +19,9 @@ export const WIDGETS = {
   alerts,
   vehicleReadout,
   vehicleCard,
+  rigBand,
+  implementCard,
+  implementDetails,
   fullscreen,
 };
 

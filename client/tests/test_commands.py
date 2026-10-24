@@ -229,3 +229,16 @@ def test_relay_passes_the_value_on():
     relay.handle_message('{"type": "command", "ref": "4", "action": "cruise.set", "value": 21}')
     relay.handle_message('{"type": "command", "ref": "5", "action": "lights.toggle"}')
     assert got == [("4", "cruise.set", 21), ("5", "lights.toggle", None)]
+
+
+def test_implement_screen_actions_are_the_games_keys(tmp_path):
+    writer, acks, _ = make(tmp_path)
+    for n, (action, game) in enumerate([("implement.lowerAll", "LOWER_ALL_IMPLEMENTS"),
+                                        ("implement.pipe", "TOGGLE_PIPE"),
+                                        ("implement.unload", "TOGGLE_DISCHARGE"),
+                                        ("implement.cover", "TOGGLE_COVER")], start=1):
+        writer.submit(str(n), action)
+        assert attrs(tmp_path / "cmd" / f"{n}.xml")["action"] == game
+        assert "value" not in attrs(tmp_path / "cmd" / f"{n}.xml")
+    writer.submit("5", "implement.pipe", 1)
+    assert [a["data"]["reason"] for a in acks] == ["value not allowed"]

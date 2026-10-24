@@ -17,8 +17,8 @@
 // shows pending (a fold running) until the game reports the end state.
 
 import { createControl } from "../ui/control.js";
-import { cabOf, controlledVehicle, cruiseOf, implementsOf, keyTool, lightsOf, ptoOf, selectedInRig, toolModel }
-  from "../data/selectors.js";
+import { cabOf, controlledVehicle, cruiseOf, entryModel, implementsOf, keyTool, lightsOf, liveTool, ptoOf, rigOf,
+  selectedInRig, toolModel } from "../data/selectors.js";
 import { sendCommand } from "../connection.js";
 import { speedToKmh, speedUnit, speedValue, unitsOf } from "../data/units.js";
 import { h } from "../ui/dom.js";
@@ -51,6 +51,8 @@ import { h } from "../ui/dom.js";
  * @property {boolean} [progressive] "Raising…" while its command runs
  * @property {-1|1} [hold] a held step: the cruise set speed down or up
  *   (cruise.set with the target, see cruiseStepper)
+ * @property {(v: any, cab: any) => number|undefined} [sendValue] the number a
+ *   tap sends with its action (Detach: the selected tool's id)
  */
 
 /** the light switches from the cab when the mod sends it, else from vehicles */
@@ -110,6 +112,42 @@ export const toolNote = (key) => (/** @type {any} */ v, /** @type {any} */ cab) 
   const selected = selectedInRig(cab);
   return tool && selected && tool.id !== selected.id ? toolModel(tool, v) : undefined;
 };
+
+/**
+ * An Implement screen key (the pipe, unloading, the cover) on the rig
+ * entries `has` accepts: on or off, from `on`; unavailable without such a
+ * tool, and while the game has the key off (the help line doesn't offer
+ * it) unless it's on. Its note names the tool when it isn't the selected
+ * one.
+ * @param {string} key cab.keys' name
+ * @param {(e: import("../types.js").RigEntry) => boolean} has
+ * @param {(e: any) => boolean} on
+ */
+function rigKey(key, has, on) {
+  const tool = (/** @type {any} */ cab) => liveTool(cab, key, has);
+  return {
+    tool: (/** @type {any} */ cab) => tool(cab).tool,
+    read: (/** @type {any} */ _v, /** @type {any} */ cab) => {
+      const { tool: t, live } = tool(cab);
+      if (!t) return undefined;
+      const state = on(t) === true;
+      return live || state ? state : undefined;
+    },
+    value: (/** @type {any} */ v, /** @type {any} */ cab) => {
+      const t = tool(cab).tool;
+      const selected = selectedInRig(cab);
+      return t && selected && t.id !== selected.id ? entryModel(t, v) : undefined;
+    },
+  };
+}
+const pipeKey = rigKey("pipe", (e) => !!e.pipe, (e) => e.pipe.out);
+const unloadKey = rigKey("unload", (e) => typeof e.discharging === "boolean" && (e.trailer === true || !!e.pipe),
+  (e) => e.discharging);
+const coverKey = rigKey("cover", (e) => !!e.cover, (e) => e.cover.open);
+
+/** the tools Lower all moves: every one the game lets lower */
+const lowerable = (/** @type {any} */ cab) =>
+  rigOf(cab).filter((e) => e.depth > 0 && e.canLower !== false && typeof e.lowered === "boolean");
 
 /** the name the Implement group's label shows: the game's selection */
 export function selectedName(/** @type {any} */ v, /** @type {any} */ cab) {
@@ -298,6 +336,31 @@ export const CONTROLS = {
     settle: { ms: 1500, key: attachedSet, hint: "None in range", quiet: ["nothing in range"] } },
   // a status, not a button: unavailable without an implement that has a PTO
   pto: { label: "PTO", icon: "pto", read: ptoOf },
+  // the Implement screen's keys, each as the game's key: Ctrl+V lowers or
+  // raises every tool (lit while one is lowered), O the pipe, I unloads a
+  // combine or tips a trailer (Ctrl+I to the ground where only that is
+  // live), N the cover
+  lowerAll: { label: "Lower all", icon: "lowerAll", action: "implement.lowerAll", progressive: true,
+    read: (v, cab) => {
+      const tools = lowerable(cab);
+      return tools.length ? tools.some((e) => e.lowered) : undefined;
+    },
+    labels: (v, cab) => (lowerable(cab).some((e) => e.lowered) ? { label: "Raise all" } : { label: "Lower all" }) },
+  pipe: { label: "Pipe out", icon: "pipe", action: "implement.pipe", read: pipeKey.read, value: pipeKey.value,
+    moving: (v, cab) => pipeKey.tool(cab)?.pipe?.moving === true,
+    labels: (v, cab) => ({ label: pipeKey.tool(cab)?.pipe?.out ? "Pipe in" : "Pipe out" }) },
+  unload: { label: "Unload", icon: "unload", action: "implement.unload", read: unloadKey.read, value: unloadKey.value,
+    labels: (v, cab) => ({ label: unloadKey.tool(cab)?.trailer ? "Tipping" : "Unload" }) },
+  cover: { label: "Uncover", icon: "cover", action: "implement.cover", read: coverKey.read, value: coverKey.value,
+    labels: (v, cab) => ({ label: coverKey.tool(cab)?.cover?.open ? "Cover" : "Uncover" }) },
+  // the selected tool, from what it hangs on
+  detach: { label: "Detach", icon: "hitchUp", action: "implement.detach",
+    sendValue: (v, cab) => selectedInRig(cab)?.id,
+    read: (v, cab) => {
+      const selected = selectedInRig(cab);
+      return selected && selected.depth > 0 ? false : undefined;
+    },
+    settle: { ms: 1500, key: attachedSet } },
 };
 
 /**
@@ -344,7 +407,9 @@ export function controlGroup(group, store, send = sendCommand) {
       const end = hold.end;
       hold.end = () => { if (down) { down = false; end(); } };
     }
-    return { def, ui: createControl(def, action && !hold ? () => send(action) : undefined, settle, hold) };
+    const press = action && !hold ? () => send(action, def.sendValue?.(controlledVehicle(store), cabOf(store)))
+      : undefined;
+    return { def, ui: createControl(def, press, settle, hold) };
   });
   const el = h("section", { className: "control-group" }, title,
     h("div", { className: "control-grid" }, ...items.map((i) => i.ui.el)));

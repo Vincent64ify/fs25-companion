@@ -216,9 +216,11 @@ export const mainFill = (fills) => fills.find((f) => f.level > 0) || fills[0];
 /**
  * An attached implement, as the mod sends it. hitch: 0 raised .. 1 lowered;
  * pto missing for an implement without one.
+ * speedLimit (km/h), workWidth (m) and crop since the Implement screen.
  * @typedef {{id?: number, name?: string, brand?: string, typeName?: string, category?: string, categoryTitle?: string,
  *   depth?: number, lowered?: boolean, turnedOn?: boolean, wear?: number, pto?: boolean,
- *   hitch?: number, fills?: Fill[]}} Implement
+ *   hitch?: number, fills?: Fill[], speedLimit?: number, workWidth?: number,
+ *   crop?: {name?: string, title?: string}}} Implement
  */
 
 /**
@@ -274,6 +276,112 @@ export function keyTool(cab, key) {
   if (!cab || !cab.inVehicle || !cab.keys || !Array.isArray(cab.rig)) return undefined;
   const id = cab.keys[key];
   return cab.rig.find((e) => e.depth > 0 && e.id === id) ?? null;
+}
+
+/** The rig entry with this id. @param {import("../types.js").Cab|undefined} cab @param {number|undefined} id */
+export const rigEntry = (cab, id) => (id === undefined ? undefined : rigOf(cab).find((e) => e.id === id));
+
+/** The vehicles topic's implement with this id. @param {Vehicle|undefined} v @param {number|undefined} id */
+export const implementById = (v, id) => (id === undefined ? undefined : implementsOf(v).find((i) => i.id === id));
+
+/**
+ * The rig left to right, as you'd see it driving to the right (the
+ * Implement screen's rig band): rear tools, the farthest first, the
+ * vehicle, then front tools; a tool on a tool sits next to its parent,
+ * farther out. A tool without a side counts as rear (a trailer).
+ * @param {import("../types.js").RigEntry[]} rig
+ * @returns {import("../types.js").RigEntry[]}
+ */
+export function drivingOrder(rig) {
+  const tools = rig.filter((e) => e.depth > 0);
+  return [...tools.filter((e) => e.side !== "front").reverse(), ...rig.filter((e) => e.depth === 0),
+    ...tools.filter((e) => e.side === "front")];
+}
+
+/**
+ * A rig entry's name without its brand: the vehicle's as its card shows it,
+ * a tool's by toolModel.
+ * @param {import("../types.js").RigEntry} entry
+ * @param {Vehicle|undefined} v the controlled vehicle
+ */
+export const entryModel = (entry, v) => (entry.depth === 0 ? modelName(v) : toolModel(entry, v));
+
+/**
+ * The tool an Implement screen key acts on (cab.keys: the pipe, unloading,
+ * the cover), at any depth (a combine's own pipe), among the entries `has`
+ * accepts; else the first such entry, with live false (the key isn't live
+ * now, or the mod doesn't say).
+ * @param {import("../types.js").Cab|undefined} cab
+ * @param {string} key
+ * @param {(e: import("../types.js").RigEntry) => boolean} has
+ * @returns {{tool: import("../types.js").RigEntry|undefined, live: boolean}}
+ */
+export function liveTool(cab, key, has) {
+  const rig = rigOf(cab);
+  const id = /** @type {any} */ (cab?.keys)?.[key];
+  const keyed = id === undefined ? undefined : rig.find((e) => e.id === id && has(e));
+  return { tool: keyed || rig.find(has), live: keyed !== undefined };
+}
+
+// what a working tool does, by its shop category; first match wins
+const JOBS = /** @type {[RegExp, string][]} */ ([
+  [/FORAGEHARVESTER/, "Chopping"], [/PLOW/, "Ploughing"], [/CULTIVATOR/, "Cultivating"],
+  [/DISCHARROW|POWERHARROW/, "Harrowing"], [/SUBSOILER/, "Subsoiling"], [/MULCHER/, "Mulching"],
+  [/SPADER/, "Digging"], [/STONEPICKER/, "Picking stones"], [/PLANT/, "Planting"], [/SEEDER|SOWING/, "Seeding"],
+  [/SPRAYER/, "Spraying"], [/SPREADER|SLURRY/, "Spreading"], [/WEEDER/, "Weeding"], [/ROLLER/, "Rolling"],
+  [/HARVESTER|CUTTER|HEADER|COMBINE/, "Harvesting"], [/MOWER/, "Mowing"], [/TEDDER/, "Tedding"],
+  [/WINDROWER/, "Raking"], [/LOADERWAGON/, "Loading"], [/BALEWRAPPER/, "Wrapping"], [/BALER/, "Baling"],
+]);
+
+/** "Seeding" for a seeder, from its shop category. @param {{category?: string}|undefined} tool */
+export function jobVerb(tool) {
+  const name = typeof tool?.category === "string" ? tool.category.toUpperCase() : "";
+  return name ? JOBS.find(([re]) => re.test(name))?.[1] : undefined;
+}
+
+/**
+ * The job in words, for the Implement screen's rig band: an AI worker's
+ * job, "Tipping" or "Unloading" while something discharges, the working
+ * tool's job ("Seeding", "Harvesting · Wheat"), else what the vehicle does
+ * (activity: Driving, Standing, Parked).
+ * @param {Vehicle|undefined} v
+ * @param {import("../types.js").Cab|undefined} cab
+ * @returns {{text: string, icon: string}}
+ */
+export function rigJob(v, cab) {
+  if (!v) return { text: "On foot", icon: "position" };
+  if (v.isAI) return { text: aiJobText(v) || "AI worker", icon: "aiWorker" };
+  const rig = rigOf(cab);
+  const out = rig.find((e) => e.discharging === true);
+  if (out) return { text: out.trailer ? "Tipping" : "Unloading", icon: "unload" };
+  const impls = implementsOf(v);
+  // turned on first (a seeder sowing), then lowered (a cultivator at work)
+  const state = (/** @type {Implement} */ i) => rigEntry(cab, i.id) || i;
+  const working = impls.find((i) => state(i).turnedOn) ||
+    impls.find((i) => state(i).lowered && /** @type {any} */ (state(i)).canLower !== false);
+  const head = rig.find((e) => e.depth === 0);
+  const tool = working || (head?.turnedOn ? v : undefined);
+  if (tool) {
+    const verb = jobVerb(tool) || (tool === v ? "Harvesting" : undefined) || "Working";
+    const crop = verb === "Harvesting" ? cropTitle(v, /** @type {Implement} */ (tool)) : undefined;
+    return { text: crop ? `${verb} · ${crop}` : verb, icon: "implementOn" };
+  }
+  const what = activity(v);
+  return { text: what.text, icon: what.icon };
+}
+
+/**
+ * What a combine harvests: the crop the mod names, else the grain tank's fill.
+ * @param {Vehicle|undefined} v
+ * @param {Implement} [tool]
+ */
+export function cropTitle(v, tool) {
+  for (const src of [tool, v]) {
+    const crop = /** @type {any} */ (src)?.crop;
+    if (crop && (crop.title || crop.name)) return crop.title || fillName({ level: 1, capacity: 1, fillType: crop.name });
+  }
+  const fill = fillsOf(v).find((f) => f.level > 0);
+  return fill ? fillName(fill) : undefined;
 }
 
 /**

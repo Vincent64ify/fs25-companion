@@ -1177,6 +1177,161 @@ test("commands C3: select a tool by id, next and previous, detach a chosen one",
     eq(run("DETACH_IMPLEMENT", 6).reason, "not attached")
 end)
 
+-- Implement screen: pipe, discharge, cover, speed limit, width, crop --------
+
+-- a combine with a cutter on the front and a trailer behind
+local function harvestRig()
+    local cutter = {
+        id = 21, typeName = "cutter",
+        getFullName = function() return "Cutter 9" end,
+        getSpeedLimit = function() return 10 end,
+        getAIWorkAreaWidth = function() return 9.04 end,
+    }
+    local trailer = {
+        id = 22, typeName = "trailer",
+        getFullName = function() return "Tipper" end,
+        getSpeedLimit = function() return math.huge end,
+        spec_workArea = { workAreas = {} },
+        spec_dischargeable = { currentDischargeState = 0 },
+        getDischargeState = function(self) return self.spec_dischargeable.currentDischargeState end,
+        spec_trailer = { tipState = 0 },
+        spec_cover = { hasCovers = true, state = 0, covers = { {}, {} } },
+        setCoverState = function(self, s) self.spec_cover.state = s end,
+        getIsNextCoverStateAllowed = function() return true end,
+    }
+    local combine = {
+        id = 20, typeName = "combineDrivable", rootNode = 1,
+        spec_motorized = {},
+        spec_turnOnVehicle = {},
+        on = true,
+        getIsTurnedOn = function(self) return self.on end,
+        getFullName = function() return "Big Combine" end,
+        spec_pipe = { hasMovablePipe = true, currentState = 1, targetState = 1, numStates = 2 },
+        getIsPipeStateChangeAllowed = function() return true end,
+        setPipeState = function(self, s)
+            self.spec_pipe.targetState = s
+            self.spec_pipe.currentState = 0
+        end,
+        spec_dischargeable = { currentDischargeState = 0 },
+        spec_combine = { lastValidInputFruitType = 3 },
+        getSpeedLimit = function(_, onlyIfWorking) return onlyIfWorking and 10 or math.huge end,
+        attached = { { object = cutter }, { object = trailer } },
+        getAttachedImplements = function(self) return self.attached end,
+        getIsAIActive = function() return false end,
+        combo = 0,
+        startAttacherJointCombo = function(self) self.combo = self.combo + 1 end,
+    }
+    cutter.getAttacherVehicle = function() return combine end
+    trailer.getAttacherVehicle = function() return combine end
+    g_localPlayer = { getCurrentVehicle = function() return combine end }
+    return combine, cutter, trailer
+end
+
+test("implement screen: pipe, discharge, trailer, cover and the new keys in the cab", function()
+    load("src/collectors/Cab.lua")
+    local Cab = Companion.Collectors.Cab
+    Cab.reset()
+    local combine, cutter, trailer = harvestRig()
+    bindInputs({ "TOGGLE_PIPE", "TOGGLE_TIPSTATE_GROUND", "LOWER_ALL_IMPLEMENTS" }, combine)
+    local cover = { name = "TOGGLE_COVER" }
+    g_inputBinding.nameActions.TOGGLE_COVER = cover
+    g_inputBinding.actionEvents[cover] = { { isActive = true, targetObject = trailer, callback = function() end } }
+    local cab = Cab.collect({})
+    local head = cab.rig[1]
+    eq(head.name, "Big Combine")
+    eq(head.turnedOn, true, "a combine threshes: its turn on")
+    eq(head.canTurnOn, true)
+    eq(head.pipe.out, false, "pipe in")
+    eq(head.pipe.moving, false)
+    eq(head.discharging, false)
+    eq(head.trailer, nil)
+    eq(cab.rig[2].pipe, nil, "the cutter has no pipe")
+    local t = cab.rig[3]
+    eq(t.trailer, true)
+    eq(t.discharging, false)
+    eq(t.cover.open, false)
+    eq(cab.keys.pipe, 20)
+    eq(cab.keys.unload, 20, "no TOGGLE_TIPSTATE: the ground key's tool")
+    eq(cab.keys.cover, 22)
+    eq(cab.keys.lowerAll, 20)
+    combine:setPipeState(2)
+    trailer.spec_dischargeable.currentDischargeState = 2
+    trailer.spec_cover.state = 1
+    cab = Cab.collect({})
+    eq(cab.rig[1].pipe.out, true, "going out")
+    eq(cab.rig[1].pipe.moving, true)
+    eq(cab.rig[3].discharging, true, "tipping to the ground")
+    eq(cab.rig[3].cover.open, true)
+    g_inputBinding = nil
+end)
+
+test("implement screen: speed limit, working width and crop in the vehicles topic", function()
+    load("src/collectors/Vehicles.lua")
+    getWorldTranslation = function() return 0, 0, 0 end
+    localDirectionToWorld = function() return 0, 0, -1 end
+    FillType = { UNKNOWN = 0 }
+    g_storeManager, g_brandManager, g_fillTypeManager = nil, nil, nil
+    g_fruitTypeManager = { getFillTypeByFruitTypeIndex = function(_, i)
+        return i == 3 and { name = "WHEAT", title = "Wheat" } or nil
+    end }
+    local combine = harvestRig()
+    g_currentMission = { vehicleSystem = { vehicles = { combine } } }
+    local v = Companion.Collectors.Vehicles.collect({}).vehicles[1]
+    eq(v.crop.name, "wheat")
+    eq(v.crop.title, "Wheat")
+    eq(v.speedLimit, 10, "the rig's limit while working")
+    local cutter, trailer = v.implements[1], v.implements[2]
+    eq(cutter.speedLimit, 10)
+    eq(cutter.workWidth, 9, "the AI work area's width, rounded")
+    eq(trailer.speedLimit, nil, "no limit")
+    eq(trailer.workWidth, nil, "no work areas")
+    combine.spec_combine.lastValidInputFruitType = 0
+    eq(Companion.Collectors.Vehicles.collect({}).vehicles[1].crop, nil, "nothing harvested yet")
+    g_fruitTypeManager = nil
+end)
+
+test("commands, implement screen: lower all, pipe, unload, cover as their keys, else setters", function()
+    if TMP_DIR == nil then
+        return
+    end
+    local combine, _, trailer = harvestRig()
+    local dir = TMP_DIR .. "/impcmd_"
+    local write = commandStubs(dir)
+    local commands = Companion.Commands.new(dir, "S4", function() end)
+    local n = 0
+    local function run(action)
+        n = n + 1
+        write(n, "S4", action)
+        return commands:poll()
+    end
+    -- no key events: the setters
+    g_inputBinding = nil
+    local ack = run("LOWER_ALL_IMPLEMENTS")
+    eq(ack.ok, true)
+    eq(ack.via, "setter")
+    eq(combine.combo, 1, "the attacher joint combo, as Ctrl+V")
+    eq(run("TOGGLE_PIPE").ok, true)
+    eq(combine.spec_pipe.targetState, 2, "pipe out")
+    combine.spec_pipe.currentState = 2
+    eq(run("TOGGLE_PIPE").ok, true)
+    eq(combine.spec_pipe.targetState, 1, "pipe in, round the end")
+    eq(run("TOGGLE_COVER").ok, true)
+    eq(trailer.spec_cover.state, 1)
+    trailer.spec_cover.state = 2
+    eq(run("TOGGLE_COVER").ok, true)
+    eq(trailer.spec_cover.state, 0, "closed after the last cover")
+    ack = run("TOGGLE_DISCHARGE")
+    eq(ack.ok, false, "unloading needs the key")
+    -- with the keys: I first, Ctrl+I when only that one is live
+    local calls = bindInputs({ "TOGGLE_TIPSTATE_GROUND", "TOGGLE_PIPE", "TOGGLE_COVER", "LOWER_ALL_IMPLEMENTS" }, trailer)
+    eq(run("TOGGLE_DISCHARGE").via, "TOGGLE_TIPSTATE_GROUND")
+    eq(run("TOGGLE_PIPE").via, "TOGGLE_PIPE")
+    eq(run("TOGGLE_COVER").via, "TOGGLE_COVER")
+    eq(run("LOWER_ALL_IMPLEMENTS").via, "LOWER_ALL_IMPLEMENTS")
+    eq(#calls.TOGGLE_TIPSTATE_GROUND, 1)
+    g_inputBinding = nil
+end)
+
 test("cab C2: the selected implement, its fold, AI and hitch", function()
     load("src/collectors/Cab.lua")
     local Cab = Companion.Collectors.Cab

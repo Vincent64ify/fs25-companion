@@ -366,6 +366,42 @@ function VehicleState.implement(object)
     return out
 end
 
+-- Implement screen (2026-10-24) ----------------------------------------------
+-- What its buttons and tiles show beyond lower, fold and turn on: a pipe
+-- (combines), whether it discharges (a trailer tipping, a combine
+-- unloading), a cover, and whether it's a trailer. Names from the game's
+-- own scripts (the SDK's gameSource.zip: Pipe, Dischargeable, Trailer,
+-- Cover); still guarded.
+
+-- Dischargeable.DISCHARGE_STATE_OFF
+local DISCHARGE_OFF = 0
+
+function VehicleState.extras(object, out)
+    local pipe = object.spec_pipe
+    if type(pipe) == "table" and pipe.hasMovablePipe == true and type(pipe.targetState) == "number" then
+        -- state 1 is in, the others out; currentState is 0 while it moves
+        out.pipe = { out = pipe.targetState > 1, moving = pipe.currentState ~= pipe.targetState }
+    end
+    if type(object.spec_dischargeable) == "table" then
+        local state = Api.tryCall(object, "getDischargeState")
+        if type(state) ~= "number" then
+            state = object.spec_dischargeable.currentDischargeState
+        end
+        if type(state) == "number" then
+            out.discharging = state ~= DISCHARGE_OFF
+        end
+    end
+    if object.spec_trailer ~= nil then
+        out.trailer = true
+    end
+    local cover = object.spec_cover
+    if type(cover) == "table" and cover.hasCovers == true and type(cover.state) == "number" then
+        -- 0 closed, else the open cover's index
+        out.cover = { open = cover.state ~= 0 }
+    end
+    return out
+end
+
 -- Rig (Controls C3) ---------------------------------------------------------
 -- The tractor and everything attached, and which tool each implement key
 -- acts on. Verified live with the selection spike (mod 0.6.4, PLAN.md C3):
@@ -444,28 +480,35 @@ function VehicleState.attachedTree(vehicle)
 end
 
 -- the object whose live event an input action would run now (the first
--- active one), or nil
-function VehicleState.keyTarget(name)
+-- active one), or nil; names: one input action, or a list tried in order
+function VehicleState.keyTarget(names)
     local binding = g_inputBinding
     if type(binding) ~= "table" or type(binding.nameActions) ~= "table"
         or type(binding.actionEvents) ~= "table" then
         return nil
     end
-    local action = binding.nameActions[name]
-    local events = action ~= nil and binding.actionEvents[action] or nil
-    if type(events) ~= "table" then
-        return nil
-    end
-    for _, event in pairs(events) do
-        if type(event) == "table" and event.isActive ~= false and type(event.targetObject) == "table" then
-            return event.targetObject
+    for _, name in ipairs(type(names) == "table" and names or { names }) do
+        local action = binding.nameActions[name]
+        local events = action ~= nil and binding.actionEvents[action] or nil
+        if type(events) == "table" then
+            for _, event in pairs(events) do
+                if type(event) == "table" and event.isActive ~= false and type(event.targetObject) == "table" then
+                    return event.targetObject
+                end
+            end
         end
     end
     return nil
 end
 
--- the implement keys, by the cab's name for them
-VehicleState.KEYS = { lower = "LOWER_IMPLEMENT", fold = "IMPLEMENT_EXTRA2", turnOn = "IMPLEMENT_EXTRA" }
+-- the implement keys, by the cab's name for them. The Implement screen's:
+-- the pipe (O), unloading or tipping (I, else Ctrl+I to the ground, the
+-- one the game has live), the cover (N) and lower all (Ctrl+V).
+VehicleState.KEYS = {
+    lower = "LOWER_IMPLEMENT", fold = "IMPLEMENT_EXTRA2", turnOn = "IMPLEMENT_EXTRA",
+    pipe = "TOGGLE_PIPE", unload = { "TOGGLE_TIPSTATE", "TOGGLE_TIPSTATE_GROUND" }, cover = "TOGGLE_COVER",
+    lowerAll = "LOWER_ALL_IMPLEMENTS",
+}
 
 -- the cab's rig: the controlled vehicle first, then what's attached, each
 -- with its id, parent's id, depth, side, whether the game can select it
@@ -483,9 +526,15 @@ function VehicleState.rig(vehicle)
         e.selected = selected == object
         return e
     end
-    local rig = { mark({ name = Api.tryCall(vehicle, "getFullName") or vehicle.typeName, depth = 0 }, vehicle) }
+    local head = { name = Api.tryCall(vehicle, "getFullName") or vehicle.typeName, depth = 0 }
+    -- a combine works itself: threshing is its turn on
+    if vehicle.spec_turnOnVehicle ~= nil then
+        head.turnedOn = Api.tryCall(vehicle, "getIsTurnedOn") == true
+        head.canTurnOn = true
+    end
+    local rig = { mark(VehicleState.extras(vehicle, head), vehicle) }
     for _, node in ipairs(VehicleState.attachedTree(vehicle)) do
-        local e = mark(VehicleState.implement(node.object), node.object)
+        local e = mark(VehicleState.extras(node.object, VehicleState.implement(node.object)), node.object)
         e.parent = node.parent.id
         e.depth = node.depth
         e.side = node.side

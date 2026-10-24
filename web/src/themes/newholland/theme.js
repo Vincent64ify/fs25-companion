@@ -62,5 +62,21 @@ export default {
         { controls: true, omit: ["engineOn"] },
       ],
     },
+    {
+      // the rig band over the implement card and its details (rows
+      // 132 | 1fr, columns 1fr | 250), then the controls: the band has the
+      // Engine and the card the tool's buttons, so the column keeps Lights,
+      // Drive and All implements
+      id: "implement", label: "Implement", icon: "implement",
+      slots: [
+        { group: "implement", slots: [
+          { widget: "rigBand" },
+          { widget: "implementCard" },
+          { widget: "implementDetails" },
+        ] },
+        { controls: true, omit: ["engineOn", "implementLowered", "fold", "implementOn", "hitch"],
+          add: [{ label: "All implements", controls: ["lowerAll", "hitch"] }] },
+      ],
+    },
   ],
 };

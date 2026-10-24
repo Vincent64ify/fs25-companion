@@ -54,3 +54,8 @@ export const areaText = (ha, u) => (u.acres ? `${(ha / HA_PER_ACRE).toFixed(2)} 
 
 /** "£123,457". @param {number} amount @param {Units} u */
 export const moneyText = (amount, u) => u.currency + Math.round(amount).toLocaleString();
+
+const FT_PER_M = 3.28084;
+
+/** A working width: "6.0 m", or "19.7 ft" with miles. @param {number} m @param {Units} u */
+export const lengthText = (m, u) => (u.miles ? `${(m * FT_PER_M).toFixed(1)} ft` : `${m.toFixed(1)} m`);

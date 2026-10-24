@@ -1057,7 +1057,8 @@ claude.ai), then brought in line with the C3 decisions the same evening
 (this text wins where the canvas differs). It's the third of the seven
 tabs, **Implement**, after Map and Vehicle, in New Holland style (the only
 theme), and answers "what is my tool doing and when must I act", where
-Vehicle answers "how is my tractor". Not built yet.
+Vehicle answers "how is my tractor". Built the same day (mod 0.8.0, see
+"As built" below), waiting for the live check.
 
 - **Layout (regular):** the usual chrome. The main area has rows
   `132 | 1fr`; the detail row has columns `1fr | 250`; the control column
@@ -1134,6 +1135,64 @@ Vehicle answers "how is my tractor". Not built yet.
 - **Open:** compact (portrait) layout, likely the band as a scrolling row
   and the card full width.
 
+#### As built (Implement screen, mod 0.8.0, 2026-10-24)
+
+- **Game names checked in the game's own scripts.** The SDK ships the game's
+  Lua (`sdk/debugger/gameSource.zip` in the install, read locally, never
+  committed): Pipe, Dischargeable, Trailer, Cover, WorkArea, Combine,
+  AttacherJoints and Vehicle. The new data and keys use those names.
+- **Mod:** each `cab.rig` entry (the vehicle too) gains `pipe {out, moving}`
+  (targetState above 1 is out, currentState differs while it moves),
+  `discharging` (getDischargeState not off), `trailer` and `cover {open}`;
+  the vehicle's entry gains `turnedOn` / `canTurnOn` (a combine threshing).
+  `cab.keys` gains `pipe` (TOGGLE_PIPE, O), `unload` (TOGGLE_TIPSTATE, I,
+  else TOGGLE_TIPSTATE_GROUND, Ctrl+I, whichever is live), `cover`
+  (TOGGLE_COVER, N) and `lowerAll` (LOWER_ALL_IMPLEMENTS, Ctrl+V). Each
+  implement in `vehicles` gains `speedLimit` (km/h, `getSpeedLimit()`, with
+  wear's cut), `workWidth` (m, `getAIWorkAreaWidth()`, else the widest work
+  area) and `crop` for a combine (`lastValidInputFruitType` as its fill
+  type); the vehicle gains `crop` and `speedLimit` (the rig's, while
+  something works).
+- **New actions** (backend, client, mod): `implement.lowerAll`,
+  `implement.pipe`, `implement.unload`, `implement.cover`, each its key's
+  events; without one, the game's own handler (the attacher joint combo,
+  the next pipe state, the next cover state). Unloading has no fallback.
+- **Web:** `widgets/implementScreen.js` (rigBand, implementCard,
+  implementDetails), `data/rates.js` (estimates), new controls in
+  `widgets/controls.js` (lowerAll, pipe, unload, cover, detach; a control
+  may send a value: Detach sends the selected tool's id), six icons
+  (lowerAll, pipe, unload, cover, workWidth, area), and a screen slot's
+  `add` for groups of its own ("All implements").
+- **Choices made while building:**
+  - The card's buttons: Lower, Work, Fold and Detach for every tool
+    (unavailable when it can't); a trailer swaps Work for Tipping and adds
+    Cover; a tool with a pipe adds Pipe and Unload. Labels say what a tap
+    does: "Pipe out" / "Pipe in", "Uncover" / "Cover", "Lower all" /
+    "Raise all" (lit while a tool is lowered); Tipping and Unload are lit
+    while it runs.
+  - Pipe, Unload and Cover are unavailable while the game has their key off
+    (its help doesn't offer it), unless they're on.
+  - The card shows the game's selection; with the tractor selected it shows
+    the tractor (a combine: its tank, Pipe and Unload). Detach is
+    unavailable for the vehicle itself.
+  - The band's chip shows the first tank to run out ("Fertilizer empty ≈ 22
+    min"), else the first to fill up. "Runs out first" marks a tank only
+    when the tool has two or more; "Call a trailer" shows on a filling tank
+    at 80 % or less than 3 minutes from full.
+  - Estimates: a straight line through the last 60 s of levels, shown after
+    20 s, hidden when it fits badly (R² under 0.8) or moves less than 0.1 %
+    of the tank a minute.
+  - Area this run: speed × working width while the tool is lowered or on,
+    since it was attached or the page opened; "≈", in the player's unit.
+  - The job: AI worker's job, then Tipping / Unloading, then the working
+    tool's job by its shop category ("Seeding", "Cultivating",
+    "Harvesting · Wheat"), else Driving, Standing or Parked.
+  - Compact (portrait): one column, the band's tiles scroll sideways.
+- **Checked without the game:** a replay of a made-up seeding rig (tractor,
+  cultivator with a seeder, front loader with a bucket) at 1180×820 day and
+  night and 820×1180: estimates appear after 20 s, "Runs out first" on the
+  fertilizer. `web/test.html` and the Python and Lua suites pass.
+
 ### Default removed (2026-10-24)
 
 The original dashboard no longer made sense next to New Holland style, so
@@ -1152,7 +1211,6 @@ it is gone; the theme mechanism stays for the next brands.
 
 ### Later
 
-- Building the Implement screen (designed above).
 - **More screens** (brainstorm, 2026-10-24): four more tabs, which fill the
   tab bar's seven slots (Map, Vehicle, Implement, Fields, Farm, Work,
   Yard). Not designed yet. Suggested order:

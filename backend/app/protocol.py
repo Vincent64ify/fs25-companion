@@ -423,6 +423,7 @@ COMMAND_ACTIONS = frozenset({
     "implement.lower", "implement.fold", "implement.turnOn", "hitch.toggle",
     "cruise.set",
     "implement.select", "implement.next", "implement.previous", "implement.detach",
+    "implement.lowerAll", "implement.pipe", "implement.unload", "implement.cover",
 })
 
 # Actions that carry a number ({"value": ...}) and its allowed range. Any

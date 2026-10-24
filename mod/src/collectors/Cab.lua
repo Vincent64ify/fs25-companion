@@ -25,7 +25,9 @@
 -- first, with the implement fields above for each tool; `keys` names the
 -- tool each implement key (lower, fold, turn on) acts on right now, which
 -- isn't always the selected one (the game keeps an action only one tool
--- has live).
+-- has live). Since the Implement screen (0.8.0) rig entries may carry
+-- pipe {out, moving}, discharging, trailer and cover {open}, and keys also
+-- name the pipe's, unloading's, the cover's and lower all's tool.
 --
 -- On foot: {"inVehicle":false}.
 

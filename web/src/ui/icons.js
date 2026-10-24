@@ -175,6 +175,20 @@ const PATHS = {
   // the previous or next tool (G): a chevron over the implement's tines
   toolPrev: IMPLEMENT + '<path d="M14.5 3.5L9.5 8l5 4.5"/>',
   toolNext: IMPLEMENT + '<path d="M9.5 3.5l5 4.5-5 4.5"/>',
+  // --- the Implement screen ---------------------------------------------
+  // every tool down together (lit: one is lowered)
+  lowerAll: IMPLEMENT + '<path d="M8 3.5v8M5 8.5l3 3 3-3M16 3.5v8M13 8.5l3 3 3-3"/>',
+  // a combine's unloading pipe, grain falling from its end
+  pipe: '<path d="M4 21V5.5h16v5H8.5V21"/>' + DOT(15.5, 14.5) + DOT(18.5, 16.5) + DOT(16, 19.5),
+  // a tipping body, its load going down: unloading, tipping
+  unload: '<path d="M3 13.5L15.5 6l3 5L6 18.5z"/><circle cx="9" cy="20" r="1.8"/>' +
+    '<path d="M20 13.5v7M17.5 18l2.5 2.5 2.5-2.5"/>',
+  // a body under its rolled cover
+  cover: '<path d="M3 11h18v7.5H3zM3 11c0-3.5 4-5.5 9-5.5s9 2 9 5.5M12 5.5V11"/>',
+  // the working width, wall to wall
+  workWidth: '<path d="M3 6.5v11M21 6.5v11M3 12h18M6.5 8.5L3 12l3.5 3.5M17.5 8.5L21 12l-3.5 3.5"/>',
+  // a field with its rows: the area worked
+  area: '<path d="M7 4.5h13.5L17 19.5H3.5z"/><path d="M5.8 9.5h13.5M4.7 14.5h13.5"/>',
 };
 
 /** The icons by group, in the order the contact sheet shows them. */
@@ -190,6 +204,7 @@ export const ICON_GROUPS = {
   Controls: ["lights", "highBeam", "beacon", "hazard", "turnLeft", "turnRight", "cruise",
              "cruiseDown", "cruiseUp", "pto", "hitchUp", "hitchDown", "fold", "hitch", "implementOn",
              "aiWorker", "engineOn", "toolPrev", "toolNext"],
+  "Implement screen": ["lowerAll", "pipe", "unload", "cover", "workWidth", "area"],
 };
 
 /** @param {string} name */

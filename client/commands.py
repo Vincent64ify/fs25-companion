@@ -60,6 +60,12 @@ ACTIONS = {
     "implement.next": "SELECT_NEXT_IMPLEMENT",
     "implement.previous": "SELECT_PREVIOUS_IMPLEMENT",
     "implement.detach": "DETACH_IMPLEMENT",
+    # the Implement screen: lower all (Ctrl+V), the pipe (O), unload or tip
+    # (I, else Ctrl+I), the cover (N)
+    "implement.lowerAll": "LOWER_ALL_IMPLEMENTS",
+    "implement.pipe": "TOGGLE_PIPE",
+    "implement.unload": "TOGGLE_DISCHARGE",
+    "implement.cover": "TOGGLE_COVER",
 }
 
 # actions that carry a value, and its range; the backend checks the same

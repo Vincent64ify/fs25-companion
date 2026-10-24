@@ -273,6 +273,72 @@ local function detachTarget(vehicle, _, id)
     return true
 end
 
+-- Implement screen ---------------------------------------------------------
+-- Setters for when the key has no live event, as the game's own key
+-- handlers do it (the SDK's gameSource.zip: AttacherJoints, Pipe, Cover).
+
+-- the vehicle and everything on it, the vehicle first
+local function rigObjects(vehicle)
+    local list = { vehicle }
+    for _, node in ipairs(VehicleState.attachedTree(vehicle)) do
+        list[#list + 1] = node.object
+    end
+    return list
+end
+
+-- lower or raise every tool together, as Ctrl+V does
+local function lowerAll(vehicle)
+    local root = VehicleState.rootOf(vehicle)
+    if type(root.startAttacherJointCombo) ~= "function" then
+        return false, "can't lower all"
+    end
+    root:startAttacherJointCombo(true)
+    return true
+end
+
+-- the first pipe: out to its next state, else in
+local function togglePipe(vehicle)
+    for _, object in ipairs(rigObjects(vehicle)) do
+        local spec = object.spec_pipe
+        if type(spec) == "table" and spec.hasMovablePipe == true and type(object.setPipeState) == "function"
+            and type(spec.targetState) == "number" and type(spec.numStates) == "number" then
+            local nextState = spec.targetState + 1
+            if nextState > spec.numStates then
+                nextState = 1
+            end
+            if Api.tryCall(object, "getIsPipeStateChangeAllowed", nextState) == true then
+                object:setPipeState(nextState)
+                return true
+            elseif nextState ~= 1 and Api.tryCall(object, "getIsPipeStateChangeAllowed", 1) == true then
+                object:setPipeState(1)
+                return true
+            end
+            return false, "can't move the pipe now"
+        end
+    end
+    return false, "no pipe"
+end
+
+-- the first cover: on to its next state (0 closed)
+local function toggleCover(vehicle)
+    for _, object in ipairs(rigObjects(vehicle)) do
+        local spec = object.spec_cover
+        if type(spec) == "table" and spec.hasCovers == true and type(object.setCoverState) == "function"
+            and type(spec.state) == "number" and type(spec.covers) == "table" then
+            local nextState = spec.state + 1
+            if nextState > #spec.covers then
+                nextState = 0
+            end
+            if Api.tryCall(object, "getIsNextCoverStateAllowed", nextState) == false then
+                return false, "can't move the cover now"
+            end
+            object:setCoverState(nextState)
+            return true
+        end
+    end
+    return false, "no cover"
+end
+
 -- Actions ------------------------------------------------------------------
 -- The actions a command may run; anything else is refused. The backend
 -- and the client keep their own lists (by dashboard action name).
@@ -311,6 +377,11 @@ Commands.ACTIONS = {
     SELECT_NEXT_IMPLEMENT = { inputs = { "SWITCH_IMPLEMENT" }, fallback = selectStep(1) },
     SELECT_PREVIOUS_IMPLEMENT = { inputs = { "SWITCH_IMPLEMENT_BACK" }, fallback = selectStep(-1) },
     DETACH_IMPLEMENT = { direct = detachTarget },
+    -- the Implement screen: Ctrl+V, O, I (else Ctrl+I, to the ground) and N
+    LOWER_ALL_IMPLEMENTS = { inputs = { "LOWER_ALL_IMPLEMENTS" }, fallback = lowerAll },
+    TOGGLE_PIPE = { inputs = { "TOGGLE_PIPE" }, fallback = togglePipe },
+    TOGGLE_DISCHARGE = { inputs = { "TOGGLE_TIPSTATE", "TOGGLE_TIPSTATE_GROUND" } },
+    TOGGLE_COVER = { inputs = { "TOGGLE_COVER" }, fallback = toggleCover },
 }
 
 local ATTRIBUTES = { "session", "id", "action", "ref", "value" }

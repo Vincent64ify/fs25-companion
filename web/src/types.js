@@ -75,16 +75,20 @@
  * @property {{lowered: boolean, turnedOn: boolean}[]} [implements]
  * @property {RigEntry[]} [rig] the vehicle, then everything attached, depth
  *   first (mod 0.7.0, Controls C3)
- * @property {{lower?: number, fold?: number, turnOn?: number}} [keys] the
- *   rig id of the tool each implement key acts on now; not always the
- *   selected one (the game keeps an action only one tool has live)
+ * @property {{lower?: number, fold?: number, turnOn?: number, pipe?: number, unload?: number, cover?: number,
+ *   lowerAll?: number}} [keys] the rig id of the tool each implement key
+ *   acts on now; not always the selected one (the game keeps an action
+ *   only one tool has live). pipe, unload, cover and lowerAll since mod 0.8.0
  */
 
 /**
  * One object in the cab's rig: the controlled vehicle (depth 0) or a tool
  * hanging on it. Tools also carry the SelectedImplement fields.
+ * The Implement screen's (mod 0.8.0), on the vehicle too: pipe (out, and
+ * moving), discharging (tipping or unloading), trailer, cover (open).
  * @typedef {SelectedImplement & {id?: number, parent?: number, depth: number, side?: "front"|"rear",
- *   selectable?: boolean, selected?: boolean}} RigEntry
+ *   selectable?: boolean, selected?: boolean, pipe?: {out: boolean, moving: boolean}, discharging?: boolean,
+ *   trailer?: boolean, cover?: {open: boolean}}} RigEntry
  */
 
 /**
