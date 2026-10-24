@@ -2,7 +2,7 @@
 <modDesc descVersion="105">
     <author>fs25-companion</author>
     <authorContact>https://github.com/Vincent64ify/fs25-companion</authorContact>
-    <version>0.6.3</version>
+    <version>0.6.4</version>
     <title>
         <en>FS25 Companion</en>
     </title>
@@ -19,6 +19,7 @@
         <sourceFile filename="src/Scheduler.lua"/>
         <sourceFile filename="src/VehicleState.lua"/>
         <sourceFile filename="src/Commands.lua"/>
+        <sourceFile filename="src/SelectionProbe.lua"/>
         <sourceFile filename="src/collectors/Hello.lua"/>
         <sourceFile filename="src/collectors/Env.lua"/>
         <sourceFile filename="src/collectors/Player.lua"/>

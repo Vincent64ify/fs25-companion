@@ -23,6 +23,7 @@ load("src/Transport.lua")
 load("src/Scheduler.lua")
 load("src/VehicleState.lua")
 load("src/Commands.lua")
+load("src/SelectionProbe.lua")
 
 local Json, Geo, Transport, Scheduler =
     Companion.Json, Companion.Geo, Companion.Transport, Companion.Scheduler
