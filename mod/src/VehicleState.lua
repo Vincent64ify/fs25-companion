@@ -14,6 +14,11 @@
 -- entry the light types it turns on) and the step is `currentLightState`
 -- (0 = off). Where the step isn't readable, the stage is the entry whose
 -- light types match the mask.
+--
+-- The mask also holds lights no key stage turns on: reversing lit the
+-- reverse lights in the live test, and the Lights control read "on" with
+-- the stage at 0. So with stages, "on" means a stage is on (or, when only
+-- the mask is readable, one of the stages' own lights).
 
 Companion = Companion or {}
 
@@ -60,37 +65,58 @@ local function maskOf(types)
     return mask
 end
 
--- stage (0 = off) and the number of stages, or nil when the vehicle has
--- no list of light states
+-- the bits of mask that are also in only
+local function maskAnd(mask, only)
+    local out, bit = 0, 1
+    while bit <= mask and bit <= only do
+        if hasBit(mask, bit) and hasBit(only, bit) then
+            out = out + bit
+        end
+        bit = bit * 2
+    end
+    return out
+end
+
+local function withoutHighBeam(mask)
+    return hasBit(mask, HIGH_BEAM_BIT) and mask - HIGH_BEAM_BIT or mask
+end
+
+-- stage (0 = off), the number of stages and whether a stage's lights are
+-- on; all nil when the vehicle has no list of light states
 local function lightStages(spec, mask)
     local states = spec.lightStates
     if type(states) ~= "table" or #states == 0 then
-        return nil, nil
+        return nil, nil, nil
     end
     local stages = #states
     local current = spec.currentLightState
     if type(current) == "number" and current >= 0 and current <= stages
         and current == math.floor(current) then
-        return current, stages
+        return current, stages, current > 0
     end
     if type(mask) ~= "number" then
-        return nil, stages
+        return nil, stages, nil
     end
-    -- the high beam is a separate key: leave it out of the match
-    local base = hasBit(mask, HIGH_BEAM_BIT) and mask - HIGH_BEAM_BIT or mask
-    if base == 0 then
-        return 0, stages
-    end
+    local masks, union = {}, 0
     for i = 1, stages do
         local types = stateTypes(states[i])
-        if types ~= nil then
-            local m = maskOf(types)
-            if (hasBit(m, HIGH_BEAM_BIT) and m - HIGH_BEAM_BIT or m) == base then
-                return i, stages
-            end
+        -- the high beam is a separate key: leave it out
+        masks[i] = types ~= nil and withoutHighBeam(maskOf(types)) or -1
+        if masks[i] > 0 then
+            union = union + masks[i] - maskAnd(union, masks[i])
         end
     end
-    return nil, stages
+    -- only the stages' own lights: not reverse, brake or work lights
+    local base = maskAnd(mask, union)
+    if base == 0 then
+        return 0, stages, false
+    end
+    for i = 1, stages do
+        if masks[i] == base then
+            return i, stages, true
+        end
+    end
+    return nil, stages, true
 end
 
 -- the light switches, nil for a vehicle without lights
@@ -108,7 +134,11 @@ function VehicleState.lights(vehicle)
         out.on = spec.isLightOn == true
         out.high = spec.isLightHighOn == true
     end
-    out.stage, out.stages = lightStages(spec, mask)
+    local stagesOn
+    out.stage, out.stages, stagesOn = lightStages(spec, mask)
+    if stagesOn ~= nil then
+        out.on = stagesOn
+    end
     local beacon = spec.beaconLightsActive
     if type(beacon) ~= "boolean" then
         beacon = spec.beaconOn == true

@@ -574,9 +574,22 @@ test("vehicle state: lights from the mask and turn state, old names as a fallbac
     eq(l.stage, 3, "stage from the mask, the high beam left out")
     eq(VehicleState.lights({ spec_lights = { lightStates = states, lightsTypesMask = 8 } }).stage, 0,
         "only the high beam: stage 0")
-    l = VehicleState.lights({ spec_lights = { lightStates = states, lightsTypesMask = 16 } })
-    eq(l.stage, nil, "a mask no stage has: unknown")
-    eq(l.stages, 3)
+    l = VehicleState.lights({ spec_lights = { lightStates = states, lightsTypesMask = 1 + 16 } })
+    eq(l.stage, 1, "a light outside the stages (reverse) is left out of the match")
+    eq(l.on, true)
+    -- reversing with the lights off (live, C1): the reverse light is in
+    -- the mask, but no stage is on
+    l = VehicleState.lights({ spec_lights = { lightStates = states, currentLightState = 0, lightsTypesMask = 32 } })
+    eq(l.on, false, "reverse light only, by the step: off")
+    eq(l.stage, 0)
+    l = VehicleState.lights({ spec_lights = { lightStates = states, lightsTypesMask = 32 } })
+    eq(l.on, false, "reverse light only, by the mask: off")
+    eq(l.stage, 0)
+    l = VehicleState.lights({ spec_lights = { lightStates = { { 0 }, { 0, 2 } }, lightsTypesMask = 4 } })
+    eq(l.stage, nil, "a mix no stage has: unknown")
+    eq(l.on, true, "but a stage's light is on")
+    eq(VehicleState.lights({ spec_lights = { lightsTypesMask = 32 } }).on, true,
+        "no stages known: any light counts, as before")
     eq(VehicleState.engineOn({}), nil, "no engine")
     eq(VehicleState.engineOn({ spec_motorized = {}, getIsMotorStarted = function() return true end }), true)
 end)
