@@ -700,7 +700,7 @@ button { font: inherit; color: inherit; }
 .readout-what { display: flex; flex: 1; flex-direction: column; min-width: 0; }
 .readout-title { font-size: 17px; font-weight: 700; }
 .readout-sub { font-size: 13px; color: #BFD0EE; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-/* the Engine control on the card: a column button, a green dot while it runs */
+/* the Engine control on the card: a column button (blue while on), a green dot while it runs */
 .readout-engine.control {
   flex: none;
   width: 88px;
@@ -708,12 +708,6 @@ button { font: inherit; color: inherit; }
   gap: 4px;
 }
 .readout-engine.control .icon { width: 22px; height: 22px; }
-.readout-engine.control[data-state="on"] {
-  border-color: var(--border);
-  background: var(--btn);
-  color: var(--text);
-  box-shadow: var(--lift);
-}
 .readout-engine.control::after {
   content: "";
   flex: none;
