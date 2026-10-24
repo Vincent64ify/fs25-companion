@@ -137,7 +137,7 @@ and the mod each accept only actions from the known list.
 | C0 | Spike: can the mod see and read a client-written file every frame, fresh and cheaply; can it run an action by name; round-trip time ([spike/README.md](../spike/README.md#command-spike-c0)) | done on Windows 2026-10-24 (results below); macOS to run |
 | C1 | One control (lights) end to end: protocol, backend relay, client file writer, mod reader, ack, `cab` topic | done 2026-10-24: works live on Windows (mod 0.5.0); light stages as dots (0.5.1) and the reverse-light fix (0.5.2) confirmed live |
 | C2 | The first control set in both themes, held controls with auto-release | done 2026-10-24 (`112c665`): works live on Windows (mod 0.6.3, after three live rounds); reverse cruise dropped; held controls (press / release) moved to C3 |
-| C3 | Pick one implement precisely: the whole rig as a tree, Select (tap a tile selects that tool in game), actions aimed at a chosen tool (detach it, fold it); cruise to a set speed; round-trip readout in Settings. No front loader or crane control | next, not started; selection spike first |
+| C3 | Pick one implement precisely: the whole rig as a tree, Select (tap a tile selects that tool in game), actions aimed at a chosen tool (detach it, fold it); cruise to a set speed; round-trip readout in Settings. No front loader or crane control | next: selection spike done (direct selection works), build next |
 | C4 | Live check on Windows and macOS, multiplayer as client and host | |
 
 **C0 results (Windows, 2026-10-24).** The channel works:
@@ -315,15 +315,34 @@ instead, and it mirrors the game's own selection (Vincent's choice):
   (`detachImplementByObject` on its parent). Hitch stays exactly the Q key.
 - **Front loader:** shown as a tile (state, Detach); a loader tool with a
   fill level gets its own tile and fill bar. No arm or tool controls.
-- **Game API (unverified in FS25):** FS22 selects with
-  `rootVehicle:setSelectedVehicle(vehicle, subIndex)` /
-  `setSelectedObject(object)` and lists `selectableObjects`; the mod already
-  reads `getSelectedVehicle`. Fallback if no setter works: run the cycle
-  action until the target is selected, all in one frame.
-- **First step: selection spike** on Vincent's tractor + cultivator + front
-  loader + tool: log the selection functions and `selectableObjects`, the
-  attach tree, and whether selecting directly works and the implement keys
-  then act on the new selection.
+- **Game API:** `root:setSelectedObject(entry of root.selectableObjects)`,
+  verified by the selection spike (results below). Events are filtered by
+  `targetObject` so an action can't reach another tool.
+
+**Selection spike results (Windows, mod 0.6.4, 2026-10-24).** JCB Fastrac
+iCON 4160 with a Quicke Q6M front loader, an Albutt bucket on it and a
+Pöttinger Terria 6040 cultivator at the rear:
+- **Direct selection works.** `root:setSelectedObject(object)` with an entry
+  of `root.selectableObjects` selected the loader at the first try, same
+  frame; `getSelectedObject` and `getSelectedVehicle` then both return it.
+  `currentSelection.index` is the entry's index. Also present (not tried):
+  `setSelectedVehicle`, `selectVehicle`, `setSelectedImplementByObject`,
+  `unselectVehicle`, `getCanBeSelected`, `updateSelectableObjects`. No
+  cycle fallback is needed; G is `SWITCH_IMPLEMENT` (`_BACK` the other way).
+- **The game's order** is tractor, loader, bucket, cultivator (4 entries,
+  no sub-selections): the bucket is selectable on its own, so it gets its
+  own tile.
+- **Front or rear** from the parent's attacher joint (`jointTransform` in the
+  parent's `rootNode` frame): z 0.69 loader (jointType 12), z 2.90 bucket on
+  the loader (jointType 7), z −2.95 cultivator (jointType 1). z ≥ 0 is
+  front.
+- **Not every key follows the selection.** With the loader selected,
+  `LOWER_IMPLEMENT`'s event belonged to the loader (inactive), but
+  `IMPLEMENT_EXTRA2` (fold) still belonged to the cultivator, and the
+  dashboard's Fold then ran that event, i.e. on the cultivator. `ATTACH` / `DETACH` belong to the
+  tractor. So a targeted action must run only the events whose
+  `targetObject` is the target, else the target's own setter; C2's
+  `runInputAction` runs every active event.
 
 **Risks.** If the mod can't re-read a client-written file, fall back to key
 presses (Windows first). Calling action callbacks by name may differ per
