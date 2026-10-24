@@ -308,16 +308,20 @@ instead, and it mirrors the game's own selection (Vincent's choice):
   implement card select the previous or next one in the game's own order.
   G pressed in game moves the picked tile too, since `cab` follows the
   selection. The dashboard never keeps a pick of its own.
-- **Targeted actions.** The card's buttons send the `target` with the
-  action. If the game's selection moved in the meantime, the mod selects
-  the target again before it acts (or uses the target's own setter), so
-  Lower or Fold can't land on another tool. Detach detaches that tool
-  (`detachImplementByObject` on its parent). Hitch stays exactly the Q key.
+- **Buttons act as the keys do** (Vincent, 2026-10-24: "we don't want to
+  change how the game works"). A button runs the key's events as they are
+  at that moment, including the game's own shortcut: an action only one
+  tool has stays live without selecting that tool (fold stayed on the
+  cultivator with the loader selected). The mod reports, per action, which
+  tool its live event belongs to (`targetObject`), and the button shows it
+  ("Fold · Pöttinger"). A card's buttons send their `target` only so the
+  mod can select that tool first when the game's selection moved since the
+  tap. Detach detaches that tool (`detachImplementByObject` on its parent).
+  Hitch stays exactly the Q key.
 - **Front loader:** shown as a tile (state, Detach); a loader tool with a
   fill level gets its own tile and fill bar. No arm or tool controls.
 - **Game API:** `root:setSelectedObject(entry of root.selectableObjects)`,
-  verified by the selection spike (results below). Events are filtered by
-  `targetObject` so an action can't reach another tool.
+  verified by the selection spike (results below).
 
 **Selection spike results (Windows, mod 0.6.4, 2026-10-24).** JCB Fastrac
 iCON 4160 with a Quicke Q6M front loader, an Albutt bucket on it and a
@@ -336,13 +340,14 @@ Pöttinger Terria 6040 cultivator at the rear:
   parent's `rootNode` frame): z 0.69 loader (jointType 12), z 2.90 bucket on
   the loader (jointType 7), z −2.95 cultivator (jointType 1). z ≥ 0 is
   front.
-- **Not every key follows the selection.** With the loader selected,
-  `LOWER_IMPLEMENT`'s event belonged to the loader (inactive), but
-  `IMPLEMENT_EXTRA2` (fold) still belonged to the cultivator, and the
-  dashboard's Fold then ran that event, i.e. on the cultivator. `ATTACH` / `DETACH` belong to the
-  tractor. So a targeted action must run only the events whose
-  `targetObject` is the target, else the target's own setter; C2's
-  `runInputAction` runs every active event.
+- **Not every key follows the selection, by design.** With the loader
+  selected, `LOWER_IMPLEMENT`'s event belonged to the loader (inactive),
+  but `IMPLEMENT_EXTRA2` (fold) still belonged to the cultivator, so X (and
+  the dashboard's Fold, which runs the same event) folds the cultivator
+  without cycling to it: the game keeps an action only one tool has live
+  whatever is selected. `ATTACH` / `DETACH` belong to the tractor. The
+  dashboard keeps this behaviour and shows which tool each button will
+  act on.
 
 **Risks.** If the mod can't re-read a client-written file, fall back to key
 presses (Windows first). Calling action callbacks by name may differ per
