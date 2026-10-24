@@ -140,6 +140,11 @@ main {
 .control[data-state="unavailable"]:not([aria-disabled]) { cursor: default; }
 .control[data-error] { border-color: var(--alarm); }
 .control[data-error] .control-label { color: var(--alarm); }
+/* steps (the lights' stages): dots after the label, lit up to the current one */
+.control-dots { display: none; gap: 4px; margin-left: auto; padding-left: 4px; }
+.control[data-dots] .control-dots { display: flex; }
+.control-dot { width: 7px; height: 7px; border-radius: 50%; background: currentColor; opacity: 0.25; }
+.control-dot.lit { opacity: 1; box-shadow: 0 0 5px currentColor; }
 
 .gauges { display: flex; gap: 12px; }
 .gauge { flex: 1; text-align: center; }

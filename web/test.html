@@ -403,6 +403,32 @@ const keyboard = controlGroup({ label: "L", controls: ["lights"] }, ccs, (a) => 
 ccs.set("cab", { inVehicle: true, lights: { on: false } });
 keyboard.querySelector(".control").click();
 check("controls: the keyboard presses too", presses.at(-1), "key:lights.toggle");
+
+const { lightStageDots } = await import("./src/widgets/controls.js");
+const cabL = (lights) => ({ inVehicle: true, lights });
+check("light stages: dots per stage, lit up to the current one",
+  [lightStageDots(undefined, cabL({ on: true, stage: 2, stages: 3 })),
+   lightStageDots(undefined, cabL({ on: false, stage: 0, stages: 3 })),
+   lightStageDots(undefined, cabL({ on: true, stages: 4 })),
+   lightStageDots(undefined, cabL({ on: true, stage: 1, stages: 1 })),
+   lightStageDots(undefined, cabL({ on: true })),
+   lightStageDots({ lights: { on: true, stage: 1, stages: 2 } }, undefined),
+   lightStageDots(undefined, { inVehicle: false })],
+  [{ lit: 2, count: 3 }, { lit: 0, count: 3 }, { lit: 1, count: 4 }, undefined, undefined,
+   { lit: 1, count: 2 }, undefined]);
+const dcs = createStore();
+const dotGroup = controlGroup({ label: "Lights", controls: ["lights", "beacon"] }, dcs, () => Promise.resolve({ ok: true }));
+const dotBtn = dotGroup.querySelector(".control");
+const dotState = () => [dotBtn.hasAttribute("data-dots"),
+  [...dotBtn.querySelectorAll(".control-dot")].map((d) => (d.classList.contains("lit") ? 1 : 0)).join("")];
+dcs.set("cab", cabL({ on: true, stage: 2, stages: 3 }));
+check("light stages: the dots on the button, announced", [dotState(), dotBtn.getAttribute("aria-label"),
+  dotGroup.querySelectorAll(".control")[1].hasAttribute("data-dots")],
+  [[true, "110"], "Lights, on, stage 2 of 3", false]);
+dcs.set("cab", cabL({ on: false, stage: 0, stages: 3 }));
+const offDots = dotState();
+dcs.set("cab", { inVehicle: false });
+check("light stages: all dim when off, none on foot", [offDots, dotState()], [[true, "000"], [false, ""]]);
 const iconsT3 = await import("./src/ui/icons.js");
 check("controls: every control's icon exists", Object.entries(CONTROLS).filter(([, c]) => !iconsT3.hasIcon(c.icon))
   .map(([id]) => id), []);

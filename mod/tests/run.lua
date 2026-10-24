@@ -564,6 +564,19 @@ test("vehicle state: lights from the mask and turn state, old names as a fallbac
     eq(l.beacon, true)
     eq(l.hazard, true)
     eq(VehicleState.lights({}), nil, "no lights")
+    eq(l.stage, nil, "no light states: no stage")
+    -- light stages: the step when the game keeps it, else matched by mask
+    local states = { { 0 }, { 0, 1 }, { lightTypes = { 0, 1, 2 } } }
+    l = VehicleState.lights({ spec_lights = { lightStates = states, currentLightState = 2, lightsTypesMask = 3 } })
+    eq(l.stage, 2, "stage from currentLightState")
+    eq(l.stages, 3)
+    l = VehicleState.lights({ spec_lights = { lightStates = states, lightsTypesMask = 1 + 2 + 4 + 8 } })
+    eq(l.stage, 3, "stage from the mask, the high beam left out")
+    eq(VehicleState.lights({ spec_lights = { lightStates = states, lightsTypesMask = 8 } }).stage, 0,
+        "only the high beam: stage 0")
+    l = VehicleState.lights({ spec_lights = { lightStates = states, lightsTypesMask = 16 } })
+    eq(l.stage, nil, "a mask no stage has: unknown")
+    eq(l.stages, 3)
     eq(VehicleState.engineOn({}), nil, "no engine")
     eq(VehicleState.engineOn({ spec_motorized = {}, getIsMotorStarted = function() return true end }), true)
 end)

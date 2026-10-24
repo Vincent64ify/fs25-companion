@@ -409,6 +409,13 @@ button { font: inherit; color: inherit; }
 .control[data-state="unavailable"]:not([aria-disabled]) { cursor: default; }
 .control[data-error] { border-color: var(--alarm); }
 .control[data-error] .control-label { color: var(--alarm); }
+/* steps (the lights' stages): a row of dots under the label, lit up to the
+   current one; lit dots glow in the "on" text colour */
+.control-dots { display: none; gap: 4px; height: 6px; margin-top: -2px; }
+.control[data-dots] .control-dots { display: flex; }
+.control[data-dots] { gap: 4px; }
+.control-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; opacity: 0.22; }
+.control-dot.lit { opacity: 1; box-shadow: 0 0 4px currentColor; }
 
 /* --- the map's edge toolbar and its Layers panel (mapControls.js) ------------- */
 

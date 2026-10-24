@@ -149,6 +149,9 @@ class Implement(TopicModel):
 
 class Lights(TopicModel):
     on: bool = False
+    # the light key's stage, 0 = off, of `stages`; None: not readable
+    stage: Optional[int] = Field(default=None, ge=0)
+    stages: Optional[int] = Field(default=None, ge=1)
     high: bool = False
     left: bool = False
     right: bool = False

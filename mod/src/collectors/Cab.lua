@@ -7,7 +7,8 @@
 -- topic keeps everything else.
 --
 --     {"inVehicle":true,"vehicleId":7,"engineOn":true,
---      "lights":{"on":true,"high":false,"beacon":false,"hazard":false,"left":false,"right":false},
+--      "lights":{"on":true,"high":false,"beacon":false,"hazard":false,"left":false,"right":false,
+--                "stage":1,"stages":3},
 --      "cruise":{"state":"on","speed":15},
 --      "implements":[{"lowered":true,"turnedOn":false}]}
 --

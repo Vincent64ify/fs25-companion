@@ -24,20 +24,41 @@ import { h } from "../ui/dom.js";
  *   sends it (mod 0.5.0 and later)
  * @property {string} [action] the command a tap sends (backend
  *   protocol.COMMAND_ACTIONS); without one the control only shows the state
+ * @property {(v: import("../types.js").Vehicle|undefined, cab: import("../types.js").Cab|undefined) => import("../ui/control.js").ControlDots|undefined} [dots]
+ *   steps shown as dots under the label
  */
+
+/** the light switches from the cab when the mod sends it, else from vehicles */
+const lightsFrom = (/** @type {any} */ v, /** @type {any} */ cab) =>
+  (cab ? (cab.inVehicle ? lightsOf(cab) : undefined) : lightsOf(v));
 
 /** @param {keyof NonNullable<ReturnType<typeof lightsOf>>} key */
 const light = (key) => (/** @type {any} */ v, /** @type {any} */ cab) => {
-  const l = cab ? (cab.inVehicle ? lightsOf(cab) : undefined) : lightsOf(v);
+  const l = lightsFrom(v, cab);
   return l ? l[key] === true : undefined;
 };
+
+/**
+ * The light key's stages as dots: one per stage the vehicle has (two to
+ * six), lit up to the current one. None when the mod can't read them.
+ * @returns {import("../ui/control.js").ControlDots|undefined}
+ */
+export function lightStageDots(/** @type {any} */ v, /** @type {any} */ cab) {
+  const l = lightsFrom(v, cab);
+  const stages = l && l.stages;
+  if (!Number.isInteger(stages) || stages < 2 || stages > 6) return undefined;
+  const stage = l.stage;
+  if (Number.isInteger(stage) && stage >= 0 && stage <= stages) return { lit: stage, count: stages };
+  // a stage the mod couldn't match: lit as far as it knows
+  return { lit: l.on ? 1 : 0, count: stages };
+}
 const impls = (/** @type {any} */ v) => implementsOf(v);
 const anyImpl = (/** @type {(i: any) => boolean} */ test) => (/** @type {any} */ v) =>
   (impls(v).length ? impls(v).some(test) : undefined);
 
 /** @type {Record<string, ControlDef>} */
 export const CONTROLS = {
-  lights: { label: "Lights", icon: "lights", read: light("on"), action: "lights.toggle" },
+  lights: { label: "Lights", icon: "lights", read: light("on"), action: "lights.toggle", dots: lightStageDots },
   highBeam: { label: "High beam", icon: "highBeam", read: light("high") },
   beacon: { label: "Beacon", icon: "beacon", read: light("beacon") },
   hazard: { label: "Hazard", icon: "hazard", tint: "alarm", read: light("hazard") },
@@ -88,6 +109,7 @@ export function controlGroup(group, store, send = sendCommand) {
     const cab = cabOf(store);
     for (const { def, ui } of items) {
       const on = def.read(v, cab);
+      if (def.dots) ui.setDots(on === undefined ? undefined : def.dots(v, cab));
       ui.set(on === undefined ? "unavailable" : on ? "on" : "off");
     }
     if (group.implementName) {

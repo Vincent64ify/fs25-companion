@@ -125,7 +125,7 @@ and the mod each accept only actions from the known list.
 | Phase | What | Status |
 |---|---|---|
 | C0 | Spike: can the mod see and read a client-written file every frame, fresh and cheaply; can it run an action by name; round-trip time ([spike/README.md](../spike/README.md#command-spike-c0)) | done on Windows 2026-10-24 (results below); macOS to run |
-| C1 | One control (lights) end to end: protocol, backend relay, client file writer, mod reader, ack, `cab` topic | built 2026-10-24 (mod 0.5.0), live check open |
+| C1 | One control (lights) end to end: protocol, backend relay, client file writer, mod reader, ack, `cab` topic | done 2026-10-24: works live on Windows (mod 0.5.0); light stages as dots built (0.5.1), live check open |
 | C2 | The first control set in both themes, held controls with auto-release | |
 | C3 | Targeted actions (cruise speed, detach a chosen implement), round-trip readout in Settings | |
 | C4 | Live check on Windows and macOS, multiplayer as client and host | |
@@ -182,9 +182,14 @@ and the mod each accept only actions from the known list.
 - Without the game, with a stand-in for the mod: tap to new state 23 ms
   (first tap 58 ms) through the real client and backend; with no answer
   the control falls back after 2.0 s.
-- Live check: in a tractor, tap Lights on the tablet: how it feels, that
-  the lights cycle as the key does, and that a key press in game shows on
-  the dashboard at once.
+- Live (Vincent, 2026-10-24): works. Each tap steps the lights like the
+  key: stage 1, 2, 3, then off.
+- **Light stages (mod 0.5.1):** the Lights button shows one dot per stage
+  the vehicle has, lit up to the current one (●●○ = stage 2 of 3), in
+  both themes. `cab.lights` (and `vehicles`) gain `stage` (0 = off) and
+  `stages`, from the vehicle's `lightStates` / `currentLightState` (FS22
+  names, unverified), else matched by mask; no dots when unreadable.
+  Live check: the dots follow the taps and the key in game.
 
 **Risks.** If the mod can't re-read a client-written file, fall back to key
 presses (Windows first). Calling action callbacks by name may differ per

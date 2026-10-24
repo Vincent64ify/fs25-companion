@@ -66,7 +66,8 @@
  * @property {boolean} inVehicle
  * @property {number|string} [vehicleId]
  * @property {boolean} [engineOn]
- * @property {{on?: boolean, high?: boolean, left?: boolean, right?: boolean, hazard?: boolean, beacon?: boolean}} [lights]
+ * @property {{on?: boolean, high?: boolean, left?: boolean, right?: boolean, hazard?: boolean, beacon?: boolean, stage?: number, stages?: number}} [lights]
+ *   stage: the light key's step, 0 = off, of stages (mod 0.5.1)
  * @property {{state: string, speed?: number}} [cruise]
  * @property {{lowered: boolean, turnedOn: boolean}[]} [implements]
  */

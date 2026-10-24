@@ -62,7 +62,7 @@ sent again.
 | `farmland_grid` | once per map, and after each rotation | farmland id per 4 m cell (at most 512 cells a side), run-length encoded: cell, cols, rows, originX, originZ, runs [id, count, ...] |
 | `crop_types` | once per map, and after each rotation | fruits[] (index, name, title, color and colorBlindColor as the game's [r, g, b], numGrowthStates, minHarvest, maxHarvest, withered, cut, minPrepare, maxPrepare, regrows, shownOnMap, stateNames), groundTypes (FieldGroundType name → value), levels (lime, plow, spray maximums) |
 | `field_outlines` | once per map, and after each rotation | fields[]: id, points [x1, z1, x2, z2, ...] from the field's polygon point nodes (or its density map polygon) |
-| `cab` | every frame, sent only on change | inVehicle, vehicleId, engineOn, lights (on, high, beacon, hazard, left, right), cruise (state, speed), implements[] (lowered, turnedOn) |
+| `cab` | every frame, sent only on change | inVehicle, vehicleId, engineOn, lights (on, high, beacon, hazard, left, right, stage: the light key's step with 0 = off, stages), cruise (state, speed), implements[] (lowered, turnedOn) |
 | `command_ack` | the frame a command runs, then `cab` | id (the file's number), ref, action, ok, reason |
 | `fields` | every 15 s | fields[]: id, farmlandId, x, z (field sign), areaHa and the game's fieldState: fruitTypeIndex (0 = none), growthState, groundType, sprayLevel, sprayType, limeLevel, plowLevel, rollerLevel, stubbleShredLevel, weedState, stoneLevel |
 
@@ -98,7 +98,9 @@ leaves the value out):
 - `player.nickname`, vehicle motor/implement fields (from the old mod)
 - lights: `beaconLightsActive` is confirmed (C0); `lightsTypesMask` (on,
   and bit 8 for the high beam) and `turnLightState` (Lights.TURNLIGHT_*)
-  are from the FS22 spec, with the old mod's names as a fallback
+  are from the FS22 spec, with the old mod's names as a fallback; the
+  light stages from `lightStates` / `currentLightState` (FS22 names), else
+  matched by mask
 - commands: `TOGGLE_LIGHTS` through its input event (the lights should
   cycle as the key does); the fallback sets `setLightsTypesMask` 0 / 1
 - rotation: does reopening with `"w"` truncate the file?

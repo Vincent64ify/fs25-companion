@@ -419,4 +419,7 @@ Changes since Phase 4 (2026-10-21 to 2026-10-22):
   relays allow-listed commands from viewers to the client and the acks
   back; the client writes `cmd/<n>.xml`; the mod runs `TOGGLE_LIGHTS`
   through its input event and answers with `command_ack` and the new
-  `cab` topic in the same frame. Details in PLAN.md, "C1 as built".
+  `cab` topic in the same frame. Works live on Windows (Vincent: each tap
+  steps the light stages like the key). Mod 0.5.1 adds the stage and
+  stage count to the lights, shown as dots on the button. Details in
+  PLAN.md, "C1 as built".
