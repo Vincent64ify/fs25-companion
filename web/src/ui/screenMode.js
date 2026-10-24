@@ -44,6 +44,16 @@ export function fullscreenOffered(doc = document, media = (q) => matchMedia(q)) 
 }
 
 /**
+ * Whether the browser draws its own close (X) button over the page's top-left
+ * corner in full screen: Safari on iPad and iPhone does, and no page can hide
+ * it. iPadOS reports itself as a Mac, so a touch screen tells them apart.
+ * @param {Pick<Navigator, "userAgent"|"maxTouchPoints">} [nav]
+ */
+export function fullscreenCloseButton(nav = navigator) {
+  return /iPad|iPhone|iPod/.test(nav.userAgent) || (/Macintosh/.test(nav.userAgent) && nav.maxTouchPoints > 1);
+}
+
+/**
  * Into full screen (the whole page), or out of it. Must run from a click.
  * @param {Document} [doc]
  */

@@ -58,6 +58,8 @@ dl div {
   padding: 3px 0;
   font-size: 14px;
 }
+/* a row without data that hides itself (DEF on an engine without it) */
+dl div[hidden] { display: none; }
 dt { color: var(--muted); }
 dd { margin: 0; }
 

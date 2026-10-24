@@ -5,6 +5,7 @@ import { valueWidget } from "./widget.js";
 import {
   clock as clockOf, farmMoney, seasonName, temperatureRange, WEATHER_NAMES, weatherName,
 } from "../data/selectors.js";
+import { moneyText, tempUnit, tempValue, unitsFrom, unitsOf } from "../data/units.js";
 import { h } from "../ui/dom.js";
 import { icon } from "../ui/icons.js";
 
@@ -17,11 +18,17 @@ export const weather = valueWidget({
   text: String,
 });
 
+/** Today's range in the player's unit: "12 / 21". @param {[number, number]} range @param {any} env */
+const rangeText = ([min, max], env) => {
+  const u = unitsFrom(env);
+  return `${Math.round(tempValue(min, u))} / ${Math.round(tempValue(max, u))}`;
+};
+
 export const temperature = valueWidget({
-  label: "Temp", unit: "°C", topics: ["env"],
+  label: "Temp", unit: (store) => tempUnit(unitsOf(store)), topics: ["env"],
   read: (store) => temperatureRange(store.get("env")),
-  text: ([min, max]) => `${Math.round(min)} / ${Math.round(max)}°C`,
-  number: ([min, max]) => `${Math.round(min)} / ${Math.round(max)}`,
+  text: (r, store) => rangeText(r, store.get("env")) + tempUnit(unitsOf(store)),
+  number: (r, store) => rangeText(r, store.get("env")),
 });
 
 export const clock = valueWidget({
@@ -39,7 +46,7 @@ export const day = valueWidget({
 export const money = valueWidget({
   label: "Money", topics: ["env", "hello", "player"],
   read: farmMoney,
-  text: (v) => "$" + Math.round(v).toLocaleString(),
+  text: (v, store) => moneyText(v, unitsOf(store)),
 });
 
 export const mapName = valueWidget({
@@ -87,7 +94,9 @@ export function weatherNow(store, opts = {}) {
     root.hidden = name === undefined && range === undefined;
     const i = WEATHER_NAMES.indexOf(name || "");
     const glyph = icon(i >= 0 ? WEATHER_ICONS[i] : "temperature", name ? { title: name } : {});
-    temp.textContent = range ? `${Math.round(range[0])}–${Math.round(range[1])}°C` : "";
+    const u = unitsFrom(env);
+    temp.textContent = range
+      ? `${Math.round(tempValue(range[0], u))}–${Math.round(tempValue(range[1], u))}${tempUnit(u)}` : "";
     root.replaceChildren(glyph, temp);
     root.title = name || "Temperature";
   });

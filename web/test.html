@@ -324,8 +324,10 @@ check("render: chrome widgets", app.querySelectorAll(".value-column .widget-tile
 
 // --- New Holland style (T3): selectors, controls, chrome, settings, slot zoom ---
 
-check("season names", [sel.seasonName({ season: 0 }), sel.seasonName({ season: 3 }), sel.seasonName({})],
-      ["Spring", "Winter", undefined]);
+check("season from the month, as the game's calendar", [2, 3, 5, 6, 8, 9, 11, 12].map((month) => sel.seasonName({ month, season: 3 })),
+      ["Winter", "Spring", "Spring", "Summer", "Summer", "Autumn", "Autumn", "Winter"]);
+check("season without a month: currentSeason, 1-based", [sel.seasonName({ season: 1 }), sel.seasonName({ season: 2 }),
+  sel.seasonName({ season: 4 }), sel.seasonName({})], ["Spring", "Summer", "Winter", undefined]);
 check("fuel level", [10, 4, 50, undefined].map(sel.fuelLevel), ["warn", "alarm", undefined, undefined]);
 check("alerts: worst first", sel.alerts({ fuel: 10, fuelCapacity: 100, motorTemp: 112, wear: 0.85 })
   .map((a) => `${a.id}:${a.level}`), ["temp:alarm", "fuel:warn", "wear:warn"]);
@@ -362,7 +364,7 @@ check("readout: fuel's level and meter", [readoutFuel.dataset.level,
   readoutFuel.querySelector(".widget-meter > span").style.width, !!readoutGear.querySelector(".icon")],
   ["warn", "10%", false]);
 const pill = createWidget("dayClock", cs);
-cs.set("env", { day: 6, season: 0, dayTimeMinutes: 584 });
+cs.set("env", { day: 6, month: 4, dayTimeMinutes: 584 });
 check("day and time pill", pill.textContent, "Spring · Day 609:44");
 const chips = createWidget("alerts", cs);
 check("alert chips", [chips.hidden, chips.querySelector(".alert-chip")?.dataset.level], [false, "warn"]);
@@ -466,35 +468,33 @@ check("keep-awake: saved choice, released when off, not taken while hidden",
 check("keep-awake: unsupported without the Wake Lock API (a plain LAN address)",
   screenMode.createKeepAwake({ nav: /** @type {Navigator} */ ({}), doc: wakeDoc, storage: wakeStorage }).supported, false);
 
-// Settings: a Screen group with what's supported; the toggles call through and show their state
-let fsOn = false;
-/** @type {(() => void)[]} */
-const fsListeners = [];
+// Settings: a Screen group with keep-awake where supported; full screen is the status bar's button only
 const fsSettings = createSettings({
   themes: [{ id: "default", label: "Default", palettes: [] }], theme: { id: "default", label: "Default", palettes: [] },
   palette: undefined, onTheme: () => {}, onPalette: () => {},
-  fullscreen: { supported: true, active: () => fsOn, toggle: () => { fsOn = !fsOn; fsListeners.forEach((fn) => fn()); },
-    onChange: (fn) => fsListeners.push(fn) },
   keepAwake: { supported: true, wanted: () => keep.wanted(), set: (on) => keep.set(on) },
 });
-const fsButton = fsSettings.layer.querySelector('[data-choice="fullscreen"]');
 const awakeButton = fsSettings.layer.querySelector('[data-choice="keepAwake"]');
-const before5 = [fsButton.getAttribute("aria-pressed"), awakeButton.getAttribute("aria-pressed")];
-fsButton.click();
+const before5 = awakeButton.getAttribute("aria-pressed");
 awakeButton.click();
-check("settings: Screen group, full screen and keep-awake toggles", [
+check("settings: Screen group with keep-awake, no full-screen toggle", [
   [...fsSettings.layer.querySelectorAll("legend")].map((l) => l.textContent), before5,
-  fsButton.getAttribute("aria-pressed"), fsButton.querySelector("svg").dataset.icon,
   awakeButton.getAttribute("aria-pressed"), keep.wanted(),
-], [["Theme", "Screen"], ["false", "true"], "true", "exitFullscreen", "false", false]);
+  !!fsSettings.layer.querySelector('[data-choice="fullscreen"]'),
+], [["Theme", "Screen"], "true", "false", false, false]);
 const plainSettings = createSettings({
   themes: [{ id: "default", label: "Default", palettes: [] }], theme: { id: "default", label: "Default", palettes: [] },
   palette: undefined, onTheme: () => {}, onPalette: () => {},
-  fullscreen: { supported: false, active: () => false, toggle: () => {}, onChange: () => {} },
   keepAwake: { supported: false, wanted: () => false, set: () => {} },
 });
 check("settings: no Screen group where neither is supported",
   [...plainSettings.layer.querySelectorAll("legend")].map((l) => l.textContent), ["Theme"]);
+check("full screen: Safari's close button on iPad (reported as a Mac with touch) and iPhone, not elsewhere", [
+  screenMode.fullscreenCloseButton({ userAgent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) Safari/605.1.15", maxTouchPoints: 5 }),
+  screenMode.fullscreenCloseButton({ userAgent: "Mozilla/5.0 (iPad; CPU OS 17_0 like Mac OS X)", maxTouchPoints: 5 }),
+  screenMode.fullscreenCloseButton({ userAgent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) Safari/605.1.15", maxTouchPoints: 0 }),
+  screenMode.fullscreenCloseButton({ userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/130.0", maxTouchPoints: 10 }),
+], [true, true, false, false]);
 const fsWidget = createWidget("fullscreen", createStore());
 check("status bar: the full-screen button, offered as the browser allows",
   [fsWidget.tagName, fsWidget.getAttribute("aria-label"), fsWidget.hidden], ["BUTTON", "Full screen", !screenMode.fullscreenOffered()]);
@@ -658,6 +658,83 @@ try {
   else localStorage.setItem(SLOTS, slotsBefore);
 } catch { /* private mode */ }
 
+
+// --- More data from the game (T6): fuel use, DEF, cruise, PTO, fills, hitch, AI, units ---
+
+const units = await import("./src/data/units.js");
+const imperial = units.unitsFrom({ units: { miles: true, fahrenheit: true, acres: true, currency: "£" } });
+check("units: metric without settings, the game's when sent", [
+  units.unitsFrom(undefined), units.unitsFrom({ units: { miles: true } }).currency,
+  [units.speedUnit(imperial), Math.round(units.speedValue(40, imperial)), units.tempUnit(imperial),
+   units.tempValue(100, imperial), units.areaText(1.51, imperial), units.moneyText(1234.6, imperial)],
+  units.areaText(1.51, units.METRIC)],
+  [{ miles: false, fahrenheit: false, acres: false, currency: "$" }, "$",
+   ["mph", 25, "°F", 212, "3.73 ac", `£${(1235).toLocaleString()}`], "1.51 ha"]);
+
+const t6 = { id: 1, name: "T7", isAI: false, fuel: 150, fuelCapacity: 300, fuelUsage: 12.34, def: 4, defCapacity: 50,
+  cruise: { state: "on", speed: 15, maxSpeed: 40 }, pto: true, motorTemp: 105, speed: 20,
+  fills: [{ unit: 1, level: 0, capacity: 1000 }, { unit: 2, level: 2000, capacity: 8000, fillType: "wheat", fillTitle: "Wheat" }],
+  implements: [{ name: "Seeder", lowered: true, turnedOn: true, pto: true, hitch: 0.4,
+    fills: [{ unit: 1, level: 250, capacity: 1000, fillType: "seeds" }] }] };
+check("T6 selectors", [sel.fuelUsage(t6), sel.defPct(t6), sel.cruiseOf(t6)?.state, sel.ptoOf(t6),
+  sel.fillsOf(t6).length, sel.fillName(sel.mainFill(sel.fillsOf(t6))), sel.fillPct(sel.fillsOf(t6)[1]),
+  sel.fillName(sel.fillsOf(t6)[0]), sel.fillName(t6.implements[0].fills[0])],
+  [12.34, 8, "on", true, 2, "Wheat", 25, "Empty", "Seeds"]);
+check("T6 selectors: missing", [sel.fuelUsage({ id: 1 }), sel.defPct({ id: 1, def: 3, defCapacity: 0 }),
+  sel.cruiseOf({ id: 1, cruise: { state: "?" } }), sel.ptoOf({ id: 1 }), sel.fillsOf({ id: 1, fills: [] }),
+  sel.mainFill([])], [undefined, undefined, undefined, undefined, [], undefined]);
+check("alerts: DEF, engine temperature in the player's unit", sel.alerts(t6, imperial)
+  .map((a) => `${a.id}:${a.level}:${a.text}`), ["def:warn:DEF 8%", "temp:warn:Engine 221°F"]);
+check("AI job: title and description, without repeats", [
+  sel.aiJobText({ id: 1, isAI: true, ai: { job: "Field work", description: "Field 3" } }),
+  sel.aiJobText({ id: 1, isAI: true, ai: { job: "Field work", description: "Field work: field 3" } }),
+  sel.aiJobText({ id: 1, isAI: false, ai: { job: "Field work" } }),
+  sel.activity({ id: 1, isAI: true, ai: { job: "Deliver" } }).detail],
+  ["Field work · Field 3", "Field work: field 3", undefined, "Deliver"]);
+
+const t6s = createStore();
+const t6Controls = controlGroup({ label: "Drive", controls: ["cruise", "pto"] }, t6s);
+const t6Speed = createWidget("speed", t6s, { variant: "readout" });
+const t6Temp = createWidget("engineTemp", t6s, { variant: "condition" });
+const t6Usage = createWidget("fuelUsage", t6s, { variant: "readout" });
+const t6Def = createWidget("def", t6s, { variant: "condition" });
+const t6Cruise = createWidget("cruise", t6s);
+const t6CruiseSpeed = createWidget("cruiseSpeed", t6s, { variant: "readout" });
+const t6Load = createWidget("load", t6s, { variant: "condition" });
+const t6Money = createWidget("money", t6s);
+const t6Rows = createWidget("implements", t6s, { variant: "rows" });
+const t6List = createWidget("implements", t6s);
+const t6Readout = createWidget("vehicleReadout", t6s);
+t6s.set("vehicles", { controlledId: 1, vehicles: [t6] });
+check("T6 controls: cruise and PTO from the game", states(t6Controls), ["on", "on"]);
+check("T6 widgets, metric", [t6Speed.textContent, t6Temp.querySelector(".widget-unit").textContent,
+  t6Usage.textContent, q(t6Def, ".widget-value"), q(t6Def, ".widget-detail"), t6Def.dataset.level,
+  t6Cruise.textContent, t6CruiseSpeed.textContent, q(t6Load, ".widget-value"), q(t6Load, ".widget-detail"),
+  t6Load.querySelector(".widget-meter > span").style.width],
+  ["20km/h", "°C", "12.3L/h", "8", "4 L", "warn", "Cruise15 km/h", "Cruise15 km/h", "25", "Wheat", "25%"]);
+t6s.set("env", { units: { miles: true, fahrenheit: true, currency: "€" }, money: { "1": 5000 } });
+t6s.set("hello", { farmId: 1 });
+check("T6 widgets follow the game's units", [t6Speed.textContent, q(t6Temp, ".widget-value"),
+  t6Temp.querySelector(".widget-unit").textContent, t6CruiseSpeed.textContent, t6Money.textContent,
+  q(t6Readout, ".readout-speed"), q(t6Readout, ".readout-speed-box small"), q(t6Readout, ".arc-max")],
+  ["12mph", "221", "°F", "Cruise9 mph", `Money€${(5000).toLocaleString()}`, "12.4", "mph", "50"]);
+check("T6 implement rows: hitch while it moves, PTO chip, fill meter", [
+  [...t6Rows.querySelectorAll(".impl-chip")].map((c) => `${c.textContent}:${c.dataset.state}`),
+  [...t6Rows.querySelectorAll(".impl-fill")].map((f) => f.textContent),
+  t6Rows.querySelector(".impl-fill .widget-meter > span").style.width, t6List.textContent],
+  [["Hitch 40%:on", "Working:active", "PTO on:active"],
+   [`Seeds25% · 250 / ${(1000).toLocaleString()} L`], "25%", "Seeder – lowered, on, PTO, seeds 25%"]);
+t6s.set("vehicles", { controlledId: 1, vehicles: [{ ...t6, cruise: { state: "off", speed: 15 }, pto: false, def: undefined,
+  fills: undefined }] });
+check("T6: cruise off, PTO off, no DEF or load", [states(t6Controls), t6Cruise.textContent, t6CruiseSpeed.hidden,
+  t6Def.hidden, t6Load.hidden], [["off", "off"], "CruiseOff", true, true, true]);
+const { popupContent: vehiclePopup } = await import("./src/map/layers/vehiclesLayer.js");
+check("vehicle popup: the AI worker's job and the speed in the player's unit",
+  vehiclePopup({ id: 5, x: 0, z: 0, name: "Combine", isAI: true, speed: 16.1, ai: { job: "Field work" } }, imperial).textContent,
+  "CombineAI worker: Field work10 mph");
+check("field rows: area and price in the player's units", fieldRows({ id: 1, areaHa: 1 },
+  { id: 2, farmId: 0, price: 1000 }, fs.cropCatalog(undefined), 1, imperial).slice(0, 2),
+  [["Area", "2.47 ac"], ["Owner", `For sale, £${(1000).toLocaleString()}`]]);
 
 // --- icons (ui/icons.js) --------------------------------------------------------
 

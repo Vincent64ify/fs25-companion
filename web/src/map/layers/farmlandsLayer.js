@@ -10,6 +10,7 @@ import { landRenderer, latLngToWorld, worldToLatLng } from "../mapView.js";
 import { farmlandSwatch } from "../icons.js";
 import { farmlandOutlines, ringsContain } from "../farmlandGeometry.js";
 import { myFarmId } from "../../store.js";
+import { areaText, moneyText, unitsOf } from "../../data/units.js";
 
 /** @typedef {import("../../types.js").Farmland} Farmland */
 /** @typedef {import("../../types.js").FarmlandGrid} FarmlandGrid */
@@ -37,20 +38,21 @@ function classOf(f, farmId) {
   return f.listed === false ? null : "sale";
 }
 
-const money = (/** @type {number} */ v) => "$" + Math.round(v).toLocaleString();
-
-/** @param {number} id @param {Farmland|undefined} f @param {number} farmId */
-function popupContent(id, f, farmId) {
+/**
+ * @param {number} id @param {Farmland|undefined} f @param {number} farmId
+ * @param {import("../../data/units.js").Units} units
+ */
+function popupContent(id, f, farmId, units) {
   const div = document.createElement("div");
   div.className = "farmland-popup";
   const title = document.createElement("strong");
   title.textContent = `Farmland ${f?.name || id}`;
   div.append(title);
   const lines = [];
-  if (typeof f?.areaHa === "number") lines.push(`${f.areaHa.toFixed(2)} ha`);
+  if (typeof f?.areaHa === "number") lines.push(areaText(f.areaHa, units));
   if (f?.farmId === farmId) lines.push("Owned by you");
   else if (f?.farmId) lines.push(`Owned by farm ${f.farmId}`);
-  else if (f) lines.push(typeof f.price === "number" ? `For sale: ${money(f.price)}` : "For sale");
+  else if (f) lines.push(typeof f.price === "number" ? `For sale: ${moneyText(f.price, units)}` : "For sale");
   for (const text of lines) {
     const line = document.createElement("div");
     line.textContent = text;
@@ -105,7 +107,7 @@ export function createFarmlandsLayer(map, store) {
       if (!map.hasLayer(shape.polygon) || !ringsContain(shape.rings, x, z)) continue;
       L.popup()
         .setLatLng(e.latlng)
-        .setContent(popupContent(id, byId().get(id), myFarmId(store)))
+        .setContent(popupContent(id, byId().get(id), myFarmId(store), unitsOf(store)))
         .openOn(map);
       return;
     }

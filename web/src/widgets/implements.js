@@ -1,11 +1,12 @@
 // @ts-check
-// The controlled vehicle's attached implements: lowered, on, and wear.
+// The controlled vehicle's attached implements: lowered (and where the
+// hitch is while it moves), on, PTO, wear and fill levels.
 // Variants: "list" (a <ul>), "card" (Default: titled card around the list),
 // both hidden while nothing is attached; "rows" (the Vehicle screen: one
 // row per implement with its icon, state chips and wear bar, and a line
 // saying so when nothing is attached).
 
-import { controlledVehicle, implementsOf, kindLabel, vehicleKind } from "../data/selectors.js";
+import { controlledVehicle, fillName, fillPct, implementsOf, kindLabel, vehicleKind } from "../data/selectors.js";
 import { h } from "../ui/dom.js";
 import { icon } from "../ui/icons.js";
 
@@ -17,9 +18,33 @@ export function implementLine(impl) {
   const bits = [];
   if (impl.lowered) bits.push("lowered");
   if (impl.turnedOn) bits.push("on");
+  if (impl.pto === true) bits.push("PTO");
   if ((impl.wear ?? 0) > 0) bits.push(`wear ${Math.round(100 * (impl.wear ?? 0))}%`);
+  for (const f of fillsOfImpl(impl)) bits.push(`${fillName(f).toLowerCase()} ${Math.round(fillPct(f))}%`);
   return "  ".repeat(Math.max(0, (impl.depth || 1) - 1)) +
     (impl.name || "Implement") + (bits.length ? " – " + bits.join(", ") : "");
+}
+
+/** @param {import("../data/selectors.js").Implement} impl */
+const fillsOfImpl = (impl) => (Array.isArray(impl.fills) ? impl.fills.filter((f) => f && f.capacity > 0) : []);
+
+/**
+ * The hitch chip's text: Raised or Lowered, or where the hitch is while it
+ * moves ("Hitch 40%").
+ * @param {import("../data/selectors.js").Implement} impl
+ */
+export function hitchText(impl) {
+  const at = impl.hitch;
+  if (typeof at === "number" && at > 0.05 && at < 0.95) return `Hitch ${Math.round(100 * at)}%`;
+  return impl.lowered ? "Lowered" : "Raised";
+}
+
+/** A labelled meter: "Wear 25%", "Seeds 25%" with the litres. */
+function meterLine(/** @type {string} */ className, /** @type {string} */ name, /** @type {number} */ pct, /** @type {string} */ value) {
+  const bar = h("span");
+  bar.style.width = `${Math.max(0, Math.min(100, pct))}%`;
+  return h("div", { className },
+    h("div", {}, h("span", { text: name }), h("b", { text: value })), h("span", { className: "widget-meter" }, bar));
 }
 
 /** A state chip: icon or dot, then the text. */
@@ -36,14 +61,19 @@ function implementRow(impl) {
   const row = h("li", { className: "impl-row" }, badge,
     h("div", { className: "impl-text" }, h("b", { text: impl.name || "Implement" }),
       h("span", { text: kindLabel(impl) })),
-    chip(impl.lowered ? "Lowered" : "Raised", impl.lowered ? "on" : "off", icon(impl.lowered ? "hitchDown" : "hitchUp")),
+    chip(hitchText(impl), impl.lowered ? "on" : "off", icon(impl.lowered ? "hitchDown" : "hitchUp")),
     chip(impl.turnedOn ? "Working" : "Off", impl.turnedOn ? "active" : "off", h("span", { className: "impl-dot" })));
+  if (typeof impl.pto === "boolean") {
+    row.append(chip(impl.pto ? "PTO on" : "PTO off", impl.pto ? "active" : "off", icon("pto")));
+  }
   if (typeof impl.wear === "number") {
     const pct = Math.round(100 * impl.wear);
-    const bar = h("span");
-    bar.style.width = `${Math.min(100, pct)}%`;
-    row.append(h("div", { className: "impl-wear" },
-      h("div", {}, h("span", { text: "Wear" }), h("b", { text: `${pct}%` })), h("span", { className: "widget-meter" }, bar)));
+    row.append(meterLine("impl-wear", "Wear", pct, `${pct}%`));
+  }
+  for (const f of fillsOfImpl(impl)) {
+    const pct = Math.round(fillPct(f));
+    row.append(meterLine("impl-fill", fillName(f), pct,
+      `${pct}% · ${Math.round(f.level).toLocaleString()} / ${Math.round(f.capacity).toLocaleString()} L`));
   }
   return row;
 }

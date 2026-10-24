@@ -1,12 +1,16 @@
 -- Vehicles.lua
 -- Every vehicle on the map, twice per second (vehicleSystem.vehicles,
--- Phase 0): pose, name, owner, AI state, whether it has an engine and
--- whether it hangs on another vehicle. The vehicle the player controls also
--- gets the dashboard detail (motor, fuel, lights, implements, and its
--- brand and shop category for the Vehicle screen's card).
+-- Phase 0): pose, name, owner, AI state (and the worker's job), whether it
+-- has an engine and whether it hangs on another vehicle. The vehicle the
+-- player controls also gets the dashboard detail (motor, fuel and its use,
+-- DEF, cruise control, lights, fill levels, PTO, implements with their
+-- hitch position, and its brand and shop category for the Vehicle screen's
+-- card).
 --
 -- The spec field names come from the old telemetry mod (which read them
--- through the pipe) and are guarded.
+-- through the pipe) and from the FS22 script docs (T6: fuel use, DEF,
+-- cruise, fill units, PTO, hitch, AI job); all are guarded, and the T6
+-- ones are not verified in FS25 yet.
 
 Companion = Companion or {}
 Companion.Collectors = Companion.Collectors or {}
@@ -68,6 +72,139 @@ local function speedKmh(vehicle, motorized)
     return Geo.round(math.max(0, speed * (motorized.speedDisplayScale or 3.6)), 1)
 end
 
+-- FS25 keeps fuel in the fill unit the motor consumes from; the first fuel
+-- type with a consumer wins (diesel, then electric charge, then methane)
+local FUEL_TYPES = { "DIESEL", "ELECTRICCHARGE", "METHANE" }
+-- every fill type a motor consumes: their units are fuel, not cargo
+local CONSUMED_TYPES = { "DIESEL", "ELECTRICCHARGE", "METHANE", "DEF", "AIR" }
+local MAX_FILL_UNITS = 8
+
+local function consumerUnits(vehicle)
+    local units = {}
+    local fillTypes = FillType
+    if type(fillTypes) == "table" and vehicle.spec_motorized ~= nil then
+        for _, name in ipairs(CONSUMED_TYPES) do
+            local unit = fillTypes[name] ~= nil and Api.tryCall(vehicle, "getConsumerFillUnitIndex", fillTypes[name]) or nil
+            if unit ~= nil and unit ~= false then
+                units[unit] = true
+            end
+        end
+    end
+    return units
+end
+
+-- fill type index -> {name, title}; types don't change. Cleared per map.
+local fillTypeInfos = {}
+
+local function fillTypeInfo(index)
+    local info = fillTypeInfos[index]
+    if info == nil then
+        info = {}
+        local fillType = Api.tryCall(g_fillTypeManager, "getFillTypeByIndex", index)
+        if type(fillType) == "table" then
+            if type(fillType.name) == "string" then
+                info.name = fillType.name
+            end
+            if type(fillType.title) == "string" then
+                info.title = fillType.title
+            end
+        end
+        fillTypeInfos[index] = info
+    end
+    return info
+end
+
+-- the vehicle's own fill units (a trailer's load, a sprayer's tank, a
+-- combine's grain tank), in unit order, without the motor's fuel, DEF and
+-- air and without units the game hides from its HUD. An empty unit has no
+-- fill type (UNKNOWN). Nil when there is none.
+local function fillLevels(vehicle)
+    local spec = vehicle.spec_fillUnit
+    local units = Api.tryCall(vehicle, "getFillUnits")
+    if type(units) ~= "table" then
+        units = spec ~= nil and spec.fillUnits or nil
+    end
+    if type(units) ~= "table" then
+        return nil
+    end
+    local skip = consumerUnits(vehicle)
+    local unknown = type(FillType) == "table" and FillType.UNKNOWN or nil
+    local out = {}
+    for index, unit in ipairs(units) do
+        if #out >= MAX_FILL_UNITS then
+            break
+        end
+        local capacity = Api.tryCall(vehicle, "getFillUnitCapacity", index)
+        if type(capacity) ~= "number" then
+            capacity = type(unit) == "table" and unit.capacity or nil
+        end
+        if not skip[index] and type(unit) == "table" and unit.showOnHud ~= false
+            and type(capacity) == "number" and capacity > 0 then
+            local level = Api.tryCall(vehicle, "getFillUnitFillLevel", index)
+            if type(level) ~= "number" then
+                level = unit.fillLevel
+            end
+            local fillType = Api.tryCall(vehicle, "getFillUnitFillType", index)
+            if type(fillType) ~= "number" then
+                fillType = unit.fillType
+            end
+            local entry = {
+                unit = index,
+                level = Geo.round(math.max(0, level or 0), 1),
+                capacity = Geo.round(capacity, 1),
+            }
+            if type(fillType) == "number" and fillType ~= unknown and (level or 0) > 0 then
+                local info = fillTypeInfo(fillType)
+                entry.fillType = info.name and info.name:lower() or nil
+                entry.fillTitle = info.title
+            end
+            out[#out + 1] = entry
+        end
+    end
+    if #out == 0 then
+        return nil
+    end
+    return out
+end
+
+-- whether the implement's PTO turns: true or false for one with a PTO
+-- (PowerConsumer with a PTO rpm), nil for one without
+local function ptoOf(object)
+    local consumer = object.spec_powerConsumer
+    if consumer == nil or type(consumer.ptoRpm) ~= "number" or consumer.ptoRpm <= 0 then
+        return nil
+    end
+    local on = Api.tryCall(object, "getDoConsumePtoPower")
+    if type(on) ~= "boolean" then
+        on = Api.tryCall(object, "getIsTurnedOn") == true
+    end
+    return on
+end
+
+-- where the hitch holding the implement is, 0 (raised) to 1 (lowered): the
+-- attacher joint's moveAlpha between its upper and lower alpha. Nil for a
+-- joint that doesn't move (a trailer's drawbar).
+local function hitchOf(vehicle, implement)
+    local index = implement.jointDescIndex
+    if index == nil then
+        index = Api.tryCall(vehicle, "getAttacherJointIndexFromObject", implement.object)
+    end
+    local joint = index ~= nil and Api.tryCall(vehicle, "getAttacherJointByJointDescIndex", index) or nil
+    if type(joint) ~= "table" then
+        local spec = vehicle.spec_attacherJoints
+        joint = index ~= nil and spec ~= nil and type(spec.attacherJoints) == "table" and spec.attacherJoints[index] or nil
+    end
+    if type(joint) ~= "table" then
+        return nil
+    end
+    local alpha, upper, lower = joint.moveAlpha, joint.upperAlpha, joint.lowerAlpha
+    if type(alpha) ~= "number" or type(upper) ~= "number" or type(lower) ~= "number"
+        or math.abs(lower - upper) < 1e-6 then
+        return nil
+    end
+    return Geo.round(math.max(0, math.min(1, (alpha - upper) / (lower - upper))), 2)
+end
+
 local function collectImplements(vehicle, depth, out)
     local attached = Api.tryCall(vehicle, "getAttachedImplements")
     if type(attached) ~= "table" then
@@ -86,6 +223,9 @@ local function collectImplements(vehicle, depth, out)
                 lowered = Api.tryCall(object, "getIsLowered", true) == true,
                 turnedOn = Api.tryCall(object, "getIsTurnedOn") == true,
                 wear = Geo.round(Api.tryCall(object, "getDamageAmount"), 3),
+                pto = ptoOf(object),
+                hitch = hitchOf(vehicle, implement),
+                fills = fillLevels(object),
             }
             if depth < MAX_IMPLEMENT_DEPTH then
                 collectImplements(object, depth + 1, out)
@@ -93,10 +233,6 @@ local function collectImplements(vehicle, depth, out)
         end
     end
 end
-
--- FS25 keeps fuel in the fill unit the motor consumes from; the first fuel
--- type with a consumer wins (diesel, then electric charge, then methane)
-local FUEL_TYPES = { "DIESEL", "ELECTRICCHARGE", "METHANE" }
 
 local function fuelDetail(vehicle, motorized, entry)
     local fillTypes = FillType
@@ -168,13 +304,53 @@ local function gearDetail(vehicle, motor, entry)
     end
 end
 
+-- DEF (AdBlue) from its consumer fill unit, for engines that use it
+local function defDetail(vehicle, entry)
+    local fillType = type(FillType) == "table" and FillType.DEF or nil
+    local unit = fillType ~= nil and Api.tryCall(vehicle, "getConsumerFillUnitIndex", fillType) or nil
+    if unit == nil or unit == false then
+        return
+    end
+    entry.def = Geo.round(Api.tryCall(vehicle, "getFillUnitFillLevel", unit), 1)
+    entry.defCapacity = Geo.round(Api.tryCall(vehicle, "getFillUnitCapacity", unit), 1)
+end
+
+-- litres (or kWh) per hour, as the game's HUD shows it: the smoothed
+-- display value, else the last frame's
+local function fuelUsage(motorized)
+    local usage = motorized.lastFuelUsageDisplay
+    if type(usage) ~= "number" then
+        usage = motorized.lastFuelUsage
+    end
+    if type(usage) ~= "number" then
+        return nil
+    end
+    return Geo.round(math.max(0, usage), 1)
+end
+
+-- whether the engine runs: getIsMotorStarted(), else the spec's field.
+-- spec_motorized.engineStarted (the first guess) is nil in FS25, so the
+-- engine always read as off in the live test.
+local function engineOn(vehicle, motorized)
+    local started = Api.tryCall(vehicle, "getIsMotorStarted")
+    if type(started) == "boolean" then
+        return started
+    end
+    if type(motorized.isMotorStarted) == "boolean" then
+        return motorized.isMotorStarted
+    end
+    return motorized.engineStarted == true
+end
+
 local function motorDetail(vehicle, entry)
     local motorized = vehicle.spec_motorized
     if motorized == nil then
         return
     end
-    entry.engineOn = motorized.engineStarted == true
+    entry.engineOn = engineOn(vehicle, motorized)
     fuelDetail(vehicle, motorized, entry)
+    entry.fuelUsage = fuelUsage(motorized)
+    defDetail(vehicle, entry)
     if motorized.motorTemperature ~= nil then
         entry.motorTemp = Geo.round(motorized.motorTemperature.value, 1)
     end
@@ -202,6 +378,78 @@ local function lights(vehicle)
     }
 end
 
+-- Drivable.CRUISECONTROL_STATE_*: OFF 0, ACTIVE 1, FULL 2 (full throttle,
+-- no set speed)
+local CRUISE_STATES = { [0] = "off", [1] = "on", [2] = "full" }
+
+-- cruise control: its state and the set speed (km/h)
+local function cruiseOf(vehicle)
+    local spec = vehicle.spec_drivable
+    local cruise = spec ~= nil and spec.cruiseControl or nil
+    local state = Api.tryCall(vehicle, "getCruiseControlState")
+    if type(state) ~= "number" and type(cruise) == "table" then
+        state = cruise.state
+    end
+    if CRUISE_STATES[state] == nil then
+        return nil
+    end
+    local speed = Api.tryCall(vehicle, "getCruiseControlSpeed")
+    if type(speed) ~= "number" and type(cruise) == "table" then
+        speed = cruise.speed
+    end
+    local maxSpeed = Api.tryCall(vehicle, "getCruiseControlMaxSpeed")
+    if type(maxSpeed) ~= "number" and type(cruise) == "table" then
+        maxSpeed = cruise.maxSpeed
+    end
+    return {
+        state = CRUISE_STATES[state],
+        speed = Geo.round(speed, 1),
+        maxSpeed = Geo.round(maxSpeed, 1),
+    }
+end
+
+-- whether a PTO turns: nil when no implement has one
+local function anyPto(implements)
+    local pto = nil
+    for _, implement in ipairs(implements) do
+        if implement.pto ~= nil then
+            pto = pto == true or implement.pto
+        end
+    end
+    return pto
+end
+
+local function textOf(obj, ...)
+    for _, name in ipairs({ ... }) do
+        local value = Api.tryCall(obj, name)
+        if type(value) == "string" and value ~= "" then
+            return value
+        end
+    end
+    return nil
+end
+
+-- the AI worker's job ("Field work") and helper name, for a vehicle a
+-- worker drives
+local function aiOf(vehicle)
+    local out = {}
+    local job = Api.tryCall(vehicle, "getJob")
+    if type(job) ~= "table" then
+        local spec = vehicle.spec_aiJobVehicle
+        job = spec ~= nil and spec.job or nil
+    end
+    if type(job) == "table" then
+        out.job = textOf(job, "getTitle")
+        out.description = textOf(job, "getDescription")
+    end
+    local helper = Api.tryCall(vehicle, "getCurrentHelper")
+    if type(helper) == "table" then
+        out.helper = (type(helper.title) == "string" and helper.title)
+            or (type(helper.name) == "string" and helper.name) or nil
+    end
+    return next(out) ~= nil and out or nil
+end
+
 local function vehicleEntry(vehicle, detailed)
     local entry = Geo.nodePose(vehicle.rootNode)
     if entry == nil then
@@ -212,6 +460,9 @@ local function vehicleEntry(vehicle, detailed)
     entry.name = vehicleName(vehicle)
     entry.farmId = Api.tryCall(vehicle, "getOwnerFarmId")
     entry.isAI = Api.tryCall(vehicle, "getIsAIActive") == true
+    if entry.isAI then
+        entry.ai = aiOf(vehicle)
+    end
     entry.propertyState = vehicle.propertyState
     local motorized = vehicle.spec_motorized
     entry.motorized = motorized ~= nil
@@ -223,6 +474,7 @@ local function vehicleEntry(vehicle, detailed)
     entry.attached = Api.tryCall(vehicle, "getAttacherVehicle") ~= nil
     if detailed then
         motorDetail(vehicle, entry)
+        entry.cruise = cruiseOf(vehicle)
         entry.lights = lights(vehicle)
         entry.wear = wearOf(vehicle)
         entry.operatingHours = operatingHours(vehicle)
@@ -234,6 +486,8 @@ local function vehicleEntry(vehicle, detailed)
         local implements = {}
         collectImplements(vehicle, 1, implements)
         entry.implements = implements
+        entry.pto = anyPto(implements)
+        entry.fills = fillLevels(vehicle)
     end
     return entry
 end
@@ -252,6 +506,7 @@ Companion.Collectors.Vehicles = {
     reset = function()
         names = {}
         storeInfos = {}
+        fillTypeInfos = {}
     end,
     collect = function(ctx)
         local data = { vehicles = {} }

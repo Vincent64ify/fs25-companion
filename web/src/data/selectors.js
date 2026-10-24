@@ -4,6 +4,7 @@
 // missing; widgets do the formatting.
 
 import { myFarmId } from "../store.js";
+import { METRIC, tempUnit, tempValue } from "./units.js";
 
 /** @typedef {import("../types.js").Vehicle} Vehicle */
 /** @typedef {{get: (key: string) => any}} StoreLike */
@@ -79,7 +80,7 @@ export function activity(v) {
   const impls = implementsOf(v);
   const working = impls.find((i) => i.turnedOn);
   const detail = (working || impls[0])?.name;
-  if (v.isAI) return { text: "AI worker", icon: "aiWorker", detail };
+  if (v.isAI) return { text: "AI worker", icon: "aiWorker", detail: aiJobText(v) || detail };
   if (working) return { text: "Working", icon: "implementOn", detail };
   if ((v.speed ?? 0) >= 0.5) return { text: "Driving", icon: "speed", detail };
   return { text: v.engineOn ? "Standing" : "Parked", icon: vehicleKind(v), detail };
@@ -135,10 +136,78 @@ export function operatingHours(v) {
   return v && typeof v.operatingHours === "number" ? v.operatingHours : undefined;
 }
 
+/** @param {Vehicle|undefined} v @returns {number|undefined} litres (kWh) per hour */
+export function fuelUsage(v) {
+  return v && typeof v.fuelUsage === "number" ? v.fuelUsage : undefined;
+}
+
+/** @param {Vehicle|undefined} v @returns {number|undefined} 0..100 of the DEF tank */
+export function defPct(v) {
+  return v && v.defCapacity > 0 && typeof v.def === "number" ? 100 * (v.def / v.defCapacity) : undefined;
+}
+
 /**
- * An attached implement, as the mod sends it.
+ * Cruise control: off, on (holding speed, km/h) or full (full throttle).
+ * @param {Vehicle|undefined} v
+ * @returns {{state: "off"|"on"|"full", speed?: number, maxSpeed?: number}|undefined}
+ */
+export function cruiseOf(v) {
+  const c = v?.cruise;
+  return c && typeof c === "object" && ["off", "on", "full"].includes(c.state) ? c : undefined;
+}
+
+/** @param {Vehicle|undefined} v @returns {boolean|undefined} undefined: no PTO attached */
+export function ptoOf(v) {
+  return typeof v?.pto === "boolean" ? v.pto : undefined;
+}
+
+/**
+ * The AI worker's job, as one line: "Field work · Field 1".
+ * @param {Vehicle|undefined} v
+ * @returns {string|undefined}
+ */
+export function aiJobText(v) {
+  const ai = v?.isAI ? v.ai : undefined;
+  if (!ai || typeof ai !== "object") return undefined;
+  const parts = [ai.job, ai.description].filter((p) => typeof p === "string" && p);
+  // a description often repeats the title ("Field work: field 1")
+  if (parts.length === 2 && parts[1].toLowerCase().includes(parts[0].toLowerCase())) parts.shift();
+  return parts.join(" · ") || undefined;
+}
+
+/**
+ * One fill unit, as the mod sends it: an empty unit has no fill type.
+ * @typedef {{unit?: number, level: number, capacity: number, fillType?: string, fillTitle?: string}} Fill
+ */
+
+/** @param {any} list @returns {Fill[]} */
+const fillList = (list) => (Array.isArray(list) ? list.filter((f) => f && f.capacity > 0) : []);
+
+/** The vehicle's own fill units (a grain tank, a truck's load), without its fuel. @param {Vehicle|undefined} v */
+export const fillsOf = (v) => fillList(v?.fills);
+
+/** @param {Fill} f @returns {number} 0..100 */
+export const fillPct = (f) => Math.max(0, Math.min(100, (100 * (f.level || 0)) / f.capacity));
+
+/** "Wheat", "Empty" for an empty unit. @param {Fill} f */
+export function fillName(f) {
+  if (!f.fillType || !(f.level > 0)) return "Empty";
+  return f.fillTitle || f.fillType.charAt(0).toUpperCase() + f.fillType.slice(1).toLowerCase();
+}
+
+/**
+ * The first loaded unit, else the first: what a "Load" tile shows.
+ * @param {Fill[]} fills
+ * @returns {Fill|undefined}
+ */
+export const mainFill = (fills) => fills.find((f) => f.level > 0) || fills[0];
+
+/**
+ * An attached implement, as the mod sends it. hitch: 0 raised .. 1 lowered;
+ * pto missing for an implement without one.
  * @typedef {{name?: string, typeName?: string, category?: string, categoryTitle?: string,
- *   depth?: number, lowered?: boolean, turnedOn?: boolean, wear?: number}} Implement
+ *   depth?: number, lowered?: boolean, turnedOn?: boolean, wear?: number, pto?: boolean,
+ *   hitch?: number, fills?: Fill[]}} Implement
  */
 
 /**
@@ -160,7 +229,7 @@ export function lightsOf(v) {
 }
 
 // when a value turns into an alert; fuel's warn level also colours its meter
-export const LIMITS = { fuelWarn: 15, fuelAlarm: 5, tempWarn: 100, tempAlarm: 110, wearWarn: 80 };
+export const LIMITS = { fuelWarn: 15, fuelAlarm: 5, tempWarn: 100, tempAlarm: 110, wearWarn: 80, defWarn: 10, defAlarm: 3 };
 
 /** @param {number|undefined} pct @returns {"warn"|"alarm"|undefined} */
 export function fuelLevel(pct) {
@@ -168,20 +237,31 @@ export function fuelLevel(pct) {
   return pct < LIMITS.fuelAlarm ? "alarm" : pct < LIMITS.fuelWarn ? "warn" : undefined;
 }
 
+/** @param {number|undefined} pct @returns {"warn"|"alarm"|undefined} */
+export function defLevel(pct) {
+  if (pct === undefined) return undefined;
+  return pct < LIMITS.defAlarm ? "alarm" : pct < LIMITS.defWarn ? "warn" : undefined;
+}
+
 /**
  * What needs the driver's attention, worst first.
  * @param {Vehicle|undefined} v
+ * @param {import("./units.js").Units} [units] for the engine's temperature
  * @returns {{id: string, level: "warn"|"alarm", text: string, icon: string}[]}
  */
-export function alerts(v) {
+export function alerts(v, units = METRIC) {
   /** @type {{id: string, level: "warn"|"alarm", text: string, icon: string}[]} */
   const out = [];
   const fuel = fuelPct(v);
   const fuelAt = fuelLevel(fuel);
   if (fuelAt) out.push({ id: "fuel", level: fuelAt, text: `Fuel ${Math.round(/** @type {number} */ (fuel))}%`, icon: "diesel" });
+  const def = defPct(v);
+  const defAt = defLevel(def);
+  if (defAt) out.push({ id: "def", level: defAt, text: `DEF ${Math.round(/** @type {number} */ (def))}%`, icon: "def" });
   const temp = engineTemp(v);
   if (temp !== undefined && temp >= LIMITS.tempWarn) {
-    out.push({ id: "temp", level: temp >= LIMITS.tempAlarm ? "alarm" : "warn", text: `Engine ${Math.round(temp)}°C`, icon: "engineTemp" });
+    const shown = Math.round(tempValue(temp, units));
+    out.push({ id: "temp", level: temp >= LIMITS.tempAlarm ? "alarm" : "warn", text: `Engine ${shown}${tempUnit(units)}`, icon: "engineTemp" });
   }
   const wear = wearPct(v);
   if (wear !== undefined && wear >= LIMITS.wearWarn) {
@@ -208,12 +288,21 @@ export function weatherName(env) {
   return current || undefined;
 }
 
-// environment.currentSeason, 0-based like the game's Season enum
 export const SEASON_NAMES = ["Spring", "Summer", "Autumn", "Winter"];
 
-/** @param {any} env @returns {string|undefined} */
+/**
+ * The season as the game's calendar shows it: from the month (1 = January),
+ * March to May spring, June to August summer, September to November autumn,
+ * December to February winter. Without a month, environment.currentSeason,
+ * which reads one season ahead as 0-based (August showed "Autumn" live), so
+ * it's taken as 1-based.
+ * @param {any} env @returns {string|undefined}
+ */
 export function seasonName(env) {
-  return typeof env?.season === "number" ? SEASON_NAMES[env.season] : undefined;
+  if (typeof env?.month === "number" && env.month >= 1 && env.month <= 12) {
+    return SEASON_NAMES[Math.floor((env.month + 9) % 12 / 3)];
+  }
+  return typeof env?.season === "number" ? SEASON_NAMES[env.season - 1] : undefined;
 }
 
 /** @param {any} env @returns {[number, number]|undefined} today's min and max, °C */

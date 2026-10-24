@@ -8,6 +8,7 @@
 import {
   activity, controlledVehicle, gearName, kindLabel, modelName, rpmPct, speedScale, vehicleBrand, vehicleKind,
 } from "../data/selectors.js";
+import { speedUnit, speedValue, unitsOf } from "../data/units.js";
 import { fmt, h } from "../ui/dom.js";
 import { icon } from "../ui/icons.js";
 
@@ -58,9 +59,10 @@ export function vehicleReadout(store, opts = {}) {
     '<stop offset="0" stop-color="#FFE08A"/><stop offset="1" stop-color="#FFC72C"/></linearGradient></defs>';
   svg.append(arcPath(ARC, "arc-track"), fill);
   const speed = h("b", { className: "readout-speed" });
+  const speedUnitEl = h("small", { text: "km/h" });
   const scaleMax = h("span", { className: "arc-max" });
   const arc = h("div", { className: "readout-arc" }, svg,
-    h("div", { className: "readout-speed-box" }, speed, h("small", { text: "km/h" })),
+    h("div", { className: "readout-speed-box" }, speed, speedUnitEl),
     h("span", { className: "arc-min", text: "0" }), scaleMax);
   arc.setAttribute("role", "img");
 
@@ -84,7 +86,7 @@ export function vehicleReadout(store, opts = {}) {
   let scaleFor = null;
   let scale = 0;
   let lastIcon = "";
-  store.subscribe("vehicles", () => {
+  const render = () => {
     const v = controlledVehicle(store);
     const what = activity(v);
     if (what.icon !== lastIcon) badge.replaceChildren(icon((lastIcon = what.icon)));
@@ -95,22 +97,28 @@ export function vehicleReadout(store, opts = {}) {
     engine.dataset.on = String(!!v?.engineOn);
     /** @type {HTMLElement} */ (engine.lastChild).textContent = v?.engineOn ? "Engine on" : "Engine off";
 
-    const kmh = typeof v?.speed === "number" ? v.speed : undefined;
-    if (v?.id !== scaleFor) { scaleFor = v?.id; scale = 0; }
-    scale = speedScale(kmh ?? 0, scale);
-    speed.textContent = kmh === undefined ? "–" : fmt(kmh, 1);
+    // in the player's unit, km/h or mph; the scale follows it
+    const units = unitsOf(store);
+    const unit = speedUnit(units);
+    const shown = typeof v?.speed === "number" ? speedValue(v.speed, units) : undefined;
+    if (v?.id !== scaleFor || unit !== speedUnitEl.textContent) { scaleFor = v?.id; scale = 0; }
+    speedUnitEl.textContent = unit;
+    scale = speedScale(shown ?? 0, scale);
+    speed.textContent = shown === undefined ? "–" : fmt(shown, 1);
     scaleMax.textContent = String(scale);
-    const pct = kmh === undefined ? 0 : Math.min(100, (100 * kmh) / scale);
+    const pct = shown === undefined ? 0 : Math.min(100, (100 * shown) / scale);
     fill.setAttribute("stroke-dasharray", `${pct} 100`);
     fill.style.opacity = pct > 0.5 ? "1" : "0";
-    arc.setAttribute("aria-label", kmh === undefined ? "Speed unknown" : `Speed ${fmt(kmh, 1)} km/h`);
+    arc.setAttribute("aria-label", shown === undefined ? "Speed unknown" : `Speed ${fmt(shown, 1)} ${unit}`);
 
     gear.textContent = gearName(v) ?? "–";
     gearSub.textContent = gearDetail(v);
     rpm.textContent = typeof v?.rpm === "number" ? Math.round(v.rpm).toLocaleString() : "–";
     rpmBar.style.width = `${rpmPct(v) ?? 0}%`;
     side.hidden = !v;
-  });
+  };
+  store.subscribe("vehicles", render);
+  store.subscribe("env", render);
   return root;
 }
 
