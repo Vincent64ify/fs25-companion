@@ -391,10 +391,22 @@ the ack carries the reason.
 ## Open checks
 
 Built, but not yet confirmed in game:
-- **Implement screen (mod 0.8.0):** with a seeder (tank estimates, Runs out
-  first, Speed against its limit, working width, area), a combine with a
-  trailer (Pipe, Unload, the crop, "Call a trailer"), a tipping trailer
-  (Tipping, Cover, Load) and Lower all / Raise all.
+- **Implement screen (mod 0.8.0, next to do):** mod 0.8.0 is installed and
+  the code is on main (`38a6786`). Restart the client so the tablet loads
+  the new page, open the third tab, then:
+  - Seeder or cultivator: tap tiles in the band, ‹ › and a swipe change the
+    game's selection; Lower, Work, Fold and Detach act exactly like V, B, X
+    and detach; tank estimates appear after about 20 s of work ("Runs out
+    first" with two tanks); Speed reads against the tool's limit ("11 / 12
+    km/h"); working width and area this run in the details.
+  - Combine with a trailer: Pipe (O) and Unload on the card, the job line
+    "Harvesting · Wheat", "Call a trailer" as the tank nears full.
+  - Tipping trailer: Tipping (I, or Ctrl+I to the ground), Cover (N) and
+    the Load stat.
+  - Lower all / Raise all (Ctrl+V), in the column under All implements.
+  - The choices made while building (labels, when Pipe, Unload and Cover
+    are unavailable, the tractor on the card when it's selected) are in
+    THEMES.md, Implement screen, "As built": confirm or change them.
 - **New Holland style live:** drive a tractor and check the readout, the
   control indicators (lights, beacon, hazard, turn signals, engine,
   implement lowered and working), the alert chips and Day / Night, on a
