@@ -220,6 +220,7 @@ local function collectImplements(vehicle, depth, out)
                 id = object.id,
                 name = Api.tryCall(object, "getFullName") or object.typeName,
                 typeName = object.typeName,
+                brand = info.brand,
                 category = info.category,
                 categoryTitle = info.categoryTitle,
                 depth = depth,

@@ -20,10 +20,11 @@ import { hasIcon, icon } from "../ui/icons.js";
 
 /**
  * A place on a screen: a widget (and what it shows without data), the map,
- * the theme's control groups, or a group of slots the theme's CSS lays out
+ * the theme's control groups (less the ones `omit` names, for a screen
+ * that shows them elsewhere), or a group of slots the theme's CSS lays out
  * together (data-group).
  * @typedef {{widget: string, variant?: string, whenMissing?: "hide"|"dash"} | {map: "full"|"mini"}
- *   | {controls: true} | {group: string, slots: Slot[]}} Slot
+ *   | {controls: true, omit?: string[]} | {group: string, slots: Slot[]}} Slot
  */
 
 /**
@@ -109,6 +110,11 @@ export function checkTheme(theme, widgetIds = Object.keys(WIDGETS)) {
     for (const slot of flatSlots(screen.slots)) {
       if ("map" in slot) maps++;
       else if ("widget" in slot) want(slot.widget, `screen ${screen.id}`);
+      else if ("controls" in slot) {
+        for (const id of slot.omit || []) {
+          if (!CONTROLS[id]) errors.push(`screen ${screen.id}: omits no control "${id}"`);
+        }
+      }
     }
     if (maps > 1) errors.push(`screen ${screen.id}: ${maps} map slots, at most 1`);
     for (const ref of screen.readout || []) want(ref, `screen ${screen.id} readout`);
@@ -166,8 +172,12 @@ export function renderTheme(theme, app, store, frame, settings) {
           mapSlot = h("div", { className: `map-slot map-${slot.map}` });
           parent.append(mapSlot);
         } else if ("controls" in slot) {
+          const omit = new Set(slot.omit || []);
+          const groups = (chrome.controls || [])
+            .map((group) => ({ ...group, controls: group.controls.filter((id) => !omit.has(id)) }))
+            .filter((group) => group.controls.length);
           const column = h("aside", { className: "control-column" },
-            ...(chrome.controls || []).map((group) => controlGroup(group, store)));
+            ...groups.map((group) => controlGroup(group, store)));
           column.setAttribute("aria-label", "Controls");
           parent.append(column);
         } else if ("group" in slot) {

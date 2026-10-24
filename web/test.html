@@ -643,7 +643,7 @@ const ui2 = renderTheme({
     controls: [{ label: "Lights", controls: ["lights", "beacon"] }] },
   screens: [
     { id: "map", label: "Map", icon: "map", slots: [{ map: "full" }, { controls: true }], readout: ["speed"] },
-    { id: "vehicle", label: "Vehicle", slots: [{ widget: "speed", variant: "tile" }] },
+    { id: "vehicle", label: "Vehicle", slots: [{ widget: "speed", variant: "tile" }, { controls: true, omit: ["beacon"] }] },
   ],
 }, app2, createStore(), createMapFrame(createStore()), fakeSettings);
 check("render: status bar parts, settings button first", [...app2.querySelector(".status-bar").children]
@@ -651,7 +651,10 @@ check("render: status bar parts, settings button first", [...app2.querySelector(
 check("render: control slot, tab icon, settings layer in main", [
   app2.querySelectorAll('.screen[data-screen="map"] .control-column .control').length,
   !!app2.querySelector('.tab[data-screen="map"] svg'), fakeSettings.layer.parentElement?.className,
-], [2, true, "screens"]);
+  app2.querySelectorAll('.screen[data-screen="vehicle"] .control-column .control').length,
+], [2, true, "screens", 1]);
+check("theme check: a screen omits only known controls", checkTheme({ id: "x", palettes: [], css: "",
+  screens: [{ id: "a", label: "A", slots: [{ controls: true, omit: ["nope5"] }] }] }), ['screen a: omits no control "nope5"']);
 const readoutShown = () => !app2.querySelector('.tab-readout[data-screen="map"]').hidden;
 const onMap = readoutShown();
 ui2.showScreen?.("vehicle");
@@ -854,34 +857,30 @@ const c3Rig = (selected, keys) => ({ inVehicle: true, hitched: true, implements:
     { id: 3, name: "Fastrac", depth: 0, selectable: true, selected: selected === 3 },
     { id: 5, name: "Loader", depth: 1, parent: 3, side: "front", selectable: true, selected: selected === 5, canLower: false },
     { id: 6, name: "Bucket", depth: 2, parent: 5, side: "front", selectable: true, selected: selected === 6 },
-    { id: 9, name: "Terria", depth: 1, parent: 3, side: "rear", selectable: true, selected: selected === 9,
+    { id: 9, name: "PÖTTINGER TERRIA 6040", depth: 1, parent: 3, side: "rear", selectable: true, selected: selected === 9,
       canLower: true, lowered: false, foldable: true, unfolded: true, foldMoving: false, canTurnOn: false },
   ] });
 const c3s = createStore();
-const c3Sent = [];
+c3s.set("vehicles", { controlledId: 3, vehicles: [{ id: 3, implements: [{ id: 9, brand: "Pöttinger" }] }] });
 const c3Group = controlGroup({ label: "Implement", implementName: true,
-  controls: ["implementLowered", "fold", "implementOn", "toolPrev", "toolNext"] }, c3s,
-  (action, value) => { c3Sent.push([action, value]); return Promise.resolve({ ok: true }); });
-const [c3Low, c3Fold, c3On, c3Prev, c3Next] = c3Group.querySelectorAll(".control");
+  controls: ["implementLowered", "fold", "implementOn"] }, c3s, () => Promise.resolve({ ok: true }));
+const [c3Low, c3Fold, c3On] = c3Group.querySelectorAll(".control");
 const c3val = (b) => (b.dataset.value !== undefined ? b.querySelector(".control-value").textContent : "");
 c3s.set("cab", c3Rig(5, { fold: 9 }));
-check("C3: a key acts on its tool, named when it isn't the selected one",
+check("C3: a key acts on its tool, named by its model when it isn't the selected one",
   [q(c3Group, "h2"), c3Fold.dataset.state, lbl(c3Fold), c3val(c3Fold), c3Low.dataset.state, c3On.dataset.state],
-  ["Implement · Loader", "on", "Fold", "Terria", "unavailable", "unavailable"]);
+  ["Implement · Loader", "on", "Fold", "TERRIA 6040", "unavailable", "unavailable"]);
 c3s.set("cab", c3Rig(9, { lower: 9, fold: 9 }));
 check("C3: the tool selected: no name under the button",
   [q(c3Group, "h2"), c3Low.dataset.state, lbl(c3Low), c3val(c3Low), c3val(c3Fold)],
-  ["Implement · Terria", "off", "Lower", "", ""]);
-c3s.set("cab", c3Rig(9, { lower: 3 }));
-check("C3: a key on the vehicle itself acts on the selected implement", c3Low.dataset.state, "unavailable");
-tap(c3Next);
-tap(c3Prev);
-await new Promise((r) => setTimeout(r, 0));
-check("C3: next and previous tool are G both ways", [c3Next.dataset.state === "unavailable", c3Sent],
-  [false, [["implement.next", undefined], ["implement.previous", undefined]]]);
+  ["Implement · PÖTTINGER TERRIA 6040", "off", "Lower", "", ""]);
+c3s.set("cab", { ...c3Rig(5, { lower: 3 }), implement: { name: "Loader", canLower: true, lowered: true } });
+check("C3: no tool named for a key (on the vehicle itself, or none): the selected implement, as in C2",
+  [c3Low.dataset.state, c3val(c3Low)], ["on", ""]);
 c3s.set("cab", { inVehicle: true, implement: { name: "Rubin", canLower: true, lowered: true } });
-check("C3: a mod without the rig: the selected implement, no Prev / Next",
-  [c3Low.dataset.state, c3Next.dataset.state, q(c3Group, "h2")], ["on", "unavailable", "Implement · Rubin"]);
+check("C3: a mod without the rig: the selected implement", [c3Low.dataset.state, q(c3Group, "h2")],
+  ["on", "Implement · Rubin"]);
+
 
 // rows: a tap selects in game, the selected one has Detach
 const { implementsWidget } = await import("./src/widgets/implements.js");
@@ -895,6 +894,12 @@ c3rs.set("vehicles", { controlledId: 3, vehicles: [{ id: 3, implements: [
   { id: 5, name: "Loader", depth: 1 }, { id: 6, name: "Bucket", depth: 2 }, { id: 9, name: "Terria", depth: 1 }] }] });
 c3rs.set("cab", c3Rig(9, {}));
 const rowEls = () => [...rows.querySelectorAll(".impl-row")];
+const c3Steps = c3rows => [...c3rows.querySelectorAll(".impl-step")];
+c3Steps(rows)[1].click();
+c3Steps(rows)[0].click();
+await new Promise((r) => setTimeout(r, 0));
+check("C3 rows: ‹ › in the header are G both ways", [rows.querySelector(".impl-steps").hidden, rowSent.splice(0)],
+  [false, [["implement.next", undefined], ["implement.previous", undefined]]]);
 check("C3 rows: the game's selection is marked, the others can be picked",
   [rowEls().map((r) => `${r.dataset.selected}:${r.dataset.pick ?? "-"}:${r.dataset.side}`),
     rows.querySelectorAll(".impl-detach").length, q(rows, ".impl-selected")],
@@ -913,8 +918,30 @@ check("C3 rows: Detach sends that tool, says when the game refuses",
   [rowSent, q(rows, ".impl-detach span"), rows.querySelector(".impl-detach").dataset.state],
   [[["implement.detach", 6]], "Not now", "error"]);
 c3rs.set("cab", { inVehicle: true });
-check("C3 rows: without the rig, rows only show", [rowEls().some((r) => r.dataset.pick), rows.querySelectorAll(".impl-detach").length],
-  [false, 0]);
+check("C3 rows: without the rig, rows only show, no ‹ ›",
+  [rowEls().some((r) => r.dataset.pick), rows.querySelectorAll(".impl-detach").length, rows.querySelector(".impl-steps").hidden],
+  [false, 0, true]);
+
+// the readout card's engine chip is the Engine control on the Vehicle screen
+const { vehicleReadout } = await import("./src/widgets/vehicleScreen.js");
+const es = createStore();
+const engineSent = [];
+const readoutEl = vehicleReadout(es, { send: (a) => { engineSent.push(a); return Promise.resolve({ ok: true }); } });
+es.set("vehicles", { controlledId: 3, vehicles: [{ id: 3, engineOn: false }] });
+es.set("cab", { inVehicle: true, engineOn: false, engineState: "off" });
+const chip = readoutEl.querySelector(".readout-engine");
+const chipShow = () => [chip.tagName, chip.lastChild.textContent, chip.dataset.state];
+const offShown = chipShow();
+chip.click();
+await new Promise((r) => setTimeout(r, 0));
+const tappedShown = chipShow();
+es.set("cab", { inVehicle: true, engineOn: false, engineState: "starting" });
+const startingShown = chipShow();
+es.set("cab", { inVehicle: true, engineOn: true, engineState: "on" });
+check("engine chip: a tap starts the engine, pending until the game has it running",
+  [offShown, engineSent, tappedShown, startingShown, chipShow()],
+  [["BUTTON", "Engine off", "off"], ["engine.toggle"], ["BUTTON", "Starting…", "pending"],
+   ["BUTTON", "Starting…", "pending"], ["BUTTON", "Engine on", "on"]]);
 
 // the round trip readout's numbers
 let fake = 0;

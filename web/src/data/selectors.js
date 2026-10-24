@@ -216,7 +216,7 @@ export const mainFill = (fills) => fills.find((f) => f.level > 0) || fills[0];
 /**
  * An attached implement, as the mod sends it. hitch: 0 raised .. 1 lowered;
  * pto missing for an implement without one.
- * @typedef {{id?: number, name?: string, typeName?: string, category?: string, categoryTitle?: string,
+ * @typedef {{id?: number, name?: string, brand?: string, typeName?: string, category?: string, categoryTitle?: string,
  *   depth?: number, lowered?: boolean, turnedOn?: boolean, wear?: number, pto?: boolean,
  *   hitch?: number, fills?: Fill[]}} Implement
  */
@@ -245,6 +245,22 @@ export function rigOf(cab) {
  * @param {import("../types.js").Cab|undefined} cab
  */
 export const selectedInRig = (cab) => rigOf(cab).find((e) => e.selected === true);
+
+/**
+ * A tool's name without its brand in front ("TERRIA 6040"), the brand from
+ * the vehicles topic's implement with the same id (any case: the game
+ * writes some brands in capitals in the name).
+ * @param {{id?: number, name?: string}} tool
+ * @param {Vehicle|undefined} v the vehicle it hangs on
+ */
+export function toolModel(tool, v) {
+  const name = tool.name || "";
+  const brand = implementsOf(v).find((i) => i.id === tool.id)?.brand;
+  if (typeof brand === "string" && brand && name.toLowerCase().startsWith(brand.toLowerCase() + " ")) {
+    return name.slice(brand.length + 1);
+  }
+  return name;
+}
 
 /**
  * The tool an implement key acts on right now (cab.keys): null when the

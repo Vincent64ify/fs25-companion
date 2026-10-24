@@ -21,7 +21,7 @@ export default {
       { label: "Lights", controls: ["lights", "highBeam", "beacon", "hazard", "turnLeft", "turnRight"] },
       { label: "Drive", controls: ["cruiseDown", "cruise", "cruiseUp", "engineOn", "aiWorker"] },
       { label: "Implement", implementName: true,
-        controls: ["implementLowered", "fold", "implementOn", "hitch", "toolPrev", "toolNext"] },
+        controls: ["implementLowered", "fold", "implementOn", "hitch"] },
     ],
   },
   screens: [
@@ -58,7 +58,8 @@ export default {
           ] },
           { widget: "implements", variant: "rows" },
         ] },
-        { controls: true },
+        // the readout card's engine chip starts and stops the engine here
+        { controls: true, omit: ["engineOn"] },
       ],
     },
   ],

@@ -7,8 +7,10 @@
 //
 // Rows pick a tool (Controls C3): tapping a row the game can select selects
 // it in game, as G would after enough presses; the selected row is marked
-// and has a Detach button for that tool. G pressed in game moves the mark,
-// since it follows the cab's rig. Older mods send no rig: rows only show.
+// and has a Detach button for that tool. ‹ › in the header select the
+// previous or next one in the game's order, as G does both ways. G pressed
+// in game moves the mark, since it follows the cab's rig. Older mods send
+// no rig: rows only show.
 
 import { cabOf, controlledVehicle, fillName, fillPct, implementsOf, kindLabel, rigOf, vehicleKind }
   from "../data/selectors.js";
@@ -147,7 +149,23 @@ function implementRows(store, opts = {}) {
   const title = h("h2", { text: "Attached" });
   const list = h("ul", { className: "impl-list" });
   const empty = h("p", { className: "impl-empty", text: "Nothing attached" });
-  const root = h("div", { className: "implements-card" }, h("div", { className: "impl-head" }, title), list, empty);
+  /** ‹ or ›: the previous or next tool in game */
+  const step = (/** @type {string} */ name, /** @type {string} */ label, /** @type {string} */ action) => {
+    const b = /** @type {HTMLButtonElement} */ (h("button", { className: "impl-step" }, icon(name)));
+    b.type = "button";
+    b.setAttribute("aria-label", label);
+    b.addEventListener("click", async () => {
+      if (b.dataset.state === "pending") return;
+      b.dataset.state = "pending";
+      await send(action);
+      delete b.dataset.state;
+    });
+    return b;
+  };
+  const steps = h("div", { className: "impl-steps" },
+    step("toolPrev", "Previous tool", "implement.previous"), step("toolNext", "Next tool", "implement.next"));
+  const root = h("div", { className: "implements-card" }, h("div", { className: "impl-head" }, title, steps),
+    list, empty);
   if (opts.id) root.id = opts.id;
   let last = "";
   const update = () => {
@@ -158,6 +176,7 @@ function implementRows(store, opts = {}) {
       const e = typeof i.id === "number" ? byId.get(i.id) : undefined;
       return e && { id: e.id, selectable: e.selectable, selected: e.selected, side: e.side };
     });
+    steps.hidden = rig.filter((e) => e.selectable).length < 2;
     const key = JSON.stringify([impls, picks]);
     if (key === last) return;
     last = key;

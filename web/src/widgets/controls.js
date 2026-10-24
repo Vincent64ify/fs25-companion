@@ -12,12 +12,12 @@
 // (cab.keys, Controls C3), which is usually the one selected in game (the
 // group's label names it), but the game keeps an action only one tool has
 // live whatever is selected (fold stays with the cultivator while the
-// loader is selected), and the button then names that tool. ‹ › select
-// the previous or next tool, as G does. A control whose `moving` is true
+// loader is selected), and the button then names that tool, by its model
+// alone ("TERRIA 6040"). A control whose `moving` is true
 // shows pending (a fold running) until the game reports the end state.
 
 import { createControl } from "../ui/control.js";
-import { cabOf, controlledVehicle, cruiseOf, implementsOf, keyTool, lightsOf, ptoOf, rigOf, selectedInRig }
+import { cabOf, controlledVehicle, cruiseOf, implementsOf, keyTool, lightsOf, ptoOf, selectedInRig, toolModel }
   from "../data/selectors.js";
 import { sendCommand } from "../connection.js";
 import { speedToKmh, speedUnit, speedValue, unitsOf } from "../data/units.js";
@@ -91,31 +91,24 @@ export function selectedImplement(/** @type {any} */ v, /** @type {any} */ cab) 
 }
 
 /**
- * The tool an implement key acts on: the one its live event belongs to
- * (cab.keys), else (older mods, or the key's event on the vehicle itself)
- * the selected implement. undefined: no tool's key is live.
+ * The tool an implement key acts on: the attached tool its live event
+ * belongs to (cab.keys), else (no tool named: an older mod, the key's
+ * event on the vehicle itself, or none the mod could see) the selected
+ * implement, as in C2.
  * @param {"lower"|"fold"|"turnOn"} key
  * @returns {(v: any, cab: any) => import("../types.js").SelectedImplement|undefined}
  */
-export const toolFor = (key) => (v, cab) => {
-  const tool = keyTool(cab, key);
-  if (tool === null) {
-    // the key's event belongs to the vehicle (depth 0): the selected one
-    const id = cab.keys?.[key];
-    return id !== undefined && rigOf(cab)[0]?.id === id ? selectedImplement(v, cab) : undefined;
-  }
-  return tool ?? selectedImplement(v, cab);
-};
+export const toolFor = (key) => (v, cab) => keyTool(cab, key) || selectedImplement(v, cab);
 
 /**
- * The tool's name under the button when the key acts on another tool than
+ * The tool's model under the button when the key acts on another tool than
  * the one selected in game ("Fold" · "TERRIA 6040").
  * @param {"lower"|"fold"|"turnOn"} key
  */
 export const toolNote = (key) => (/** @type {any} */ v, /** @type {any} */ cab) => {
   const tool = keyTool(cab, key);
   const selected = selectedInRig(cab);
-  return tool && selected && tool.id !== selected.id ? tool.name : undefined;
+  return tool && selected && tool.id !== selected.id ? toolModel(tool, v) : undefined;
 };
 
 /** the name the Implement group's label shows: the game's selection */
@@ -124,10 +117,6 @@ export function selectedName(/** @type {any} */ v, /** @type {any} */ cab) {
   if (selected) return selected.name;
   return selectedImplement(v, cab)?.name;
 }
-
-/** ‹ ›: there is more than one thing to select (never "on") */
-const canCycle = (/** @type {any} */ v, /** @type {any} */ cab) =>
-  (rigOf(cab).filter((e) => e.selectable).length > 1 ? false : undefined);
 
 /** the cab's value, or the vehicles topic's without the cab */
 const either = (/** @type {any} */ v, /** @type {any} */ cab, /** @type {(src: any) => any} */ pick) =>
@@ -302,9 +291,6 @@ export const CONTROLS = {
     const i = toolFor("turnOn")(v, cab);
     return i && (!cab || i.canTurnOn) ? i.turnedOn === true : undefined;
   }, value: toolNote("turnOn") },
-  // select the previous or next tool in the game's order, as G does (C3)
-  toolPrev: { label: "Prev tool", icon: "toolPrev", action: "implement.previous", read: canCycle },
-  toolNext: { label: "Next tool", icon: "toolNext", action: "implement.next", read: canCycle },
   // the attach key (Q): attaches what's in range or detaches the selected
   // implement, as the game decides; pending until what's attached changes
   hitch: { label: "Hitch", icon: "hitch", action: "hitch.toggle",

@@ -366,6 +366,14 @@ Pöttinger Terria 6040 cultivator at the rear:
   selected one. Settings shows the controls' round trip (median of the
   last 30 answered commands, last, slowest).
 - The Implement screen (THEMES.md) will reuse all of this.
+- After the first live check (Vincent, mod 0.7.1): a button names its
+  tool by the model alone ("TERRIA 6040", the brand from the vehicles
+  topic's new `brand` per implement), cut off with "…" inside the button.
+  Prev / Next tool moved out of the control column to ‹ › in the Attached
+  header. On the Vehicle screen the readout card's engine chip is the
+  Engine control (`{controls: true, omit: ["engineOn"]}`); Map keeps the
+  button. A key with no tool named falls back to the selected implement,
+  as in C2.
 
 **Risks.** If the mod can't re-read a client-written file, fall back to key
 presses (Windows first). Calling action callbacks by name may differ per
