@@ -118,3 +118,12 @@ leaves the value out):
 - `defaultMapColor`: linear RGB as assumed (the dashboard converts it to
   sRGB)? Compare the crop colours with the PDA.
 - `weedState`: the dashboard counts anything above 0 as weeds
+- the Implement and Harvester screens (0.8.x, names read in the SDK's game
+  scripts but not all seen live yet): `spec_pipe` states, the discharge
+  state, `spec_cover`, `getSpeedLimit`, the work areas' width; a combine's
+  `workedHectars` / `workedHectarsInitial`, `isSwathActive` with
+  `TOGGLE_CHOPPER`, and Precision Farming's `lastYieldWeight`,
+  `lastYieldPercentage` and `lastYieldPotential` (its spec key is found by
+  the name ending in "extendedCombine"). Confirmed live:
+  `getMaxComponentMassReached()` under the Trailer Fill Limit, and a
+  combine's own fold.

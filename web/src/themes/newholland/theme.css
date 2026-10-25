@@ -1195,7 +1195,7 @@ button { font: inherit; color: inherit; }
 /* --- Implement screen: the rig band over the implement card and its details,
    then the control column (widgets/implementScreen.js) ------------------------ */
 
-.screen[data-screen="implement"] {
+.screen[data-screen="implement"], .screen[data-screen="harvester"] {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 268px;
   gap: 12px;
@@ -1377,6 +1377,38 @@ button { font: inherit; color: inherit; }
 .tank-pct { margin-left: auto; font-size: 22px; font-weight: 700; font-variant-numeric: tabular-nums; }
 .tank-meter.widget-meter { width: auto; height: 10px; border-radius: 5px; }
 .tank-foot { display: flex; justify-content: space-between; gap: 8px; font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
+/* the game's Trailer Fill Limit: past where a tank stops (its weight limit)
+   the bar is shaded, with a tick at the stop; at the limit, the game's MAX
+   as a lock and MAX */
+.fill-meter { position: relative; }
+.fill-beyond {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  border-left: 2px solid currentColor;
+  background: repeating-linear-gradient(135deg, transparent 0 3px, rgba(127, 140, 160, 0.45) 3px 5px);
+  color: var(--text);
+}
+.rig-bars .fill-beyond { border-left-color: #FFFFFF; }
+.rig-tile[data-selected="true"] .rig-bars .fill-beyond { border-left-color: #0A1A33; }
+.fill-max {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 3px;
+  margin-right: 6px;
+  padding: 1px 6px;
+  border: 1.5px solid currentColor;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  vertical-align: middle;
+}
+.fill-max .icon { width: 12px; height: 12px; stroke-width: 2.6; }
+.tank-head .fill-max { margin: 0 0 0 auto; }
+.tank-head .fill-max + .tank-pct { margin-left: 0; }
 
 /* the details card */
 .impl-details { display: flex; flex-direction: column; gap: 12px; padding: 12px 14px; overflow-y: auto; }
@@ -1390,6 +1422,150 @@ button { font: inherit; color: inherit; }
 .impl-details .widget-meter[hidden] { display: none; }
 .impl-show.show-on-map { display: flex; gap: 8px; width: auto; margin-top: auto; padding: 0 14px; font: inherit; font-size: 14px; font-weight: 600; }
 .impl-show[hidden] { display: none; }
+
+/* --- Harvester screen: the Vehicle tab's page for a combine ------------------- */
+
+/* the rig band over the work card and grain tank, the details beside them */
+.slot-group[data-group="harvester"] {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 250px;
+  grid-template-rows: 132px auto minmax(0, 1fr);
+  gap: 12px;
+  min-width: 0;
+  min-height: 0;
+}
+.slot:has(> .harv-work), .slot:has(> .harv-grain) { grid-column: 1; }
+.slot-group[data-group="harvester"] .slot:has(> .impl-details) { grid-column: 2; grid-row: 2 / 4; }
+
+/* the work card: the readout card's colours, day and night */
+.harv-work {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 14px 16px;
+  border-radius: 20px;
+  background: var(--readout);
+  color: #FFFFFF;
+  box-shadow: var(--readout-lift);
+}
+.harv-work-head { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.harv-work-title { flex: 1; min-width: 0; }
+.harv-work-title h2 { margin: 0; overflow: hidden; font-size: 20px; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
+.harv-work-title p { margin: 2px 0 0; overflow: hidden; font-size: 13px; color: #BFD0EE; text-overflow: ellipsis; white-space: nowrap; }
+.harv-pill {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 7px;
+  height: 30px;
+  padding: 0 12px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.12);
+  font-size: 13px;
+  font-weight: 600;
+}
+.harv-pill[hidden] { display: none; }
+.harv-pill i { width: 9px; height: 9px; border-radius: 50%; background: #4ADE80; }
+.harv-states { display: grid; grid-template-columns: 116px repeat(3, minmax(0, 1fr)) minmax(0, 1.6fr); gap: 10px; }
+.harv-states:has(> .harv-state[hidden]) { grid-template-columns: 116px repeat(2, minmax(0, 1fr)) minmax(0, 1.6fr); }
+.harv-state {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.08);
+}
+.harv-state[hidden] { display: none; }
+.harv-cap { font-size: 12px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: #BFD0EE; }
+.harv-state-value { font-size: 24px; font-weight: 700; line-height: 1; }
+.harv-state-sub { min-height: 15px; font-size: 12px; color: #BFD0EE; }
+.harv-ring { display: grid; place-items: center; width: 40px; height: 40px; border-radius: 50%; background: rgba(255, 255, 255, 0.14); color: #BFD0EE; }
+.harv-ring .icon { width: 24px; height: 24px; }
+.harv-ring[data-on="true"] { background: var(--badge); color: var(--badge-ink); }
+.harv-lift-body { display: flex; flex: 1; gap: 12px; }
+.harv-track { position: relative; width: 14px; min-height: 64px; overflow: hidden; border-radius: 999px; background: rgba(255, 255, 255, 0.14); }
+.harv-track > span { position: absolute; top: 0; right: 0; left: 0; border-radius: 999px; background: var(--badge); transition: height 0.3s; }
+.harv-lift-body > div { display: flex; flex-direction: column; justify-content: flex-end; gap: 6px; }
+.harv-speed-value { display: flex; align-items: baseline; gap: 6px; }
+.harv-speed-value b { font-size: 36px; font-weight: 700; line-height: 1; font-variant-numeric: tabular-nums; }
+.harv-speed-value span { font-size: 14px; color: #BFD0EE; }
+.harv-speed-track { position: relative; height: 10px; margin-top: auto; border-radius: 999px; background: rgba(255, 255, 255, 0.14); }
+.harv-speed-track > span { position: absolute; top: 0; bottom: 0; left: 0; border-radius: 999px; background: linear-gradient(90deg, #4FE09C, #2DB876); }
+.harv-speed[data-level="warn"] .harv-speed-track > span { background: var(--warn-fill); }
+.harv-speed-track em { position: absolute; top: -5px; right: 0; bottom: -5px; width: 3px; border-radius: 2px; background: #FFFFFF; }
+.harv-speed-track em[hidden] { display: none; }
+.harv-speed-scale { display: flex; justify-content: space-between; font-size: 12px; color: #BFD0EE; }
+
+/* the grain tank, its rate, then the yield and area */
+.harv-grain {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+  min-height: 0;
+  padding: 12px 16px;
+  overflow-y: auto;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: var(--card);
+  box-shadow: var(--lift);
+}
+.harv-grain h2, .harv-stat .harv-cap { margin: 0; font-size: 12px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+.harv-tank { display: flex; flex-direction: column; gap: 6px; }
+.harv-tank-head { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.harv-tank-head .readout-badge { width: 30px; height: 30px; border-radius: 9px; box-shadow: none; }
+.harv-tank-head .readout-badge .icon { width: 18px; height: 18px; }
+.harv-tank-head .fill-max { margin: 0 0 0 auto; }
+.harv-tank-pct { margin-left: auto; font-size: 30px; font-weight: 700; line-height: 1; font-variant-numeric: tabular-nums; }
+.harv-tank-head .fill-max + .harv-tank-pct { margin-left: 0; }
+.harv-tank-head > span:last-child { font-size: 14px; color: var(--muted); }
+.harv-tank .tank-meter.widget-meter { height: 12px; border-radius: 6px; }
+.harv-empty { margin: 0; color: var(--muted); }
+.harv-rate { display: flex; align-items: center; gap: 10px; margin: 0; padding: 8px 12px; border-radius: 12px; background: var(--line); font-size: 14px; }
+.harv-rate[hidden] { display: none; }
+.harv-rate .icon { width: 20px; height: 20px; }
+.harv-rate b { margin-left: auto; font-size: 12px; color: var(--muted); }
+.harv-stats { display: grid; grid-auto-columns: minmax(0, 1fr); grid-auto-flow: column; gap: 10px; margin-top: auto; }
+.harv-stat { display: flex; flex-direction: column; gap: 4px; padding: 8px 10px; border-radius: 12px; background: var(--line); }
+.harv-stat > div { display: flex; align-items: baseline; gap: 4px; }
+.harv-stat b { font-size: 22px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.harv-stat > div > span { font-size: 12px; color: var(--muted); }
+
+/* a shared tab's menu (Vehicle: Tractor or Harvester), over the tab */
+.tab-menu {
+  position: fixed;
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 180px;
+  padding: 6px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: var(--card);
+  box-shadow: var(--lift), 0 12px 32px rgba(4, 17, 42, 0.25);
+}
+.tab-menu button {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 48px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: 15px;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+}
+.tab-menu button .icon { width: 22px; height: 22px; }
+.tab-menu button[aria-checked="true"] { background: var(--tab-sel); color: var(--tab-sel-text); }
 
 /* --- compact: narrower than 900 px, or portrait ------------------------------- */
 
@@ -1425,6 +1601,13 @@ button { font: inherit; color: inherit; }
   .screen[data-screen="implement"] .slot-group, .screen[data-screen="implement"] .slot,
   .screen[data-screen="implement"] .control-column { min-height: auto; }
   .impl-card { overflow: visible; }
+  /* the Harvester screen scrolls the same way: band, work, tank, details */
+  .screen[data-screen="harvester"] { grid-template-columns: minmax(0, 1fr); align-content: start; }
+  .slot-group[data-group="harvester"] { grid-template-columns: minmax(0, 1fr); grid-template-rows: 132px auto auto auto; }
+  .slot-group[data-group="harvester"] .slot:has(> .impl-details) { grid-column: 1; grid-row: auto; }
+  .screen[data-screen="harvester"] .slot-group, .screen[data-screen="harvester"] .slot,
+  .screen[data-screen="harvester"] .control-column { min-height: auto; }
+  .harv-states, .harv-states:has(> .harv-state[hidden]) { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   /* unselected tabs drop to icons; the readout keeps speed, rpm and fuel */
   .tab:not([aria-pressed="true"]) { padding: 0; }
   .tab:not([aria-pressed="true"]) .tab-label { display: none; }

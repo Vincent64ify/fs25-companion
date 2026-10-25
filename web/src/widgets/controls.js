@@ -18,7 +18,7 @@
 
 import { createControl } from "../ui/control.js";
 import { cabOf, controlledVehicle, cruiseOf, entryModel, implementsOf, keyTool, lightsOf, liveTool, ptoOf, rigOf,
-  selectedInRig, toolModel } from "../data/selectors.js";
+  selectedInRig } from "../data/selectors.js";
 import { sendCommand } from "../connection.js";
 import { speedToKmh, speedUnit, speedValue, unitsOf } from "../data/units.js";
 import { h } from "../ui/dom.js";
@@ -110,7 +110,7 @@ export const toolFor = (key) => (v, cab) => keyTool(cab, key) || selectedImpleme
 export const toolNote = (key) => (/** @type {any} */ v, /** @type {any} */ cab) => {
   const tool = keyTool(cab, key);
   const selected = selectedInRig(cab);
-  return tool && selected && tool.id !== selected.id ? toolModel(tool, v) : undefined;
+  return tool && selected && tool.id !== selected.id ? entryModel(tool, v) : undefined;
 };
 
 /**
@@ -144,6 +144,7 @@ const pipeKey = rigKey("pipe", (e) => !!e.pipe, (e) => e.pipe.out);
 const unloadKey = rigKey("unload", (e) => typeof e.discharging === "boolean" && (e.trailer === true || !!e.pipe),
   (e) => e.discharging);
 const coverKey = rigKey("cover", (e) => !!e.cover, (e) => e.cover.open);
+const strawKey = rigKey("straw", (e) => !!e.straw, (e) => e.straw.swath);
 
 /** the tools Lower all moves: every one the game lets lower */
 const lowerable = (/** @type {any} */ cab) =>
@@ -339,7 +340,7 @@ export const CONTROLS = {
   // the Implement screen's keys, each as the game's key: Ctrl+V lowers or
   // raises every tool (lit while one is lowered), O the pipe, I unloads a
   // combine or tips a trailer (Ctrl+I to the ground where only that is
-  // live), N the cover
+  // live), N the cover, and the combine's straw
   lowerAll: { label: "Lower all", icon: "lowerAll", action: "implement.lowerAll", progressive: true,
     read: (v, cab) => {
       const tools = lowerable(cab);
@@ -353,8 +354,17 @@ export const CONTROLS = {
     labels: (v, cab) => ({ label: unloadKey.tool(cab)?.trailer ? "Tipping" : "Unload" }) },
   cover: { label: "Uncover", icon: "cover", action: "implement.cover", read: coverKey.read, value: coverKey.value,
     labels: (v, cab) => ({ label: coverKey.tool(cab)?.cover?.open ? "Cover" : "Uncover" }) },
+  // a combine's threshing: its own turn on (B, as the game's help says
+  // "Turn on harvester"), lit while it threshes
+  thresher: { label: "Thresher", icon: "implementOn", action: "implement.turnOn", read: (v, cab) => {
+    const head = rigOf(cab).find((e) => e.depth === 0);
+    return head?.canTurnOn ? head.turnedOn === true : undefined;
+  } },
+  // a combine's straw (the game's TOGGLE_CHOPPER): lit while it lays a swath
+  straw: { label: "Straw swath", icon: "straw", action: "implement.straw", read: strawKey.read,
+    value: strawKey.value },
   // the selected tool, from what it hangs on
-  detach: { label: "Detach", icon: "hitchUp", action: "implement.detach",
+  detach: { label: "Detach", icon: "hitch", action: "implement.detach",
     sendValue: (v, cab) => selectedInRig(cab)?.id,
     read: (v, cab) => {
       const selected = selectedInRig(cab);

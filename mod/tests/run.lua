@@ -951,7 +951,14 @@ test("commands C2: setters when no key event is active, single cruise steps", fu
     eq(ack.ok, false, "nothing to attach in range")
     eq(ack.reason, "nothing in range")
     ack = run("FOLD_IMPLEMENT")
-    eq(ack.reason, "no implement", "implement actions need one")
+    eq(ack.reason, "can't fold", "no implement, and the vehicle doesn't fold")
+    vehicle.spec_foldable = {}
+    vehicle.getToggledFoldDirection = function() return -1 end
+    vehicle.setFoldState = function(self, direction) self.foldedTo = direction end
+    setter("FOLD_IMPLEMENT")
+    eq(vehicle.foldedTo, -1, "no implement: the vehicle folds itself (a combine)")
+    vehicle.spec_foldable, vehicle.getToggledFoldDirection, vehicle.setFoldState = nil, nil, nil
+    eq(run("LOWER_IMPLEMENT").reason, "no implement", "implement actions need one")
     -- the cruise step goes through the axis when there's no setter
     vehicle.setCruiseControlMaxSpeed = nil
     local calls = bindInputs({ "AXIS_CRUISE_CONTROL" }, vehicle)
@@ -1245,6 +1252,12 @@ test("implement screen: pipe, discharge, trailer, cover and the new keys in the 
     eq(head.pipe.moving, false)
     eq(head.discharging, false)
     eq(head.trailer, nil)
+    eq(head.foldable, nil, "doesn't fold")
+    combine.spec_foldable = { foldingParts = { {} } }
+    combine.getIsUnfolded = function() return false end
+    local folds = Cab.collect({}).rig[1]
+    eq(folds.foldable, true, "a combine folds itself")
+    eq(folds.unfolded, false)
     eq(cab.rig[2].pipe, nil, "the cutter has no pipe")
     local t = cab.rig[3]
     eq(t.trailer, true)
@@ -1288,6 +1301,93 @@ test("implement screen: speed limit, working width and crop in the vehicles topi
     combine.spec_combine.lastValidInputFruitType = 0
     eq(Companion.Collectors.Vehicles.collect({}).vehicles[1].crop, nil, "nothing harvested yet")
     g_fruitTypeManager = nil
+end)
+
+test("harvester screen: straw, its key, worked area and Precision Farming's yield", function()
+    load("src/collectors/Cab.lua")
+    local Cab = Companion.Collectors.Cab
+    Cab.reset()
+    local combine = harvestRig()
+    combine.spec_combine.swath = { isAvailable = true }
+    combine.spec_combine.chopper = { isAvailable = true }
+    combine.spec_combine.isSwathActive = false
+    combine.setIsSwathActive = function(self, on) self.spec_combine.isSwathActive = on end
+    bindInputs({ "TOGGLE_CHOPPER" }, combine)
+    local cab = Cab.collect({})
+    eq(cab.rig[1].straw.swath, false, "chopping")
+    eq(cab.rig[2].straw, nil, "the cutter has no straw")
+    eq(cab.keys.straw, 20)
+    g_inputBinding = nil
+    combine.spec_combine.chopper.isAvailable = false
+    eq(Cab.collect({}).rig[1].straw, nil, "no choice: no straw")
+    combine.spec_combine.chopper.isAvailable = true
+
+    load("src/collectors/Vehicles.lua")
+    getWorldTranslation = function() return 0, 0, 0 end
+    localDirectionToWorld = function() return 0, 0, -1 end
+    FillType = { UNKNOWN = 0 }
+    g_storeManager, g_brandManager, g_fillTypeManager, g_fruitTypeManager = nil, nil, nil, nil
+    combine.spec_combine.workedHectars = 12.345
+    combine.spec_combine.workedHectarsInitial = 10
+    g_currentMission = { vehicleSystem = { vehicles = { combine } } }
+    local v = Companion.Collectors.Vehicles.collect({}).vehicles[1]
+    eq(v.hectares.run, 2.35, "this run")
+    eq(v.hectares.total, 12.35)
+    eq(v.yield, nil, "no Precision Farming")
+    combine["spec_FS25_precisionFarming.extendedCombine"] =
+        { lastYieldWeight = 7.94, lastYieldPercentage = 79, lastYieldPotential = 100 }
+    v = Companion.Collectors.Vehicles.collect({}).vehicles[1]
+    eq(v.yield.tPerHa, 7.9)
+    eq(v.yield.pct, 79)
+    eq(v.yield.potential, 100)
+    eq(v.implements[1].hectares, nil, "only the controlled vehicle")
+end)
+
+test("trailer fill limit: maxReached and the litres a unit stops at", function()
+    load("src/collectors/Vehicles.lua")
+    getWorldTranslation = function() return 0, 0, 0 end
+    localDirectionToWorld = function() return 0, 0, -1 end
+    FillType = { UNKNOWN = 0 }
+    g_storeManager, g_brandManager = nil, nil
+    g_fillTypeManager = { getFillTypeByIndex = function(_, i)
+        return ({ [5] = { name = "SEEDS", title = "Seeds", massPerLiter = 0.0005 },
+                  [7] = { name = "FERTILIZER", title = "Solid Fertilizer", massPerLiter = 0.001 } })[i]
+    end }
+    local seeder = {
+        id = 1, rootNode = 1, maxComponentMass = 9, reached = false, available = 0.2,
+        getMaxComponentMassReached = function(self) return self.reached end,
+        getAvailableComponentMass = function(self) return self.available end,
+        spec_fillUnit = { fillUnits = {
+            { capacity = 1400, fillLevel = 1000, fillType = 5 },
+            { capacity = 1400, fillLevel = 1063, fillType = 7 },
+            { capacity = 1400, fillLevel = 100, fillType = 7, ignoreFillLimit = true },
+            { capacity = 1400, fillLevel = 0, fillType = 0 },
+        } },
+    }
+    g_currentMission = { vehicleSystem = { vehicles = { seeder } }, missionInfo = { trailerFillLimit = true } }
+    g_localPlayer = { getCurrentVehicle = function() return seeder end }
+    local fills = function() return Companion.Collectors.Vehicles.collect({}).vehicles[1].fills end
+    local f = fills()
+    eq(f[1].limit, nil, "1000 L + 0.2 t of seeds reaches the capacity: no limit")
+    eq(f[2].limit, 1263, "1063 L + 0.2 t of fertilizer")
+    eq(f[2].maxReached, nil)
+    eq(f[3].limit, nil, "ignores the fill limit")
+    eq(f[4].limit, nil, "empty: no fill type to weigh")
+    seeder.available = 0.1
+    eq(fills()[1].limit, 1200, "1000 L + 0.1 t of seeds")
+    seeder.reached, seeder.available = true, 0
+    f = fills()
+    eq(f[2].maxReached, true)
+    eq(f[2].limit, 1063, "stops where it is")
+    eq(f[3].maxReached, nil, "ignores the fill limit")
+    g_currentMission.missionInfo.trailerFillLimit = false
+    f = fills()
+    eq(f[2].maxReached, nil, "setting off")
+    eq(f[2].limit, nil, "setting off")
+    seeder.maxComponentMass = math.huge
+    g_currentMission.missionInfo.trailerFillLimit = true
+    eq(fills()[2].maxReached, nil, "no maximum mass")
+    g_fillTypeManager, g_localPlayer = nil, nil
 end)
 
 test("commands, implement screen: lower all, pipe, unload, cover as their keys, else setters", function()

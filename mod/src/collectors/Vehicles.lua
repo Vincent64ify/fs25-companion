@@ -110,16 +110,42 @@ local function fillTypeInfo(index)
             if type(fillType.title) == "string" then
                 info.title = fillType.title
             end
+            if type(fillType.massPerLiter) == "number" and fillType.massPerLiter > 0 then
+                info.massPerLiter = fillType.massPerLiter
+            end
         end
         fillTypeInfos[index] = info
     end
     return info
 end
 
+-- the game's Trailer Fill Limit (FillUnit.lua): with the setting on, a
+-- vehicle stops taking load at its maximum mass, every unit at once, and its
+-- HUD shows MAX. {reached, available (t)}; nil when the setting is off or the
+-- vehicle has no maximum.
+local function massLimit(vehicle)
+    local info = g_currentMission ~= nil and g_currentMission.missionInfo or nil
+    if type(info) ~= "table" or not info.trailerFillLimit then
+        return nil
+    end
+    local max = vehicle.maxComponentMass
+    if type(max) ~= "number" or max == math.huge then
+        return nil
+    end
+    local reached = Api.tryCall(vehicle, "getMaxComponentMassReached")
+    local available = Api.tryCall(vehicle, "getAvailableComponentMass")
+    if type(reached) ~= "boolean" or type(available) ~= "number" then
+        return nil
+    end
+    return { reached = reached, available = available }
+end
+
 -- the vehicle's own fill units (a trailer's load, a sprayer's tank, a
 -- combine's grain tank), in unit order, without the motor's fuel, DEF and
 -- air and without units the game hides from its HUD. An empty unit has no
--- fill type (UNKNOWN). Nil when there is none.
+-- fill type (UNKNOWN). Under the Trailer Fill Limit a unit gets maxReached
+-- (the HUD's MAX) and limit, the litres it stops at when that is below its
+-- capacity. Nil when there is none.
 local function fillLevels(vehicle)
     local spec = vehicle.spec_fillUnit
     local units = Api.tryCall(vehicle, "getFillUnits")
@@ -130,6 +156,7 @@ local function fillLevels(vehicle)
         return nil
     end
     local skip = consumerUnits(vehicle)
+    local mass = massLimit(vehicle)
     local unknown = type(FillType) == "table" and FillType.UNKNOWN or nil
     local out = {}
     for index, unit in ipairs(units) do
@@ -159,6 +186,18 @@ local function fillLevels(vehicle)
                 local info = fillTypeInfo(fillType)
                 entry.fillType = info.name and info.name:lower() or nil
                 entry.fillTitle = info.title
+            end
+            if mass ~= nil and not unit.ignoreFillLimit then
+                local stop
+                if mass.reached then
+                    entry.maxReached = true
+                    stop = level or 0
+                elseif entry.fillType ~= nil and fillTypeInfo(fillType).massPerLiter ~= nil then
+                    stop = (level or 0) + mass.available / fillTypeInfo(fillType).massPerLiter
+                end
+                if stop ~= nil and stop < capacity - 0.5 then
+                    entry.limit = Geo.round(math.max(0, stop), 1)
+                end
             end
             out[#out + 1] = entry
         end
@@ -254,6 +293,46 @@ local function cropOf(object)
         return nil
     end
     return { name = fillType.name:lower(), title = fillType.title }
+end
+
+-- a combine's worked area (Combine.lua): this run (since it was entered or
+-- loaded) and in total, ha; nil without a combine
+local function hectaresOf(object)
+    local spec = object.spec_combine
+    if type(spec) ~= "table" or type(spec.workedHectars) ~= "number" then
+        return nil
+    end
+    local initial = type(spec.workedHectarsInitial) == "number" and spec.workedHectarsInitial or 0
+    return { run = Geo.round(math.max(0, spec.workedHectars - initial), 2), total = Geo.round(spec.workedHectars, 2) }
+end
+
+-- Precision Farming's yield, as its combine HUD shows it (ExtendedCombine:
+-- lastYieldWeight t/ha, lastYieldPercentage and lastYieldPotential %). Its
+-- spec table is named after the mod ("spec_<mod>.extendedCombine"), so the
+-- key is found once and kept. Nil without Precision Farming.
+local yieldKey
+local function yieldOf(object)
+    if object.spec_combine == nil then
+        return nil
+    end
+    if yieldKey == nil then
+        for key, value in pairs(object) do
+            if type(key) == "string" and key:find("^spec_") and key:lower():find("extendedcombine$")
+                and type(value) == "table" then
+                yieldKey = key
+                break
+            end
+        end
+    end
+    local spec = yieldKey ~= nil and object[yieldKey] or nil
+    if type(spec) ~= "table" or type(spec.lastYieldWeight) ~= "number" then
+        return nil
+    end
+    return {
+        tPerHa = Geo.round(spec.lastYieldWeight, 1),
+        pct = type(spec.lastYieldPercentage) == "number" and spec.lastYieldPercentage or nil,
+        potential = type(spec.lastYieldPotential) == "number" and spec.lastYieldPotential or nil,
+    }
 end
 
 local function collectImplements(vehicle, depth, out)
@@ -491,6 +570,9 @@ local function vehicleEntry(vehicle, detailed)
         -- limit while something works
         entry.crop = cropOf(vehicle)
         entry.speedLimit = speedLimitOf(vehicle, true)
+        -- the Harvester screen: worked area and Precision Farming's yield
+        entry.hectares = hectaresOf(vehicle)
+        entry.yield = yieldOf(vehicle)
     end
     return entry
 end

@@ -42,7 +42,7 @@ export default {
     {
       // the readout and vehicle cards, condition tiles and implements
       // (rows 296 | 116 | 1fr, columns 1fr | 300), then the controls
-      id: "vehicle", label: "Vehicle", icon: "tractor",
+      id: "vehicle", label: "Vehicle", icon: "tractor", choice: "Tractor",
       slots: [
         { group: "vehicle", slots: [
           { widget: "vehicleReadout" },
@@ -76,6 +76,25 @@ export default {
         ] },
         { controls: true, omit: ["engineOn", "implementLowered", "fold", "implementOn", "hitch"],
           add: [{ label: "All implements", controls: ["lowerAll", "hitch"] }] },
+      ],
+    },
+    {
+      // the Vehicle tab's other page, for a combine (docs/THEMES.md,
+      // Harvester screen): the rig band, the work card and grain tank
+      // beside the details (rows 132 | 228 | 1fr, columns 1fr | 250), then
+      // the controls with the combine's own keys
+      id: "harvester", label: "Harvester", icon: "harvester", tab: "vehicle", choice: "Harvester", when: "harvester",
+      slots: [
+        { group: "harvester", slots: [
+          { widget: "rigBand" },
+          { widget: "harvestWork" },
+          { widget: "grainTank" },
+          { widget: "harvestDetails" },
+        ] },
+        { controls: true, omit: ["engineOn", "implementLowered", "fold", "implementOn", "hitch"],
+          // Lower all and Hitch stay on the Implement tab: with Lights and
+          // Drive, a third group of buttons wouldn't fit 820 px
+          add: [{ label: "Harvester", controls: ["implementLowered", "thresher", "fold", "pipe", "unload", "straw"] }] },
       ],
     },
   ],

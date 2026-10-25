@@ -29,6 +29,17 @@ import { createKeepAwake } from "./ui/screenMode.js";
 import { $ } from "./ui/dom.js";
 
 const SCREEN_KEY = "fs25companion.screen";
+const AUTO_PICK_KEY = "fs25companion.autoPick";
+
+/** The Vehicle tab picks Tractor or Harvester by what you drive: on unless turned off here. */
+const autoPick = {
+  wanted() {
+    try { return localStorage.getItem(AUTO_PICK_KEY) !== "off"; } catch { return true; }
+  },
+  set(/** @type {boolean} */ on) {
+    try { localStorage.setItem(AUTO_PICK_KEY, on ? "on" : "off"); } catch { /* private mode */ }
+  },
+};
 
 /** @param {string} href resolves once loaded (or failed: the page still works) */
 function loadStylesheet(href) {
@@ -53,6 +64,7 @@ const settings = createSettings({
   themes: THEMES, theme, palette,
   keepAwake: createKeepAwake(),
   roundTrips,
+  autoPick,
   onTheme(id) {
     saveChoice("theme", id);
     location.search = withoutParams(location.search, ["theme", "palette"]);
@@ -69,7 +81,7 @@ const settings = createSettings({
 const store = createStore();
 const frame = createMapFrame(store);
 const app = $("app");
-const rendered = renderTheme(theme, app, store, frame, settings);
+const rendered = renderTheme(theme, app, store, frame, settings, autoPick);
 
 // the screen shown last on this device, per theme
 /** @type {Record<string, string>} */
@@ -83,7 +95,10 @@ if (rendered.showScreen) {
   if (screens[theme.id] && app.querySelector(`.screen[data-screen="${screens[theme.id]}"]`)) {
     rendered.showScreen(screens[theme.id]);
   }
-  app.querySelector(".tab-bar")?.addEventListener("click", rememberScreen);
+  // a tab, or a shared tab's menu
+  app.addEventListener("click", (ev) => {
+    if (/** @type {HTMLElement} */ (ev.target).closest(".tab-bar, .tab-menu")) rememberScreen();
+  });
 }
 
 // --- map -------------------------------------------------------------------

@@ -32,9 +32,10 @@ const PALETTE_ICONS = { day: "sun", night: "dayNight" };
  * @param {(palette: string) => void} opts.onPalette saves and applies
  * @param {KeepAwake} [opts.keepAwake]
  * @param {() => import("../commands.js").RoundTrips} [opts.roundTrips] the controls' round trips
+ * @param {import("../themes/render.js").AutoPick} [opts.autoPick] the Vehicle tab picks Tractor or Harvester
  * @returns {Settings}
  */
-export function createSettings({ themes, theme, palette, onTheme, onPalette, keepAwake, roundTrips }) {
+export function createSettings({ themes, theme, palette, onTheme, onPalette, keepAwake, roundTrips, autoPick }) {
   const button = /** @type {HTMLButtonElement} */ (h("button", { className: "settings-button" },
     icon("settings"), h("span", { text: "Settings" })));
   button.type = "button";
@@ -114,6 +115,18 @@ export function createSettings({ themes, theme, palette, onTheme, onPalette, kee
       mark();
     });
     screenNotes.push("Keep screen on is saved on this device.");
+  }
+  if (autoPick) {
+    const b = toggle("harvester", "Screen for what I drive");
+    b.dataset.choice = "autoPick";
+    const mark = () => b.setAttribute("aria-pressed", String(autoPick.wanted()));
+    mark();
+    b.addEventListener("click", () => {
+      autoPick.set(!autoPick.wanted());
+      mark();
+    });
+    screenNotes.push("Screen for what I drive: the Vehicle tab shows the Harvester screen in a combine, " +
+      "the Tractor screen otherwise; tap the tab again to choose.");
   }
   if (screenChoices.length) {
     panel.append(h("fieldset", { className: "settings-group" },

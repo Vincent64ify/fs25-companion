@@ -187,8 +187,12 @@ export function aiJobText(v) {
 }
 
 /**
- * One fill unit, as the mod sends it: an empty unit has no fill type.
- * @typedef {{unit?: number, level: number, capacity: number, fillType?: string, fillTitle?: string}} Fill
+ * One fill unit, as the mod sends it: an empty unit has no fill type. Under
+ * the game's Trailer Fill Limit, maxReached is the HUD's MAX (the vehicle is
+ * at its maximum mass) and limit the litres the unit stops at, when below
+ * its capacity.
+ * @typedef {{unit?: number, level: number, capacity: number, fillType?: string, fillTitle?: string,
+ *   maxReached?: boolean, limit?: number}} Fill
  */
 
 /** @param {any} list @returns {Fill[]} */
@@ -199,6 +203,15 @@ export const fillsOf = (v) => fillList(v?.fills);
 
 /** @param {Fill} f @returns {number} 0..100 */
 export const fillPct = (f) => Math.max(0, Math.min(100, (100 * (f.level || 0)) / f.capacity));
+
+/** The litres the unit stops at: its weight limit, else its capacity. @param {Fill} f */
+export const fillStop = (f) => (typeof f.limit === "number" && f.limit < f.capacity ? Math.max(0, f.limit) : f.capacity);
+
+/** Where the weight limit falls on the bar, 0..100; undefined without one. @param {Fill} f */
+export const fillLimitPct = (f) => (fillStop(f) < f.capacity ? (100 * fillStop(f)) / f.capacity : undefined);
+
+/** The game's MAX: the unit takes no more, at any level. @param {Fill} f */
+export const fillMax = (f) => f.maxReached === true;
 
 /** "Wheat", "Empty" for an empty unit. @param {Fill} f */
 export function fillName(f) {
@@ -275,7 +288,8 @@ export function toolModel(tool, v) {
 export function keyTool(cab, key) {
   if (!cab || !cab.inVehicle || !cab.keys || !Array.isArray(cab.rig)) return undefined;
   const id = cab.keys[key];
-  return cab.rig.find((e) => e.depth > 0 && e.id === id) ?? null;
+  // the vehicle itself only for its own fold (a combine unfolds itself)
+  return cab.rig.find((e) => e.id === id && (e.depth > 0 || (key === "fold" && e.foldable === true))) ?? null;
 }
 
 /** The rig entry with this id. @param {import("../types.js").Cab|undefined} cab @param {number|undefined} id */

@@ -236,9 +236,10 @@ def test_implement_screen_actions_are_the_games_keys(tmp_path):
     for n, (action, game) in enumerate([("implement.lowerAll", "LOWER_ALL_IMPLEMENTS"),
                                         ("implement.pipe", "TOGGLE_PIPE"),
                                         ("implement.unload", "TOGGLE_DISCHARGE"),
-                                        ("implement.cover", "TOGGLE_COVER")], start=1):
+                                        ("implement.cover", "TOGGLE_COVER"),
+                                        ("implement.straw", "TOGGLE_STRAW")], start=1):
         writer.submit(str(n), action)
         assert attrs(tmp_path / "cmd" / f"{n}.xml")["action"] == game
         assert "value" not in attrs(tmp_path / "cmd" / f"{n}.xml")
-    writer.submit("5", "implement.pipe", 1)
+    writer.submit("6", "implement.pipe", 1)
     assert [a["data"]["reason"] for a in acks] == ["value not allowed"]

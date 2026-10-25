@@ -12,7 +12,7 @@
 // in game moves the mark, since it follows the cab's rig. Older mods send
 // no rig: rows only show.
 
-import { cabOf, controlledVehicle, fillName, fillPct, implementsOf, kindLabel, rigOf, vehicleKind }
+import { cabOf, controlledVehicle, fillLimitPct, fillMax, fillName, fillPct, implementsOf, kindLabel, rigOf, vehicleKind }
   from "../data/selectors.js";
 import { sendCommand } from "../connection.js";
 import { h } from "../ui/dom.js";
@@ -28,7 +28,9 @@ export function implementLine(impl) {
   if (impl.turnedOn) bits.push("on");
   if (impl.pto === true) bits.push("PTO");
   if ((impl.wear ?? 0) > 0) bits.push(`wear ${Math.round(100 * (impl.wear ?? 0))}%`);
-  for (const f of fillsOfImpl(impl)) bits.push(`${fillName(f).toLowerCase()} ${Math.round(fillPct(f))}%`);
+  for (const f of fillsOfImpl(impl)) {
+    bits.push(`${fillName(f).toLowerCase()} ${Math.round(fillPct(f))}%${fillMax(f) ? " (max)" : ""}`);
+  }
   return "  ".repeat(Math.max(0, (impl.depth || 1) - 1)) +
     (impl.name || "Implement") + (bits.length ? " – " + bits.join(", ") : "");
 }
@@ -54,6 +56,27 @@ function meterLine(/** @type {string} */ className, /** @type {string} */ name, 
   return h("div", { className },
     h("div", {}, h("span", { text: name }), h("b", { text: value })), h("span", { className: "widget-meter" }, bar));
 }
+
+/**
+ * A fill unit's bar: the level, and past its weight limit (the game's Trailer
+ * Fill Limit) a shaded stretch it can't reach, a tick where it stops.
+ * @param {import("../data/selectors.js").Fill} f
+ */
+export function fillMeter(f) {
+  const bar = h("span");
+  bar.style.width = `${fillPct(f)}%`;
+  const meter = h("span", { className: "widget-meter fill-meter" }, bar);
+  const at = fillLimitPct(f);
+  if (at !== undefined) {
+    const beyond = h("i", { className: "fill-beyond" });
+    beyond.style.left = `${at}%`;
+    meter.append(beyond);
+  }
+  return meter;
+}
+
+/** The game's MAX beside a fill level: a lock and MAX. */
+export const maxBadge = () => h("span", { className: "fill-max" }, icon("lock"), h("span", { text: "MAX" }));
 
 /** A state chip: icon or dot, then the text. */
 function chip(/** @type {string} */ text, /** @type {string} */ state, /** @type {Node} */ mark) {
@@ -83,9 +106,11 @@ function implementRow(impl, rig, send) {
     row.append(meterLine("impl-wear", "Wear", pct, `${pct}%`));
   }
   for (const f of fillsOfImpl(impl)) {
-    const pct = Math.round(fillPct(f));
-    row.append(meterLine("impl-fill", fillName(f), pct,
-      `${pct}% · ${Math.round(f.level).toLocaleString()} / ${Math.round(f.capacity).toLocaleString()} L`));
+    const value = h("b", { text: `${Math.round(fillPct(f))}% · ${Math.round(f.level).toLocaleString()} / ` +
+      `${Math.round(f.capacity).toLocaleString()} L` });
+    if (fillMax(f)) value.prepend(maxBadge());
+    row.append(h("div", { className: "impl-fill" },
+      h("div", {}, h("span", { text: fillName(f) }), value), fillMeter(f)));
   }
   if (rig && typeof rig.id === "number") pickable(row, impl, rig, send);
   return row;
@@ -124,7 +149,7 @@ function pickable(row, impl, rig, send) {
   if (rig.selected) {
     const mark = h("span", { className: "impl-selected", text: "Selected" });
     const detach = /** @type {HTMLButtonElement} */ (h("button", { className: "impl-detach" },
-      icon("hitchUp"), h("span", { text: "Detach" })));
+      icon("hitch"), h("span", { text: "Detach" })));
     detach.type = "button";
     detach.addEventListener("click", async () => {
       if (detach.dataset.state === "pending") return;

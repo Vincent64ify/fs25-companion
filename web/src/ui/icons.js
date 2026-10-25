@@ -159,8 +159,11 @@ const PATHS = {
   // the dashed arcs are their swing down to work
   fold: '<path d="M8 18h8M8 18V9.5M16 18V9.5M10.5 18v2.5M13.5 18v2.5"/>' +
     '<path d="M8 9.5a8.5 8.5 0 0 0-6 2.5M16 9.5a8.5 8.5 0 0 1 6 2.5" stroke-dasharray="1.6 2"/>',
-  // two drawbars coupled: one's eye round the other's pin
-  hitch: '<path d="M2.5 12h7M16.5 12h5M13 5v14M11 5h4"/><circle cx="13" cy="12" r="3.5"/>',
+  // a ball on its bar, before a coupling ring open towards it: attach and
+  // detach, traced from the game's own Attach Tool prompt (filled, no stroke)
+  hitch: '<g fill="currentColor" stroke="none"><rect x="1" y="11" width="4" height="2"/>' +
+    '<circle cx="7.2" cy="12" r="3.2"/>' +
+    '<path d="M11 9.8A6 6 0 1 1 11 14.2H13.5A3.8 3.8 0 1 0 13.5 9.8z"/></g>',
   // the PTO housing over a splined shaft (ISO PTO symbol)
   pto: '<path d="M4 19.5V6h16v13.5"/>' + gear(12, 13.5),
   hitchUp: HITCH + '<path d="M19 15.5V4M15.5 7.5L19 4l3.5 3.5"/>',
@@ -183,8 +186,12 @@ const PATHS = {
   // a tipping body, its load going down: unloading, tipping
   unload: '<path d="M3 13.5L15.5 6l3 5L6 18.5z"/><circle cx="9" cy="20" r="1.8"/>' +
     '<path d="M20 13.5v7M17.5 18l2.5 2.5 2.5-2.5"/>',
+  // a swath of straw on the stubble, its stalks: the straw swath
+  straw: '<path d="M3 18.5h18M4.5 18.5c1.5-5 13.5-5 15 0"/><path d="M8 13.5L6.5 6M12 13V4.5M16 13.5L17.5 6"/>',
   // a body under its rolled cover
   cover: '<path d="M3 11h18v7.5H3zM3 11c0-3.5 4-5.5 9-5.5s9 2 9 5.5M12 5.5V11"/>',
+  // a padlock: the game's MAX, a tool at its weight limit
+  lock: '<rect x="5" y="10.5" width="14" height="10" rx="2"/><path d="M8.5 10.5V7.5a3.5 3.5 0 0 1 7 0v3"/>',
   // the working width, wall to wall
   workWidth: '<path d="M3 6.5v11M21 6.5v11M3 12h18M6.5 8.5L3 12l3.5 3.5M17.5 8.5L21 12l-3.5 3.5"/>',
   // a field with its rows: the area worked
@@ -204,7 +211,7 @@ export const ICON_GROUPS = {
   Controls: ["lights", "highBeam", "beacon", "hazard", "turnLeft", "turnRight", "cruise",
              "cruiseDown", "cruiseUp", "pto", "hitchUp", "hitchDown", "fold", "hitch", "implementOn",
              "aiWorker", "engineOn", "toolPrev", "toolNext"],
-  "Implement screen": ["lowerAll", "pipe", "unload", "cover", "workWidth", "area"],
+  "Implement screen": ["lowerAll", "pipe", "unload", "cover", "straw", "lock", "workWidth", "area"],
 };
 
 /** @param {string} name */

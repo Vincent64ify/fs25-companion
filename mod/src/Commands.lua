@@ -172,7 +172,11 @@ local function cruiseStep(step)
     end
 end
 
-local function toggleFold(_, implement)
+-- the selected implement, else the vehicle itself (a combine folds too)
+local function toggleFold(vehicle, implement)
+    if implement == nil or implement.spec_foldable == nil then
+        implement = vehicle
+    end
     if type(implement.setFoldState) ~= "function" then
         return false, "can't fold"
     end
@@ -319,6 +323,22 @@ local function togglePipe(vehicle)
     return false, "no pipe"
 end
 
+-- a combine's straw: swath or chopper, where the crop has a windrow
+local function toggleStraw(vehicle)
+    for _, object in ipairs(rigObjects(vehicle)) do
+        local spec = object.spec_combine
+        if type(spec) == "table" and type(object.setIsSwathActive) == "function" then
+            if type(spec.swath) ~= "table" or not spec.swath.isAvailable
+                or type(spec.chopper) ~= "table" or not spec.chopper.isAvailable then
+                return false, "no straw choice"
+            end
+            object:setIsSwathActive(not spec.isSwathActive)
+            return true
+        end
+    end
+    return false, "no combine"
+end
+
 -- the first cover: on to its next state (0 closed)
 local function toggleCover(vehicle)
     for _, object in ipairs(rigObjects(vehicle)) do
@@ -364,7 +384,7 @@ Commands.ACTIONS = {
     CRUISE_SET_SPEED = { direct = cruiseSet },
     TOGGLE_AI = { inputs = { "TOGGLE_AI" } },
     LOWER_IMPLEMENT = { implement = true, inputs = { "LOWER_IMPLEMENT" }, fallback = toggleLower },
-    FOLD_IMPLEMENT = { implement = true, inputs = { "IMPLEMENT_EXTRA2" }, fallback = toggleFold },
+    FOLD_IMPLEMENT = { inputs = { "IMPLEMENT_EXTRA2" }, fallback = toggleFold },
     TURN_ON_IMPLEMENT = { implement = true, inputs = { "IMPLEMENT_EXTRA" }, fallback = toggleTurnOn },
     -- the Hitch button is the attach key (Q): the game attaches what's in
     -- range or detaches the selected implement, whatever is selected. (C2's
@@ -382,6 +402,8 @@ Commands.ACTIONS = {
     TOGGLE_PIPE = { inputs = { "TOGGLE_PIPE" }, fallback = togglePipe },
     TOGGLE_DISCHARGE = { inputs = { "TOGGLE_TIPSTATE", "TOGGLE_TIPSTATE_GROUND" } },
     TOGGLE_COVER = { inputs = { "TOGGLE_COVER" }, fallback = toggleCover },
+    -- the Harvester screen: straw swath or chopper (the game's TOGGLE_CHOPPER)
+    TOGGLE_STRAW = { inputs = { "TOGGLE_CHOPPER" }, fallback = toggleStraw },
 }
 
 local ATTRIBUTES = { "session", "id", "action", "ref", "value" }

@@ -5,6 +5,8 @@
 
 import { createWidget, WIDGETS } from "../widgets/index.js";
 import { controlGroup, CONTROLS } from "../widgets/controls.js";
+import { isHarvester } from "../widgets/harvesterScreen.js";
+import { controlledVehicle } from "../data/selectors.js";
 import { h } from "../ui/dom.js";
 import { hasIcon, icon } from "../ui/icons.js";
 
@@ -35,6 +37,22 @@ import { hasIcon, icon } from "../ui/icons.js";
  * @property {string} [icon]
  * @property {Slot[]} slots
  * @property {WidgetRef[]} [readout] widgets in the tab bar while this screen shows
+ * @property {string} [tab] another screen whose tab this one shares (the
+ *   Harvester screen on the Vehicle tab): a second tap on that tab offers
+ *   both, by their `choice` labels
+ * @property {string} [choice] its name in that tab's menu ("Tractor")
+ * @property {keyof typeof DETECT} [when] the tab picks this screen by itself
+ *   while this holds, with the auto pick on
+ */
+
+/** What a screen's `when` can name: whether the store's state calls for it. */
+export const DETECT = {
+  harvester: (/** @type {Store} */ store) => isHarvester(controlledVehicle(store)),
+};
+
+/**
+ * Whether a tab picks its screen by what you drive (Settings, Screen).
+ * @typedef {{wanted: () => boolean, set: (on: boolean) => void}} AutoPick
  */
 
 /**
@@ -106,6 +124,10 @@ export function checkTheme(theme, widgetIds = Object.keys(WIDGETS)) {
     if (seen.has(screen.id)) errors.push(`screen "${screen.id}" twice`);
     seen.add(screen.id);
     wantIcon(screen.icon, `screen ${screen.id}`);
+    if (screen.tab !== undefined && !(theme.screens || []).some((s) => s.id === screen.tab && !s.tab)) {
+      errors.push(`screen ${screen.id}: no tab "${screen.tab}"`);
+    }
+    if (screen.when !== undefined && !(screen.when in DETECT)) errors.push(`screen ${screen.id}: no detector "${screen.when}"`);
     let maps = 0;
     for (const slot of flatSlots(screen.slots)) {
       if ("map" in slot) maps++;
@@ -133,9 +155,10 @@ export function checkTheme(theme, widgetIds = Object.keys(WIDGETS)) {
  * @param {Store} store
  * @param {MapFrame} frame
  * @param {Settings} [settings] the Settings button and panel (ui/settings.js)
+ * @param {AutoPick} [autoPick] whether shared tabs pick their screen by themselves
  * @returns {Rendered}
  */
-export function renderTheme(theme, app, store, frame, settings) {
+export function renderTheme(theme, app, store, frame, settings, autoPick) {
   const errors = checkTheme(theme);
   if (errors.length) throw new Error(`theme ${theme.id}: ${errors.join("; ")}`);
 
@@ -159,6 +182,12 @@ export function renderTheme(theme, app, store, frame, settings) {
 
   /** @type {Map<string, {el: HTMLElement, mapSlot: HTMLElement|null, tab: HTMLElement, readout: HTMLElement|null}>} */
   const built = new Map();
+  /** the tab each screen is on: its own, or the one it shares */
+  const tabOf = (/** @type {Screen} */ screen) => screen.tab || screen.id;
+  /** @typedef {{button: HTMLElement, screens: Screen[], pick: string, menu: HTMLElement|null,
+   *   away: ((ev: Event) => void)|null}} TabGroup */
+  /** @type {Map<string, TabGroup>} */
+  const tabGroups = new Map();
   const main = h("main", { className: "screens" });
   const tabList = h("div", { className: "tabs" });
   const tabs = h("nav", { className: "tab-bar" }, tabList);
@@ -197,13 +226,24 @@ export function renderTheme(theme, app, store, frame, settings) {
       }
     };
     place(screen.slots, el);
-    const tab = h("button", { className: "tab" },
-      ...(screen.icon ? [icon(screen.icon)] : []), h("span", { className: "tab-label", text: screen.label }));
-    tab.setAttribute("type", "button");
-    tab.title = screen.label;
-    tab.dataset.screen = screen.id;
-    tab.addEventListener("click", () => showScreen(screen.id));
-    tabList.append(tab);
+    const shared = tabGroups.get(tabOf(screen));
+    /** @type {HTMLElement} */
+    let tab;
+    if (shared) {
+      shared.screens.push(screen);
+      tab = shared.button;
+    } else {
+      tab = h("button", { className: "tab" },
+        ...(screen.icon ? [icon(screen.icon)] : []), h("span", { className: "tab-label", text: screen.label }));
+      tab.setAttribute("type", "button");
+      tab.title = screen.label;
+      tab.dataset.screen = screen.id;
+      /** @type {TabGroup} */
+      const group = { button: tab, screens: [screen], pick: screen.id, menu: null, away: null };
+      tabGroups.set(screen.id, group);
+      tab.addEventListener("click", () => tapTab(group));
+      tabList.append(tab);
+    }
     const readout = screen.readout?.length
       ? h("div", { className: "tab-readout", hidden: true }, ...widgets(screen.readout))
       : null;
@@ -217,17 +257,93 @@ export function renderTheme(theme, app, store, frame, settings) {
   }
   if (settings) main.append(settings.layer);
 
+  // a shared tab: a tap shows its screen (the one picked), a tap on the
+  // tab already shown opens the menu of its screens
+  /** @param {TabGroup} group */
+  function closeMenu(group) {
+    group.menu?.remove();
+    group.menu = null;
+    // however it closes: a stale listener would close the next menu on press
+    if (group.away) document.removeEventListener("pointerdown", group.away, true);
+    group.away = null;
+    group.button.setAttribute("aria-expanded", "false");
+  }
+  /** @param {TabGroup} group */
+  function tapTab(group) {
+    const onIt = group.screens.some((s) => s.id === app.dataset.screen);
+    if (!onIt || group.screens.length < 2) {
+      showScreen(group.pick);
+      return;
+    }
+    if (group.menu) {
+      closeMenu(group);
+      return;
+    }
+    const menu = h("div", { className: "tab-menu" }, ...group.screens.map((s) => {
+      const b = h("button", {}, ...(s.icon ? [icon(s.icon)] : []), h("span", { text: s.choice || s.label }));
+      b.setAttribute("type", "button");
+      b.setAttribute("role", "menuitemradio");
+      b.setAttribute("aria-checked", String(s.id === app.dataset.screen));
+      b.addEventListener("click", () => {
+        closeMenu(group);
+        showScreen(s.id);
+      });
+      return b;
+    }));
+    menu.setAttribute("role", "menu");
+    menu.setAttribute("aria-label", group.screens[0].label);
+    const box = group.button.getBoundingClientRect();
+    menu.style.left = `${Math.round(box.left)}px`;
+    menu.style.bottom = `${Math.round(window.innerHeight - box.top + 8)}px`;
+    app.append(menu);
+    group.menu = menu;
+    group.button.setAttribute("aria-expanded", "true");
+    // a press anywhere else closes it
+    group.away = (/** @type {Event} */ ev) => {
+      const target = /** @type {Node} */ (ev.target);
+      if (!menu.contains(target) && !group.button.contains(target)) closeMenu(group);
+    };
+    document.addEventListener("pointerdown", group.away, true);
+  }
+
   /** @param {string} id */
   function showScreen(id) {
+    const screen = screens.find((s) => s.id === id);
+    const group = screen && tabGroups.get(tabOf(screen));
+    if (group && screen) {
+      group.pick = id;
+      // the tab wears the shown screen's icon (a tractor, a combine)
+      if (screen.icon) group.button.querySelector(".icon")?.replaceWith(icon(screen.icon));
+    }
     for (const [screenId, s] of built) {
       const shown = screenId === id;
       s.el.hidden = !shown;
       if (s.readout) s.readout.hidden = !shown;
-      s.tab.setAttribute("aria-pressed", String(shown));
       if (shown && s.mapSlot) frame.moveTo(s.mapSlot);
+    }
+    for (const g of tabGroups.values()) {
+      g.button.setAttribute("aria-pressed", String(g.screens.some((s) => s.id === id)));
     }
     app.dataset.screen = id;
   }
+
+  // the auto pick: when what you drive changes, a shared tab takes the
+  // screen for it (shown at once if that tab is open); a pick by hand
+  // stays until it changes again
+  /** @type {Map<string, string>} */
+  const detected = new Map();
+  const autoDetect = () => {
+    for (const [tabId, group] of tabGroups) {
+      if (group.screens.length < 2) continue;
+      const fits = group.screens.find((s) => s.when && DETECT[s.when](store)) || group.screens[0];
+      if (detected.get(tabId) === fits.id) continue;
+      detected.set(tabId, fits.id);
+      if (autoPick && !autoPick.wanted()) continue;
+      if (group.screens.some((s) => s.id === app.dataset.screen)) showScreen(fits.id);
+      else group.pick = fits.id;
+    }
+  };
+  store.subscribe("vehicles", autoDetect);
 
   app.replaceChildren(...[status, values, main, tabs].filter((el) => el !== null));
   if (screens.length) showScreen(screens[0].id);

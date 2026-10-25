@@ -4,7 +4,7 @@
 
 import { valueWidget } from "./widget.js";
 import {
-  controlledVehicle, cruiseOf, defLevel, defPct, engineTemp as engineTempOf, fillName, fillPct, fillsOf,
+  controlledVehicle, cruiseOf, defLevel, defPct, engineTemp as engineTempOf, fillMax, fillName, fillPct, fillsOf,
   fuelLevel, fuelPct, fuelUsage as fuelUsageOf, gearName, LIMITS, mainFill, operatingHours,
   vehicleName as nameOf, wearPct,
 } from "../data/selectors.js";
@@ -109,7 +109,7 @@ export const cruiseSpeed = valueWidget({
 export const load = valueWidget({
   label: "Load", unit: "%", icon: "fill", topics: VEHICLE,
   read: (store) => mainFill(fillsOf(controlledVehicle(store))),
-  text: (f) => `${fillName(f)} ${Math.round(fillPct(f))}%`,
+  text: (f) => `${fillName(f)} ${Math.round(fillPct(f))}%${fillMax(f) ? " · MAX" : ""}`,
   number: (f) => String(Math.round(fillPct(f))),
   meter: fillPct,
   detail: (store) => {

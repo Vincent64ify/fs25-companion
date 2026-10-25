@@ -132,6 +132,10 @@ class FillLevel(TopicModel):
     # the game's fill type name, lower case ("wheat")
     fillType: Optional[str] = None
     fillTitle: Optional[str] = None
+    # the game's Trailer Fill Limit: the vehicle is at its maximum mass (the
+    # HUD's MAX), and the litres this unit stops at, below its capacity
+    maxReached: Optional[bool] = None
+    limit: Optional[float] = Field(default=None, ge=0)
 
 
 class Implement(TopicModel):
@@ -424,6 +428,7 @@ COMMAND_ACTIONS = frozenset({
     "cruise.set",
     "implement.select", "implement.next", "implement.previous", "implement.detach",
     "implement.lowerAll", "implement.pipe", "implement.unload", "implement.cover",
+    "implement.straw",
 })
 
 # Actions that carry a number ({"value": ...}) and its allowed range. Any

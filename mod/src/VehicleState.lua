@@ -352,18 +352,23 @@ function VehicleState.implement(object)
     }
     local allows = Api.tryCall(object, "getAllowsLowering")
     out.canLower = allows ~= false
-    local foldable = object.spec_foldable
-    if foldable ~= nil and (type(foldable.foldingParts) ~= "table" or next(foldable.foldingParts) ~= nil) then
-        out.foldable = true
-        local unfolded = Api.tryCall(object, "getIsUnfolded")
-        if type(unfolded) == "boolean" then
-            out.unfolded = unfolded
-        end
-        out.foldMoving = foldMoving(object, foldable)
-    else
-        out.foldable = false
-    end
+    out.foldable = VehicleState.fold(object, out)
     return out
+end
+
+-- an object that folds (a tool, or a combine itself): sets unfolded and
+-- foldMoving on out and returns true; false when it doesn't fold
+function VehicleState.fold(object, out)
+    local foldable = object.spec_foldable
+    if foldable == nil or (type(foldable.foldingParts) == "table" and next(foldable.foldingParts) == nil) then
+        return false
+    end
+    local unfolded = Api.tryCall(object, "getIsUnfolded")
+    if type(unfolded) == "boolean" then
+        out.unfolded = unfolded
+    end
+    out.foldMoving = foldMoving(object, foldable)
+    return true
 end
 
 -- Implement screen (2026-10-24) ----------------------------------------------
@@ -398,6 +403,13 @@ function VehicleState.extras(object, out)
     if type(cover) == "table" and cover.hasCovers == true and type(cover.state) == "number" then
         -- 0 closed, else the open cover's index
         out.cover = { open = cover.state ~= 0 }
+    end
+    -- a combine that can lay its straw in a swath or chop it (Combine.lua:
+    -- TOGGLE_CHOPPER is offered only when both are available)
+    local combine = object.spec_combine
+    if type(combine) == "table" and type(combine.swath) == "table" and type(combine.chopper) == "table"
+        and combine.swath.isAvailable == true and combine.chopper.isAvailable == true then
+        out.straw = { swath = combine.isSwathActive == true }
     end
     return out
 end
@@ -507,7 +519,7 @@ end
 VehicleState.KEYS = {
     lower = "LOWER_IMPLEMENT", fold = "IMPLEMENT_EXTRA2", turnOn = "IMPLEMENT_EXTRA",
     pipe = "TOGGLE_PIPE", unload = { "TOGGLE_TIPSTATE", "TOGGLE_TIPSTATE_GROUND" }, cover = "TOGGLE_COVER",
-    lowerAll = "LOWER_ALL_IMPLEMENTS",
+    lowerAll = "LOWER_ALL_IMPLEMENTS", straw = "TOGGLE_CHOPPER",
 }
 
 -- the cab's rig: the controlled vehicle first, then what's attached, each
@@ -531,6 +543,10 @@ function VehicleState.rig(vehicle)
     if vehicle.spec_turnOnVehicle ~= nil then
         head.turnedOn = Api.tryCall(vehicle, "getIsTurnedOn") == true
         head.canTurnOn = true
+    end
+    -- a combine folds itself too (its ladder, tank extensions): F unfolds it
+    if VehicleState.fold(vehicle, head) then
+        head.foldable = true
     end
     local rig = { mark(VehicleState.extras(vehicle, head), vehicle) }
     for _, node in ipairs(VehicleState.attachedTree(vehicle)) do

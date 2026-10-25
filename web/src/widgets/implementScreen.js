@@ -16,14 +16,15 @@
 // Estimates come from data/rates.js.
 
 import {
-  cabOf, controlledVehicle, entryModel, fillName, fillPct, fillsOf, implementById, implementsOf, kindLabel,
+  cabOf, controlledVehicle, entryModel, fillLimitPct, fillMax, fillName, fillPct, fillStop, fillsOf, implementById,
+  implementsOf, kindLabel,
   drivingOrder, rigJob, rigOf, selectedInRig, vehicleKind,
 } from "../data/selectors.js";
 import { areaText, lengthText, speedUnit, speedValue, unitsOf } from "../data/units.js";
 import { minutesText, ratesOf, timeLeft } from "../data/rates.js";
 import { sendCommand } from "../connection.js";
 import { controlGroup } from "./controls.js";
-import { hitchText } from "./implements.js";
+import { fillMeter, hitchText, maxBadge } from "./implements.js";
 import { fmt, h } from "../ui/dom.js";
 import { icon } from "../ui/icons.js";
 
@@ -32,7 +33,8 @@ import { icon } from "../ui/icons.js";
 /** @typedef {import("../types.js").Vehicle} Vehicle */
 /** @typedef {(action: string, value?: number) => Promise<import("../commands.js").CommandResult>} Send */
 
-// a tank this full, or full this soon, asks for a trailer
+// a tank this full (of where it stops: its weight limit, else its
+// capacity), or full this soon, asks for a trailer
 const CALL_TRAILER_PCT = 80;
 const CALL_TRAILER_MIN = 3;
 // a swipe this far sideways selects the previous or next tool
@@ -155,13 +157,11 @@ function pickable(el, e, name, send) {
   });
 }
 
-/** A thin bar per fill unit. @param {import("../data/selectors.js").Fill[]} fills */
+/** A thin bar per fill unit, its weight limit shaded. @param {import("../data/selectors.js").Fill[]} fills */
 function fillBars(fills) {
   return h("div", { className: "rig-bars" }, ...fills.map((f) => {
-    const bar = h("span");
-    bar.style.width = `${fillPct(f)}%`;
-    const meter = h("span", { className: "widget-meter" }, bar);
-    meter.title = `${fillName(f)} ${Math.round(fillPct(f))}%`;
+    const meter = fillMeter(f);
+    meter.title = `${fillName(f)} ${Math.round(fillPct(f))}%${fillMax(f) ? " · MAX" : ""}`;
     return meter;
   }));
 }
@@ -214,7 +214,7 @@ export function rigBand(store, opts = {}) {
       state: tileState(e, v), fills: fillsOf(/** @type {any} */ (detailOf(e, v))),
     }));
     const key = JSON.stringify(shown.map((t) => [t.e.id, t.e.selected, t.e.selectable, t.name, t.kind, t.state,
-      working(t.e), t.fills.map((f) => Math.round(fillPct(f)))]));
+      working(t.e), t.fills.map((f) => [Math.round(fillPct(f)), fillLimitPct(f), fillMax(f)])]));
     if (key === lastTiles) return;
     lastTiles = key;
     tiles.replaceChildren(...shown.map((t) => {
@@ -279,11 +279,17 @@ export function cardStats(e, v, rig, units) {
   if (e.trailer) {
     let level = 0;
     let capacity = 0;
+    let max = false;
     for (const t of rig.filter((r) => r.trailer)) {
-      for (const f of fillsOf(/** @type {any} */ (detailOf(t, v)))) { level += f.level; capacity += f.capacity; }
+      for (const f of fillsOf(/** @type {any} */ (detailOf(t, v)))) {
+        level += f.level;
+        capacity += f.capacity;
+        max = max || fillMax(f);
+      }
     }
     out.push(capacity > 0
-      ? { label: "Load", value: `${Math.round((100 * level) / capacity)}%`, pct: (100 * level) / capacity,
+      ? { label: "Load", value: `${Math.round((100 * level) / capacity)}%${max ? " · MAX" : ""}`,
+        pct: (100 * level) / capacity,
         title: `${Math.round(level).toLocaleString()} / ${Math.round(capacity).toLocaleString()} L` }
       : { label: "Load", value: "–" });
     out.push({ label: "Tipping", value: onOff(typeof e.discharging === "boolean" ? e.discharging : undefined) });
@@ -316,7 +322,8 @@ export function cardStats(e, v, rig, units) {
 /**
  * The card's tanks: each fill unit with its litres and estimate; the one
  * that runs out first (of two or more) gets a chip, and a tank filling up
- * that's nearly full asks for a trailer.
+ * that's nearly full asks for a trailer, as does a harvester's tank at its
+ * weight limit (the game's MAX: it takes no more).
  * @param {ReturnType<typeof rigTanks>} tanks the card tool's
  */
 export function tankRows(tanks) {
@@ -325,13 +332,18 @@ export function tankRows(tanks) {
     ? emptying.sort((a, b) => (a.left?.minutes ?? 0) - (b.left?.minutes ?? 0))[0] : undefined;
   return tanks.map((t) => {
     const pct = fillPct(t.fill);
+    const max = fillMax(t.fill);
+    const ofStop = (100 * t.fill.level) / fillStop(t.fill);
     const chips = [];
     if (t === first) chips.push("Runs out first");
-    if (t.left?.full && (pct >= CALL_TRAILER_PCT || t.left.minutes <= CALL_TRAILER_MIN)) chips.push("Call a trailer");
+    if ((t.left?.full && (ofStop >= CALL_TRAILER_PCT || t.left.minutes <= CALL_TRAILER_MIN)) || (max && t.entry.pipe)) {
+      chips.push("Call a trailer");
+    }
     return {
-      name: fillName(t.fill), pct, chips,
+      name: fillName(t.fill), pct, chips, max, fill: t.fill,
       litres: `${Math.round(t.fill.level).toLocaleString()} / ${Math.round(t.fill.capacity).toLocaleString()} L`,
-      when: t.left ? `${t.left.full ? "full in" : "empty in"} ${minutesText(t.left.minutes)}` : "",
+      when: max ? "at its weight limit"
+        : t.left ? `${t.left.full ? "full in" : "empty in"} ${minutesText(t.left.minutes)}` : "",
     };
   });
 }
@@ -367,7 +379,7 @@ export function implementCard(store, opts = {}) {
   const head = h("header", { className: "impl-card-head" }, prev, badge,
     h("div", { className: "impl-card-text" }, name, sub), workChip, next);
   const stats = [0, 1, 2, 3].map(() => statTile(""));
-  const ids = ["implementLowered", "implementOn", "unload", "fold", "cover", "pipe", "detach"];
+  const ids = ["implementLowered", "implementOn", "unload", "fold", "cover", "pipe", "straw", "detach"];
   const buttons = controlGroup({ label: "Controls", controls: ids }, store, send);
   buttons.classList.add("impl-card-controls");
   const controls = /** @type {HTMLElement[]} */ ([...buttons.querySelectorAll(".control")]);
@@ -423,12 +435,16 @@ export function implementCard(store, opts = {}) {
 
     // the tool's own buttons: a trailer tips and has a cover, a combine
     // has its pipe and unloads; the rest show for every tool, unavailable
-    // when it can't
+    // when it can't. The vehicle's own keys (a combine's pipe, unloading
+    // and straw) stay whatever tool is selected, as in the game's help.
     const trailer = e.trailer === true;
+    const head = rigOf(cab).find((r) => r.depth === 0);
+    const pipe = !!e.pipe || !!head?.pipe;
     byId.implementOn.hidden = trailer;
-    byId.unload.hidden = !trailer && !e.pipe;
+    byId.unload.hidden = !trailer && !pipe;
     byId.cover.hidden = !trailer && !e.cover;
-    byId.pipe.hidden = !e.pipe;
+    byId.pipe.hidden = !pipe;
+    byId.straw.hidden = !e.straw && !head?.straw;
 
     const own = rigTanks([e], v, rates);
     const rows = tankRows(own);
@@ -437,13 +453,14 @@ export function implementCard(store, opts = {}) {
     lastTanks = key;
     tanks.hidden = rows.length === 0;
     tanks.replaceChildren(...rows.map((t) => {
-      const bar = h("span");
-      bar.style.width = `${t.pct}%`;
+      const meter = fillMeter(t.fill);
+      meter.classList.add("tank-meter");
       const row = h("div", { className: "tank" },
         h("div", { className: "tank-head" }, h("span", { className: "tank-name", text: t.name }),
           ...t.chips.map((c) => h("span", { className: "tank-chip", text: c })),
+          ...(t.max ? [maxBadge()] : []),
           h("b", { className: "tank-pct", text: `${Math.round(t.pct)}%` })),
-        h("span", { className: "widget-meter tank-meter" }, bar),
+        meter,
         h("div", { className: "tank-foot" }, h("span", { text: t.litres }), h("span", { text: t.when })));
       if (t.chips.length) row.dataset.alert = "true";
       return row;

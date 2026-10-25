@@ -66,6 +66,8 @@ ACTIONS = {
     "implement.pipe": "TOGGLE_PIPE",
     "implement.unload": "TOGGLE_DISCHARGE",
     "implement.cover": "TOGGLE_COVER",
+    # the Harvester screen: a combine's straw, swath or chopped
+    "implement.straw": "TOGGLE_STRAW",
 }
 
 # actions that carry a value, and its range; the backend checks the same

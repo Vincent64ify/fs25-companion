@@ -54,15 +54,17 @@ export function fitRate(samples, capacity) {
 }
 
 /**
- * Minutes until the tank is empty (rate < 0) or full (rate > 0).
- * @param {{level: number, capacity: number}} fill
+ * Minutes until the tank is empty (rate < 0) or full (rate > 0): full at
+ * its weight limit (the Trailer Fill Limit), else at its capacity.
+ * @param {{level: number, capacity: number, limit?: number}} fill
  * @param {number|undefined} rate litres per minute
  * @returns {{minutes: number, full: boolean}|undefined}
  */
 export function timeLeft(fill, rate) {
   if (rate === undefined || rate === 0) return undefined;
   const full = rate > 0;
-  const litres = full ? fill.capacity - fill.level : fill.level;
+  const top = typeof fill.limit === "number" && fill.limit < fill.capacity ? fill.limit : fill.capacity;
+  const litres = full ? top - fill.level : fill.level;
   if (litres <= 0) return undefined;
   return { minutes: litres / Math.abs(rate), full };
 }

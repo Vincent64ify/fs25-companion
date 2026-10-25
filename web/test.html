@@ -1128,6 +1128,10 @@ check("implement: time left and its words", [
   rt.timeLeft({ level: 1200, capacity: 4000 }, -120), rt.timeLeft({ level: 7000, capacity: 10000 }, 1000),
   rt.timeLeft({ level: 10, capacity: 10 }, 5), rt.minutesText(0.4), rt.minutesText(12.4), rt.minutesText(65)],
   [{ minutes: 10, full: false }, { minutes: 3, full: true }, undefined, "< 1 min", "≈ 12 min", "≈ 1 h 05 min"]);
+check("implement: a tank fills up to its weight limit, not its capacity", [
+  rt.timeLeft({ level: 600, capacity: 1400, limit: 1000 }, 100), rt.timeLeft({ level: 1063, capacity: 1400, limit: 1063 }, 50),
+  rt.timeLeft({ level: 600, capacity: 1400, limit: 1000 }, -100)],
+  [{ minutes: 4, full: true }, undefined, { minutes: 6, full: false }]);
 
 // the store's estimates: levels over time, area while lowered
 const rateStore = createStore();
@@ -1167,6 +1171,13 @@ check("implement controls: a trailer tips, its cover follows the key",
   [icUnload, icCover].map(icShow), ["Tipping:on", "Uncover:off"]);
 ics.set("cab", harvest({ selected: 20 }));
 check("implement controls: the vehicle selected: no Detach", icShow(icDetach), "Detach:unavailable");
+const foldGroup = controlGroup({ label: "x", controls: ["fold"] }, ics, () => Promise.resolve({ ok: true }));
+const foldOf = () => icShow(foldGroup.querySelector(".control"));
+const combineFolds = harvest({ selected: 21, keys: { fold: 20 } });
+combineFolds.rig[0] = { ...combineFolds.rig[0], foldable: true, unfolded: false, foldMoving: false };
+ics.set("cab", combineFolds);
+check("implement controls: a combine unfolds itself; only fold takes the vehicle's key",
+  [foldOf(), sel.keyTool({ ...combineFolds, keys: { lower: 20 } }, "lower")], ["Unfold:off:Big Combine", null]);
 ics.set("cab", harvest({ selected: 22 }));
 tap(icDetach);
 tap(icAll);
@@ -1211,10 +1222,10 @@ check("implement card: a combine: its pipe and unloading join the buttons; speed
     card.querySelectorAll(".impl-stat")[3].dataset.level, q(card, ".tank-name")],
   ["Big Combine", ["Lower", "Work", "Unload", "Unfold", "Pipe out", "Detach"], ["–", "On", "–", "14 / 10 km/h"], "warn", "Wheat"]);
 cardStore.set("cab", harvest({ selected: 22, tipping: true, keys: { unload: 22, cover: 22 } }));
-check("implement card: a trailer: Load (every trailer), Tipping and Cover; its buttons tip and cover",
+check("implement card: a trailer: Load (every trailer), Tipping and Cover; the combine keeps its pipe",
   [shownButtons(), [...card.querySelectorAll(".impl-stat-label")].map((e) => e.textContent),
     [...card.querySelectorAll(".impl-stat-value")].slice(0, 3).map((e) => e.textContent), q(card, ".impl-card-sub")],
-  [["Lower", "Tipping", "Unfold", "Uncover", "Detach"], ["Load", "Tipping", "Cover", "Speed"], ["30%", "On", "Closed"],
+  [["Lower", "Tipping", "Unfold", "Uncover", "Pipe out", "Detach"], ["Load", "Tipping", "Cover", "Speed"], ["30%", "On", "Closed"],
     "Trailer · Rear"]);
 cardStore.set("cab", harvest({ selected: 21 }));
 check("implement details: wear, width, folding for the selected tool",
@@ -1236,6 +1247,53 @@ check("implement card: the tank that runs out first; a filling tank nearly full 
   [tankRows([tank(500, 30, false), tank(400, 12, false)]).map((t) => t.chips),
     tankRows([tank(500, 30, false)]).map((t) => t.chips), tankRows([tank(850, 4, true)]).map((t) => [t.chips, t.when])],
   [[[], ["Runs out first"]], [[]], [[["Call a trailer"], "full in ≈ 4 min"]]]);
+const limited = (level, limit, max, minutes, pipe) => ({ entry: { depth: 0, pipe }, left: minutes === undefined ? undefined
+  : { minutes, full: true }, fill: { level, capacity: 1000, limit, maxReached: max, fillType: "wheat" } });
+check("implement card: the weight limit: MAX, near full of the limit calls a trailer, a harvester at MAX too", [
+  tankRows([limited(500, 600, false, 10)]).map((t) => [t.chips, t.max]),
+  tankRows([limited(760, 760, true, undefined, { out: false })]).map((t) => [t.chips, t.max, t.when]),
+  tankRows([limited(760, 760, true, undefined)]).map((t) => [t.chips, t.when]),
+  [{ level: 760, capacity: 1000, limit: 760, maxReached: true }, { level: 10, capacity: 100, limit: 50 }, { level: 10, capacity: 100 }]
+    .map((f) => [sel.fillStop(f), sel.fillLimitPct(f), sel.fillMax(f)])],
+  [[[["Call a trailer"], false]], [[["Call a trailer"], true, "at its weight limit"]], [[[], "at its weight limit"]],
+    [[760, 76, true], [50, 50, false], [100, undefined, false]]]);
+// the Harvester screen: the combine's keys on the card with the header selected
+cardStore.set("cab", (() => {
+  const c = harvest({ selected: 21, keys: { straw: 20, unload: 20 } });
+  c.rig[0] = { ...c.rig[0], straw: { swath: true } };
+  return c;
+})());
+check("implement card: the header selected keeps the combine's pipe, unloading and straw",
+  shownButtons(), ["Lower", "Work", "Unload", "Unfold", "Pipe out", "Straw swath", "Detach"]);
+const harv = await import("./src/widgets/harvesterScreen.js");
+const harvStore = createStore();
+const work = harv.harvestWork(harvStore);
+const grain = harv.grainTank(harvStore);
+const harvDetails = harv.harvestDetails(harvStore);
+harvStore.set("vehicles", { controlledId: 20, vehicles: [{ id: 20, name: "Big Combine", category: "harvesters",
+  speed: 6.8, speedLimit: 10, wear: 0.34, crop: { name: "wheat", title: "Wheat" },
+  hectares: { run: 2.5, total: 18.25 }, yield: { tPerHa: 7.9, pct: 79, potential: 100 },
+  fills: [{ unit: 1, level: 9880, capacity: 13000, fillType: "wheat", fillTitle: "Wheat" }],
+  implements: [{ id: 21, name: "Cutter 9", category: "cutters", hitch: 1, speedLimit: 10, workWidth: 9, wear: 0.21 }] }] });
+harvStore.set("cab", (() => {
+  const c = harvest({ selected: 21 });
+  c.rig[0] = { ...c.rig[0], straw: { swath: false }, foldable: true, unfolded: true, foldMoving: false };
+  c.rig.splice(2, 1);
+  return c;
+})());
+check("harvester screen: a combine, its work states, grain tank, yield and details", [
+  harv.isHarvester({ category: "harvesters" }), harv.isHarvester({ category: "tractorsM" }),
+  q(work, ".harv-work-title h2"), q(work, ".harv-work-title p"),
+  [...work.querySelectorAll(".harv-state-value")].map((e) => e.textContent),
+  q(work, ".harv-speed-value b"), q(work, ".harv-speed-scale span:last-child"),
+  q(grain, ".tank-name"), q(grain, ".harv-tank-pct"),
+  [...grain.querySelectorAll(".harv-stat b")].map((e) => e.textContent),
+  [...harvDetails.querySelectorAll("dd")].map((e) => e.textContent)],
+  [true, false, "Harvesting · Wheat", "Big Combine with Cutter 9", ["Down", "On", "In", "Chopped"], "6.8", "Limit 10 km/h",
+    "Wheat", "76", ["7.9", "79", "2.50", "18.25"], ["21%", "34%", "9.0 m", "2.50 ha", "Unfolded"]]);
+check("harvester screen: without Precision Farming, area only",
+  harv.harvestStats({ hectares: { run: 1, total: 2 } }, units.METRIC).map((x) => x.id), ["run", "total"]);
+
 check("implement card: stats without a limit or a lift",
   cardStats({ depth: 1, id: 2, canLower: false, canTurnOn: false }, { id: 1, speed: 8, implements: [{ id: 2 }] }, [],
     units.METRIC).map((s) => s.value), ["–", "–", "–", "8.0 km/h"]);
