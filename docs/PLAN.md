@@ -2,7 +2,9 @@
 
 What's next for FS25 Companion. What's already built, and the game API facts
 it relies on, are in [DONE.md](DONE.md). Small fixes go in
-[NEXT.md](NEXT.md).
+[NEXT.md](NEXT.md). New features start as a spec in
+[specs/](../specs/README.md): written and approved before the code, kept
+up to date until the live check.
 
 ## Where things stand (2026-10-25)
 
@@ -416,15 +418,8 @@ Built, but not yet confirmed in game:
     counting to it; with the setting off, nothing changes. (MAX at the
     limit is confirmed.)
   - Combine: after Unfold (confirmed), Work starts threshing.
-  - Harvester screen (mod 0.8.3): in a combine the Vehicle tab opens it by
-    itself; a second tap offers Tractor / Harvester; the setting Screen for
-    what I drive turns that off. Check the work card, Straw swath (as the
-    game's straw key), the grain tank's rate, This run and Total against
-    the game's HUD, and Yield and Of potential with Precision Farming.
-  - Implement card with the header selected: Pipe, Unload and Straw swath
-    still act on the combine, each named "CH7.70" like Fold.
-  - The Vehicle tab's menu: Tractor and Harvester switch every time, not
-    only the first (fixed after the first look, 2026-10-25).
+  - Harvester screen (mod 0.8.3): the live check list is in its spec,
+    [specs/0001-harvester-screen.md](../specs/0001-harvester-screen.md#acceptance).
   - The choices made while building (labels, when Pipe, Unload and Cover
     are unavailable, the tractor on the card when it's selected) are in
     THEMES.md, Implement screen, "As built": confirm or change them.
