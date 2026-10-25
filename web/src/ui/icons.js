@@ -54,9 +54,10 @@ const PATHS = {
   // a hopper with its fill line: a fill level (tank, trailer, grain tank)
   fill: '<path d="M3.5 4.5h17l-3.5 12H7z"/><path d="M5.3 10.5h13.4M10 16.5v3.5h4v-3.5"/>',
   engine: ENGINE,
-  // a thermometer beside the engine: coolant temperature
-  engineTemp: '<path d="M5 3.5v11"/><circle cx="5" cy="17.5" r="2.5"/><path d="M5 7h1.5M5 10h1.5"/>' +
-    '<path d="M13.5 9.2V6.5h5v2.7A5.5 5.5 0 1 1 13.5 9.2z"/><path d="M13 15.5c1-.8 2-.8 3 0s2 .8 3 0"/>',
+  // a thermometer standing in the coolant: coolant temperature (ISO 7000)
+  engineTemp: '<path d="M12 3v9.5M12 5.5h3M12 9h3"/><circle cx="12" cy="15" r="2.5"/>' +
+    '<path d="M2.5 15.5c1.4-.9 2.8-.9 4.2 0M17.3 15.5c1.4-.9 2.8-.9 4.2 0' +
+    'M2.5 20c1.6-1 3.2-1 4.8 0s3.2 1 4.8 0 3.2-1 4.8 0 3.2 1 4.6 0"/>',
   // an open-ended spanner
   wear: '<path d="M15.4 5.6l1.8-1.8A5 5 0 1 0 20.2 6.8l-1.8 1.8z"/><path d="M12 12L4.5 19.5"/>',
   // an hourglass: the hour meter
@@ -87,8 +88,9 @@ const PATHS = {
   weight: '<path d="M7.5 9h9l3 11.5h-15z"/><circle cx="12" cy="5.5" r="2.5"/>',
 
   // --- alerts -----------------------------------------------------------
-  // the amber warning diamond
-  warn: '<path d="M12 2.5l9.5 9.5-9.5 9.5L2.5 12z"/><path d="M12 7.5v5"/>' + DOT(12, 16.3),
+  // the general warning: a "!" in a triangle (ISO 7010 W001)
+  warn: '<path d="M10.3 4.1l-8 13.9A2 2 0 0 0 4 21h16a2 2 0 0 0 1.7-3l-8-13.9a2 2 0 0 0-3.4 0z"/>' +
+    '<path d="M12 9.5v4.5"/>' + DOT(12, 17.4),
   // the charge warning: battery with its terminals
   battery: '<rect x="2.5" y="7" width="19" height="13" rx="1.5"/><path d="M6 7V4.5h3V7M15 7V4.5h3V7M5.5 13.5h3.5M15 13.5h3.5M16.75 11.75v3.5"/>',
   // oil pressure: a drop in the engine, pressed from both sides
@@ -194,8 +196,8 @@ const PATHS = {
   lock: '<rect x="5" y="10.5" width="14" height="10" rx="2"/><path d="M8.5 10.5V7.5a3.5 3.5 0 0 1 7 0v3"/>',
   // the working width, wall to wall
   workWidth: '<path d="M3 6.5v11M21 6.5v11M3 12h18M6.5 8.5L3 12l3.5 3.5M17.5 8.5L21 12l-3.5 3.5"/>',
-  // a field with its rows: the area worked
-  area: '<path d="M7 4.5h13.5L17 19.5H3.5z"/><path d="M5.8 9.5h13.5M4.7 14.5h13.5"/>',
+  // a hatched square: the area worked (ISO 7000)
+  area: '<rect x="3.5" y="3.5" width="17" height="17" rx="2"/><path d="M5 10.5L10.5 5M5 19L19 5M13.5 19l5.5-5.5"/>',
 };
 
 /** The icons by group, in the order the contact sheet shows them. */

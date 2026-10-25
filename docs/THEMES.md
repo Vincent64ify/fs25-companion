@@ -245,6 +245,8 @@ These are left out of this project:
   - one colour: `stroke` and `fill` use `currentColor`, so a theme colours
     an icon with CSS `color` (white on blue, ink on the yellow badge, OK /
     warn / alarm for states);
+  - shapes follow the ISO 7000 / cab symbols (PTO, engine, coolant,
+    warning triangle, area worked), simplified to the stroke style;
   - mirrored pairs (turn left / right, hitch up / down) are one drawing
     with a transform.
 - **In code:** `web/src/ui/icons.js` holds the path data and exports
