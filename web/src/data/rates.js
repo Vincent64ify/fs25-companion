@@ -15,6 +15,8 @@ import { controlledVehicle, implementsOf, rigEntry, cabOf } from "./selectors.js
 export const RATE_WINDOW_MS = 60000;
 export const RATE_MIN_SPAN_MS = 20000;
 const MIN_SAMPLES = 8;
+// a level higher than this long ago is rising (rates.rising)
+const RISE_MS = 5000;
 // how well the line must fit (R²)
 const MIN_FIT = 0.8;
 // gaps longer than this don't count as working time for the area
@@ -149,6 +151,18 @@ export function createRates(store, now = () => performance.now()) {
     rate(owner, fill, i) {
       const list = levels.get(fillKey(owner, fill, i));
       return list ? fitRate(list, fill.capacity) : undefined;
+    },
+    /**
+     * Whether the level went up over the last few seconds: filling, even
+     * before there's enough history for a rate.
+     * @param {number|string|undefined} owner @param {any} fill @param {number} i its index
+     */
+    rising(owner, fill, i) {
+      const list = levels.get(fillKey(owner, fill, i));
+      if (!list || list.length < 2) return false;
+      const last = list[list.length - 1];
+      const ref = list.find((s) => s.t >= last.t - RISE_MS) || list[0];
+      return ref !== last && last.level > ref.level;
     },
     /** Hectares the tool has worked this run, undefined before any. @param {number|undefined} id */
     area: (id) => (id === undefined ? undefined : areas.get(id)),

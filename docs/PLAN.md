@@ -29,12 +29,12 @@ up to date until the live check.
   the fill bars, mod 0.8.1) and a combine unfolding itself (mod 0.8.2) are
   confirmed. The Map's field and farmland panel is one land panel
   (`3648def`).
-- The Harvester screen is built, revision 2 (mod 0.8.4, spec
+- The Harvester screen is done, revision 2 (mod 0.8.4, spec
   [0001](../specs/0001-harvester-screen.md)): the Vehicle tab's page for a
   combine, picked by itself from what you drive (a setting, on by default)
   or from the tab's menu; a band with the tank, until full, yield and
   speed, then Combine and Header cards whose tiles are their buttons.
-  Waiting for its live check; mod 0.8.4 is to install.
+  Confirmed in game on 2026-10-25 with mod 0.8.4.
 - macOS is still to test, and a few things are still to confirm in game (see
   [Open checks](#open-checks)).
 
@@ -405,7 +405,7 @@ the ack carries the reason.
 ## Open checks
 
 Built, but not yet confirmed in game:
-- **Implement and Harvester screens (next to do):** mod 0.8.3 is
+- **Implement screen (next to do):** mod 0.8.4 is
   installed. Restart the game and the client so the tablet loads the new
   page, then:
   - Seeder or cultivator: tap tiles in the band, ‹ › and a swipe change the
@@ -423,8 +423,6 @@ Built, but not yet confirmed in game:
     counting to it; with the setting off, nothing changes. (MAX at the
     limit is confirmed.)
   - Combine: after Unfold (confirmed), Work starts threshing.
-  - Harvester screen (mod 0.8.4): the live check list is in its spec,
-    [specs/0001-harvester-screen.md](../specs/0001-harvester-screen.md#acceptance).
   - The choices made while building (labels, when Pipe, Unload and Cover
     are unavailable, the tractor on the card when it's selected) are in
     THEMES.md, Implement screen, "As built": confirm or change them.

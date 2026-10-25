@@ -31,7 +31,10 @@ import { icon } from "../ui/icons.js";
 /** @typedef {import("../data/selectors.js").Fill} Fill */
 /** @typedef {import("../data/units.js").Units} Units */
 /** @typedef {{tPerHa: number, ha: number}} YieldEstimate */
-/** @typedef {{rate: (owner: any, fill: any, i: number) => number|undefined}} Rates */
+/**
+ * @typedef {{rate: (owner: any, fill: any, i: number) => number|undefined,
+ *   rising?: (owner: any, fill: any, i: number) => boolean}} Rates
+ */
 
 // the tank this full (of where it stops), or full this soon, calls a trailer
 const CALL_TRAILER_PCT = 80;
@@ -120,15 +123,17 @@ export function yieldShown(v, est, units) {
 
 /**
  * The band's four numbers: the grain tank, until full, the yield, the
- * speed against the header's working limit.
+ * speed against the header's working limit. Until full reads "measuring…"
+ * while the tank rises but there isn't a rate yet (the first ~20 s).
  * @param {Vehicle|undefined} v
  * @param {any} cab
  * @param {number|undefined} perMin
  * @param {YieldEstimate|undefined} est
  * @param {Units} units
+ * @param {boolean} [rising] the level went up over the last seconds
  * @returns {{id: string, value: string, unit: string, label: string, alert: boolean}[]}
  */
-export function bandReadouts(v, cab, perMin, est, units) {
+export function bandReadouts(v, cab, perMin, est, units, rising = false) {
   const fill = grainFill(v);
   const tank = fill ? grainTankState(fill, perMin) : undefined;
   const left = tank?.left;
@@ -140,7 +145,7 @@ export function bandReadouts(v, cab, perMin, est, units) {
     { id: "tank", value: tank ? String(Math.round(tank.pct)) : "–", unit: "%", label: "grain tank", alert: false },
     left
       ? { id: "full", value: minutesText(left.minutes).replace(/ min$/, ""), unit: "min", label: "until full", alert: !!tank?.call }
-      : { id: "full", value: "–", unit: "", label: "not filling", alert: !!tank?.call },
+      : { id: "full", value: "–", unit: "", label: rising ? "measuring…" : "not filling", alert: !!tank?.call },
     { id: "yield", value: y.value, unit: y.unit, label: "yield", alert: false },
     { id: "speed", value: typeof v?.speed === "number" ? fmt(speedValue(v.speed, units), 1) : "–", unit,
       label: typeof limit === "number" && limit > 0 ? `limit ${Math.round(speedValue(limit, units))} ${unit}` : "no limit",
@@ -150,24 +155,27 @@ export function bandReadouts(v, cab, perMin, est, units) {
 
 /**
  * The Combine card's stats: Yield, Throughput (t/h from the last minute's
- * rate, "0" while not filling, "–" without the crop's mass), This run and
- * Total.
+ * rate, "0" while not filling, "–" and "measuring…" while it rises without
+ * a rate yet, "–" without the crop's mass), This run and Total.
  * @param {Vehicle|undefined} v
  * @param {number|undefined} perMin
  * @param {YieldEstimate|undefined} est
  * @param {Units} units
+ * @param {boolean} [rising] the level went up over the last seconds
  * @returns {{id: string, label: string, value: string, unit: string, sub: string}[]}
  */
-export function combineStats(v, perMin, est, units) {
+export function combineStats(v, perMin, est, units, rising = false) {
   const y = yieldShown(v, est, units);
   const mass = /** @type {any} */ (grainFill(v))?.massPerLiter;
-  const tph = typeof mass !== "number" ? undefined : typeof perMin === "number" && perMin > 0 ? (perMin * 60 * mass) : 0;
+  const measuring = rising && !(typeof perMin === "number" && perMin > 0);
+  const tph = typeof mass !== "number" || measuring ? undefined
+    : typeof perMin === "number" && perMin > 0 ? (perMin * 60 * mass) : 0;
   const ha = /** @type {any} */ (v)?.hectares;
   const area = (/** @type {unknown} */ x) => (typeof x === "number" ? areaValue(x, units).toFixed(2) : "–");
   return [
     { id: "yield", label: "Yield", value: y.value, unit: y.unit, sub: y.sub },
     { id: "throughput", label: "Throughput", value: tph === undefined ? "–" : tph === 0 ? "0" : fmt(tph, 1), unit: "t/h",
-      sub: "last minute" },
+      sub: measuring ? "measuring…" : "last minute" },
     { id: "run", label: "This run", value: area(ha?.run), unit: areaUnit(units), sub: "since you got in" },
     { id: "total", label: "Total", value: area(ha?.total), unit: areaUnit(units), sub: "this combine" },
   ];
@@ -238,6 +246,11 @@ const grainRate = (rates, v) => {
   const fill = grainFill(v);
   return fill && v ? rates.rate(v.id, fill, 0) : undefined;
 };
+/** Whether the grain tank's level is going up. @param {Rates} rates @param {Vehicle|undefined} v */
+const grainRising = (rates, v) => {
+  const fill = grainFill(v);
+  return !!fill && !!v && rates.rising?.(v.id, fill, 0) === true;
+};
 
 /** The widgets' options: tests pass their own rates and send. */
 const ratesFrom = (/** @type {any} */ opts, /** @type {any} */ store) => /** @type {Rates} */ (opts.rates || ratesOf(store));
@@ -272,7 +285,7 @@ export function harvestBand(store, opts = {}) {
     job.textContent = harvestJob(v, cab).text;
     const model = isHarvester(v) ? entryModel(/** @type {any} */ (head || { depth: 0 }), v) : "";
     rig.textContent = model && header ? `${model} with ${entryModel(header, v)}` : model || "";
-    bandReadouts(v, cab, grainRate(rates, v), est.get(), unitsOf(store)).forEach((r, i) => {
+    bandReadouts(v, cab, grainRate(rates, v), est.get(), unitsOf(store), grainRising(rates, v)).forEach((r, i) => {
       const c = cells[i];
       c.value.textContent = r.value;
       c.unit.textContent = r.unit;
@@ -385,7 +398,7 @@ export function combineCard(store, opts = {}) {
       /** @type {HTMLElement} */ (rate.lastElementChild).textContent = t.rate || "";
       call.hidden = !t.call;
     }
-    combineStats(v, perMin, est.get(), units).forEach((s, i) => {
+    combineStats(v, perMin, est.get(), units, grainRising(rates, v)).forEach((s, i) => {
       const el = statEls[i];
       el.label.textContent = s.label;
       el.value.textContent = s.value;

@@ -142,6 +142,20 @@ These results override any API guesses later in this document.
   CH7.70 with a SuperFlex header): `IMPLEMENT_EXTRA2`'s live event belongs
   to the combine, not the header, and the game won't thresh until it is
   unfolded ("You first need to unfold the tool").
+- **Harvester screen** (confirmed by Vincent, 2026-10-25, New Holland
+  CH7.70 with a SuperFlex header, mod 0.8.4; spec 0001):
+  - `fillType.massPerLiter` (FillTypeManager) is t per litre: the grain
+    tank's tonnes, throughput (t/h) and the ≈ yield came out right.
+  - `spec_combine.swath.isAvailable`, `.chopper.isAvailable` and
+    `isSwathActive` match the game's straw setting; the `TOGGLE_CHOPPER`
+    input switches it as the key does. (`setIsSwathActive`, the
+    fallback, didn't run and stays unverified.)
+  - `spec_combine.workedHectars` matches the HUD's total and
+    `workedHectars - workedHectarsInitial` its run; the run starts at 0
+    both after getting in and after loading.
+  - Precision Farming's `spec_<mod>.extendedCombine` (found by its
+    `extendedcombine` suffix): `lastYieldWeight`, `lastYieldPercentage`
+    and `lastYieldPotential` match its yield HUD.
 
 ---
 
@@ -453,11 +467,11 @@ Changes since Phase 4 (2026-10-21 to 2026-10-22):
 - **A combine unfolds itself** (2026-10-25, mod 0.8.2, confirmed live): the
   rig's vehicle entry carries its fold, and Fold follows the fold key to
   it.
-- **Harvester screen** (2026-10-25, mod 0.8.3; revision 2 built with mod
-  0.8.4): the Vehicle tab's page for a combine, with a menu on the tab and
+- **Harvester screen** (2026-10-25, revision 2, mod 0.8.4, confirmed
+  live): the Vehicle tab's page for a combine, with a menu on the tab and
   the setting Screen for what I drive; straw, worked area, Precision
-  Farming's yield and the crop's mass per litre from the mod. Waiting for
-  its live check. Details in its spec,
+  Farming's yield and the crop's mass per litre from the mod. Details in
+  its spec,
   [specs/0001-harvester-screen.md](../specs/0001-harvester-screen.md).
 
 ## Controls

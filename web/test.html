@@ -1354,6 +1354,23 @@ check("harvester screen: throughput and units: t/h from the last minute; ac and 
     [["yield", "3.4", "t/ac"], ["throughput", "30.4", "t/h"], ["run", "5.96", "ac"], ["total", "120.09", "ac"]],
     [["speed", "4.2", "mph", "limit 6 mph", false]]]);
 
+// before the rate has 20 s of history: rising says it fills, so "measuring…"
+const riseStore = createStore();
+let riseNow = 0;
+const riseRates = rt.createRates(riseStore, () => riseNow);
+const riseAt = (level) => riseStore.set("vehicles", { controlledId: 20, vehicles: [{ ...vOf({ level }) }] });
+const riseFill = { unit: 1, capacity: 9300 };
+for (let i = 0; i < 4; i++) { riseNow = i * 1000; riseAt(6700 + i * 10); }
+const riseEarly = [riseRates.rate(20, riseFill, 0), riseRates.rising(20, riseFill, 0)];
+for (let i = 4; i < 12; i++) { riseNow = i * 1000; riseAt(6730); }
+check("harvester screen: measuring: rising before there's a rate, not once the level stops", [riseEarly,
+  riseRates.rising(20, riseFill, 0), riseRates.rising(99, riseFill, 0)], [[undefined, true], false, false]);
+check("harvester screen: measuring: until full and throughput while the rate is measured", [
+  ro(harv.bandReadouts(vOf(), harvCab(), undefined, noEstimate, units.METRIC, true)).slice(1, 2),
+  harv.combineStats(vOf(), undefined, undefined, units.METRIC, true).slice(1, 2).map((s) => [s.value, s.sub]),
+  harv.combineStats(vOf(), undefined, undefined, units.METRIC, false).slice(1, 2).map((s) => [s.value, s.sub])],
+  [[["full", "–", "", "measuring…", false]], [["–", "measuring…"]], [["0", "last minute"]]]);
+
 // the tiles: the state is the button
 const tileStore = createStore();
 const tileSent = [];
@@ -1382,7 +1399,7 @@ check("harvester screen: tiles show the state, light as specified and send their
 
 // the widgets, with a steady 640 L a minute
 const harvS = createStore();
-const fixedRate = { rate: () => 640, area: () => undefined };
+const fixedRate = { rate: () => 640, rising: () => true, area: () => undefined };
 const hBand = harv.harvestBand(harvS, { rates: fixedRate });
 const hCombine = harv.combineCard(harvS, { rates: fixedRate, send: () => Promise.resolve({ ok: true }) });
 const hHeader = harv.headerCard(harvS, { send: () => Promise.resolve({ ok: true }) });

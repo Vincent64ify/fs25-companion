@@ -1,6 +1,6 @@
 # 0001: Harvester screen
 
-Status: built (revision 2, mod 0.8.4; live check open)
+Status: live-checked (revision 2, mod 0.8.4, 2026-10-25)
 Mod: 0.8.4 · Started: 2026-10-25 · Design: [THEMES.md, Harvester screen](../docs/THEMES.md#harvester-screen-mod-083-2026-10-25),
 canvas [FS25 Companion: Harvester screen](https://claude.ai/artifact/7arT5R4WwC9qJTTi3i99aL)
 
@@ -29,8 +29,9 @@ come later, once their keys are seen in game.
 - **Band:** the job and "CH7.70 with SuperFlex 25FT" on the left (the model
   alone without a header); four numbers on the right, always shown:
   - grain tank, %;
-  - until full, "≈ 4 min", or "–, not filling" when the level isn't
-    rising;
+  - until full, "≈ 4 min"; "–, measuring…" while the level rises but
+    there isn't 20 s of it yet for a rate; "–, not filling" when the level
+    isn't rising (no rise over the last 5 s);
   - yield (see Yield);
   - speed, with "limit 10 km/h" from the header's working speed limit
     ("no limit" without one).
@@ -76,7 +77,8 @@ come later, once their keys are seen in game.
   It starts again in another vehicle, or when the game's run (`hectares.run`)
   goes back down.
 - **Throughput:** the tank's rate over the last minute × mass per litre, in
-  t/h. "0" while not filling, "–" without the mass (a mod before 0.8.4).
+  t/h. "0" while not filling, "–" with "measuring…" while the level rises
+  without a rate yet, "–" without the mass (a mod before 0.8.4).
 - **Units:** follow the game's settings, as the rest of the app (`env.units`):
   miles → mph; acres → ac, and yield per acre (t/ac). Litres and tonnes
   stay as the game shows them.
@@ -124,12 +126,12 @@ All additions; Protocol v1 is unchanged.
 
 | Name | Where from | State |
 |---|---|---|
-| `fillType.massPerLiter` | FillTypeManager | in use (weight limit), unverified |
-| `spec_combine.swath.isAvailable`, `.chopper.isAvailable`, `isSwathActive` | Combine.lua | unverified |
-| `spec_combine.workedHectars`, `workedHectarsInitial` | Combine.lua | unverified |
-| `spec_<mod>.extendedCombine` `lastYieldWeight`, `lastYieldPercentage`, `lastYieldPotential` | Precision Farming, ExtendedCombine | unverified |
-| `TOGGLE_CHOPPER` input | Combine.lua | unverified |
-| `setIsSwathActive` (fallback) | Combine.lua | unverified |
+| `fillType.massPerLiter` | FillTypeManager | verified (DONE.md, Harvester screen) |
+| `spec_combine.swath.isAvailable`, `.chopper.isAvailable`, `isSwathActive` | Combine.lua | verified (DONE.md, Harvester screen) |
+| `spec_combine.workedHectars`, `workedHectarsInitial` | Combine.lua | verified (DONE.md, Harvester screen) |
+| `spec_<mod>.extendedCombine` `lastYieldWeight`, `lastYieldPercentage`, `lastYieldPotential` | Precision Farming, ExtendedCombine | verified (DONE.md, Harvester screen) |
+| `TOGGLE_CHOPPER` input | Combine.lua | verified (DONE.md, Harvester screen) |
+| `setIsSwathActive` (fallback) | Combine.lua | unverified (not needed: the key was live) |
 
 ## Commands
 
@@ -200,23 +202,23 @@ Automated (written before the code):
 
 Live check (mod 0.8.4; restart the game and the client; a combine with a
 header and a trailer, with and without Precision Farming):
-- [ ] Get in the combine: the Vehicle tab opens Harvester by itself.
-- [ ] A second tap on the tab offers Tractor / Harvester, and both switch
+- [x] Get in the combine: the Vehicle tab opens Harvester by itself.
+- [x] A second tap on the tab offers Tractor / Harvester, and both switch
   every time.
-- [ ] A pick by hand stays until you get in another vehicle.
-- [ ] Settings › Screen for what I drive off: the tab stays on Tractor.
-- [ ] The band reads Harvesting · crop only while really harvesting; Ready
+- [x] A pick by hand stays until you get in another vehicle.
+- [x] Settings › Screen for what I drive off: the tab stays on Tractor.
+- [x] The band reads Harvesting · crop only while really harvesting; Ready
   and Standing otherwise.
-- [ ] Thresher, Pipe, Straw, Header and Fold tiles match the game and each
+- [x] Thresher, Pipe, Straw, Header and Fold tiles match the game and each
   tap does what the game's key does.
-- [ ] Until full and throughput are close to the level's change over a
+- [x] Until full and throughput are close to the level's change over a
   minute; Call a trailer and the pulse appear as it nears full.
-- [ ] Without Precision Farming: the ≈ yield is in the range the crop
+- [x] Without Precision Farming: the ≈ yield is in the range the crop
   should give on that field. With it: Yield and % of potential match its
   HUD.
-- [ ] This run and Total match the game's HUD; This run starts at 0 after
+- [x] This run and Total match the game's HUD; This run starts at 0 after
   getting in or loading.
-- [ ] With acres in the game's settings: ac and t/ac; with miles: mph.
+- [x] With acres in the game's settings: ac and t/ac; with miles: mph.
 
 ## Decisions
 
@@ -237,8 +239,9 @@ header and a trailer, with and without Precision Farming):
 
 - Forage, beet, potato and cotton harvesters: later, once their keys are
   seen in game.
-- Does `workedHectarsInitial` reset when you get in, or only on load? The
-  live check's This run row answers it.
+- ~~Does `workedHectarsInitial` reset when you get in, or only on load?~~
+  Both: This run starts at 0 after getting in and after loading (live
+  check, 2026-10-25).
 - Bushels: only if the game gets a setting for it, or we add our own.
 
 ## Log
@@ -262,3 +265,16 @@ header and a trailer, with and without Precision Farming):
   silent (Behaviour): the band's rig line without a header, Pipe Moving,
   Fold Folding…, a lift %, "none" for no limit, "–" throughput without
   the mass, and when the estimate starts again.
+- 2026-10-25: live check (mod 0.8.4) with Vincent: 9 of 10 confirmed (the tab,
+  the pick, the setting, the job line, the tiles, yield with and without
+  Precision Farming, This run and Total, units). Open: until full,
+  throughput and Call a trailer.
+- 2026-10-25: from the live check: for the first ~20 s of filling the band
+  said "not filling" and Throughput "0" although the tank was filling
+  (the rate needs 20 s of levels). Now "measuring…" while the level rises
+  without a rate yet (`rates.rising`, the last 5 s); Behaviour updated.
+  Until full, throughput and Call a trailer still to check in game.
+- 2026-10-25: live check done: until full, throughput (after "measuring…"),
+  Call a trailer and the pulse confirmed. All ten boxes ticked; the API
+  names are in DONE.md (`setIsSwathActive` stays unverified: the key was
+  live, so the fallback never ran). Status live-checked.
