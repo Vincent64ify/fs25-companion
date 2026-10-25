@@ -25,6 +25,13 @@ Where the other docs fit:
   spec links to its design section instead of copying it.
 - [NEXT.md](../docs/NEXT.md): small fixes that don't need a spec.
 
+**From 2026-10-25 on, feature detail lives here.** A feature's behaviour,
+data contract, commands, checks and log go in its spec and nowhere else.
+THEMES.md keeps only its look and layout, with a link to the spec; DONE.md
+gets a one-line entry and the API facts once they're verified. Features
+built before this (T0 to T6, the Implement screen) stay as they are in
+THEMES.md.
+
 A fix found during a live check goes in the spec's Log and, if it changes
 behaviour, in Behaviour too: the spec always says what the code does now.
 

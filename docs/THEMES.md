@@ -1238,13 +1238,14 @@ the Implement screen canvas, in the built screens' look (dark band, white
 cards, the Day / Night palettes). Combines first; forage, beet, potato and
 cotton harvesters later, once their keys are seen in game.
 
-- **The Vehicle tab:** a setting, Screen for what I drive (on by default,
-  Settings › Screen), picks Tractor or Harvester from what you drive
-  (`vehicleKind` "harvester": the shop's Harvesters category). A tap on
-  the Vehicle tab while it's shown opens a menu, Tractor / Harvester; a
-  pick by hand stays until what you drive changes. Renderer: a screen may
-  share another's tab (`tab`), name itself in its menu (`choice`) and say
-  when the tab picks it (`when`, a detector in `DETECT`).
+Behaviour, the data from the mod, the checks and what changed after the
+first look are in the spec,
+[specs/0001-harvester-screen.md](../specs/0001-harvester-screen.md).
+
+- **The Vehicle tab:** two screens share it, Tractor and Harvester, with a
+  menu on the tab to switch. Renderer: a screen may share another's tab
+  (`tab`), name itself in its menu (`choice`) and say when the tab picks it
+  (`when`, a detector in `DETECT`).
 - **Layout:** the rig band (the Implement screen's), then the work card
   (Header lift, Thresher, Pipe, Straw, Speed against the limit) and the
   grain tank under it, the details beside them (header and combine wear,
@@ -1256,28 +1257,6 @@ cotton harvesters later, once their keys are seen in game.
   and Call a trailer (as the Implement card's), "Filling at about … L per
   minute" from the last minute, then Yield (t/ha), Of potential (%), This
   run and Total (ha).
-- **Mod 0.8.3** (names from Combine.lua and Precision Farming's
-  ExtendedCombine): a rig entry gains `straw {swath}` when the combine can
-  both swath and chop (TOGGLE_CHOPPER is offered only then); `cab.keys`
-  gains `straw`; the controlled vehicle gains `hectares {run, total}`
-  (`workedHectars` less `workedHectarsInitial`, and in total) and, with
-  Precision Farming, `yield {tPerHa, pct, potential}` (its spec table is
-  named after the mod, so the mod finds the key ending in
-  "extendedCombine"). New action `implement.straw` (TOGGLE_CHOPPER, else
-  `setIsSwathActive`).
-- **Implement card:** the vehicle's own keys (Pipe, Unload, Straw swath)
-  stay whatever tool is selected, named with the combine, as in the game's
-  help.
-- **After the first look (2026-10-25):** a button that acts on another
-  vehicle than the selected tool names it by the model alone, the same for
-  every button (Fold had shown "New Holland CH7.70"; it now uses
-  `entryModel`, like Pipe and Unload). The Vehicle tab's menu worked once
-  only: picking from it left the "tap elsewhere closes" listener behind,
-  which closed the next menu on press; closing the menu now removes it.
-- **Checked without the game:** a replay with a made-up New Holland CH7.70
-  and SuperFlex header at 1180×820, day and night: the tab picks Harvester
-  by itself, the menu switches back and forth, a pick by hand stays.
-  `web/test.html` (229 checks) and the Python and Lua suites pass.
 
 ### Default removed (2026-10-24)
 
