@@ -47,6 +47,10 @@ These decisions hold for all the work below:
   works on a LAN without internet.
 - **One piece per feature.** One collector per topic in the mod, one layer or
   panel per feature on the web, and nothing to change in between.
+- **One control per action.** Whatever is on screen at once, the chrome
+  included, offers each action through one control only: no second engine
+  button, and no Map button on a screen, since the bottom nav already opens
+  the Map. Before adding a control, check that nothing visible does it yet.
 - **World meters everywhere.** Positions stay in world (x, z) from the mod to
   the screen. The one transform lives in `web/src/map/mapView.js`.
 - **Never break the game.** Game API names that aren't verified go through
