@@ -4,7 +4,7 @@ What's next for FS25 Companion. What's already built, and the game API facts
 it relies on, are in [DONE.md](DONE.md). Small fixes go in
 [NEXT.md](NEXT.md).
 
-## Where things stand (2026-10-24)
+## Where things stand (2026-10-25)
 
 - Phases 0 to 4 of the rework are built and run live on Windows (Solek, and
   Kinlaig, a paid DLC map): the file stream, the client and backend, and the
@@ -22,9 +22,16 @@ it relies on, are in [DONE.md](DONE.md). Small fixes go in
   the game's state shown the same frame; tapping a tool selects it in game.
 - The Implement screen is built (mod 0.8.0, see [THEMES.md](THEMES.md#implement-screen-design-2026-10-24)):
   the rig band, the implement card with its buttons and tank estimates,
-  the details card, Lower all, Pipe, Unload / Tipping and Cover. Waiting
-  for the live check. The Map's field and farmland panel is one land panel
+  the details card, Lower all, Pipe, Unload / Tipping and Cover. Its live
+  check is under way: the Trailer Fill Limit (MAX and the weight limit on
+  the fill bars, mod 0.8.1) and a combine unfolding itself (mod 0.8.2) are
+  confirmed. The Map's field and farmland panel is one land panel
   (`3648def`).
+- The Harvester screen is built (mod 0.8.3, see [THEMES.md](THEMES.md#harvester-screen-mod-083-2026-10-25)):
+  the Vehicle tab's page for a combine, picked by itself from what you
+  drive (a setting, on by default) or from the tab's menu; the work card,
+  the grain tank with Precision Farming's yield, and the combine's straw.
+  Waiting for its live check; mod 0.8.3 is installed.
 - macOS is still to test, and a few things are still to confirm in game (see
   [Open checks](#open-checks)).
 
@@ -391,9 +398,9 @@ the ack carries the reason.
 ## Open checks
 
 Built, but not yet confirmed in game:
-- **Implement screen (mod 0.8.0, next to do):** mod 0.8.0 is installed and
-  the code is on main (`38a6786`). Restart the client so the tablet loads
-  the new page, open the third tab, then:
+- **Implement and Harvester screens (next to do):** mod 0.8.3 is
+  installed. Restart the game and the client so the tablet loads the new
+  page, then:
   - Seeder or cultivator: tap tiles in the band, ‹ › and a swipe change the
     game's selection; Lower, Work, Fold and Detach act exactly like V, B, X
     and detach; tank estimates appear after about 20 s of work ("Runs out
@@ -404,6 +411,20 @@ Built, but not yet confirmed in game:
   - Tipping trailer: Tipping (I, or Ctrl+I to the ground), Cover (N) and
     the Load stat.
   - Lower all / Raise all (Ctrl+V), in the column under All implements.
+  - Trailer Fill Limit, still to see: before the limit, the bar's shading
+    and tick where the tank will stop, and "full in" and "Call a trailer"
+    counting to it; with the setting off, nothing changes. (MAX at the
+    limit is confirmed.)
+  - Combine: after Unfold (confirmed), Work starts threshing.
+  - Harvester screen (mod 0.8.3): in a combine the Vehicle tab opens it by
+    itself; a second tap offers Tractor / Harvester; the setting Screen for
+    what I drive turns that off. Check the work card, Straw swath (as the
+    game's straw key), the grain tank's rate, This run and Total against
+    the game's HUD, and Yield and Of potential with Precision Farming.
+  - Implement card with the header selected: Pipe, Unload and Straw swath
+    still act on the combine, each named "CH7.70" like Fold.
+  - The Vehicle tab's menu: Tractor and Harvester switch every time, not
+    only the first (fixed after the first look, 2026-10-25).
   - The choices made while building (labels, when Pipe, Unload and Cover
     are unavailable, the tractor on the card when it's selected) are in
     THEMES.md, Implement screen, "As built": confirm or change them.

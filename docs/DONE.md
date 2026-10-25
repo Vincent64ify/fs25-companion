@@ -133,6 +133,15 @@ These results override any API guesses later in this document.
   else `isMotorStarted`. `spec_motorized.engineStarted` was always nil.
 - **Positions** (confirmed by Vincent, 2026-10-24): the player marker and
   the place markers line up with the in-game map.
+- **Trailer Fill Limit** (confirmed by Vincent, 2026-10-25, a PÖTTINGER
+  Aerosem with seed and fertilizer): with `missionInfo.trailerFillLimit`
+  on, `getMaxComponentMassReached()` matches the HUD's MAX, which stopped
+  the fertilizer at 76% while the seed was full: the limit is the whole
+  vehicle's mass, every unit at once.
+- **A combine folds itself** (confirmed by Vincent, 2026-10-25, New Holland
+  CH7.70 with a SuperFlex header): `IMPLEMENT_EXTRA2`'s live event belongs
+  to the combine, not the header, and the game won't thresh until it is
+  unfolded ("You first need to unfold the tool").
 
 ---
 
@@ -430,6 +439,25 @@ Changes since Phase 4 (2026-10-21 to 2026-10-22):
 - **Default removed** (2026-10-24): the original dashboard theme, its
   corner map buttons and layout probe are gone; New Holland style is the
   only theme and the default. The theme mechanism stays for more brands.
+
+## Implement and Harvester screens
+
+- **Implement screen** (`38a6786`, 2026-10-24, mod 0.8.0): the rig band,
+  the implement card and the details card; live check under way (PLAN.md,
+  Open checks).
+- **Trailer Fill Limit and the hitch icon** (2026-10-25, mod 0.8.1,
+  confirmed live): each fill unit carries `maxReached` and `limit`; the
+  dashboard shows the game's lock + MAX, shades the bar past the weight
+  limit, and counts the estimates to it. The Hitch and Detach buttons use
+  an icon traced from the game's Attach Tool prompt.
+- **A combine unfolds itself** (2026-10-25, mod 0.8.2, confirmed live): the
+  rig's vehicle entry carries its fold, and Fold follows the fold key to
+  it.
+- **Harvester screen** (2026-10-25, mod 0.8.3, built): the Vehicle tab's
+  page for a combine, with a menu on the tab and the setting Screen for
+  what I drive; straw, worked area and Precision Farming's yield from the
+  mod. Waiting for its live check. Details in THEMES.md, "Harvester
+  screen".
 
 ## Controls
 

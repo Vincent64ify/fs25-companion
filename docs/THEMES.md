@@ -161,6 +161,8 @@ These are left out of this project:
     to be useful (T0 review).
   - every tab shows its icon and label here, since this screen has no
     tab-bar readout.
+- **Implement** (2026-10-24) and the Vehicle tab's **Harvester** page
+  (2026-10-25) came after v1: see their sections under Phases.
 
 ### Compact and wide
 
@@ -1193,6 +1195,88 @@ Vehicle answers "how is my tractor". Built the same day (mod 0.8.0, see
   night and 820×1180: estimates appear after 20 s, "Runs out first" on the
   fertilizer. `web/test.html` and the Python and Lua suites pass.
 
+#### Trailer Fill Limit and the hitch icon (mod 0.8.1, 2026-10-25)
+
+Confirmed live by Vincent: MAX at the weight limit, and the hitch icon.
+
+- **The game's rule** (FillUnit.lua, Vehicle.lua): with the Trailer Fill
+  Limit setting on (`missionInfo.trailerFillLimit`), a vehicle with a
+  maximum mass (`maxComponentMass`) takes no more load once
+  `getMaxComponentMassReached()`, in every unit at once, unless the unit has
+  `ignoreFillLimit`; the HUD then shows a lock and MAX. A seeder's
+  fertilizer can stop at 76% because the seed already weighs the rest.
+- **Mod:** each `fills` entry gains `maxReached` (the HUD's test) and
+  `limit`, the litres it stops at when below its capacity: its level at
+  MAX, else level + `getAvailableComponentMass()` ÷ the fill type's
+  `massPerLiter` (empty units have no type to weigh). Neither is sent with
+  the setting off.
+- **Web:** a fill bar is shaded past the limit with a tick where it stops
+  (card tanks, Attached rows, rig tiles); a lock + MAX badge beside the
+  level on the card and the Attached rows, " · MAX" on the Load stat, the
+  Vehicle screen's Load and the tiles' tooltips. "Full in" counts to the
+  limit; "Call a trailer" is 80% of the limit, or a tool with a pipe at MAX;
+  a tank at MAX reads "at its weight limit".
+- **Hitch icon:** traced from the game's Attach Tool prompt (a bar into a
+  ball, a thick ring open towards it), filled; on Hitch and both Detach
+  buttons, where Detach had the lift arrow.
+- **A combine unfolds itself (mod 0.8.2):** the game won't thresh until the
+  combine is unfolded, and the fold is the combine's own, not the
+  cutter's. The rig's vehicle entry gains `foldable` / `unfolded` /
+  `foldMoving` (VehicleState.fold, shared with the tools); `keyTool` takes
+  the vehicle's entry for the fold key only, so Fold follows F wherever it
+  points, naming the combine under the button when the cutter is
+  selected. `implement.fold` no longer needs an implement: its setter falls
+  back to the vehicle.
+
+### Harvester screen (mod 0.8.3, 2026-10-25)
+
+Decided with Vincent: a combine gets its own screen, the Vehicle tab's
+other page rather than a fourth tab. Its content is the Harvest artboard of
+the Implement screen canvas, in the built screens' look (dark band, white
+cards, the Day / Night palettes). Combines first; forage, beet, potato and
+cotton harvesters later, once their keys are seen in game.
+
+- **The Vehicle tab:** a setting, Screen for what I drive (on by default,
+  Settings › Screen), picks Tractor or Harvester from what you drive
+  (`vehicleKind` "harvester": the shop's Harvesters category). A tap on
+  the Vehicle tab while it's shown opens a menu, Tractor / Harvester; a
+  pick by hand stays until what you drive changes. Renderer: a screen may
+  share another's tab (`tab`), name itself in its menu (`choice`) and say
+  when the tab picks it (`when`, a detector in `DETECT`).
+- **Layout:** the rig band (the Implement screen's), then the work card
+  (Header lift, Thresher, Pipe, Straw, Speed against the limit) and the
+  grain tank under it, the details beside them (header and combine wear,
+  working width, done this run, folding, Show on map). The column keeps
+  Lights and Drive and adds Harvester: Lower, Thresher, Fold, Pipe,
+  Unload, Straw swath. Lower all and Hitch stay on the Implement tab: a
+  third group wouldn't fit 820 px.
+- **Grain tank:** level, MAX and the weight limit's shading, the estimate
+  and Call a trailer (as the Implement card's), "Filling at about … L per
+  minute" from the last minute, then Yield (t/ha), Of potential (%), This
+  run and Total (ha).
+- **Mod 0.8.3** (names from Combine.lua and Precision Farming's
+  ExtendedCombine): a rig entry gains `straw {swath}` when the combine can
+  both swath and chop (TOGGLE_CHOPPER is offered only then); `cab.keys`
+  gains `straw`; the controlled vehicle gains `hectares {run, total}`
+  (`workedHectars` less `workedHectarsInitial`, and in total) and, with
+  Precision Farming, `yield {tPerHa, pct, potential}` (its spec table is
+  named after the mod, so the mod finds the key ending in
+  "extendedCombine"). New action `implement.straw` (TOGGLE_CHOPPER, else
+  `setIsSwathActive`).
+- **Implement card:** the vehicle's own keys (Pipe, Unload, Straw swath)
+  stay whatever tool is selected, named with the combine, as in the game's
+  help.
+- **After the first look (2026-10-25):** a button that acts on another
+  vehicle than the selected tool names it by the model alone, the same for
+  every button (Fold had shown "New Holland CH7.70"; it now uses
+  `entryModel`, like Pipe and Unload). The Vehicle tab's menu worked once
+  only: picking from it left the "tap elsewhere closes" listener behind,
+  which closed the next menu on press; closing the menu now removes it.
+- **Checked without the game:** a replay with a made-up New Holland CH7.70
+  and SuperFlex header at 1180×820, day and night: the tab picks Harvester
+  by itself, the menu switches back and forth, a pick by hand stays.
+  `web/test.html` (229 checks) and the Python and Lua suites pass.
+
 ### Default removed (2026-10-24)
 
 The original dashboard no longer made sense next to New Holland style, so
@@ -1252,7 +1336,9 @@ it is gone; the theme mechanism stays for the next brands.
   `web/tools/icons.html`, `web/src/ui/screenMode.js` and
   `web/src/widgets/screen.js` (T5: full screen, keep-awake),
   `web/manifest.json`, `web/icons/` and `scripts/app_icons.py` (T5: home
-  screen).
+  screen), `web/src/data/rates.js`, `web/src/data/units.js` and
+  `web/src/widgets/implementScreen.js` (Implement screen),
+  `web/src/widgets/harvesterScreen.js` (Harvester screen).
 - **Removed:** `client/icon_atlas.json` (T2).
 - **Docs:** `docs/THEMES.md` (this file), `docs/PLAN.md`.
 

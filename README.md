@@ -13,9 +13,11 @@ Simulator 2 and American Truck Simulator.
 > **Status:** the rework is built. Phases 0 to 4 (file transport, client and
 > backend, the Leaflet map, the PDA's places, every vehicle, farmlands and
 > fields) run live on Windows; macOS is still to test. The first theme, a
-> New Holland style, has its chrome, Map screen and Vehicle screen, fits
-> tablets and monitors, and goes full screen; more data from the game is
-> next ([Themes and layouts](docs/THEMES.md)). See
+> New Holland style, has its chrome, Map, Vehicle and Implement screens,
+> and a Harvester page for combines; it fits tablets and monitors and goes
+> full screen ([Themes and layouts](docs/THEMES.md)). Controls work live
+> from the dashboard: lights, cruise, engine, AI worker and the implements,
+> down to picking one tool. See
 > [docs/PLAN.md](docs/PLAN.md) for what's next, and
 > [docs/DONE.md](docs/DONE.md) for what's built and the verified game API
 > facts.
@@ -101,8 +103,9 @@ web/           Browser dashboard (src/ modules, vendor/leaflet, vendor/fonts)
 | 3 | PDA layers: sell points, shops, productions, animals; all vehicles; farmland ownership | ✅ runs live |
 | 4 | Fields: outlines, crop and growth colours (PDA colours), field info panel | ✅ runs live |
 | themes | In-cab terminal styles: New Holland style chrome, Map and Vehicle screens, tablet sizes, full screen (T0 to T5), more game data (T6) | ✅ done; T6 waits for a live check, see [THEMES.md](docs/THEMES.md) |
-| controls | Game controls from the dashboard through an in-mod command channel (C0 to C4) | C0 to C2 work live on Windows; C3 next, see [PLAN.md](docs/PLAN.md) |
-| later | Implement screen (designed), sell prices, missions, AI workers, multiplayer farm colours, tray app | ideas, see [PLAN.md](docs/PLAN.md) |
+| controls | Game controls from the dashboard through an in-mod command channel (C0 to C4) | C0 to C3 work live on Windows; C4 (macOS, multiplayer) next, see [PLAN.md](docs/PLAN.md) |
+| screens | Implement screen (rig, tool card, tank estimates, weight limit) and the Harvester page for combines | Implement screen in its live check (weight limit and combine fold confirmed); Harvester built, see [PLAN.md](docs/PLAN.md#open-checks) |
+| later | More screens (Fields, Farm, Work, Yard), sell prices, missions, AI workers, multiplayer farm colours, tray app | ideas, see [PLAN.md](docs/PLAN.md) |
 
 The checks still open for Phases 1 to 4 are in [docs/PLAN.md](docs/PLAN.md#open-checks).
 
