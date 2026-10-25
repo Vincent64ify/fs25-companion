@@ -51,6 +51,12 @@ export const tempValue = (celsius, u) => (u.fahrenheit ? celsius * 1.8 + 32 : ce
 
 /** "1.51 ha" or "3.73 ac". @param {number} ha @param {Units} u */
 export const areaText = (ha, u) => (u.acres ? `${(ha / HA_PER_ACRE).toFixed(2)} ac` : `${ha.toFixed(2)} ha`);
+/** @param {Units} u */
+export const areaUnit = (u) => (u.acres ? "ac" : "ha");
+/** an area in the player's unit @param {number} ha @param {Units} u */
+export const areaValue = (ha, u) => (u.acres ? ha / HA_PER_ACRE : ha);
+/** something per hectare (a yield), per acre with acres @param {number} perHa @param {Units} u */
+export const perAreaValue = (perHa, u) => (u.acres ? perHa * HA_PER_ACRE : perHa);
 
 /** "£123,457". @param {number} amount @param {Units} u */
 export const moneyText = (amount, u) => u.currency + Math.round(amount).toLocaleString();

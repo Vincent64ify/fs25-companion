@@ -1390,6 +1390,30 @@ test("trailer fill limit: maxReached and the litres a unit stops at", function()
     g_fillTypeManager, g_localPlayer = nil, nil
 end)
 
+test("harvester screen: fills carry massPerLiter when the fill type has one", function()
+    load("src/collectors/Vehicles.lua")
+    getWorldTranslation = function() return 0, 0, 0 end
+    localDirectionToWorld = function() return 0, 0, -1 end
+    FillType = { UNKNOWN = 0 }
+    g_storeManager, g_brandManager = nil, nil
+    g_fillTypeManager = { getFillTypeByIndex = function(_, i)
+        return ({ [6] = { name = "WHEAT", title = "Wheat", massPerLiter = 0.00078 },
+                  [8] = { name = "WATER", title = "Water" } })[i]
+    end }
+    local combine = { id = 1, rootNode = 1, spec_fillUnit = { fillUnits = {
+        { capacity = 9300, fillLevel = 6700, fillType = 6 },
+        { capacity = 500, fillLevel = 100, fillType = 8 },
+        { capacity = 500, fillLevel = 0, fillType = 0 },
+    } } }
+    g_currentMission = { vehicleSystem = { vehicles = { combine } }, missionInfo = {} }
+    g_localPlayer = { getCurrentVehicle = function() return combine end }
+    local f = Companion.Collectors.Vehicles.collect({}).vehicles[1].fills
+    eq(f[1].massPerLiter, 0.00078, "wheat")
+    eq(f[2].massPerLiter, nil, "a fill type without one")
+    eq(f[3].massPerLiter, nil, "empty: no fill type")
+    g_fillTypeManager, g_localPlayer = nil, nil
+end)
+
 test("commands, implement screen: lower all, pipe, unload, cover as their keys, else setters", function()
     if TMP_DIR == nil then
         return

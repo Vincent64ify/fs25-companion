@@ -1265,34 +1265,151 @@ cardStore.set("cab", (() => {
 })());
 check("implement card: the header selected keeps the combine's pipe, unloading and straw",
   shownButtons(), ["Lower", "Work", "Unload", "Unfold", "Pipe out", "Straw swath", "Detach"]);
+// --- Harvester screen (specs/0001-harvester-screen.md, revision 2) --------------
+
 const harv = await import("./src/widgets/harvesterScreen.js");
-const harvStore = createStore();
-const work = harv.harvestWork(harvStore);
-const grain = harv.grainTank(harvStore);
-const harvDetails = harv.harvestDetails(harvStore);
-harvStore.set("vehicles", { controlledId: 20, vehicles: [{ id: 20, name: "Big Combine", category: "harvesters",
-  speed: 6.8, speedLimit: 10, wear: 0.34, crop: { name: "wheat", title: "Wheat" },
-  hectares: { run: 2.5, total: 18.25 }, yield: { tPerHa: 7.9, pct: 79, potential: 100 },
-  fills: [{ unit: 1, level: 9880, capacity: 13000, fillType: "wheat", fillTitle: "Wheat" }],
-  implements: [{ id: 21, name: "Cutter 9", category: "cutters", hitch: 1, speedLimit: 10, workWidth: 9, wear: 0.21 }] }] });
-harvStore.set("cab", (() => {
-  const c = harvest({ selected: 21 });
-  c.rig[0] = { ...c.rig[0], straw: { swath: false }, foldable: true, unfolded: true, foldMoving: false };
-  c.rig.splice(2, 1);
-  return c;
-})());
-check("harvester screen: a combine, its work states, grain tank, yield and details", [
-  harv.isHarvester({ category: "harvesters" }), harv.isHarvester({ category: "tractorsM" }),
-  q(work, ".harv-work-title h2"), q(work, ".harv-work-title p"),
-  [...work.querySelectorAll(".harv-state-value")].map((e) => e.textContent),
-  q(work, ".harv-speed-value b"), q(work, ".harv-speed-scale span:last-child"),
-  q(grain, ".tank-name"), q(grain, ".harv-tank-pct"),
-  [...grain.querySelectorAll(".harv-stat b")].map((e) => e.textContent),
-  [...harvDetails.querySelectorAll("dd")].map((e) => e.textContent)],
-  [true, false, "Harvesting · Wheat", "Big Combine with Cutter 9", ["Down", "On", "In", "Chopped"], "6.8", "Limit 10 km/h",
-    "Wheat", "76", ["7.9", "79", "2.50", "18.25"], ["21%", "34%", "9.0 m", "2.50 ha", "Unfolded"]]);
-check("harvester screen: without Precision Farming, area only",
-  harv.harvestStats({ hectares: { run: 1, total: 2 } }, units.METRIC).map((x) => x.id), ["run", "total"]);
+const { controlTiles } = await import("./src/widgets/controls.js");
+check("harvester screen: a combine is a harvester", [harv.isHarvester({ category: "harvesters" }),
+  harv.isHarvester({ category: "tractorsM" })], [true, false]);
+// the combine (20) and its header (21), as the cab and the vehicles topic have them
+const harvCab = ({ turnedOn = true, lowered = true, pipeOut = false, straw, foldable = true, header = true } = {}) => ({
+  inVehicle: true, implements: [], keys: { pipe: 20, straw: 20, turnOn: 20, lower: 21, fold: 21 },
+  rig: [{ id: 20, name: "Big Combine", depth: 0, selectable: true, pipe: { out: pipeOut, moving: false },
+    discharging: false, turnedOn, canTurnOn: true, ...(straw ? { straw } : {}) },
+  ...(header ? [{ id: 21, name: "Cutter 9", depth: 1, side: "front", selectable: true, selected: true, canLower: true,
+    lowered, foldable, unfolded: foldable ? true : undefined, foldMoving: false }] : [])] });
+const harvVehicles = ({ speed = 6.8, level = 6700, header = true, pf = true, run = 2.41, id = 20 } = {}) => ({
+  controlledId: id, vehicles: [{ id, name: "Big Combine", category: "harvesters", speed, wear: 0.02,
+    crop: { name: "wheat", title: "Wheat" }, hectares: { run, total: 48.6 },
+    ...(pf ? { yield: { tPerHa: 8.4, pct: 92, potential: 100 } } : {}),
+    fills: [{ unit: 1, level, capacity: 9300, fillType: "wheat", fillTitle: "Wheat", massPerLiter: 0.00078 }],
+    implements: header ? [{ id: 21, name: "Cutter 9", category: "cutters", hitch: 1, speedLimit: 10, workWidth: 7.6,
+      wear: 0.01 }] : [] }] });
+const vOf = (opts) => harvVehicles(opts).vehicles[0];
+const MILES = { ...units.METRIC, miles: true };
+const ACRES = { ...units.METRIC, acres: true };
+
+check("harvester screen: the job", [
+  harv.harvestJob(vOf(), harvCab()), harv.harvestJob(vOf({ speed: 0.3 }), harvCab()),
+  harv.harvestJob(vOf(), harvCab({ lowered: false })), harv.harvestJob(vOf({ header: false }), harvCab({ header: false })),
+  harv.harvestJob(vOf(), harvCab({ turnedOn: false })), harv.harvestJob(undefined, undefined).state],
+  [{ text: "Harvesting · Wheat", state: "harvesting" }, { text: "Ready", state: "ready" }, { text: "Ready", state: "ready" },
+    { text: "Ready", state: "ready" }, { text: "Standing", state: "standing" }, "none"]);
+
+const ro = (list) => list.map((r) => [r.id, r.value, r.unit, r.label, r.alert]);
+const noEstimate = undefined;
+check("harvester screen: band: tank %, until full, yield, speed against the limit", [
+  ro(harv.bandReadouts(vOf(), harvCab(), 650, noEstimate, units.METRIC)),
+  ro(harv.bandReadouts(vOf(), harvCab(), undefined, noEstimate, units.METRIC)).slice(1, 2),
+  ro(harv.bandReadouts(vOf({ header: false }), harvCab({ header: false }), 650, noEstimate, units.METRIC)).slice(3)],
+  [[["tank", "72", "%", "grain tank", false], ["full", "≈ 4", "min", "until full", false],
+    ["yield", "8.4", "t/ha", "yield", false], ["speed", "6.8", "km/h", "limit 10 km/h", false]],
+  [["full", "–", "", "not filling", false]],
+  [["speed", "6.8", "km/h", "no limit", false]]]);
+
+const tankOf = (level, perMin) => harv.grainTankState(vOf({ level }).fills[0], perMin);
+check("harvester screen: Call a trailer: at 80% of the stop or 3 min left", [
+  [tankOf(6700, 650).call, tankOf(6700, 650).litres, tankOf(6700, 650).rate],
+  [tankOf(7500, undefined).call, tankOf(7500, undefined).rate],
+  tankOf(6800, 1000).call, tankOf(8460, 640).call,
+  harv.grainTankState({ level: 600, capacity: 1000, limit: 700, fillType: "wheat" }, 10).call,
+  ro(harv.bandReadouts(vOf({ level: 8460 }), harvCab(), 640, noEstimate, units.METRIC)).slice(1, 2)],
+  [[false, `${(6700).toLocaleString()} / ${(9300).toLocaleString()} L · 5.2 t`, "Filling at about 650 L/min"], [true, undefined], true, true, true,
+    [["full", "≈ 1", "min", "until full", true]]]);
+
+// the estimate: litres × mass ÷ area, only while the tank rises with the pipe in
+const estStore = createStore();
+const est = harv.createYieldEstimate(estStore);
+let estLevel = 1000;
+let estRun = 0;
+const estStep = (dl, pipeOut = false, id = 20) => {
+  estLevel += dl;
+  estRun = Math.round((estRun + 0.01) * 100) / 100;
+  estStore.set("cab", harvCab({ pipeOut }));
+  estStore.set("vehicles", harvVehicles({ level: estLevel, run: estRun, pf: false, id }));
+};
+estStep(0);
+for (let i = 0; i < 4; i++) estStep(100);
+const under = est.get();
+for (let i = 0; i < 6; i++) estStep(100);
+const after = est.get();
+for (let i = 0; i < 5; i++) estStep(-500, true);
+estStep(100, true);
+const unloading = est.get();
+const yShown = (e, v = vOf({ pf: false }), u = units.METRIC) => { const y = harv.yieldShown(v, e, u); return [y.value, y.unit, y.sub]; };
+check("harvester screen: yield estimate: litres × mass ÷ area, skips unloading, – under 0.05 ha, PF wins", [
+  under, after && after.tPerHa.toFixed(2), after && after.ha.toFixed(2), unloading && unloading.tPerHa.toFixed(2),
+  unloading && unloading.ha.toFixed(2), yShown(under), yShown(after), yShown(after, vOf())],
+  [undefined, "7.80", "0.10", "7.80", "0.10", ["–", "t/ha", "estimate, no Precision Farming"],
+    ["≈ 7.8", "t/ha", "estimate, no Precision Farming"], ["8.4", "t/ha", "92% of potential"]]);
+estStep(100, false, 30);
+check("harvester screen: yield estimate starts again in another vehicle", est.get(), undefined);
+
+const stats = (perMin, u = units.METRIC, v = vOf()) => harv.combineStats(v, perMin, undefined, u).map((s) => [s.id, s.value, s.unit]);
+check("harvester screen: throughput and units: t/h from the last minute; ac and t/ac; mph", [
+  stats(650), stats(undefined).slice(1, 2), stats(650, units.METRIC, { ...vOf(), fills: [{ level: 1, capacity: 9300 }] }).slice(1, 2),
+  stats(650, ACRES), ro(harv.bandReadouts(vOf(), harvCab(), 650, noEstimate, MILES)).slice(3)],
+  [[["yield", "8.4", "t/ha"], ["throughput", "30.4", "t/h"], ["run", "2.41", "ha"], ["total", "48.60", "ha"]],
+    [["throughput", "0", "t/h"]], [["throughput", "–", "t/h"]],
+    [["yield", "3.4", "t/ac"], ["throughput", "30.4", "t/h"], ["run", "5.96", "ac"], ["total", "120.09", "ac"]],
+    [["speed", "4.2", "mph", "limit 6 mph", false]]]);
+
+// the tiles: the state is the button
+const tileStore = createStore();
+const tileSent = [];
+const tiles = controlTiles(["thresher", "pipe", "straw", "header", "fold"], tileStore,
+  (a, value) => { tileSent.push([a, value]); return Promise.resolve({ ok: true }); });
+const tileShow = () => [...tiles.querySelectorAll(".control-tile")].map((t) => (t.hidden ? null
+  : `${t.dataset.tile}:${t.querySelector(".control-value").textContent}:${t.dataset.state}`));
+tileStore.set("vehicles", harvVehicles());
+tileStore.set("cab", harvCab({ straw: { swath: true } }));
+const tilesOn = tileShow();
+tileStore.set("cab", harvCab({ turnedOn: false, lowered: false, pipeOut: true, straw: { swath: false } }));
+const tilesOff = tileShow();
+tileStore.set("cab", harvCab({ foldable: false }));
+const tilesFew = tileShow();
+tileStore.set("cab", harvCab({ straw: { swath: true } }));
+for (const t of tiles.querySelectorAll(".control-tile")) tap(t);
+await new Promise((r) => setTimeout(r, 0));
+check("harvester screen: tiles show the state, light as specified and send their action", [tilesOn, tilesOff, tilesFew,
+  tileSent, [...tiles.querySelectorAll(".control-tile .control-label")].map((e) => e.textContent)],
+  [["thresher:On:on", "pipe:In:off", "straw:Swath:off", "header:Down:on", "fold:Unfolded:off"],
+    ["thresher:Off:off", "pipe:Out:on", "straw:Chop:off", "header:Up:off", "fold:Unfolded:off"],
+    ["thresher:On:on", "pipe:In:off", null, "header:Down:on", null],
+    [["implement.turnOn", undefined], ["implement.pipe", undefined], ["implement.straw", undefined],
+      ["implement.lower", undefined], ["implement.fold", undefined]],
+    ["Thresher", "Pipe", "Straw", "Header", "Fold"]]);
+
+// the widgets, with a steady 640 L a minute
+const harvS = createStore();
+const fixedRate = { rate: () => 640, area: () => undefined };
+const hBand = harv.harvestBand(harvS, { rates: fixedRate });
+const hCombine = harv.combineCard(harvS, { rates: fixedRate, send: () => Promise.resolve({ ok: true }) });
+const hHeader = harv.headerCard(harvS, { send: () => Promise.resolve({ ok: true }) });
+harvS.set("vehicles", harvVehicles({ level: 8460 }));
+harvS.set("cab", harvCab({ straw: { swath: true } }));
+const roShown = () => [...hBand.querySelectorAll(".harv-ro")].map((r) =>
+  `${r.dataset.ro}:${q(r, "b")}${q(r, "span")}:${q(r, "small")}${r.dataset.alert === "true" ? ":alert" : ""}`);
+check("harvester screen: the band, the Combine card and the Header card, nearly full", [
+  q(hBand, ".harv-job"), q(hBand, ".harv-rig"), roShown(),
+  q(hCombine, ".harv-card-name"), q(hCombine, ".harv-card-sub"), q(hCombine, ".harv-chip"), hCombine.querySelector(".harv-chip").dataset.state,
+  q(hCombine, ".harv-tank-name"), q(hCombine, ".harv-tank-pct"), hCombine.querySelector(".fill-meter").dataset.level,
+  hCombine.querySelector(".harv-call").hidden, q(hCombine, ".harv-tank-litres"),
+  [...hCombine.querySelectorAll(".harv-stat small")].map((e) => e.textContent), q(hCombine, ".harv-wear b"),
+  q(hHeader, ".harv-card-name"), q(hHeader, ".harv-lift b"), [...hHeader.querySelectorAll(".harv-row b")].map((e) => e.textContent),
+  q(hHeader, ".harv-wear b"), hHeader.querySelectorAll(".control-tile:not([hidden])").length],
+  ["Harvesting · Wheat", "Big Combine with Cutter 9",
+    ["tank:91%:grain tank", "full:≈ 1min:until full:alert", "yield:8.4t/ha:yield", "speed:6.8km/h:limit 10 km/h"],
+    "Big Combine", "Combine", "Harvesting", "active", "Grain tank · Wheat", "91", "warn", false, `${(8460).toLocaleString()} / ${(9300).toLocaleString()} L · 6.6 t`,
+    ["92% of potential", "last minute", "since you got in", "this combine"], "2%",
+    "Cutter 9", "Lowered", ["7.6 m", "10 km/h"], "1%", 2]);
+harvS.set("vehicles", harvVehicles({ level: 544, speed: 0, header: false, pf: false, run: 0.02 }));
+harvS.set("cab", harvCab({ turnedOn: false, header: false }));
+check("harvester screen: standing, no header, no Precision Farming", [
+  q(hBand, ".harv-job"), q(hBand, ".harv-rig"), q(hCombine, ".harv-chip"), hCombine.querySelector(".harv-chip").dataset.state,
+  hCombine.querySelector(".fill-meter").dataset.level, hCombine.querySelector(".harv-call").hidden,
+  q(hCombine, '.harv-stat[data-stat="yield"] small'), q(hHeader, ".harv-card-name"), hHeader.dataset.empty],
+  ["Standing", "Big Combine", "Standing", "", "", true, "estimate, no Precision Farming", "No header", "true"]);
 
 check("implement card: stats without a limit or a lift",
   cardStats({ depth: 1, id: 2, canLower: false, canTurnOn: false }, { id: 1, speed: 8, implements: [{ id: 2 }] }, [],
@@ -1309,6 +1426,19 @@ check("theme: the Implement screen's slots and its column",
     [...implScreen.querySelectorAll(".control-column .control-label")].slice(-2).map((e) => e.textContent),
     [...appI.querySelectorAll(".tab")].map((t) => t.dataset.screen)],
   [true, true, true, ["Lights", "Drive", "All implements"], ["Lower all", "Hitch"], ["map", "vehicle", "implement"]]);
+// the theme's Harvester screen: the band and the two cards; Lights and Drive
+// in the column, no Harvester group, no Show on map, no Unload anywhere
+const harvScreen = appI.querySelector('.screen[data-screen="harvester"]');
+const harvGroups = [...harvScreen.querySelectorAll(".control-column .control-group")];
+check("theme: the Harvester screen's slots and its column", [
+  ["harv-band", "harv-combine", "harv-header", "rig-band", "impl-details", "show-on-map"]
+    .map((c) => !!harvScreen.querySelector(`.${c}`)),
+  harvGroups.map((g) => q(g, ".control-group-label")),
+  [...harvGroups[1].querySelectorAll(".control-label")].map((e) => e.textContent),
+  [...harvScreen.querySelectorAll(".control-label")].filter((e) => /unload/i.test(e.textContent)).length,
+  [...harvScreen.querySelectorAll(".control-tile")].map((t) => t.dataset.tile)],
+  [[true, true, true, false, false, false], ["Lights", "Drive"], ["Cruise −", "Cruise", "Cruise +", "Engine", "AI worker"], 0,
+    ["thresher", "pipe", "straw", "header", "fold"]]);
 check("theme check: an added group's controls are checked",
   checkTheme({ id: "x", palettes: [], css: "", screens: [{ id: "a", label: "A",
     slots: [{ controls: true, add: [{ label: "g", controls: ["nope"] }] }] }] }), ['screen a: adds no control "nope"']);

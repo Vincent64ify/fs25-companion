@@ -1423,116 +1423,170 @@ button { font: inherit; color: inherit; }
 .impl-show.show-on-map { display: flex; gap: 8px; width: auto; margin-top: auto; padding: 0 14px; font: inherit; font-size: 14px; font-weight: 600; }
 .impl-show[hidden] { display: none; }
 
-/* --- Harvester screen: the Vehicle tab's page for a combine ------------------- */
+/* --- Harvester screen: the Vehicle tab's page for a combine (specs/0001) ------ */
 
-/* the rig band over the work card and grain tank, the details beside them */
+/* the band over the Combine and Header cards */
 .slot-group[data-group="harvester"] {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 250px;
-  grid-template-rows: 132px auto minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1.62fr) minmax(0, 1fr);
+  grid-template-rows: 88px minmax(0, 1fr);
   gap: 12px;
   min-width: 0;
   min-height: 0;
 }
-.slot:has(> .harv-work), .slot:has(> .harv-grain) { grid-column: 1; }
-.slot-group[data-group="harvester"] .slot:has(> .impl-details) { grid-column: 2; grid-row: 2 / 4; }
+.slot:has(> .harv-band) { grid-column: 1 / -1; }
 
-/* the work card: the readout card's colours, day and night */
-.harv-work {
+/* the band: the readout card's colours, day and night */
+.harv-band {
   display: flex;
-  flex-direction: column;
-  gap: 12px;
-  padding: 14px 16px;
+  align-items: center;
+  gap: 14px;
+  min-width: 0;
+  height: 100%;
+  box-sizing: border-box;
+  padding: 0 20px;
   border-radius: 20px;
   background: var(--readout);
   color: #FFFFFF;
   box-shadow: var(--readout-lift);
 }
-.harv-work-head { display: flex; align-items: center; gap: 12px; min-width: 0; }
-.harv-work-title { flex: 1; min-width: 0; }
-.harv-work-title h2 { margin: 0; overflow: hidden; font-size: 20px; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
-.harv-work-title p { margin: 2px 0 0; overflow: hidden; font-size: 13px; color: #BFD0EE; text-overflow: ellipsis; white-space: nowrap; }
-.harv-pill {
-  display: flex;
-  flex: none;
-  align-items: center;
-  gap: 7px;
-  height: 30px;
-  padding: 0 12px;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.12);
-  font-size: 13px;
-  font-weight: 600;
+.harv-band-text { flex: 1; min-width: 0; }
+.harv-job { margin: 0; overflow: hidden; font-size: 22px; font-weight: 700; line-height: 1.15; text-overflow: ellipsis; white-space: nowrap; }
+.harv-rig { margin: 2px 0 0; overflow: hidden; font-size: 13px; color: #BFD0EE; text-overflow: ellipsis; white-space: nowrap; }
+.harv-ros { display: flex; flex: none; gap: 26px; }
+.harv-ro { display: flex; flex-direction: column; align-items: flex-end; gap: 3px; }
+.harv-ro > div { display: flex; align-items: baseline; gap: 4px; }
+.harv-ro b { font-size: 28px; font-weight: 700; line-height: 1; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.harv-ro span, .harv-ro small { color: #BFD0EE; }
+.harv-ro span { font-size: 14px; }
+.harv-ro small { font-size: 12px; white-space: nowrap; }
+/* Call a trailer: until full turns orange and pulses until the level drops */
+.harv-ro[data-alert="true"] b, .harv-ro[data-alert="true"] small { color: #FFC14D; }
+.harv-ro[data-alert="true"] > div { animation: harv-pulse 1.6s ease-in-out infinite; }
+@keyframes harv-pulse { 50% { opacity: 0.45; } }
+@media (prefers-reduced-motion: reduce) {
+  .harv-ro[data-alert="true"] > div { animation: none; }
 }
-.harv-pill[hidden] { display: none; }
-.harv-pill i { width: 9px; height: 9px; border-radius: 50%; background: #4ADE80; }
-.harv-states { display: grid; grid-template-columns: 116px repeat(3, minmax(0, 1fr)) minmax(0, 1.6fr); gap: 10px; }
-.harv-states:has(> .harv-state[hidden]) { grid-template-columns: 116px repeat(2, minmax(0, 1fr)) minmax(0, 1.6fr); }
-.harv-state {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  min-width: 0;
-  padding: 12px;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 14px;
-  background: rgba(255, 255, 255, 0.08);
-}
-.harv-state[hidden] { display: none; }
-.harv-cap { font-size: 12px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: #BFD0EE; }
-.harv-state-value { font-size: 24px; font-weight: 700; line-height: 1; }
-.harv-state-sub { min-height: 15px; font-size: 12px; color: #BFD0EE; }
-.harv-ring { display: grid; place-items: center; width: 40px; height: 40px; border-radius: 50%; background: rgba(255, 255, 255, 0.14); color: #BFD0EE; }
-.harv-ring .icon { width: 24px; height: 24px; }
-.harv-ring[data-on="true"] { background: var(--badge); color: var(--badge-ink); }
-.harv-lift-body { display: flex; flex: 1; gap: 12px; }
-.harv-track { position: relative; width: 14px; min-height: 64px; overflow: hidden; border-radius: 999px; background: rgba(255, 255, 255, 0.14); }
-.harv-track > span { position: absolute; top: 0; right: 0; left: 0; border-radius: 999px; background: var(--badge); transition: height 0.3s; }
-.harv-lift-body > div { display: flex; flex-direction: column; justify-content: flex-end; gap: 6px; }
-.harv-speed-value { display: flex; align-items: baseline; gap: 6px; }
-.harv-speed-value b { font-size: 36px; font-weight: 700; line-height: 1; font-variant-numeric: tabular-nums; }
-.harv-speed-value span { font-size: 14px; color: #BFD0EE; }
-.harv-speed-track { position: relative; height: 10px; margin-top: auto; border-radius: 999px; background: rgba(255, 255, 255, 0.14); }
-.harv-speed-track > span { position: absolute; top: 0; bottom: 0; left: 0; border-radius: 999px; background: linear-gradient(90deg, #4FE09C, #2DB876); }
-.harv-speed[data-level="warn"] .harv-speed-track > span { background: var(--warn-fill); }
-.harv-speed-track em { position: absolute; top: -5px; right: 0; bottom: -5px; width: 3px; border-radius: 2px; background: #FFFFFF; }
-.harv-speed-track em[hidden] { display: none; }
-.harv-speed-scale { display: flex; justify-content: space-between; font-size: 12px; color: #BFD0EE; }
 
-/* the grain tank, its rate, then the yield and area */
-.harv-grain {
+/* the cards */
+.harv-card {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 14px;
   min-width: 0;
   min-height: 0;
-  padding: 12px 16px;
+  padding: 16px;
   overflow-y: auto;
   border: 1px solid var(--border);
-  border-radius: 16px;
+  border-radius: 20px;
   background: var(--card);
   box-shadow: var(--lift);
 }
-.harv-grain h2, .harv-stat .harv-cap { margin: 0; font-size: 12px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
-.harv-tank { display: flex; flex-direction: column; gap: 6px; }
-.harv-tank-head { display: flex; align-items: center; gap: 10px; min-width: 0; }
-.harv-tank-head .readout-badge { width: 30px; height: 30px; border-radius: 9px; box-shadow: none; }
-.harv-tank-head .readout-badge .icon { width: 18px; height: 18px; }
-.harv-tank-head .fill-max { margin: 0 0 0 auto; }
-.harv-tank-pct { margin-left: auto; font-size: 30px; font-weight: 700; line-height: 1; font-variant-numeric: tabular-nums; }
-.harv-tank-head .fill-max + .harv-tank-pct { margin-left: 0; }
-.harv-tank-head > span:last-child { font-size: 14px; color: var(--muted); }
-.harv-tank .tank-meter.widget-meter { height: 12px; border-radius: 6px; }
-.harv-empty { margin: 0; color: var(--muted); }
-.harv-rate { display: flex; align-items: center; gap: 10px; margin: 0; padding: 8px 12px; border-radius: 12px; background: var(--line); font-size: 14px; }
-.harv-rate[hidden] { display: none; }
-.harv-rate .icon { width: 20px; height: 20px; }
-.harv-rate b { margin-left: auto; font-size: 12px; color: var(--muted); }
-.harv-stats { display: grid; grid-auto-columns: minmax(0, 1fr); grid-auto-flow: column; gap: 10px; margin-top: auto; }
-.harv-stat { display: flex; flex-direction: column; gap: 4px; padding: 8px 10px; border-radius: 12px; background: var(--line); }
+.harv-card [hidden] { display: none !important; }
+.harv-card-head { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.harv-card-head .readout-badge { flex: none; width: 44px; height: 44px; border-radius: 11px; box-shadow: none; }
+.harv-card-head .readout-badge .icon { width: 26px; height: 26px; }
+.harv-card-text { flex: 1; min-width: 0; }
+.harv-card-name { margin: 0; overflow: hidden; font-size: 20px; font-weight: 700; line-height: 1.15; text-overflow: ellipsis; white-space: nowrap; }
+.harv-card-sub { margin: 2px 0 0; font-size: 13px; color: var(--muted); }
+.harv-chip, .harv-call {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  height: 28px;
+  padding: 0 12px;
+  border-radius: 999px;
+  background: var(--line);
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.harv-chip[data-state="active"] { background: var(--on); color: var(--on-text); }
+.harv-call { margin-left: auto; background: var(--warn-bg); color: var(--warn); }
+.harv-cap { font-size: 12px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+
+/* the grain tank */
+.harv-tank { display: flex; flex-direction: column; gap: 8px; }
+.harv-tank-head { display: flex; align-items: baseline; gap: 10px; min-width: 0; }
+.harv-tank-name { flex: 1; min-width: 0; overflow: hidden; font-size: 15px; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
+.harv-max:empty { display: none; }
+.harv-max .fill-max { margin: 0; }
+.harv-tank-value { display: flex; align-items: baseline; gap: 4px; }
+.harv-tank-pct { font-size: 30px; font-weight: 700; line-height: 1; font-variant-numeric: tabular-nums; }
+.harv-tank-value > span { font-size: 14px; color: var(--muted); }
+.harv-meter .fill-meter { display: block; width: auto; height: 16px; border-radius: 999px; }
+.harv-meter .fill-meter > span { border-radius: 999px; }
+.harv-meter .fill-meter[data-level="warn"] > span { background: var(--warn-fill); }
+.harv-tank-sub { display: flex; align-items: center; gap: 8px; min-height: 28px; font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.harv-tank-rate { display: flex; align-items: center; gap: 6px; }
+.harv-tank-rate::before { content: "\00B7"; }
+.harv-tank-rate .icon { width: 16px; height: 16px; }
+
+/* state tiles (controls.js controlTiles): the caption and icon on top, the
+   state in big type; lit like the column's buttons */
+.control-tiles { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.control-tiles[data-count="2"] { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.control-tiles[data-count="1"] { grid-template-columns: minmax(0, 1fr); }
+.control-tiles[data-count="0"] { display: none; }
+.control.control-tile {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-rows: auto minmax(0, 1fr);
+  align-items: start;
+  justify-items: start;
+  height: 104px;
+  padding: 12px 14px;
+  text-align: left;
+}
+.control-tile[hidden] { display: none; }
+.control-tile .control-label {
+  grid-row: 1;
+  grid-column: 1;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.control-tile .icon { grid-row: 1; grid-column: 2; }
+.control-tile .control-value, .control-tile[data-value] .control-value {
+  display: block;
+  grid-row: 2;
+  grid-column: 1 / -1;
+  align-self: end;
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 1;
+  opacity: 1;
+}
+.control-tile[data-state="on"] .control-label { color: var(--on-text); }
+.control-tile .control-dots { display: none; }
+
+/* the stats, rows and wear */
+.harv-stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin-top: auto; }
+.harv-stat { display: flex; flex-direction: column; gap: 5px; min-width: 0; padding: 10px 12px; border-radius: 14px; background: var(--line); }
 .harv-stat > div { display: flex; align-items: baseline; gap: 4px; }
-.harv-stat b { font-size: 22px; font-weight: 700; font-variant-numeric: tabular-nums; }
-.harv-stat > div > span { font-size: 12px; color: var(--muted); }
+.harv-stat b { font-size: 22px; font-weight: 700; line-height: 1; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.harv-stat > div > span { font-size: 13px; color: var(--muted); }
+/* "estimate, no Precision Farming" takes two lines */
+.harv-stat small { font-size: 11px; line-height: 1.25; color: var(--muted); }
+.harv-row, .harv-wear { display: flex; align-items: center; gap: 10px; min-height: 44px; border-top: 1px solid var(--line); font-size: 14px; }
+.harv-row > .icon, .harv-wear > .icon { flex: none; width: 20px; height: 20px; }
+.harv-row > b { margin-left: auto; font-weight: 700; font-variant-numeric: tabular-nums; }
+.harv-wear > div { display: flex; flex: 1; flex-direction: column; gap: 6px; padding: 8px 0; }
+.harv-wear > div > div { display: flex; justify-content: space-between; }
+.harv-wear .widget-meter { width: auto; }
+
+/* the header: its lift, tiles and rows */
+.harv-header-body { display: flex; flex: 1; flex-direction: column; gap: 14px; }
+.harv-lift { display: flex; flex-direction: column; gap: 8px; }
+.harv-lift > div:first-child { display: flex; align-items: baseline; justify-content: space-between; }
+.harv-lift b { font-size: 15px; font-weight: 700; }
+.harv-bar { display: block; height: 10px; overflow: hidden; border-radius: 999px; background: var(--line); }
+.harv-bar > i { display: block; height: 100%; border-radius: 999px; background: var(--on); transition: width 0.3s; }
+.harv-bar-labels { display: flex; justify-content: space-between; font-size: 11px; color: var(--muted); }
+.harv-rows { display: flex; flex-direction: column; margin-top: auto; }
 
 /* a shared tab's menu (Vehicle: Tractor or Harvester), over the tab */
 .tab-menu {
@@ -1601,13 +1655,15 @@ button { font: inherit; color: inherit; }
   .screen[data-screen="implement"] .slot-group, .screen[data-screen="implement"] .slot,
   .screen[data-screen="implement"] .control-column { min-height: auto; }
   .impl-card { overflow: visible; }
-  /* the Harvester screen scrolls the same way: band, work, tank, details */
+  /* the Harvester screen scrolls the same way: band, Combine, Header, then
+     the control dock */
   .screen[data-screen="harvester"] { grid-template-columns: minmax(0, 1fr); align-content: start; }
-  .slot-group[data-group="harvester"] { grid-template-columns: minmax(0, 1fr); grid-template-rows: 132px auto auto auto; }
-  .slot-group[data-group="harvester"] .slot:has(> .impl-details) { grid-column: 1; grid-row: auto; }
+  .slot-group[data-group="harvester"] { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto; }
   .screen[data-screen="harvester"] .slot-group, .screen[data-screen="harvester"] .slot,
   .screen[data-screen="harvester"] .control-column { min-height: auto; }
-  .harv-states, .harv-states:has(> .harv-state[hidden]) { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .harv-band { flex-wrap: wrap; padding: 14px 20px; }
+  .harv-ros { flex-wrap: wrap; gap: 14px 22px; }
+  .harv-card { overflow: visible; }
   /* unselected tabs drop to icons; the readout keeps speed, rpm and fuel */
   .tab:not([aria-pressed="true"]) { padding: 0; }
   .tab:not([aria-pressed="true"]) .tab-label { display: none; }

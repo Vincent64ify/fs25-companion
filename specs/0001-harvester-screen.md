@@ -1,6 +1,6 @@
 # 0001: Harvester screen
 
-Status: approved (revision 2, not built yet; revision 1 is built, mod 0.8.3)
+Status: built (revision 2, mod 0.8.4; live check open)
 Mod: 0.8.4 · Started: 2026-10-25 · Design: [THEMES.md, Harvester screen](../docs/THEMES.md#harvester-screen-mod-083-2026-10-25),
 canvas [FS25 Companion: Harvester screen](https://claude.ai/artifact/7arT5R4WwC9qJTTi3i99aL)
 
@@ -26,8 +26,8 @@ come later, once their keys are seen in game.
   cards side by side: Combine (wider) and Header. The control column on the
   right starts at the top, as on every screen. No rig band, no Details
   column, no Show on map (the bottom nav opens the Map), no PTO chip.
-- **Band:** the job and "CH7.70 with SuperFlex 25FT" on the left; four
-  numbers on the right, always shown:
+- **Band:** the job and "CH7.70 with SuperFlex 25FT" on the left (the model
+  alone without a header); four numbers on the right, always shown:
   - grain tank, %;
   - until full, "≈ 4 min", or "–, not filling" when the level isn't
     rising;
@@ -43,18 +43,22 @@ come later, once their keys are seen in game.
   - Grain tank: crop, %, the meter, "6,700 / 9,300 L · 5.2 t", and
     "Filling at about 650 L/min" from the last minute while it rises.
   - Tiles, each the state and its button (one tap toggles): Thresher
-    (On / Off, lit when on), Pipe (In / Out, lit when out), Straw (Swath /
-    Chop, the current one; only when the combine has both).
+    (On / Off, lit when on), Pipe (In / Out, lit when out, Moving while it
+    moves; only with a pipe), Straw (Swath / Chop, the current one; only
+    when the combine has both). A tile the game can't act on now reads
+    "–", dimmed, as the column's buttons do.
   - Stats: Yield (with "92% of potential" under it with Precision Farming,
     "estimate, no Precision Farming" without), Throughput (t/h, last
     minute), This run (since you got in), Total (this combine), in ha or ac.
   - Combine wear, with its bar.
 - **Header card:**
   - Head: the header's model and "Header".
-  - Lift: Raised / Lowered with its bar.
+  - Lift: Raised / Lowered with its bar (a % while it's between).
   - Tiles: Header (Down / Up, lit while lowered; one tap lowers or raises)
-    and Fold (Folded / Unfolded). Fold only when the header folds.
-  - Rows: working width, speed limit, header wear with its bar.
+    and Fold (Folded / Unfolded, Folding… while it moves). Fold only when
+    the header folds.
+  - Rows: working width, speed limit ("none" without one), header wear
+    with its bar.
   - Without a header attached, the card says "No header" and the band's
     limit reads "no limit".
 - **Call a trailer:** at 80% of where the tank stops (its capacity, or the
@@ -69,8 +73,10 @@ come later, once their keys are seen in game.
   tank this run (litres × the crop's mass per litre) divided by the area
   done this run, counted only while the tank rises and the pipe is in (so
   unloading on the move doesn't pull it down). "–" until 0.05 ha is done.
+  It starts again in another vehicle, or when the game's run (`hectares.run`)
+  goes back down.
 - **Throughput:** the tank's rate over the last minute × mass per litre, in
-  t/h. "0" while not filling.
+  t/h. "0" while not filling, "–" without the mass (a mod before 0.8.4).
 - **Units:** follow the game's settings, as the rest of the app (`env.units`):
   miles → mph; acres → ac, and yield per acre (t/ac). Litres and tonnes
   stay as the game shows them.
@@ -103,14 +109,18 @@ All additions; Protocol v1 is unchanged.
 - **Backend:** nothing new (`implement.straw` is allowed since 0.8.3; topic
   models take extras).
 - **Web:**
-  - `web/src/widgets/harvesterScreen.js`: the band, the two cards, the job
-    rule, yield estimate and throughput.
+  - `web/src/widgets/harvesterScreen.js`: `harvestBand`, `combineCard`,
+    `headerCard`; the job rule (`harvestJob`), the tank and Call a trailer
+    (`grainTankState`), the yield estimate (`createYieldEstimate`) and
+    throughput (`combineStats`).
   - `web/src/data/rates.js`: the last minute's rate, as now.
   - `web/src/themes/newholland/theme.js`: the Harvester screen without the
     rig band, Details and the Harvester group; Drive as the Tractor
     screen's.
-  - `web/src/widgets/controls.js`: tile variants of thresher, pipe, straw,
-    lower (Header) and fold, reading the same state as today's buttons.
+  - `web/src/widgets/controls.js`: `TILES` and `controlTiles`, the tile
+    variants of thresher, pipe, straw, lower (Header) and fold, reading the
+    same state as today's buttons.
+  - `web/src/data/units.js`: `areaUnit`, `areaValue`, `perAreaValue` (t/ac).
 
 | Name | Where from | State |
 |---|---|---|
@@ -139,7 +149,7 @@ Each tile follows the game the same frame its state changes.
 ## Plan
 
 - **Mod (0.8.4):** `mod/src/collectors/Vehicles.lua` sends `massPerLiter`
-  on fills; `mod/modDesc.xml` version.
+  on fills; the version in `mod/modDesc.xml` and `Companion.VERSION`.
 - **Web:** `harvesterScreen.js` rebuilt around the band and two cards;
   `controls.js` tile variant; `theme.js` screen definition; `style.css` for
   the band, cards and tiles (reusing the Implement card's classes where
@@ -159,32 +169,32 @@ Risks:
 ## Acceptance
 
 Automated (written before the code):
-- [ ] `mod/tests/run.lua`: fills carry `massPerLiter` when the fill type
+- [x] `mod/tests/run.lua`: fills carry `massPerLiter` when the fill type
   has one, and not otherwise.
 - [x] `mod/tests/run.lua` "harvester screen: straw, its key, worked area
   and Precision Farming's yield" (0.8.3, unchanged).
 - [x] `client/tests/test_commands.py`: `implement.straw` maps to
   `TOGGLE_STRAW` (0.8.3, unchanged).
-- [ ] `web/test.html` "harvester screen: band": tank %, until full, "not
+- [x] `web/test.html` "harvester screen: band": tank %, until full, "not
   filling", yield, speed against the limit; "no limit" without a header.
-- [ ] `web/test.html` "harvester screen: the job": Harvesting · crop only
+- [x] `web/test.html` "harvester screen: the job": Harvesting · crop only
   with thresher on, header lowered and moving; Ready; Standing.
-- [ ] `web/test.html` "harvester screen: tiles": Thresher, Pipe, Straw,
+- [x] `web/test.html` "harvester screen: tiles": Thresher, Pipe, Straw,
   Header and Fold show the state, light as specified and send their action;
   no Straw tile without both choices; no Fold tile on a header that doesn't
   fold; no Unload anywhere.
-- [ ] `web/test.html` "harvester screen: yield estimate": litres × mass ÷
+- [x] `web/test.html` "harvester screen: yield estimate": litres × mass ÷
   area while rising with the pipe in; skips unloading; "–" under 0.05 ha;
   Precision Farming's value wins when present.
-- [ ] `web/test.html` "harvester screen: throughput and units": t/h from
+- [x] `web/test.html` "harvester screen: throughput and units": t/h from
   the last minute; acres → ac and t/ac; miles → mph.
-- [ ] `web/test.html` "harvester screen: Call a trailer": at 80% of the stop
+- [x] `web/test.html` "harvester screen: Call a trailer": at 80% of the stop
   or 3 min left, the orange meter, the chip and the band's pulse.
-- [ ] `web/test.html`: the column has no Harvester group, Drive shows
+- [x] `web/test.html`: the column has no Harvester group, Drive shows
   Cruise − / Cruise / Cruise +, no Show on map.
 - [x] `web/test.html`: the combine's keys on the implement card with the
   header selected (0.8.3, unchanged).
-- [ ] Replay in the browser pane at 1180×820, day and night, against the
+- [x] Replay in the browser pane at 1180×820, day and night, against the
   canvas: harvesting, nearly full, standing without Precision Farming;
   nothing overflows, touch targets 48 px or more.
 
@@ -244,3 +254,11 @@ header and a trailer, with and without Precision Farming):
   and Header cards, tiles as buttons); this revision 2 replaces revision 1's
   Behaviour, waiting for approval.
 - 2026-10-25: revision 2 approved by Vincent; build not started.
+- 2026-10-25: revision 2 built (mod 0.8.4): pytest and `web/test.html` pass;
+  replay checked at 1180×820 (harvesting by day, nearly full at night,
+  standing without Precision Farming): nothing overflows, every target
+  48 px or more. Found there: the yield's "estimate, no Precision
+  Farming" didn't fit one line, now two. Filled in where the spec was
+  silent (Behaviour): the band's rig line without a header, Pipe Moving,
+  Fold Folding…, a lift %, "none" for no limit, "–" throughput without
+  the mass, and when the estimate starts again.

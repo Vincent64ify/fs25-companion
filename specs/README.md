@@ -39,4 +39,4 @@ behaviour, in Behaviour too: the spec always says what the code does now.
 
 | # | Feature | Status | Mod |
 |---|---|---|---|
-| [0001](0001-harvester-screen.md) | Harvester screen | revision 2 approved (rev 1 built, live check open) | 0.8.4 |
+| [0001](0001-harvester-screen.md) | Harvester screen | revision 2 built, live check open | 0.8.4 |

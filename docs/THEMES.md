@@ -1246,10 +1246,10 @@ first look are in the spec,
   menu on the tab to switch. Renderer: a screen may share another's tab
   (`tab`), name itself in its menu (`choice`) and say when the tab picks it
   (`when`, a detector in `DETECT`).
-- **Revision 2 (2026-10-25, approved, not built yet):** redesigned on its own
+- **Revision 2 (2026-10-25, built, mod 0.8.4):** redesigned on its own
   canvas, [FS25 Companion: Harvester screen](https://claude.ai/artifact/7arT5R4WwC9qJTTi3i99aL)
   (harvesting by day, nearly full at night, standing without Precision
-  Farming). It replaces the layout below once built.
+  Farming). It replaced the layout below.
   - **Layout:** a band in the content area (job; tank %, until full,
     yield, speed against the limit), then a Combine card (grain tank,
     Thresher / Pipe / Straw tiles, Yield, Throughput, This run, Total,
@@ -1262,14 +1262,14 @@ first look are in the spec,
     night) when on.
   - **Call a trailer:** the meter turns orange, the chip shows and the
     band's "until full" turns orange and pulses.
-- **Layout (revision 1, built):** the rig band (the Implement screen's), then the work card
+- **Layout (revision 1, replaced):** the rig band (the Implement screen's), then the work card
   (Header lift, Thresher, Pipe, Straw, Speed against the limit) and the
   grain tank under it, the details beside them (header and combine wear,
   working width, done this run, folding, Show on map). The column keeps
   Lights and Drive and adds Harvester: Lower, Thresher, Fold, Pipe,
   Unload, Straw swath. Lower all and Hitch stay on the Implement tab: a
   third group wouldn't fit 820 px.
-- **Grain tank (revision 1, built):** level, MAX and the weight limit's shading, the estimate
+- **Grain tank (revision 1, replaced):** level, MAX and the weight limit's shading, the estimate
   and Call a trailer (as the Implement card's), "Filling at about … L per
   minute" from the last minute, then Yield (t/ha), Of potential (%), This
   run and Total (ha).

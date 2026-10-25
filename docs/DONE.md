@@ -453,11 +453,12 @@ Changes since Phase 4 (2026-10-21 to 2026-10-22):
 - **A combine unfolds itself** (2026-10-25, mod 0.8.2, confirmed live): the
   rig's vehicle entry carries its fold, and Fold follows the fold key to
   it.
-- **Harvester screen** (2026-10-25, mod 0.8.3, built): the Vehicle tab's
-  page for a combine, with a menu on the tab and the setting Screen for
-  what I drive; straw, worked area and Precision Farming's yield from the
-  mod. Waiting for its live check. Details in THEMES.md, "Harvester
-  screen".
+- **Harvester screen** (2026-10-25, mod 0.8.3; revision 2 built with mod
+  0.8.4): the Vehicle tab's page for a combine, with a menu on the tab and
+  the setting Screen for what I drive; straw, worked area, Precision
+  Farming's yield and the crop's mass per litre from the mod. Waiting for
+  its live check. Details in its spec,
+  [specs/0001-harvester-screen.md](../specs/0001-harvester-screen.md).
 
 ## Controls
 

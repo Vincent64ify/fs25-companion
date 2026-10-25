@@ -374,6 +374,80 @@ export const CONTROLS = {
 };
 
 /**
+ * A state tile (the Harvester screen's cards): a control from CONTROLS
+ * grown into a tile, its caption, the icon and the state in big type. It
+ * reads and sends what that control does; lit while on, unless `lit` is
+ * false (Straw and Fold show which, not on or off).
+ * @typedef {Object} TileDef
+ * @property {string} control its id in CONTROLS
+ * @property {string} caption "Thresher"
+ * @property {string} [icon] in place of the control's
+ * @property {(v: any, cab: any) => string} state "On", "In", "Swath"
+ * @property {false} [lit]
+ * @property {(v: any, cab: any) => boolean} [shown] hidden when false
+ */
+
+/** @type {Record<string, TileDef>} */
+export const TILES = {
+  thresher: { control: "thresher", caption: "Thresher",
+    state: (v, cab) => (rigOf(cab).find((e) => e.depth === 0)?.turnedOn ? "On" : "Off") },
+  pipe: { control: "pipe", caption: "Pipe", shown: (v, cab) => !!pipeKey.tool(cab),
+    state: (v, cab) => {
+      const p = pipeKey.tool(cab)?.pipe;
+      return p?.moving ? "Moving" : p?.out ? "Out" : "In";
+    } },
+  // only a combine that can both swath and chop
+  straw: { control: "straw", caption: "Straw", lit: false, shown: (v, cab) => !!strawKey.tool(cab),
+    state: (v, cab) => (strawKey.tool(cab)?.straw?.swath ? "Swath" : "Chop") },
+  header: { control: "implementLowered", caption: "Header", icon: "hitchDown",
+    state: (v, cab) => (toolFor("lower")(v, cab)?.lowered ? "Down" : "Up") },
+  fold: { control: "fold", caption: "Fold", lit: false, shown: (v, cab) => toolFor("fold")(v, cab)?.foldable === true,
+    state: (v, cab) => {
+      const i = toolFor("fold")(v, cab);
+      return i?.foldMoving ? "Folding…" : i?.unfolded ? "Unfolded" : "Folded";
+    } },
+};
+
+/**
+ * State tiles, kept up to date: one tap sends the control's action.
+ * @param {string[]} ids in TILES
+ * @param {Store} store
+ * @param {(action: string, value?: number) => Promise<import("../commands.js").CommandResult>} [send]
+ */
+export function controlTiles(ids, store, send = sendCommand) {
+  const items = ids.map((id) => {
+    const tile = TILES[id];
+    if (!tile) throw new Error(`no tile "${id}"`);
+    const def = CONTROLS[tile.control];
+    const action = def.action;
+    const press = action ? () => send(action, def.sendValue?.(controlledVehicle(store), cabOf(store))) : undefined;
+    const ui = createControl({ label: tile.caption, icon: tile.icon || def.icon }, press);
+    ui.el.classList.add("control-tile");
+    ui.el.dataset.tile = id;
+    return { tile, def, ui };
+  });
+  const el = h("div", { className: "control-tiles" }, ...items.map((i) => i.ui.el));
+
+  const update = () => {
+    const v = controlledVehicle(store);
+    const cab = cabOf(store);
+    let shown = 0;
+    for (const { tile, def, ui } of items) {
+      ui.el.hidden = tile.shown ? !tile.shown(v, cab) : false;
+      if (!ui.el.hidden) shown += 1;
+      const on = def.read(v, cab);
+      const moving = on !== undefined && def.moving?.(v, cab) === true;
+      ui.setValue(on === undefined ? "–" : tile.state(v, cab));
+      ui.set(on === undefined ? "unavailable" : moving ? "pending" : on && tile.lit !== false ? "on" : "off");
+    }
+    el.dataset.count = String(shown);
+  };
+  store.subscribe("vehicles", update);
+  store.subscribe("cab", update);
+  return el;
+}
+
+/**
  * @typedef {Object} ControlGroup
  * @property {string} label "Lights"
  * @property {string[]} controls ids in CONTROLS

@@ -145,7 +145,8 @@ end
 -- air and without units the game hides from its HUD. An empty unit has no
 -- fill type (UNKNOWN). Under the Trailer Fill Limit a unit gets maxReached
 -- (the HUD's MAX) and limit, the litres it stops at when that is below its
--- capacity. Nil when there is none.
+-- capacity; a filled unit, massPerLiter when its fill type has one. Nil when
+-- there is none.
 local function fillLevels(vehicle)
     local spec = vehicle.spec_fillUnit
     local units = Api.tryCall(vehicle, "getFillUnits")
@@ -186,6 +187,8 @@ local function fillLevels(vehicle)
                 local info = fillTypeInfo(fillType)
                 entry.fillType = info.name and info.name:lower() or nil
                 entry.fillTitle = info.title
+                -- t per litre, as FillTypeManager has it (the yield estimate)
+                entry.massPerLiter = info.massPerLiter
             end
             if mass ~= nil and not unit.ignoreFillLimit then
                 local stop

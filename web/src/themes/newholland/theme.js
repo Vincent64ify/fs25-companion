@@ -79,22 +79,19 @@ export default {
       ],
     },
     {
-      // the Vehicle tab's other page, for a combine (docs/THEMES.md,
-      // Harvester screen): the rig band, the work card and grain tank
-      // beside the details (rows 132 | 228 | 1fr, columns 1fr | 250), then
-      // the controls with the combine's own keys
+      // the Vehicle tab's other page, for a combine (specs/0001): the band
+      // over the Combine and Header cards (rows 88 | 1fr, columns
+      // 1.62fr | 1fr), then the column with Lights and Drive; the cards'
+      // tiles are the combine's and the header's buttons
       id: "harvester", label: "Harvester", icon: "harvester", tab: "vehicle", choice: "Harvester", when: "harvester",
       slots: [
         { group: "harvester", slots: [
-          { widget: "rigBand" },
-          { widget: "harvestWork" },
-          { widget: "grainTank" },
-          { widget: "harvestDetails" },
+          { widget: "harvestBand" },
+          { widget: "combineCard" },
+          { widget: "headerCard" },
         ] },
-        { controls: true, omit: ["engineOn", "implementLowered", "fold", "implementOn", "hitch"],
-          // Lower all and Hitch stay on the Implement tab: with Lights and
-          // Drive, a third group of buttons wouldn't fit 820 px
-          add: [{ label: "Harvester", controls: ["implementLowered", "thresher", "fold", "pipe", "unload", "straw"] }] },
+        // Lower all and Hitch stay on the Implement tab
+        { controls: true, omit: ["implementLowered", "fold", "implementOn", "hitch"] },
       ],
     },
   ],
