@@ -18,7 +18,7 @@
 import {
   cabOf, controlledVehicle, entryModel, fillLimitPct, fillMax, fillName, fillPct, fillStop, fillsOf, implementById,
   implementsOf, kindLabel,
-  drivingOrder, rigJob, rigOf, selectedInRig, vehicleKind,
+  drivingOrder, lowersInRig, rigJob, rigOf, selectedInRig, vehicleKind,
 } from "../data/selectors.js";
 import { areaText, lengthText, speedUnit, speedValue, unitsOf } from "../data/units.js";
 import { minutesText, ratesOf, timeLeft } from "../data/rates.js";
@@ -73,8 +73,8 @@ function entryKind(/** @type {RigEntry} */ e, /** @type {Vehicle|undefined} */ v
 /** Working: turned on, or discharging (the yellow badge, as in the Attached rows). */
 const working = (/** @type {RigEntry} */ e) => e.turnedOn === true || e.discharging === true;
 
-/** Whether the game lets this tool lower: a tool, not a front loader. */
-const lowers = (/** @type {RigEntry} */ e) => e.depth > 0 && e.canLower !== false && typeof e.lowered === "boolean";
+/** Whether this tool lowers and raises: not a front loader or its tools (selectors.js isLoaderGear). */
+const lowers = (/** @type {RigEntry} */ e, /** @type {Vehicle|undefined} */ v) => lowersInRig(e, v);
 
 /**
  * A tile's state line: what it does first ("Pipe out", "Tipping",
@@ -88,7 +88,7 @@ export function tileState(e, v) {
   if (e.pipe) parts.push(e.pipe.moving ? "Pipe moving" : e.pipe.out ? "Pipe out" : "Pipe in");
   if (e.discharging) parts.push(e.trailer ? "Tipping" : "Unloading");
   else if (e.turnedOn) parts.push("Working");
-  if (lowers(e)) parts.push(hitchText({ ...detailOf(e, v), lowered: e.lowered }));
+  if (lowers(e, v)) parts.push(hitchText({ ...detailOf(e, v), lowered: e.lowered }));
   if (e.foldable && e.foldMoving) parts.push("Folding…");
   else if (e.foldable && e.unfolded === false) parts.push("Folded");
   if (e.cover?.open) parts.push("Cover open");
@@ -295,7 +295,7 @@ export function cardStats(e, v, rig, units) {
     out.push({ label: "Tipping", value: onOff(typeof e.discharging === "boolean" ? e.discharging : undefined) });
     out.push({ label: "Cover", value: e.cover ? (e.cover.open ? "Open" : "Closed") : "–" });
   } else {
-    if (lowers(e)) {
+    if (lowers(e, v)) {
       const at = typeof d?.hitch === "number" ? d.hitch : e.lowered ? 1 : 0;
       out.push({ label: "Lift", value: hitchText({ ...d, lowered: e.lowered }), pct: 100 * at });
     } else {
@@ -474,7 +474,7 @@ export function implementCard(store, opts = {}) {
 
 /**
  * The details card: wear, working width, area this run, folding state, and
- * Show on map (a "showonmap" event, as the vehicle card's).
+ * Show on map (a "showonmap" event that main.js handles).
  * @type {import("./widget.js").CreateWidget}
  */
 export function implementDetails(store, opts = {}) {

@@ -133,13 +133,21 @@ fadeIdleControls(map);
 
 createFieldInfoPanel(store, frame.fieldInfo);
 
-// the Vehicle screen's Show on map: the Map screen, following the vehicle
+// Show on map (the Implement tab's details): the Map screen, following the vehicle
 app.addEventListener("showonmap", () => {
   if (rendered.showScreen && rendered.mapScreen) {
     rendered.showScreen(rendered.mapScreen);
     rememberScreen();
   }
   follow.recentre();
+});
+// the Vehicle screen's rig tiles: the Implement tab, with the tool selected
+app.addEventListener("showscreen", (ev) => {
+  const id = /** @type {CustomEvent} */ (ev).detail;
+  if (rendered.showScreen && typeof id === "string") {
+    rendered.showScreen(id);
+    rememberScreen();
+  }
 });
 keepPopupsInside(map, { avoid: frame.fieldInfo, inset: TOOLBAR_INSET });
 

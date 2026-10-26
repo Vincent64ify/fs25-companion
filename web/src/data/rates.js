@@ -10,7 +10,7 @@
 // samples, when the line fits badly (unsteady: a refill, stop and go) or
 // when the level barely moves.
 
-import { controlledVehicle, implementsOf, rigEntry, cabOf } from "./selectors.js";
+import { controlledVehicle, implementsOf, isLoaderGear, rigEntry, cabOf } from "./selectors.js";
 
 export const RATE_WINDOW_MS = 60000;
 export const RATE_MIN_SPAN_MS = 20000;
@@ -21,6 +21,13 @@ const RISE_MS = 5000;
 const MIN_FIT = 0.8;
 // gaps longer than this don't count as working time for the area
 const MAX_STEP_MS = 2000;
+// the Vehicle screen's fuel and DEF ranges (specs/0002): the usage over the
+// last 5 minutes, fuel from the game's L/h after 30 s of it, DEF from its
+// level's drop after a minute and 0.05 L
+export const USAGE_WINDOW_MS = 300000;
+const FUEL_MIN_SPAN_MS = 30000;
+const DEF_MIN_SPAN_MS = 60000;
+const DEF_MIN_DROP = 0.05;
 
 /** @typedef {{t: number, level: number}} Sample */
 
@@ -93,6 +100,10 @@ export function createRates(store, now = () => performance.now()) {
   const levels = new Map();
   /** @type {Map<number, number>} tool id -> hectares */
   const areas = new Map();
+  /** @type {{t: number, usage: number}[]} the game's fuel use, L/h */
+  let fuelUse = [];
+  /** @type {Sample[]} the DEF tank's level */
+  let defLevels = [];
   /** @type {unknown} */
   let vehicleId;
   let lastAt = 0;
@@ -104,10 +115,20 @@ export function createRates(store, now = () => performance.now()) {
       vehicleId = v?.id;
       levels.clear();
       areas.clear();
+      fuelUse = [];
+      defLevels = [];
       lastAt = t;
       if (!v) return;
     }
     if (!v) return;
+    if (typeof v.fuelUsage === "number") fuelUse.push({ t, usage: v.fuelUsage });
+    while (fuelUse.length && fuelUse[0].t < t - USAGE_WINDOW_MS) fuelUse.shift();
+    if (typeof v.def === "number") {
+      // a refill starts the count again
+      if (defLevels.length && v.def > defLevels[defLevels.length - 1].level) defLevels = [];
+      defLevels.push({ t, level: v.def });
+    }
+    while (defLevels.length && defLevels[0].t < t - USAGE_WINDOW_MS) defLevels.shift();
     const seen = new Set();
     /** @param {number|string|undefined} owner @param {any} fills */
     const sample = (owner, fills) => {
@@ -131,7 +152,7 @@ export function createRates(store, now = () => performance.now()) {
       ids.add(impl.id);
       // working: lowered, or turned on (a sprayer), as the cab has it now
       const state = rigEntry(cab, impl.id) || impl;
-      const working = state.lowered || state.turnedOn;
+      const working = (state.lowered && !isLoaderGear(rigEntry(cab, impl.id), impl)) || state.turnedOn;
       if (working && impl.workWidth && impl.workWidth > 0 && (v.speed ?? 0) > 0.5 && dt > 0) {
         const ha = ((v.speed ?? 0) / 3.6) * (dt / 1000) * impl.workWidth / 10000;
         areas.set(impl.id, (areas.get(impl.id) || 0) + ha);
@@ -166,6 +187,27 @@ export function createRates(store, now = () => performance.now()) {
     },
     /** Hectares the tool has worked this run, undefined before any. @param {number|undefined} id */
     area: (id) => (id === undefined ? undefined : areas.get(id)),
+    /**
+     * The controlled vehicle's fuel use, L/h: the mean of the game's over
+     * the last 5 minutes; undefined before 30 s of it, or while it's 0.
+     * @returns {number|undefined}
+     */
+    fuelPerHour() {
+      if (fuelUse.length < 2 || fuelUse[fuelUse.length - 1].t - fuelUse[0].t < FUEL_MIN_SPAN_MS) return undefined;
+      const mean = fuelUse.reduce((sum, s) => sum + s.usage, 0) / fuelUse.length;
+      return mean > 0 ? mean : undefined;
+    },
+    /**
+     * Its DEF use, L/h: how far the level dropped over the last 5 minutes;
+     * undefined before a minute of it, or a drop of 0.05 L.
+     * @returns {number|undefined}
+     */
+    defPerHour() {
+      const first = defLevels[0];
+      const last = defLevels[defLevels.length - 1];
+      if (!first || last.t - first.t < DEF_MIN_SPAN_MS || first.level - last.level < DEF_MIN_DROP) return undefined;
+      return ((first.level - last.level) / (last.t - first.t)) * 3600000;
+    },
   };
 }
 

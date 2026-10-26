@@ -40,26 +40,18 @@ export default {
       ],
     },
     {
-      // the readout and vehicle cards, condition tiles and implements
-      // (rows 296 | 116 | 1fr, columns 1fr | 300), then the controls
-      id: "vehicle", label: "Vehicle", icon: "tractor", choice: "Tractor",
+      // the Vehicle tab's default page (specs/0002): the band with the rig
+      // strip over the Load and Target cards (rows auto | 1fr, columns
+      // 1fr | 1fr; Load full width without a loader), then the column with
+      // Lights and Drive. The tools' buttons are on the Implement tab.
+      id: "vehicle", label: "Vehicle", icon: "tractor", choice: "Vehicle",
       slots: [
         { group: "vehicle", slots: [
-          { widget: "vehicleReadout" },
-          { widget: "vehicleCard" },
-          { group: "conditions", slots: [
-            { widget: "fuel", variant: "condition", whenMissing: "dash" },
-            { widget: "engineTemp", variant: "condition", whenMissing: "dash" },
-            { widget: "wear", variant: "condition", whenMissing: "dash" },
-            { widget: "hours", variant: "condition", whenMissing: "dash" },
-            // only for engines with DEF, vehicles with a load
-            { widget: "def", variant: "condition" },
-            { widget: "load", variant: "condition" },
-          ] },
-          { widget: "implements", variant: "rows" },
+          { widget: "vehicleBand" },
+          { widget: "loadCard" },
+          { widget: "targetCard" },
         ] },
-        // the readout card's engine chip starts and stops the engine here
-        { controls: true, omit: ["engineOn"] },
+        { controls: true, omit: ["implementLowered", "fold", "implementOn", "hitch"] },
       ],
     },
     {

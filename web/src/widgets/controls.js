@@ -17,8 +17,8 @@
 // shows pending (a fold running) until the game reports the end state.
 
 import { createControl } from "../ui/control.js";
-import { cabOf, controlledVehicle, cruiseOf, entryModel, implementsOf, keyTool, lightsOf, liveTool, ptoOf, rigOf,
-  selectedInRig } from "../data/selectors.js";
+import { cabOf, controlledVehicle, cruiseOf, entryModel, implementById, implementsOf, isLoaderGear, keyTool, lightsOf,
+  liveTool, lowersInRig, ptoOf, rigOf, selectedInRig } from "../data/selectors.js";
 import { sendCommand } from "../connection.js";
 import { speedToKmh, speedUnit, speedValue, unitsOf } from "../data/units.js";
 import { h } from "../ui/dom.js";
@@ -146,9 +146,19 @@ const unloadKey = rigKey("unload", (e) => typeof e.discharging === "boolean" && 
 const coverKey = rigKey("cover", (e) => !!e.cover, (e) => e.cover.open);
 const strawKey = rigKey("straw", (e) => !!e.straw, (e) => e.straw.swath);
 
-/** the tools Lower all moves: every one the game lets lower */
-const lowerable = (/** @type {any} */ cab) =>
-  rigOf(cab).filter((e) => e.depth > 0 && e.canLower !== false && typeof e.lowered === "boolean");
+/** the tools Lower all moves: every one the game lets lower, not loader gear */
+const lowerable = (/** @type {any} */ v, /** @type {any} */ cab) => rigOf(cab).filter((e) => lowersInRig(e, v));
+
+/**
+ * Whether the lower key's tool is a front loader or one of its tools: no
+ * lowered or raised for those (specs/0002). The cab's selected implement
+ * has no id, so it goes by the game's selection in the rig.
+ */
+const lowerKeyOnLoader = (/** @type {any} */ v, /** @type {any} */ cab) => {
+  const tool = toolFor("lower")(v, cab);
+  const entry = tool && typeof (/** @type {any} */ (tool).id) === "number" ? tool : selectedInRig(cab);
+  return !!entry && isLoaderGear(/** @type {any} */ (entry), implementById(v, /** @type {any} */ (entry).id));
+};
 
 /** the name the Implement group's label shows: the game's selection */
 export function selectedName(/** @type {any} */ v, /** @type {any} */ cab) {
@@ -310,7 +320,7 @@ export const CONTROLS = {
   implementLowered: { label: "Lower", icon: "hitchDown", action: "implement.lower", progressive: true,
     read: (v, cab) => {
       const i = toolFor("lower")(v, cab);
-      return i && i.canLower !== false ? i.lowered === true : undefined;
+      return i && i.canLower !== false && !lowerKeyOnLoader(v, cab) ? i.lowered === true : undefined;
     },
     labels: (v, cab) => (toolFor("lower")(v, cab)?.lowered
       ? { label: "Raise", icon: "hitchUp" } : { label: "Lower", icon: "hitchDown" }),
@@ -343,10 +353,10 @@ export const CONTROLS = {
   // live), N the cover, and the combine's straw
   lowerAll: { label: "Lower all", icon: "lowerAll", action: "implement.lowerAll", progressive: true,
     read: (v, cab) => {
-      const tools = lowerable(cab);
+      const tools = lowerable(v, cab);
       return tools.length ? tools.some((e) => e.lowered) : undefined;
     },
-    labels: (v, cab) => (lowerable(cab).some((e) => e.lowered) ? { label: "Raise all" } : { label: "Lower all" }) },
+    labels: (v, cab) => (lowerable(v, cab).some((e) => e.lowered) ? { label: "Raise all" } : { label: "Lower all" }) },
   pipe: { label: "Pipe out", icon: "pipe", action: "implement.pipe", read: pipeKey.read, value: pipeKey.value,
     moving: (v, cab) => pipeKey.tool(cab)?.pipe?.moving === true,
     labels: (v, cab) => ({ label: pipeKey.tool(cab)?.pipe?.out ? "Pipe in" : "Pipe out" }) },
@@ -493,7 +503,10 @@ export function controlGroup(group, store, send = sendCommand) {
     }
     const press = action && !hold ? () => send(action, def.sendValue?.(controlledVehicle(store), cabOf(store)))
       : undefined;
-    return { def, ui: createControl(def, press, settle, hold) };
+    const ui = createControl(def, press, settle, hold);
+    // the theme can size one (Engine is two columns wide in Drive)
+    ui.el.dataset.control = id;
+    return { def, ui };
   });
   const el = h("section", { className: "control-group" }, title,
     h("div", { className: "control-grid" }, ...items.map((i) => i.ui.el)));

@@ -337,6 +337,37 @@ export function liveTool(cab, key, has) {
   return { tool: keyed || rig.find(has), live: keyed !== undefined };
 }
 
+// a front loader and its tools by joint type name (mod 0.8.5), shop
+// category or type name; a loader wagon is a trailer
+const LOADER_JOINT = /frontloader|wheelloader|telehandler|teleloader|skidsteer|loaderfork|bigbag/i;
+const LOADER_CATEGORY = /LOADER|SKIDSTEER|TELEHANDLER|FORKLIFT/;
+const LOADER_TYPE = /frontloader|shovel|dynamicmount|fork|bigbag|balegrab/i;
+
+/**
+ * A front loader or one of its tools (bucket, forks, hook): the game has
+ * no lowered or raised for them, so the dashboard never shows one
+ * (Vincent, 2026-10-26, specs/0002).
+ * @param {{joint?: string, category?: string, typeName?: string}|undefined} entry the cab's rig entry
+ * @param {{category?: string, typeName?: string}|undefined} [impl] the vehicles topic's implement
+ */
+export function isLoaderGear(entry, impl) {
+  const joint = /** @type {any} */ (entry)?.joint;
+  if (typeof joint === "string" && LOADER_JOINT.test(joint)) return true;
+  return [impl, entry].some((x) => {
+    const cat = typeof x?.category === "string" ? x.category.toUpperCase() : "";
+    return (LOADER_CATEGORY.test(cat) && !/LOADERWAGON/.test(cat)) || LOADER_TYPE.test(x?.typeName || "");
+  });
+}
+
+/**
+ * Whether a rig entry lowers and raises: a tool the game lets lower, not
+ * loader gear.
+ * @param {import("../types.js").RigEntry} e
+ * @param {Vehicle|undefined} v
+ */
+export const lowersInRig = (e, v) => e.depth > 0 && e.canLower !== false && typeof e.lowered === "boolean" &&
+  !isLoaderGear(e, implementById(v, e.id));
+
 // what a working tool does, by its shop category; first match wins
 const JOBS = /** @type {[RegExp, string][]} */ ([
   [/FORAGEHARVESTER/, "Chopping"], [/PLOW/, "Ploughing"], [/CULTIVATOR/, "Cultivating"],
@@ -372,7 +403,8 @@ export function rigJob(v, cab) {
   // turned on first (a seeder sowing), then lowered (a cultivator at work)
   const state = (/** @type {Implement} */ i) => rigEntry(cab, i.id) || i;
   const working = impls.find((i) => state(i).turnedOn) ||
-    impls.find((i) => state(i).lowered && /** @type {any} */ (state(i)).canLower !== false);
+    impls.find((i) => state(i).lowered && /** @type {any} */ (state(i)).canLower !== false &&
+      !isLoaderGear(rigEntry(cab, i.id), i));
   const head = rig.find((e) => e.depth === 0);
   const tool = working || (head?.turnedOn ? v : undefined);
   if (tool) {

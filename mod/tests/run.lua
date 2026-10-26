@@ -1414,6 +1414,237 @@ test("harvester screen: fills carry massPerLiter when the fill type has one", fu
     g_fillTypeManager, g_localPlayer = nil, nil
 end)
 
+-- Vehicle screen (specs/0002): couplings, what's on the loader, the target --
+
+test("vehicle screen: rig entries carry the joint's type name, none for the vehicle", function()
+    load("src/collectors/Cab.lua")
+    local Cab = Companion.Collectors.Cab
+    Cab.reset()
+    local vehicle, loader = c3Rig()
+    AttacherJoints = { jointTypeNameToInt = { implement = 1, trailer = 2, attachableFrontloader = 9, frontloader = 10 } }
+    vehicle.spec_attacherJoints.attacherJoints[6].jointType = 9
+    vehicle.spec_attacherJoints.attacherJoints[5].jointType = 1
+    loader.spec_attacherJoints.attacherJoints[1].jointType = 10
+    local rig = Cab.collect({}).rig
+    eq(rig[1].joint, nil, "the vehicle")
+    eq(rig[2].joint, "attachableFrontloader", "the loader on the tractor")
+    eq(rig[3].joint, "frontloader", "the bucket on the loader")
+    eq(rig[4].joint, "implement", "the cultivator")
+    -- a type no name was registered for, and no registry at all
+    vehicle.spec_attacherJoints.attacherJoints[5].jointType = 77
+    eq(Cab.collect({}).rig[4].joint, nil, "unknown type")
+    AttacherJoints = nil
+    vehicle.spec_attacherJoints.attacherJoints[5].jointType = 1
+    eq(Cab.collect({}).rig[2].joint, nil, "no registry")
+    localToLocal = nil
+end)
+
+-- a tractor at the origin with a front loader and pallet forks on it, and
+-- the vehicles around it; positions by node (x, z)
+local function loaderYard()
+    load("src/collectors/Vehicles.lua")
+    Companion.Collectors.Vehicles.reset()
+    local at = {}
+    getWorldTranslation = function(node) local p = at[node] or { 0, 0 }; return p[1], 0, p[2] end
+    localDirectionToWorld = function() return 0, 0, -1 end
+    FillType = { UNKNOWN = 0 }
+    g_storeManager, g_brandManager = nil, nil
+    g_fillTypeManager = { getFillTypeByIndex = function(_, i)
+        return ({ [3] = { name = "POTATO", title = "Potatoes", massPerLiter = 0.00067 },
+                  [4] = { name = "SEEDS", title = "Seeds", massPerLiter = 0.0005 } })[i]
+    end }
+    local function fillUnits(list)
+        return { fillUnits = list }
+    end
+    -- a vehicle with fill units that accept the listed fill types
+    local function tank(id, x, z, farm, accepts, units, extra)
+        local v = { id = id, rootNode = 100 + id, typeName = "trailer",
+            spec_fillUnit = fillUnits(units),
+            getOwnerFarmId = function() return farm end,
+            getFillUnitAllowsFillType = function(_, unit, ft) return accepts[unit] ~= nil and accepts[unit][ft] == true end,
+            getFullName = function() return "Tank " .. id end }
+        for k, val in pairs(extra or {}) do
+            v[k] = val
+        end
+        at[v.rootNode] = { x, z }
+        return v
+    end
+    local pallet = tank(30, 0, 3, 1, { { [4] = true } }, { { capacity = 1000, fillLevel = 800, fillType = 4 } },
+        { isPallet = true, typeName = "pallet", getFullName = function() return "Seed pallet" end })
+    local forks = { id = 6, rootNode = 106, typeName = "dynamicMountAttacherImplement",
+        getFullName = function() return "Pallet Fork" end,
+        spec_dynamicMountAttacher = { dynamicMountedObjects = {} } }
+    at[106] = { 0, 3 }
+    local loader = { id = 5, rootNode = 105, typeName = "attachableFrontloader",
+        getFullName = function() return "Quicke Q6M" end,
+        getAttachedImplements = function() return { { object = forks, jointDescIndex = 1 } } end }
+    at[105] = { 0, 2 }
+    local tractor = { id = 1, rootNode = 101, typeName = "tractor",
+        getOwnerFarmId = function() return 1 end,
+        getAttachedImplements = function() return { { object = loader, jointDescIndex = 1 } } end }
+    forks.getRootVehicle = function() return tractor end
+    loader.getRootVehicle = function() return tractor end
+    tractor.getRootVehicle = function() return tractor end
+    local trailer = tank(10, 0, 9, 1, { { [3] = true, [4] = true } },
+        { { capacity = 22000, fillLevel = 14200, fillType = 3 } })
+    trailer.getFillUnitFreeCapacity = function(self, unit) return 22000 - self.spec_fillUnit.fillUnits[unit].fillLevel end
+    local others = tank(11, 0, 5, 2, { { [4] = true } }, { { capacity = 5000, fillLevel = 0, fillType = 0 } })
+    local refuser = tank(12, 0, 6, 1, { { [9] = true } }, { { capacity = 5000, fillLevel = 0, fillType = 0 } })
+    local far = tank(13, 0, 30, 1, { { [4] = true } }, { { capacity = 5000, fillLevel = 0, fillType = 0 } })
+    local seeder = tank(14, 0, 12, 1, { { [9] = true }, { [4] = true } },
+        { { capacity = 3000, fillLevel = 0, fillType = 0 }, { capacity = 5000, fillLevel = 2900, fillType = 4 } },
+        { typeName = "sowingMachine" })
+    g_localPlayer = { getCurrentVehicle = function() return tractor end }
+    g_currentMission = { vehicleSystem = { vehicles = { tractor, loader, forks, pallet, trailer, others, refuser,
+        far, seeder } }, missionInfo = {} }
+    return { tractor = tractor, forks = forks, pallet = pallet, trailer = trailer, seeder = seeder, at = at }
+end
+
+local function controlledEntry()
+    local data = Companion.Collectors.Vehicles.collect({})
+    for _, v in ipairs(data.vehicles) do
+        if v.id == data.controlledId then
+            return v
+        end
+    end
+end
+
+test("vehicle screen: carried lists mounted pallets and bigbags with fills, absent with nothing mounted", function()
+    local yard = loaderYard()
+    eq(controlledEntry().carried, nil, "nothing on the forks")
+    yard.forks.spec_dynamicMountAttacher.dynamicMountedObjects[yard.pallet] = yard.pallet
+    local carried = controlledEntry().carried
+    eq(#carried, 1)
+    eq(carried[1].id, 30)
+    eq(carried[1].name, "Seed pallet")
+    eq(carried[1].pallet, true)
+    eq(carried[1].bigBag, false)
+    eq(carried[1].fills[1].fillType, "seeds")
+    eq(carried[1].fills[1].level, 800)
+    eq(carried[1].fills[1].massPerLiter, 0.0005)
+    -- a bigbag hangs on the forks too: listed after, by id
+    local bag = { id = 31, typeName = "bigBag", spec_bigBag = {}, rootNode = 131,
+        getFullName = function() return "Seed bigbag" end,
+        spec_fillUnit = { fillUnits = { { capacity = 1000, fillLevel = 1000, fillType = 4 } } } }
+    yard.forks.spec_dynamicMountAttacher.dynamicMountedObjects[bag] = bag
+    carried = controlledEntry().carried
+    eq(#carried, 2)
+    eq(carried[2].id, 31)
+    eq(carried[2].bigBag, true)
+    eq(carried[2].pallet, false)
+    g_fillTypeManager, g_localPlayer = nil, nil
+end)
+
+test("vehicle screen: target is the nearest farm vehicle within 15 m that takes the fill type", function()
+    local yard = loaderYard()
+    eq(controlledEntry().target, nil, "nothing carried, nothing picked before")
+    yard.forks.spec_dynamicMountAttacher.dynamicMountedObjects[yard.pallet] = yard.pallet
+    local t = controlledEntry().target
+    -- the pallet (on the forks) and 11 (another farm's, 4 m nearer) and 12
+    -- (refuses seeds) are left out; 10 at 9 m from the tractor (the
+    -- vehicle, not the forks: spec 0002) wins over 14
+    eq(t.id, 10, "the trailer")
+    eq(t.name, "Tank 10")
+    eq(t.distance, 9)
+    eq(t.fillType, "seeds")
+    eq(#t.fills, 1, "the accepting unit only")
+    eq(t.fills[1].level, 14200)
+    eq(t.fills[1].capacity, 22000)
+    eq(t.fills[1].free, 7800, "the game's free capacity")
+    eq(t.stale, nil)
+    -- the trailer drives off: the seeder at 12 m, its second unit
+    yard.at[110] = { 0, 60 }
+    t = controlledEntry().target
+    eq(t.id, 14)
+    eq(t.fills[1].unit, 2, "the unit that takes seeds")
+    eq(t.fills[1].level, 2900)
+    -- out of range: the last target stays, stale, with its distance
+    yard.at[114] = { 0, 88 }
+    t = controlledEntry().target
+    eq(t.id, 14)
+    eq(t.stale, true)
+    eq(t.distance, 88)
+    -- the forks are empty: the last fill type still picks the target
+    yard.forks.spec_dynamicMountAttacher.dynamicMountedObjects = {}
+    yard.at[114] = { 0, 12 }
+    t = controlledEntry().target
+    eq(t.id, 14, "the seeder again, for the last carried seeds")
+    eq(t.stale, nil)
+    eq(t.fillType, "seeds")
+    -- in the own rig: never a target
+    yard.tractor.getAttachedImplements = function()
+        return { { object = yard.seeder, jointDescIndex = 2 } }
+    end
+    yard.seeder.getRootVehicle = function() return yard.tractor end
+    eq(controlledEntry().target, nil, "no loader in the rig: no target")
+    g_fillTypeManager, g_localPlayer = nil, nil
+end)
+
+test("vehicle screen: a bigbag on a lifter is carried and picks the target, no bucket or forks", function()
+    local yard = loaderYard()
+    -- the spike's Quicke BIG BAG LIFTER: no shovel, no dynamic mount; the
+    -- bag hangs on it by its own joint, as an attached implement
+    local bag = { id = 31, typeName = "bigBag", spec_bigBag = {}, isPallet = true, rootNode = 131,
+        getFullName = function() return "Lizard Seeds" end,
+        spec_fillUnit = { fillUnits = { { capacity = 1000, fillLevel = 1000, fillType = 4 } } } }
+    local lifter = { id = 16, typeName = "implement", rootNode = 116,
+        getFullName = function() return "Quicke BIG BAG LIFTER" end,
+        getAttachedImplements = function() return { { object = bag, jointDescIndex = 1 } } end }
+    local loader = yard.tractor.getAttachedImplements()[1].object
+    loader.getAttachedImplements = function() return { { object = lifter, jointDescIndex = 1 } } end
+    for _, o in ipairs({ bag, lifter }) do
+        o.getRootVehicle = function() return yard.tractor end
+    end
+    local v = controlledEntry()
+    eq(#v.carried, 1)
+    eq(v.carried[1].id, 31)
+    eq(v.carried[1].bigBag, true)
+    eq(v.target.id, 10, "the trailer takes seeds, 9 m from the tractor")
+    eq(v.target.distance, 9)
+    g_fillTypeManager, g_localPlayer = nil, nil
+end)
+
+test("vehicle screen: a bucket's load picks the target, under the weight limit", function()
+    local yard = loaderYard()
+    -- a bucket on the loader in place of the forks
+    local bucket = { id = 7, rootNode = 107, typeName = "shovel", spec_shovel = {},
+        getFullName = function() return "Albutt Bucket" end,
+        spec_fillUnit = { fillUnits = { { capacity = 2000, fillLevel = 1640, fillType = 3 } } } }
+    yard.at[107] = { 0, 3 }
+    local loader = yard.tractor.getAttachedImplements()[1].object
+    loader.getAttachedImplements = function() return { { object = bucket, jointDescIndex = 1 } } end
+    bucket.getRootVehicle = function() return yard.tractor end
+    g_currentMission.missionInfo.trailerFillLimit = true
+    yard.trailer.maxComponentMass = 15
+    yard.trailer.getMaxComponentMassReached = function() return false end
+    yard.trailer.getAvailableComponentMass = function() return 5.2 end
+    local v = controlledEntry()
+    eq(v.carried, nil, "a bucket carries no objects")
+    local t = v.target
+    eq(t.id, 10, "the trailer takes potatoes")
+    eq(t.fillType, "potato")
+    eq(t.massLimit.max, 15)
+    near(t.massLimit.mass, 9.8, "max - available")
+    eq(t.massLimit.reached, false)
+    g_fillTypeManager, g_localPlayer = nil, nil
+end)
+
+test("vehicle screen: the engine's temperature only, the game has no warning level", function()
+    load("src/collectors/Vehicles.lua")
+    getWorldTranslation = function() return 0, 0, 0 end
+    localDirectionToWorld = function() return 0, 0, -1 end
+    FillType = { UNKNOWN = 0 }
+    -- the spike's table (Merlo and L90H alike), and a field that isn't there
+    local tractor = { id = 1, rootNode = 1, spec_motorized = { motorTemperature = { value = 104, valueMin = 20,
+        valueMax = 120, warningTemperature = 95 } } }
+    g_localPlayer = { getCurrentVehicle = function() return tractor end }
+    g_currentMission = { vehicleSystem = { vehicles = { tractor } }, missionInfo = {} }
+    local v = Companion.Collectors.Vehicles.collect({}).vehicles[1]
+    eq(v.motorTemp, 104)
+    eq(v.temperatureWarning, nil, "never sent")
+    g_localPlayer = nil
+end)
+
 test("commands, implement screen: lower all, pipe, unload, cover as their keys, else setters", function()
     if TMP_DIR == nil then
         return

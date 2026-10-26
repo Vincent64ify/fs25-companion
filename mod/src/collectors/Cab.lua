@@ -27,7 +27,9 @@
 -- isn't always the selected one (the game keeps an action only one tool
 -- has live). Since the Implement screen (0.8.0) rig entries may carry
 -- pipe {out, moving}, discharging, trailer and cover {open}, and keys also
--- name the pipe's, unloading's, the cover's and lower all's tool.
+-- name the pipe's, unloading's, the cover's and lower all's tool. Since the
+-- Vehicle screen (0.8.5) a tool's entry carries joint, its coupling's type
+-- name as the game registered it ("implement", "frontloader").
 --
 -- On foot: {"inVehicle":false}.
 

@@ -473,6 +473,11 @@ Changes since Phase 4 (2026-10-21 to 2026-10-22):
   Farming's yield and the crop's mass per litre from the mod. Details in
   its spec,
   [specs/0001-harvester-screen.md](../specs/0001-harvester-screen.md).
+- **Vehicle screen redesign** (2026-10-26, mod 0.8.6, built, live check
+  open): the band with the rig strip and its couplings, what's on the
+  loader with the session's tally, and the vehicle nearby it goes into.
+  Details in its spec,
+  [specs/0002-vehicle-screen.md](../specs/0002-vehicle-screen.md).
 
 ## Controls
 

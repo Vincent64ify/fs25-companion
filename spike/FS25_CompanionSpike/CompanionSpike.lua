@@ -23,7 +23,7 @@
 CompanionSpike = {}
 local CS = CompanionSpike
 
-local SPIKE_VERSION = "0.0.1"
+local SPIKE_VERSION = "0.0.3"
 local MOD_DIR = g_currentModDirectory or ""
 
 local LIMITS = {
@@ -754,6 +754,198 @@ local function vehicleInfo(v)
     return info
 end
 
+-- Vehicle screen (specs/0002): couplings, what hangs on forks and hooks,
+-- the vehicles nearby that would take the load, the engine's temperature
+-- warning. Read-only, all guarded.
+
+-- joint type number -> the name it was registered with
+local function jointTypeNames()
+    local names = {}
+    local aj = AttacherJoints
+    if type(aj) == "table" and type(aj.jointTypeNameToInt) == "table" then
+        for name, n in pairs(aj.jointTypeNameToInt) do
+            names[n] = name
+        end
+    end
+    return names
+end
+
+local function firstOf(obj, name, ...)
+    local r = tryCall(obj, name, ...)
+    return r ~= nil and r[2] or nil
+end
+
+local function fillsOf(obj)
+    local out = {}
+    local units = firstOf(obj, "getFillUnits")
+    if type(units) ~= "table" and type(obj.spec_fillUnit) == "table" then
+        units = obj.spec_fillUnit.fillUnits
+    end
+    if type(units) ~= "table" then
+        return nil
+    end
+    for i, unit in ipairs(units) do
+        local ft = firstOf(obj, "getFillUnitFillType", i)
+        local fillType = ft ~= nil and g_fillTypeManager ~= nil
+            and firstOf(g_fillTypeManager, "getFillTypeByIndex", ft) or nil
+        -- 0.0.3: whether the game's HUD shows the unit (the mod skips it
+        -- when false); kept as a boolean, false included
+        local showOnHud = nil
+        if type(unit) == "table" and type(unit.showOnHud) == "boolean" then
+            showOnHud = unit.showOnHud
+        end
+        out[#out + 1] = {
+            unit = i, fillType = ft, name = type(fillType) == "table" and fillType.name or nil,
+            level = firstOf(obj, "getFillUnitFillLevel", i), capacity = firstOf(obj, "getFillUnitCapacity", i),
+            showOnHud = showOnHud,
+        }
+    end
+    return out
+end
+
+-- 0.0.3: what holds an object, if the game records it: spec_mountable's
+-- fields (a table that is a vehicle shown by its id and name) and the
+-- mount getters FS22's Mountable had
+local function mountInfo(o)
+    local spec = o.spec_mountable
+    if type(spec) ~= "table" then
+        return nil
+    end
+    local out = { fields = {}, getters = {} }
+    for k, v in pairs(spec) do
+        if type(k) == "string" then
+            if type(v) == "table" and v.id ~= nil and v.typeName ~= nil then
+                local name = firstOf(v, "getFullName")
+                out.fields[k] = { vehicleId = v.id, typeName = v.typeName, name = name }
+            elseif type(v) == "table" then
+                out.fields[k] = describe(v, 1, nil, 30)
+            elseif type(v) ~= "function" then
+                out.fields[k] = v
+            end
+        end
+    end
+    for _, name in ipairs({ "getDynamicMountObject", "getMountObject", "getDynamicMountType",
+        "getIsDynamicallyMounted", "getIsMounted", "getMountableObject" }) do
+        local r = firstOf(o, name)
+        if type(r) == "table" and r.id ~= nil then
+            out.getters[name] = { vehicleId = r.id, typeName = r.typeName }
+        elseif r ~= nil then
+            out.getters[name] = type(r) == "table" and describe(r, 1, nil, 30) or r
+        end
+    end
+    return out
+end
+
+local function objectInfo(o)
+    local info = vehicleInfo(o)
+    info.isPallet = o.isPallet
+    info.fills = fillsOf(o)
+    info.spec_bigBag = describe(o.spec_bigBag, 1, nil, 60)
+    info.mountable = mountInfo(o)
+    return info
+end
+
+local function vehicleScreenProbe(v)
+    local res = { jointTypes = {}, rig = {}, mounted = {}, nearby = {} }
+    local names = jointTypeNames()
+    for n, name in pairs(names) do
+        res.jointTypes[tostring(n)] = name
+    end
+    -- the rig: each member's joint, its type number and name
+    local members = { v }
+    local function walk(parent, depth)
+        local attached = firstOf(parent, "getAttachedImplements")
+        if type(attached) ~= "table" or depth > 6 then
+            return
+        end
+        for _, entry in pairs(attached) do
+            local o = type(entry) == "table" and entry.object or nil
+            if type(o) == "table" then
+                local joints = parent.spec_attacherJoints and parent.spec_attacherJoints.attacherJoints or nil
+                local joint = type(joints) == "table" and joints[entry.jointDescIndex] or nil
+                local jt = type(joint) == "table" and joint.jointType or nil
+                local info = vehicleInfo(o)
+                info.parent = parent.id
+                info.jointDescIndex = entry.jointDescIndex
+                info.jointType = jt
+                info.jointTypeName = jt ~= nil and names[jt] or nil
+                info.joint = describe(joint, 1, nil, 60)
+                info.fills = fillsOf(o)
+                info.spec_shovel = describe(o.spec_shovel, 1, nil, 60)
+                info.spec_dynamicMountAttacher = describe(o.spec_dynamicMountAttacher, 2, nil, 60)
+                info.spec_bigBag = describe(o.spec_bigBag, 1, nil, 60)
+                res.rig[#res.rig + 1] = info
+                members[#members + 1] = o
+                walk(o, depth + 1)
+            end
+        end
+    end
+    walk(v, 1)
+    -- what's on forks and hooks
+    local carriedType = nil
+    for _, m in ipairs(members) do
+        local spec = m.spec_dynamicMountAttacher
+        if type(spec) == "table" and type(spec.dynamicMountedObjects) == "table" then
+            for k, val in pairs(spec.dynamicMountedObjects) do
+                local o = type(k) == "table" and k or (type(val) == "table" and val or nil)
+                if o ~= nil then
+                    local info = objectInfo(o)
+                    info.on = m.id
+                    res.mounted[#res.mounted + 1] = info
+                    for _, f in ipairs(info.fills or {}) do
+                        if (f.level or 0) > 0 then
+                            carriedType = carriedType or f.fillType
+                        end
+                    end
+                end
+            end
+        end
+        for _, f in ipairs(m ~= v and fillsOf(m) or {}) do
+            if (f.level or 0) > 0 then
+                carriedType = carriedType or f.fillType
+            end
+        end
+    end
+    res.carriedType = carriedType
+    -- the 5 nearest other vehicles: their fill units and what they accept
+    local x, _, z = 0, 0, 0
+    local p = nodePosition(members[#members].rootNode)
+    if p ~= nil then
+        x, z = p[1], p[3]
+    end
+    local all = {}
+    local list = g_currentMission.vehicleSystem ~= nil and firstListOf(g_currentMission.vehicleSystem.vehicles) or {}
+    for _, o in ipairs(list) do
+        local q = nodePosition(o.rootNode)
+        if q ~= nil and o ~= v then
+            all[#all + 1] = { o = o, d = math.sqrt((q[1] - x) ^ 2 + (q[3] - z) ^ 2) }
+        end
+    end
+    table.sort(all, function(a, b) return a.d < b.d end)
+    for i = 1, math.min(5, #all) do
+        local o = all[i].o
+        local info = objectInfo(o)
+        info.distance = all[i].d
+        info.root = (firstOf(o, "getRootVehicle") or o).id
+        info.maxComponentMass = o.maxComponentMass
+        info.getAvailableComponentMass = firstOf(o, "getAvailableComponentMass")
+        if carriedType ~= nil then
+            for _, f in ipairs(info.fills or {}) do
+                f.allows = firstOf(o, "getFillUnitAllowsFillType", f.unit, carriedType)
+                f.free = firstOf(o, "getFillUnitFreeCapacity", f.unit, carriedType, firstOf(v, "getOwnerFarmId"))
+            end
+        end
+        res.nearby[#res.nearby + 1] = info
+    end
+    -- the engine's temperature, and any warning level beside it
+    local mz = v.spec_motorized
+    res.motorTemperature = describe(mz ~= nil and mz.motorTemperature or nil, 1, nil, 60)
+    res.motorFan = describe(mz ~= nil and mz.motorFan or nil, 1, nil, 60)
+    -- work lights: front and rear apart, or one switch
+    res.spec_lights = describe(v.spec_lights, 1, nil, 120)
+    return res
+end
+
 -- the controlled vehicle's fuel, wear and hours candidates (fuel, wear
 -- and hours arrived empty in the first live session)
 local function vehicleDetail(v)
@@ -791,6 +983,7 @@ local function vehicleDetail(v)
     res.spec_attacherJoints = describe(v.spec_attacherJoints, 2, nil, 100)
     res.spec_powerConsumer = describe(v.spec_powerConsumer, 1, nil, 100)
     res.spec_aiJobVehicle = describe(v.spec_aiJobVehicle, 2, nil, 100)
+    res.vehicleScreen = vehicleScreenProbe(v)
     return res
 end
 

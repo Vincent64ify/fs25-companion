@@ -797,45 +797,21 @@ check("speed scale: grows, kept once reached; rpm of its top",
   [50, 80, 120, 80, 50, 100, undefined]);
 
 const vs = createStore();
-const readoutCard = createWidget("vehicleReadout", vs);
-const vehicleCardEl = createWidget("vehicleCard", vs);
 const fuelCond = createWidget("fuel", vs, { variant: "condition", whenMissing: "dash" });
 const hoursCond = createWidget("hours", vs, { variant: "condition", whenMissing: "dash" });
 const implRows = createWidget("implements", vs, { variant: "rows" });
 const q = (el, s) => el.querySelector(s)?.textContent;
 vs.set("vehicles", { controlledId: 1, vehicles: [] });
-check("vehicle screen on foot", [q(readoutCard, ".readout-title"), q(readoutCard, ".readout-speed"),
-  readoutCard.querySelector(".readout-side").hidden, q(vehicleCardEl, ".vehicle-name"),
-  vehicleCardEl.querySelector(".show-on-map").hidden, fuelCond.hidden, q(fuelCond, ".widget-value"),
+check("condition tiles and implement rows on foot", [fuelCond.hidden, q(fuelCond, ".widget-value"),
   q(implRows, "h2"), implRows.querySelector(".impl-empty").hidden],
-  ["On foot", "–", true, "On foot", true, false, "–", "Attached", false]);
+  [false, "–", "Attached", false]);
 vs.set("vehicles", { controlledId: 1, vehicles: [{ id: 1, name: "New Holland T7.315 HD", brand: "New Holland",
   category: "TRACTORSM", speed: 14.24, rpm: 1850, rpmMax: 2200, gear: 4, engineOn: true, fuel: 72, fuelCapacity: 400,
   operatingHours: 412.6, implements: [
     { name: "Seed drill", categoryTitle: "Seeders", lowered: true, turnedOn: true, wear: 0.12 },
     { name: "Front weight", category: "WEIGHTS", lowered: false } ] }] });
-check("readout card", [q(readoutCard, ".readout-title"), q(readoutCard, ".readout-sub"),
-  readoutCard.querySelector(".readout-engine").dataset.state, q(readoutCard, ".readout-speed"), q(readoutCard, ".arc-max"),
-  readoutCard.querySelector(".arc-fill").getAttribute("stroke-dasharray"), q(readoutCard, ".readout-gear"),
-  q(readoutCard, ".readout-rpm b"), parseFloat(readoutCard.querySelector(".readout-rpm .widget-meter > span").style.width).toFixed(1)],
-  ["Working", "Seed drill", "on", "14.2", "50", "28.48 100", "4", (1850).toLocaleString(), "84.1"]);
 check("gear name: as the game says, reverse as R", ["2", "N", "-1", -2, 4, "3H", "-4L", "D", undefined, ""]
   .map((g) => sel.gearName({ id: 1, gear: g })), ["2", "N", "R1", "R2", "4", "3H", "R4L", "D", undefined, undefined]);
-const { gearDetail } = await import("./src/widgets/vehicleScreen.js");
-check("gear detail: group unless the name has it, and automatic", [
-  gearDetail({ id: 1, gear: "3", gearGroup: "B", gearAutomatic: true }), gearDetail({ id: 1, gear: "-4H", gearGroup: "L" }),
-  gearDetail({ id: 1, gear: "D", gearAutomatic: true }), gearDetail({ id: 1, gear: "N", gearAutomatic: false }),
-  gearDetail(undefined)], ["Range B · Automatic", "", "Automatic", "", ""]);
-check("vehicle card: kind icon, model, brand and kind", [
-  vehicleCardEl.querySelector(".vehicle-figure svg").dataset.icon, q(vehicleCardEl, ".vehicle-name"),
-  q(vehicleCardEl, ".vehicle-sub"), vehicleCardEl.querySelector(".show-on-map").hidden],
-  ["tractor", "T7.315 HD", "New Holland · Tractor", false]);
-let showOnMap = 0;
-const cardHost = document.createElement("div");
-cardHost.append(vehicleCardEl);
-cardHost.addEventListener("showonmap", () => showOnMap++);
-vehicleCardEl.querySelector(".show-on-map").click();
-check("vehicle card: Show on map bubbles up", showOnMap, 1);
 check("condition tiles: number, unit, detail, bar or note", [q(fuelCond, ".widget-value"), q(fuelCond, ".widget-unit"),
   q(fuelCond, ".widget-detail"), fuelCond.querySelector(".widget-meter > span").style.width, q(hoursCond, ".widget-value"),
   q(hoursCond, ".widget-note"), !!hoursCond.querySelector(".widget-meter")],
@@ -921,28 +897,6 @@ c3rs.set("cab", { inVehicle: true });
 check("C3 rows: without the rig, rows only show, no ‹ ›",
   [rowEls().some((r) => r.dataset.pick), rows.querySelectorAll(".impl-detach").length, rows.querySelector(".impl-steps").hidden],
   [false, 0, true]);
-
-// the readout card carries the Engine control on the Vehicle screen
-const { vehicleReadout } = await import("./src/widgets/vehicleScreen.js");
-const es = createStore();
-const engineSent = [];
-const readoutEl = vehicleReadout(es, { send: (a) => { engineSent.push(a); return Promise.resolve({ ok: true }); } });
-es.set("vehicles", { controlledId: 3, vehicles: [{ id: 3, engineOn: false }] });
-es.set("cab", { inVehicle: true, engineOn: false, engineState: "off" });
-const chip = readoutEl.querySelector(".readout-engine");
-const chipShow = () => [chip.classList.contains("control"), chip.querySelector(".control-label").textContent,
-  chip.dataset.state];
-const offShown = chipShow();
-tap(chip);
-await new Promise((r) => setTimeout(r, 0));
-const tappedShown = chipShow();
-es.set("cab", { inVehicle: true, engineOn: false, engineState: "starting" });
-const startingShown = chipShow();
-es.set("cab", { inVehicle: true, engineOn: true, engineState: "on" });
-await new Promise((r) => setTimeout(r, 0));
-check("card's Engine button: the column's control, pending until the game has it running",
-  [offShown, engineSent, tappedShown[2], startingShown[2], chipShow()],
-  [[true, "Engine", "off"], ["engine.toggle"], "pending", "pending", [true, "Engine", "on"]]);
 
 // the round trip readout's numbers
 let fake = 0;
@@ -1067,7 +1021,6 @@ const t6Load = createWidget("load", t6s, { variant: "condition" });
 const t6Money = createWidget("money", t6s);
 const t6Rows = createWidget("implements", t6s, { variant: "rows" });
 const t6List = createWidget("implements", t6s);
-const t6Readout = createWidget("vehicleReadout", t6s);
 t6s.set("vehicles", { controlledId: 1, vehicles: [t6] });
 check("T6 controls: cruise and PTO from the game", states(t6Controls), ["on", "on"]);
 check("T6 widgets, metric", [t6Speed.textContent, t6Temp.querySelector(".widget-unit").textContent,
@@ -1078,9 +1031,8 @@ check("T6 widgets, metric", [t6Speed.textContent, t6Temp.querySelector(".widget-
 t6s.set("env", { units: { miles: true, fahrenheit: true, currency: "€" }, money: { "1": 5000 } });
 t6s.set("hello", { farmId: 1 });
 check("T6 widgets follow the game's units", [t6Speed.textContent, q(t6Temp, ".widget-value"),
-  t6Temp.querySelector(".widget-unit").textContent, t6CruiseSpeed.textContent, t6Money.textContent,
-  q(t6Readout, ".readout-speed"), q(t6Readout, ".readout-speed-box small"), q(t6Readout, ".arc-max")],
-  ["12mph", "221", "°F", "Cruise9 mph", `Money€${(5000).toLocaleString()}`, "12.4", "mph", "50"]);
+  t6Temp.querySelector(".widget-unit").textContent, t6CruiseSpeed.textContent, t6Money.textContent],
+  ["12mph", "221", "°F", "Cruise9 mph", `Money€${(5000).toLocaleString()}`]);
 check("T6 implement rows: hitch while it moves, PTO chip, fill meter", [
   [...t6Rows.querySelectorAll(".impl-chip")].map((c) => `${c.textContent}:${c.dataset.state}`),
   [...t6Rows.querySelectorAll(".impl-fill")].map((f) => f.textContent),
@@ -1459,6 +1411,295 @@ check("theme: the Harvester screen's slots and its column", [
 check("theme check: an added group's controls are checked",
   checkTheme({ id: "x", palettes: [], css: "", screens: [{ id: "a", label: "A",
     slots: [{ controls: true, add: [{ label: "g", controls: ["nope"] }] }] }] }), ['screen a: adds no control "nope"']);
+
+// --- Vehicle screen (specs/0002-vehicle-screen.md) -------------------------------
+
+const vsc = await import("./src/widgets/vehicleScreen.js");
+// a tractor (1) with a front loader (5) and a bucket (7) of potatoes on it
+const loaderVehicle = ({ bucket = 1640, carried, target, extra = {} } = {}) => ({
+  id: 1, name: "New Holland T7.315 HD", brand: "New Holland", category: "tractorsM", speed: 6.24, gear: 2,
+  engineOn: true, fuel: 256, fuelCapacity: 400, def: 28.4, defCapacity: 40, wear: 0.18, motorTemp: 88,
+  operatingHours: 1240, ...(carried ? { carried } : {}), ...(target ? { target } : {}),
+  implements: [
+    { id: 5, name: "Quicke Q6M", typeName: "attachableFrontloader", category: "frontLoaders", depth: 1 },
+    { id: 7, name: "Albutt Bucket", typeName: "shovel", category: "frontLoaderTools", categoryTitle: "Front loader tools",
+      depth: 2, fills: [{ unit: 1, level: bucket, capacity: 2000, ...(bucket > 0
+        ? { fillType: "potato", fillTitle: "Potatoes", massPerLiter: 0.00067 } : {}) }] }],
+  ...extra });
+const loaderCab = ({ selected = 7 } = {}) => ({ inVehicle: true, implements: [], keys: {},
+  rig: [{ id: 1, name: "New Holland T7.315 HD", depth: 0, selectable: true, selected: selected === 1 },
+    { id: 5, parent: 1, name: "Quicke Q6M", depth: 1, side: "front", joint: "attachableFrontloader", selectable: true,
+      selected: selected === 5, lowered: false, canLower: false },
+    { id: 7, parent: 5, name: "Albutt Bucket", depth: 2, side: "front", joint: "frontloader", selectable: true,
+      selected: selected === 7, lowered: false }] });
+// a seeding rig without a loader: a seeder at the rear, a weight in front
+const seedVehicle = (extra = {}) => ({ id: 1, name: "New Holland T7.315 HD", brand: "New Holland", category: "tractorsM",
+  speed: 14.2, gear: 5, engineOn: true, pto: true, fuel: 168, fuelCapacity: 400, wear: 0.74, operatingHours: 1240,
+  mass: 14.62, implements: [
+    { id: 9, name: "Väderstad Spirit 600C", brand: "Väderstad", category: "seeders", categoryTitle: "Seeders", depth: 1,
+      fills: [{ unit: 1, level: 2900, capacity: 5000, fillType: "seeds", fillTitle: "Seeds" },
+        { unit: 2, level: 930, capacity: 3000, fillType: "fertilizer", fillTitle: "Fertilizer" }] },
+    { id: 4, name: "Front weight", category: "weights", depth: 1 }], ...extra });
+const seedCab = (extra = {}) => ({ inVehicle: true, implements: [], keys: {},
+  rig: [{ id: 1, name: "New Holland T7.315 HD", depth: 0, selectable: true, selected: false },
+    { id: 9, parent: 1, name: "Väderstad Spirit 600C", depth: 1, side: "rear", joint: "implement", selectable: true,
+      selected: true, lowered: true, turnedOn: true, canLower: true },
+    { id: 4, parent: 1, name: "Front weight", depth: 1, side: "front", joint: "implement", selectable: false,
+      selected: false, lowered: false, canLower: true }], ...extra });
+const seedPallet = { id: 30, name: "Seed pallet", pallet: true, bigBag: false,
+  fills: [{ unit: 1, level: 800, capacity: 1000, fillType: "seeds", fillTitle: "Seeds", massPerLiter: 0.0005 }] };
+const seedBag = { id: 31, name: "Seed bigbag", pallet: false, bigBag: true,
+  fills: [{ unit: 1, level: 1000, capacity: 1000, fillType: "seeds", fillTitle: "Seeds", massPerLiter: 0.0005 }] };
+const forksVehicle = (carried) => loaderVehicle({ bucket: 0, carried, extra: { implements: [
+  loaderVehicle().implements[0],
+  { id: 8, name: "Pallet Fork", typeName: "dynamicMountAttacherImplement", category: "frontLoaderTools", depth: 2 }] } });
+
+check("vehicle screen: band: job", [
+  vsc.vehicleJob(loaderVehicle(), loaderCab()), vsc.vehicleJob(loaderVehicle({ bucket: 0 }), loaderCab()).text,
+  vsc.vehicleJob(forksVehicle([seedPallet]), undefined).text,
+  vsc.vehicleJob(seedVehicle(), seedCab()).text, vsc.vehicleJob({ ...seedVehicle(), isAI: true, ai: { job: "Field work" } }, seedCab()).text,
+  vsc.vehicleJob(undefined, undefined).text],
+  [{ text: "Loading · Potatoes", icon: "loader" }, "Driving", "Loading · Seeds", "Seeding", "Field work", "On foot"]);
+const bro = (list) => list.map((r) => [r.id, r.label, r.value, r.unit, r.sub, r.alert]);
+check("vehicle screen: band: speed with gear and direction, fuel and DEF range, wear", [
+  bro(vsc.bandReadouts(loaderVehicle(), { fuel: 5.2, def: 9.4 }, units.METRIC)),
+  bro(vsc.bandReadouts(seedVehicle({ gear: "-1" }), {}, units.METRIC)),
+  bro(vsc.bandReadouts(loaderVehicle(), { fuel: 0.66 }, MILES)).slice(0, 3),
+  bro(vsc.bandReadouts({ id: 1, gear: "N" }, {}, units.METRIC))],
+  [[["speed", "Speed", "6.2", "km/h", "F2 · forward", false], ["fuel", "Fuel", "≈ 5", "h", "64%", false],
+    ["def", "DEF", "≈ 9", "h", "71%", false], ["wear", "Wear", "18", "%", "good", false]],
+  [["speed", "Speed", "14.2", "km/h", "R1 · reverse", false], ["fuel", "Fuel", "42", "%", "", false],
+    ["wear", "Wear", "74", "%", "repair soon", true]],
+  [["speed", "Speed", "3.9", "mph", "F2 · forward", false], ["fuel", "Fuel", "≈ 40", "min", "64%", false],
+    ["def", "DEF", "71", "%", "", false]],
+  [["speed", "Speed", "–", "km/h", "N · neutral", false], ["fuel", "Fuel", "–", "", "", false], ["wear", "Wear", "–", "%", "", false]]]);
+check("vehicle screen: band: Engine hot from 100 °C (the game has no warning level)", [
+  vsc.engineHot(loaderVehicle()), vsc.engineHot(loaderVehicle({ extra: { motorTemp: 99.9 } })),
+  vsc.engineHot(loaderVehicle({ extra: { motorTemp: 100 } })), vsc.engineHot(loaderVehicle({ extra: { motorTemp: 104 } })),
+  vsc.engineHot(undefined)], [false, false, true, true, false]);
+check("vehicle screen: band: an electric vehicle's Fuel is its Battery", [
+  vsc.bandReadouts({ id: 1, fuel: 50, fuelCapacity: 100, fuelType: "electriccharge" }, { fuel: 2 }, units.METRIC)[1],
+  vsc.bandReadouts({ id: 1, fuel: 50, fuelCapacity: 100, fuelType: "diesel" }, {}, units.METRIC)[1].label],
+  [{ id: "fuel", label: "Battery", value: "≈ 2", unit: "h", sub: "50%", alert: false }, "Fuel"]);
+check("vehicle screen: fuel range in hours, at the 5 minutes' usage", [vsc.fuelRange(256, 49.2), vsc.fuelRange(256, 0),
+  vsc.fuelRange(256, undefined), vsc.fuelRange(undefined, 40)], [256 / 49.2, undefined, undefined, undefined]);
+
+// fuel use over 5 minutes, from the game's L/h; DEF from its level's drop
+const useStore = createStore();
+let useNow = 0;
+const useRates = rt.createRates(useStore, () => useNow);
+const useAt = (s, usage, def) => { useNow = s * 1000; useStore.set("vehicles", { controlledId: 1, vehicles: [{ id: 1, fuel: 200,
+  fuelCapacity: 400, fuelUsage: usage, def, defCapacity: 40 }] }); };
+useAt(0, 30, 20);
+useAt(10, 30, 19.99);
+const usageEarly = [useRates.fuelPerHour(), useRates.defPerHour()];
+for (let s = 20; s <= 90; s += 10) useAt(s, s <= 50 ? 30 : 50, 20 - s * 0.002);
+const usageLater = [useRates.fuelPerHour(), useRates.defPerHour()];
+for (let s = 100; s <= 400; s += 10) useAt(s, 40, 20 - s * 0.002);
+check("rates: fuel per hour over the last 5 minutes, DEF from its level", [usageEarly,
+  usageLater.map((x) => x && Number(x.toFixed(1))), [useRates.fuelPerHour(), Number(useRates.defPerHour()?.toFixed(1))]],
+  [[undefined, undefined], [38, 7.2], [40, 7.2]]);
+
+// the rig strip: tiles in driving order, links named by the joint
+check("vehicle screen: joint names: game names first, else front or rear", [
+  "implement", "trailer", "trailerLow", "semitrailer", "attachableFrontloader", "frontloader", "wheelLoader", "telehandler",
+  "skidSteer", "loaderFork", "cutter", "cutterHarvester", undefined, "hookLift", "cutterTrailer", "bigBag", "semitrailerHook"]
+  .map((joint) => vsc.jointLabel({ joint, side: "front", depth: 1 })).concat(vsc.jointLabel({ depth: 1, side: "rear" })),
+  ["3-point", "Drawbar", "Drawbar", "Drawbar", "Loader", "Tool", "Tool", "Tool", "Tool", "Tool", "Header", "Header",
+    "Front", "Drawbar", "Drawbar", "Hook", "Drawbar", "Rear"]);
+const stripS = createStore();
+const stripSent = [];
+const stripOpened = [];
+const vBand = vsc.vehicleBand(stripS, { rates: { fuelPerHour: () => 49.2, defPerHour: () => 3 },
+  send: (a, value) => { stripSent.push([a, value]); return Promise.resolve({ ok: true }); } });
+const bandHost = document.createElement("div");
+bandHost.append(vBand);
+bandHost.addEventListener("showscreen", (ev) => stripOpened.push(ev.detail));
+const stripShow = () => [...vBand.querySelectorAll(".veh-strip > *")].map((el) => el.classList.contains("rig-tile")
+  ? `${q(el, ".rig-text b")}|${q(el, ".rig-text span")}${el.dataset.selected === "true" ? "|selected" : ""}`
+  + `${el.querySelector(".rig-badge").dataset.on === "true" ? "|working" : ""}`
+  : `<${q(el, "span")}:${el.dataset.lowered === "true" ? "solid" : "dashed"}>`);
+stripS.set("vehicles", { controlledId: 1, vehicles: [seedVehicle()] });
+stripS.set("cab", seedCab());
+const seedStrip = stripShow();
+const bandText = [q(vBand, ".veh-job"), [...vBand.querySelectorAll(".veh-ro")].map((r) =>
+  `${r.dataset.ro}:${q(r, "b")}${q(r, ".veh-ro-unit")}:${q(r, "small")}${r.dataset.alert === "true" ? ":alert" : ""}`),
+  vBand.querySelector(".veh-hot").hidden];
+stripS.set("vehicles", { controlledId: 1, vehicles: [loaderVehicle({ extra: { motorTemp: 104 } })] });
+stripS.set("cab", loaderCab());
+const loaderStrip = stripShow();
+const hotShown = [q(vBand, ".veh-job"), vBand.querySelector(".veh-hot").hidden, q(vBand, ".veh-hot")];
+for (const t of vBand.querySelectorAll(".rig-tile")) t.click();
+await new Promise((r) => setTimeout(r, 0));
+check("vehicle screen: rig strip: driving order, links by joint, solid while lowered, the selected tile", [seedStrip, loaderStrip],
+  [["Spirit 600C|Working · Lowered|selected|working", "<3-point:solid>", `T7.315 HD|PTO on · ${(1240).toLocaleString()} h`,
+    "<3-point:dashed>", "Front weight|Raised"],
+  [`T7.315 HD|Engine on · ${(1240).toLocaleString()} h`, "<Loader:solid>", "Quicke Q6M|Loader", "<Tool:solid>",
+    "Albutt Bucket|Potatoes · 82%|selected"]]);
+check("vehicle screen: band: job, the four numbers, Engine hot", [bandText, hotShown],
+  [["Seeding", ["speed:14.2km/h:F5 · forward", "fuel:≈ 3h:42%", "wear:74%:repair soon:alert"], true],
+    ["Loading · Potatoes", false, "Engine hot"]]);
+check("vehicle screen: rig strip: a tap selects that tool in game and opens Implement", [stripSent, stripOpened],
+  [[["implement.select", 1], ["implement.select", 5]], ["implement", "implement", "implement"]]);
+stripS.set("vehicles", { controlledId: 1, vehicles: [{ ...seedVehicle(), implements: [] }] });
+stripS.set("cab", { inVehicle: true, implements: [], rig: [seedCab().rig[0]] });
+check("vehicle screen: rig strip: the vehicle alone, Nothing attached", [stripShow(), vBand.querySelector(".veh-strip-none").hidden],
+  [[`T7.315 HD|PTO on · ${(1240).toLocaleString()} h`], false]);
+
+// the load card: what's on the loader, else every tank in the rig
+const loadS = createStore();
+const tally = vsc.createTally(loadS);
+const loadEl = vsc.loadCard(loadS, { tally });
+const loadShow = () => [q(loadEl, ".veh-card-label"), q(loadEl, ".veh-load-tool"),
+  [...loadEl.querySelectorAll(".veh-load-line")].map((l) => `${q(l, "b")}|${q(l, "span")}`)];
+const loadWith = (v, cab) => { loadS.set("cab", cab); loadS.set("vehicles", { controlledId: 1, vehicles: [v] }); return loadShow(); };
+check("vehicle screen: load card: bucket, pallet, bigbag, several, Empty; Loads without a loader", [
+  loadWith(loaderVehicle(), loaderCab()), loadWith(forksVehicle([seedPallet]), undefined),
+  loadWith(forksVehicle([seedBag]), undefined).slice(2), loadWith(forksVehicle([seedPallet, seedBag]), undefined).slice(2),
+  loadWith(loaderVehicle({ bucket: 0 }), loaderCab()).slice(2), loadWith(forksVehicle(undefined), undefined).slice(2),
+  loadWith(seedVehicle(), seedCab()), q(loadEl, ".veh-rig-mass")],
+  [["On the loader", "Albutt Bucket · Bucket", [`Potatoes|${(1640).toLocaleString()} L · 1.1 t`]],
+    ["On the loader", "Pallet Fork · Forks", ["Seeds pallet|800 L · 0.4 t"]],
+    [[`Seeds bigbag|${(1000).toLocaleString()} L · 0.5 t`]],
+    [["Seeds pallet|800 L · 0.4 t", `Seeds bigbag|${(1000).toLocaleString()} L · 0.5 t`]],
+    [["Empty|"]], [["Nothing mounted|"]],
+    ["Loads", "", [`Seeds · 58%|${(2900).toLocaleString()} / ${(5000).toLocaleString()} L`,
+      `Fertilizer · 31%|930 / ${(3000).toLocaleString()} L`]], "Rig 14.6 t"]);
+
+// the tally: a bucket from over 50% to under 5% counts once, a pallet leaving counts
+const tallyS = createStore();
+const tl = vsc.createTally(tallyS);
+const tallyAt = (v, cab = loaderCab()) => { tallyS.set("cab", cab); tallyS.set("vehicles", v ? { controlledId: 1, vehicles: [v] } : { vehicles: [] }); };
+for (const level of [0, 900, 1640, 1640, 40, 30, 90, 30]) tallyAt(loaderVehicle({ bucket: level }));
+const oneDump = tl.get();
+for (const level of [1800, 900, 1200, 60]) tallyAt(loaderVehicle({ bucket: level }));
+tallyAt(forksVehicle([seedPallet]), undefined);
+tallyAt(forksVehicle([seedPallet]), undefined);
+tallyAt(forksVehicle(undefined), undefined);
+tallyAt(forksVehicle([seedBag]), undefined);
+tallyAt(undefined);
+const tallied = tl.get();
+const lastLoad = tl.lastLoad();
+const tallyShow = (t) => [t.loads, t.tonnes.toFixed(2), t.byType.map((x) => `${x.title}:${x.loads}:${x.tonnes.toFixed(2)}`)];
+check("vehicle screen: tally: a dump counts once, a pallet leaving counts, mass per fill type", [tallyShow(oneDump),
+  tallyShow(tallied), lastLoad],
+  [[1, "1.10", ["Potatoes:1:1.10"]], [3, "2.70", ["Potatoes:2:2.30", "Seeds:1:0.40"]],
+    { fillType: "seeds", litres: 800 }]);
+const tallyEl = vsc.loadCard(tallyS, { tally: tl });
+tallyAt(loaderVehicle({ bucket: 0 }));
+const tallyShown = [q(tallyEl, ".veh-tally-total"), [...tallyEl.querySelectorAll(".veh-tally-type")].map((e) => e.textContent)];
+tallyEl.querySelector(".veh-reset").click();
+check("vehicle screen: tally: shown on the card, Reset clears it", [tallyShown, q(tallyEl, ".veh-tally-total"), tl.get().loads],
+  [["3 loads · 2.7 t", ["Potatoes · 2 loads · 2.3 t", "Seeds · 1 load · 0.4 t"]], "0 loads", 0]);
+
+// a bigbag on a lifter: carried and in the rig (spike, 2026-10-26); never
+// the tool, its emptying no dump, set down it counts what it held
+const bagFill = (level) => [{ unit: 1, level, capacity: 1000, ...(level > 0
+  ? { fillType: "seeds", fillTitle: "Seeds", massPerLiter: 0.0005 } : {}) }];
+const lifterVehicle = (level, onLifter = true) => loaderVehicle({ bucket: 0,
+  carried: onLifter ? [{ id: 31, name: "Lizard Seeds", pallet: true, bigBag: true, fills: bagFill(level) }] : undefined,
+  extra: { implements: [loaderVehicle().implements[0],
+    { id: 16, name: "Quicke BIG BAG LIFTER", typeName: "implement", category: "frontLoaderTools", depth: 2 },
+    ...(onLifter ? [{ id: 31, name: "Lizard Seeds", typeName: "bigBag", depth: 3, fills: bagFill(level) }] : [])] } });
+const bagS = createStore();
+const bagTally = vsc.createTally(bagS);
+const bagCard = vsc.loadCard(bagS, { tally: bagTally });
+const bagAt = (level, onLifter) => bagS.set("vehicles", { controlledId: 1, vehicles: [lifterVehicle(level, onLifter)] });
+bagAt(1000);
+const bagTool = [vsc.loaderTool(lifterVehicle(1000))?.id, q(bagCard, ".veh-load-tool")];
+for (const level of [600, 200, 20, 0]) bagAt(level);
+const bagEmptied = bagTally.get().loads;
+bagAt(0, false);
+check("vehicle screen: a bag on a lifter: the lifter is the tool, emptying isn't a dump, set down counts its most",
+  [bagTool, bagEmptied, tallyShow(bagTally.get()), bagTally.lastLoad()],
+  [[16, "Quicke BIG BAG LIFTER · Implement"], 0, [1, "0.50", ["Seeds:1:0.50"]], { fillType: "seeds", litres: 1000 }]);
+
+// the target: the nearest vehicle that takes what you carry
+const trailerTarget = (extra = {}) => ({ id: 10, name: "Krampe Bandit 750", category: "trailers", categoryTitle: "Trailers",
+  distance: 6.2, fillType: "potato", fills: [{ unit: 1, level: 14200, capacity: 22000, fillType: "potato",
+    fillTitle: "Potatoes", massPerLiter: 0.00067, free: 7800 }], ...extra });
+const tv = (v, perLoad, u = units.METRIC) => { const t = vsc.targetView(v, perLoad, u);
+  return [t.state, t.name, t.sub, t.fill, t.litres, t.more, t.full, t.weight]; };
+check("vehicle screen: target: meter, ≈ n more loads, Full, out of range, none yet", [
+  tv(loaderVehicle({ target: trailerTarget() }), 1640),
+  tv(loaderVehicle({ target: trailerTarget({ massLimit: { max: 15, mass: 13.8, reached: false } }) }), 1640).slice(5, 8),
+  tv(loaderVehicle({ target: trailerTarget({ fills: [{ ...trailerTarget().fills[0], level: 22000, free: 0 }] }) }), 1640).slice(5, 7),
+  tv(loaderVehicle({ target: trailerTarget({ massLimit: { max: 15, mass: 15, reached: true } }) }), 1640).slice(5, 7),
+  tv(loaderVehicle({ target: trailerTarget({ stale: true, distance: 85.4 }) }), undefined).slice(0, 3),
+  tv(loaderVehicle({ target: trailerTarget({ fills: [{ unit: 1, level: 1999, capacity: 2000, fillType: "potato" }] }) }), 1640)[5],
+  tv(loaderVehicle(), 1640)[0], tv(loaderVehicle({ target: trailerTarget() }), 1640, MILES)[2]],
+  [["live", "Krampe Bandit 750", "Trailers · 6 m", "Potatoes · 65%", `${(14200).toLocaleString()} / ${(22000).toLocaleString()} L`,
+    "≈ 5 more loads", false, undefined],
+  ["≈ 2 more loads", false, "13.8 / 15.0 t"], ["Full", true], ["Full", true],
+  ["stale", "Krampe Bandit 750", "Trailers · out of range · 85 m"], "≈ 1 more load", "none", "Trailers · 20 ft"]);
+const targetS = createStore();
+const targetEl = vsc.targetCard(targetS, { tally: vsc.createTally(targetS) });
+targetS.set("cab", loaderCab());
+targetS.set("vehicles", { controlledId: 1, vehicles: [loaderVehicle({ target: trailerTarget() })] });
+const targetLive = [targetEl.hidden, q(targetEl, ".veh-target-name"), q(targetEl, ".veh-target-more"),
+  targetEl.querySelector(".veh-target-full").hidden, targetEl.dataset.state];
+targetS.set("vehicles", { controlledId: 1, vehicles: [loaderVehicle({ target: trailerTarget({ stale: true }) })] });
+const targetStale = targetEl.dataset.state;
+targetS.set("vehicles", { controlledId: 1, vehicles: [loaderVehicle()] });
+const targetNone = [targetEl.dataset.state, q(targetEl, ".veh-target-none")];
+targetS.set("cab", seedCab());
+targetS.set("vehicles", { controlledId: 1, vehicles: [seedVehicle()] });
+check("vehicle screen: target card: live, stale, none yet; hidden without a loader", [targetLive, targetStale, targetNone,
+  targetEl.hidden], [[false, "Krampe Bandit 750", "≈ 5 more loads", true, "live"], "stale",
+  ["none", "Come near something to fill"], true]);
+
+// a front loader and its tools have no lowered or raised (Vincent, 2026-10-26)
+const impS = await import("./src/widgets/implementScreen.js");
+check("loader gear: by joint, category or type; not a loader wagon or a cultivator", [
+  sel.isLoaderGear({ joint: "frontloader" }), sel.isLoaderGear({ joint: "attachableFrontloader" }),
+  sel.isLoaderGear({ joint: "loaderFork" }), sel.isLoaderGear({ joint: "bigBag" }), sel.isLoaderGear({}, { category: "wheelLoaderTools" }),
+  sel.isLoaderGear({}, { typeName: "shovel" }), sel.isLoaderGear({}, { typeName: "implementDynamicMountAttacher" }),
+  sel.isLoaderGear({}, { category: "loaderWagons" }), sel.isLoaderGear({ joint: "implement" }, { category: "cultivators" }),
+  sel.isLoaderGear(undefined, undefined)],
+  [true, true, true, true, true, true, true, false, false, false]);
+const gearCab = (lowered) => ({ ...loaderCab(), rig: loaderCab().rig.map((e) => (e.depth ? { ...e, lowered, canLower: true } : e)),
+  keys: { lower: 7 } });
+const bucketEntry = gearCab(true).rig[2];
+check("loader gear: no Lowered or Raised on the Implement tab's tiles and card, no Lift", [
+  impS.tileState(bucketEntry, loaderVehicle()), impS.tileState({ ...bucketEntry, lowered: false }, loaderVehicle()),
+  impS.cardStats(bucketEntry, loaderVehicle(), gearCab(true).rig, units.METRIC)[0]],
+  ["", "", { label: "Lift", value: "–" }]);
+const gearStore = createStore();
+const gearGroup = controlGroup({ label: "Implement", controls: ["implementLowered", "lowerAll"] }, gearStore);
+gearStore.set("vehicles", { controlledId: 1, vehicles: [loaderVehicle({ bucket: 0 })] });
+gearStore.set("cab", gearCab(true));
+check("loader gear: Lower and Lower all unavailable, not lit", states(gearGroup), ["unavailable", "unavailable"]);
+check("loader gear: a lowered bucket isn't the job", vsc.vehicleJob(loaderVehicle({ bucket: 0, extra: { speed: 0 } }), gearCab(true)).text,
+  "Standing");
+check("loader gear: links solid, the empty bucket's tile says Bucket", (() => {
+  const s = createStore();
+  const b = vsc.vehicleBand(s, { rates: { fuelPerHour: () => undefined, defPerHour: () => undefined } });
+  s.set("vehicles", { controlledId: 1, vehicles: [loaderVehicle({ bucket: 0 })] });
+  s.set("cab", gearCab(false));
+  return [...b.querySelectorAll(".veh-strip > *")].map((el) => (el.classList.contains("rig-link")
+    ? `${el.dataset.lowered}` : q(el, ".rig-text span")));
+})(), [`Engine on · ${(1240).toLocaleString()} h`, "true", "Loader", "true", "Bucket"]);
+const gearRows = createWidget("implements", gearStore, { variant: "rows" });
+gearStore.set("vehicles", { controlledId: 1, vehicles: [loaderVehicle({ bucket: 0, extra: { implements: loaderVehicle().implements
+  .map((i) => ({ ...i, lowered: true })) } })] });
+check("loader gear: implement rows have no Lowered or Raised chip",
+  [...gearRows.querySelectorAll(".impl-chip")].map((c) => c.textContent).filter((t) => /Lowered|Raised|Hitch/.test(t)), []);
+
+// the theme's Vehicle screen: the band, Load and Target; Lights and Drive,
+// Engine two columns wide, no Implement group
+const appV = document.createElement("div");
+renderTheme(THEMES[0], appV, createStore(), createMapFrame(createStore()));
+const vehScreen = appV.querySelector('.screen[data-screen="vehicle"]');
+const vehGroups = [...vehScreen.querySelectorAll(".control-column .control-group")];
+check("theme: the Vehicle screen's slots and its column", [
+  ["veh-band", "veh-load", "veh-target", "vehicle-card", "readout-arc", "widget-condition", "implements-card"]
+    .map((c) => !!vehScreen.querySelector(`.${c}`)),
+  vehGroups.map((g) => q(g, ".control-group-label")),
+  [...vehGroups[1].querySelectorAll(".control-label")].map((e) => e.textContent),
+  [...appV.querySelectorAll('.control-column .control[data-control="engineOn"]')].length,
+  THEMES[0].screens.find((s) => s.id === "vehicle").choice],
+  [[true, true, true, false, false, false, false], ["Lights", "Drive"], ["Cruise −", "Cruise", "Cruise +", "Engine", "AI worker"],
+    3, "Vehicle"]);
 
 // --- icons (ui/icons.js) --------------------------------------------------------
 

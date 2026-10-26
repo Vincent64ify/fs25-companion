@@ -162,7 +162,9 @@ These are left out of this project:
   - every tab shows its icon and label here, since this screen has no
     tab-bar readout.
 - **Implement** (2026-10-24) and the Vehicle tab's **Harvester** page
-  (2026-10-25) came after v1: see their sections under Phases.
+  (2026-10-25) came after v1: see their sections under Phases. The
+  Vehicle page above was redesigned on 2026-10-26 (spec 0002): see
+  [Vehicle screen redesign](#vehicle-screen-redesign-spec-0002-mod-085-2026-10-26).
 
 ### Compact and wide
 
@@ -870,7 +872,10 @@ Done on 2026-10-23. Choose it in Settings, or with `?theme=newholland`.
 #### As built (T4)
 
 Done on 2026-10-23. The shop picture is left for later (see Vehicle
-pictures).
+pictures). Its readout card, vehicle card and condition row were replaced
+on 2026-10-26 by the
+[redesign](#vehicle-screen-redesign-spec-0002-mod-085-2026-10-26); the
+renderer, kinds, gear and map memory below still hold.
 - **Layout** (`themes/newholland/theme.js`): the Vehicle screen is a
   `vehicle` group (columns `1fr | 300`, rows `296 | 116 | 1fr`) holding the
   readout card, the vehicle card, a `conditions` group of four tiles and the
@@ -1254,7 +1259,8 @@ Behaviour, the data from the mod, the checks and what changed after the
 first look are in the spec,
 [specs/0001-harvester-screen.md](../specs/0001-harvester-screen.md).
 
-- **The Vehicle tab:** two screens share it, Tractor and Harvester, with a
+- **The Vehicle tab:** two screens share it, Vehicle (formerly Tractor)
+  and Harvester, with a
   menu on the tab to switch. Renderer: a screen may share another's tab
   (`tab`), name itself in its menu (`choice`) and say when the tab picks it
   (`when`, a detector in `DETECT`).
@@ -1285,6 +1291,33 @@ first look are in the spec,
   and Call a trailer (as the Implement card's), "Filling at about … L per
   minute" from the last minute, then Yield (t/ha), Of potential (%), This
   run and Total (ha).
+
+### Vehicle screen redesign (spec 0002, mod 0.8.5, 2026-10-26)
+
+The Vehicle tab's default page, tuned for yard work with a loader, drawn
+on its own canvas,
+[FS25 Companion: Vehicle screen](https://claude.ai/artifact/UCGXbQrd4gTozRk67NcnWw)
+(a loader with a bucket by a trailer, a seeding rig without a loader, day
+and night). Behaviour, data and checks are in the spec,
+[specs/0002-vehicle-screen.md](../specs/0002-vehicle-screen.md).
+
+- **Layout:** one readout card across the content area: "Vehicle", the
+  job (and an orange Engine hot chip), then Speed, Fuel, DEF and Wear on
+  the right, each a label, a 28 px number and a line under it; the rig
+  strip under them. Below, the Load card and the Target card side by
+  side; Load takes the full width without a loader. The column: Lights
+  and Drive, Engine two columns wide (on every screen that has it).
+- **Rig strip:** the Implement tab's rig tiles in driving order, joined
+  by links: an 84 px line with a chip naming the coupling, solid while the
+  tool is lowered, dashed while raised. Chips follow the night selection
+  (yellow) at night.
+- **Cards:** white cards as on Harvester. Load: the load in 24 px type
+  with its litres and tonnes, a big meter for a bucket, then This session
+  with Reset (a column-style button). Target: badge, name, category and
+  distance, "≈ n more loads" in the accent colour, the unit's meter and
+  the weight meter; dimmed out of range; a green Full chip.
+- **Compact:** one column, the strip scrolls sideways, Target under Load,
+  the column docked under them.
 
 ### Default removed (2026-10-24)
 

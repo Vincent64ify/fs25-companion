@@ -1,7 +1,7 @@
 # 0002: Vehicle screen
 
-Status: approved
-Mod: 0.8.5 · Started: 2026-10-25 · Design: [THEMES.md, Vehicle screen](../docs/THEMES.md#t4-vehicle-screen)
+Status: built
+Mod: 0.8.6 · Started: 2026-10-25 · Design: [THEMES.md, Vehicle screen](../docs/THEMES.md#t4-vehicle-screen)
 (revised by this spec),
 canvas [FS25 Companion: Vehicle screen](https://claude.ai/artifact/UCGXbQrd4gTozRk67NcnWw)
 
@@ -31,57 +31,103 @@ implement rows), the same clean-up as spec 0001's revision 2.
   only, its state line ends with the operating hours: "PTO on · 1,240 h").
   On the right, always shown:
   - speed, with the gear and the direction under it ("F2 · forward",
-    "R1 · reverse");
-  - fuel as a range, "≈ 5 h" at the last 5 minutes' usage, with the % under
-    it; "%" only while the usage isn't known yet;
-  - DEF the same way, only for engines with DEF;
-  - wear, %, orange from 70% with "repair soon" under it.
-  An orange chip "Engine hot" appears when the engine temperature is high
-  (the game's own warning level); otherwise the temperature isn't shown.
+    "R1 · reverse", "N · neutral"); the direction comes from the gear's
+    name (R… reverse, N neutral, else forward);
+  - fuel as a range, "≈ 5 h" (under an hour "≈ 40 min") at the last 5
+    minutes' usage, with the % under it; "%" only while the usage isn't
+    known yet. The usage is the mean of the game's L/h over the last 5
+    minutes, from 30 s of it. On an electric vehicle it's "Battery" (the
+    mod reads its charge in kWh);
+  - DEF the same way, only for engines with DEF. The game has no DEF usage
+    figure, so its usage is how far the level dropped over the last 5
+    minutes, once a minute and 0.05 L of it are in (the mod sends DEF to
+    0.01 L); "%" until then;
+  - wear, %, "good" under it, orange from 70% with "repair soon".
+  An orange chip "Engine hot" appears from 100 °C: the game has no
+  warning level of its own (spike: only the temperature and its 20–120 °C
+  range; the fan comes on at 95 °C). Otherwise the temperature isn't
+  shown.
 - **The job:** an AI worker's job; else "Loading · Potatoes" while
   something is on the loader (the fill type or the pallet's content);
   else the Implement tab's job ("Seeding", "Driving", "Standing", "Parked").
 - **Rig strip:** every vehicle in the rig as a tile in driving order (rear
   tools on the left, the vehicle, front tools on the right; a tool on a
   tool beside its parent), each with its icon badge (yellow while
-  working), model, a state line ("Lowered · Working", "Raised", "Bucket")
-  and a thin bar per fill unit. Between two tiles, a **link**: a short
-  line with a chip naming the coupling, from the attacher joint:
-  "3-point", "Drawbar", "Loader", "Tool" (a loader's quick coupler),
-  "Header"; unknown joints read "Front" or "Rear". The link is solid while
-  the tool is lowered, dashed while raised. The game's selected tool is
-  the yellow tile, as on the Implement tab. A tap on a tile selects that
-  tool in game and opens the Implement tab. With nothing attached, the
-  strip shows the vehicle alone and "Nothing attached".
+  working), model, a state line and a thin bar per fill unit. The state
+  line: the vehicle's is what it does and its hours ("PTO on · 1,240 h",
+  "Engine on · 1,240 h"); a loader's tool with a load shows the load
+  ("Potatoes · 82%"), an empty one its kind ("Bucket", "Forks"); other
+  tools the Implement tab's line ("Working · Lowered", "Raised"), else
+  their kind ("Loader"). A front loader and its tools never read Lowered
+  or Raised. Between two tiles, a
+  **link**: a short line with a chip naming the coupling of the tile
+  farther from the vehicle, from the attacher joint's type name:
+  "3-point" (implement), "Drawbar" (trailers, hook lift, a cutter
+  trailer), "Loader" (a front loader on its console), "Tool" (a loader's
+  quick coupler: frontloader, wheel loader, telehandler, skid steer,
+  forks), "Hook" (a bigbag on its lifter), "Header" (cutter); the other
+  joints (conveyor, manure barrel, train...) read "Front" or "Rear". The link is solid while
+  the tool is lowered, dashed while raised; a tool that doesn't lower (a
+  trailer, a front loader and its tools) is solid. The game's selected
+  tool is the yellow tile, as on the Implement tab. A tap on a tile opens
+  the Implement tab and selects that tool in game (unless it is selected
+  already). With nothing attached, the strip shows the vehicle alone and
+  "Nothing attached".
+- **No lowered or raised for loader gear,** anywhere on the dashboard: a
+  front loader and its tools (bucket, forks, hooks, a bigbag lifter;
+  known by the joint, the shop category or the type name, `isLoaderGear`
+  in selectors.js) have no such state in the game. So no Lowered / Raised
+  on their tiles (here and on the Implement tab), no Lift on the
+  Implement card, no hitch chip in the implement rows; Lower and Lower
+  all are unavailable for them; a lowered loader tool doesn't make the
+  job "Working" or count worked area.
+- **Only what the game records** (Vincent, 2026-10-26): something counts
+  as on the loader only when the game says so (mounted on the forks or
+  hook, or attached in the rig like a bag on a bigbag lifter). A bigbag
+  hanging on bare tines by its straps isn't recorded anywhere (the
+  fork's mounts and the bag's `spec_mountable` are empty; spike, 0.0.3),
+  so it isn't carried, and forks with nothing mounted read "Nothing
+  mounted", not "Empty".
 - **Load card** ("On the loader"), when the rig has a loader, a loader tool
   or the vehicle is itself a loader (wheel loader, telehandler, skid
   steer, forklift):
   - what's on it, big: a bucket's or shovel's fill type, litres and t; a
     pallet or bigbag on forks or a hook: its content ("Seed bigbag",
     "Potatoes pallet"), litres and t, one line each when there are several;
-    "Empty" otherwise;
-  - the tool's name and kind ("Albutt bucket · Bucket");
+    "Nothing mounted" for forks or a hook with nothing on them, "Empty"
+    otherwise;
+  - the tool's name and kind ("Albutt bucket · Bucket", "Pallet Fork ·
+    Forks"); a bucket's load also gets a big meter. A bag or pallet
+    hanging in the rig (on a bigbag lifter) is the load, never the tool:
+    the lifter is;
   - **This session** (the tally): "14 loads · 42.3 t", and one line per
     fill type under it ("Potatoes · 11 loads · 34.1 t"). A load counts when
-    a bucket drops from more than 50% to under 5% of its capacity, or when
-    a pallet or bigbag leaves the forks or hook. Mass from litres × the fill
-    type's mass per litre. Since the page was opened; a Reset button on the
+    a bucket drops from more than 50% to under 5% of its capacity (with
+    what it held at the top), or when a pallet or bigbag leaves the forks
+    or hook. Mass from litres × the fill type's mass per litre. Since the
+    page was opened, across vehicles; getting out isn't setting down (a
+    pallet still on the forks then doesn't count). A Reset button on the
     card clears it.
   Without a loader, the card is **Loads**: every fill unit in the rig as a
-  meter ("Seeds · 58% · 2,900 L"), and the rig's weight against its limit
-  when Trailer Fill Limit is on.
+  meter ("Seeds · 58%", "2,900 / 5,000 L"), with the weight limit's
+  shading and MAX as elsewhere, and the rig's weight in the card's head
+  ("Rig 14.6 t", the vehicle's total mass). The data has no limit for the
+  whole rig, so each unit shows its own.
 - **Target card** (with a loader only; without one, Load takes the full
   width): the nearest vehicle that can take what you carry:
-  - picked by the mod: within 15 m of the loader tool, not in your own rig,
+  - picked by the mod: within 15 m of the vehicle you drive (its own
+    position, not the tool's: simple, Vincent 2026-10-26), not in your own rig,
     yours (the farm's), with a fill unit that accepts the carried fill
     type; the nearest wins. While the loader is empty, the last carried
     fill type counts, so the target stays while you fetch the next load;
-  - its model, category and distance ("Väderstad Spirit 600C · Seeders ·
-    6 m"), a big meter for the unit that takes the fill type, "3,200 /
-    5,000 L", and its weight against the limit for a trailer;
-  - **"≈ 2 more loads"**: free space ÷ what you carry now (else the last
-    load), rounded up; "Full" (green chip) when it's at capacity or the
-    weight limit;
+  - its name, then category and distance ("Väderstad Spirit 600C",
+    "Seeders · 6 m"; feet with miles), a big meter for the unit that takes
+    the fill type ("Seeds · 64%", "3,200 / 5,000 L"), and its weight
+    against the limit ("9.8 / 15.0 t") under Trailer Fill Limit;
+  - **"≈ 2 more loads"** ("≈ 1 more load"): free space (the game's, else
+    to where the unit stops; less if the weight limit comes first) ÷ what
+    you carry now (else the last load), rounded up; "Full" (green chip)
+    when it's at capacity or the weight limit;
   - no target in range: the last target stays, dimmed, "out of range ·
     85 m", its numbers still live; none yet: "Come near something to fill".
 - **Column:** Lights (Lights, High beam, Beacon, Hazard, Turn L, Turn R) and
@@ -104,16 +150,24 @@ from a spike first (Plan, step 1); this table changes with its results.
 - **Mod → backend** (`vehicles`, the controlled vehicle):
   - `cab.rig[]` entries gain `joint`: the attacher joint's type name as the
     game registers it ("implement", "trailer", "frontloader"...), absent
-    for the vehicle itself and when unknown.
+    for the vehicle itself and when unknown. Read from the joint's
+    `jointType` number.
   - `carried[]`: objects mounted on any rig member's dynamic mount (forks,
-    hooks), each `{id, name, pallet: bool, bigBag: bool, fills[]}` (fills
-    as everywhere, with `massPerLiter`). Absent when nothing is mounted.
-  - `target`: `{id, name, category, distance (m, 1 decimal), fillType,
-    fills[] (the accepting unit only), massLimit}` as picked above.
-    Absent when nothing qualifies and nothing was picked before; `stale:
-    true` when it's the last target out of range.
-  - `temperatureWarning: bool` beside `engineTemp`, if the game has a
-    warning level (spike).
+    hooks), and pallets or bigbags hanging in the rig itself, each `{id,
+    name, pallet: bool, bigBag: bool, fills[]}` (fills as everywhere, with
+    `massPerLiter`), by id. Absent when nothing is mounted.
+  - `target`: `{id, name, brand, category, categoryTitle, distance (m, 1
+    decimal), fillType, fills[] (the accepting unit only, with `free`
+    when the game answers), massLimit {max, mass, reached} (t, under
+    Trailer Fill Limit)}` as picked above, measured from the controlled
+    vehicle. Only with a loader's tool in the rig (a member with
+    `spec_shovel` or `spec_dynamicMountAttacher`) or something carried.
+    Absent
+    when nothing qualifies and nothing was picked before; `stale: true`
+    when it's the last target out of range.
+  - No temperature warning: the game has no level (0.8.5 tried three
+    guessed fields as `temperatureWarning`; 0.8.6 dropped it).
+  - `def` to 0.01 L (was 0.1), for the DEF range.
 - **Backend:** nothing new (topic models take extras).
 - **Web:**
   - `web/src/widgets/vehicleScreen.js`: `vehicleBand`, `rigStrip`,
@@ -124,13 +178,15 @@ from a spike first (Plan, step 1); this table changes with its results.
 
 | Name | Where from | State |
 |---|---|---|
-| `AttacherJoints.jointTypeNameToInt` (read backwards for a name) | AttacherJoints.lua, registerJointType | unverified (spike) |
-| `spec_dynamicMountAttacher.dynamicMountedObjects` (keys are the objects) | DynamicMountAttacher.lua | unverified (spike) |
-| `object.isPallet` | Pallet.lua | unverified (spike) |
-| `spec_bigBag` on a bigbag, and how a lifter holds it | BigBag.lua | unverified (spike) |
-| `getFillUnitAllowsFillType(index, fillType)` | FillUnit.lua | unverified (spike) |
-| `getFillUnitFreeCapacity(index, fillType, farmId)` | FillUnit.lua | unverified (spike) |
-| the engine's temperature warning level | Motorized.lua | unverified (spike) |
+| `AttacherJoints.jointTypeNameToInt` (read backwards for a name) | AttacherJoints.lua, registerJointType | seen in the spike (pallet on forks, 2026-10-26); live check to confirm: 24 names, e.g. 1 implement, 7 frontloader, 12 attachableFrontloader |
+| `spec_dynamicMountAttacher.dynamicMountedObjects` (keys are the objects) | DynamicMountAttacher.lua | seen in the spike (pallet on forks, 2026-10-26); live check to confirm |
+| `object.isPallet` | Pallet.lua | seen in the spike (pallet on forks, 2026-10-26); live check to confirm: true on a pallet, typeName pallet |
+| `spec_bigBag` on a bigbag, and how a lifter holds it | BigBag.lua | seen in the spike (bigbag lifter, 2026-10-26); live check to confirm: a bag is its own vehicle (typeName bigBag, `isPallet` true); a lifter holds it as an attached implement by joint type "bigBag", so it is a rig member; on bare tines it hangs by physics, not recorded |
+| `getFillUnitAllowsFillType(index, fillType)` | FillUnit.lua | seen in the spike (pallet on forks, 2026-10-26); live check to confirm: answers true |
+| `getFillUnitFreeCapacity(index, fillType, farmId)` | FillUnit.lua | seen in the spike (pallet on forks, 2026-10-26); live check to confirm: answers (0 on a full pallet) |
+| attacher joint `jointType` (the number registered) | AttacherJoints.lua | seen in the spike (pallet on forks, 2026-10-26); live check to confirm: a number on the joint |
+| `spec_shovel` on a bucket (the loader's tool) | Shovel.lua | seen in the spike (Volvo L90H bucket, 2026-10-26); live check to confirm: on the bucket (typeName shovelLeveler), which hangs by joint type "wheelLoader" |
+| the engine's temperature warning level: `motorTemperature.warningTemperature`, `valueWarning` or `warning` (guesses) | Motorized.lua | not there (spike, 2026-10-26: the electric Merlo and the diesel Volvo L90H alike): motorTemperature has only value, valueMin 20, valueMax 120 and heating rates; motorFan switches on at 95 °C, off at 85 |
 | `fillType.massPerLiter` | FillTypeManager | verified (DONE.md, Harvester screen) |
 | attacher joint front / rear (`jointTransform` z) | AttacherJoints.lua | verified (PLAN.md, C3) |
 
@@ -143,13 +199,18 @@ tally) is local to the page.
 
 ## Plan
 
-1. **Spike** (`spike/FS25_CompanionSpike`, `controlledDetail`): per rig
+1. **Spike** (`spike/FS25_CompanionSpike`, `controlledDetail.vehicleScreen`;
+   written 2026-10-26, not run yet; how to run it in
+   [spike/README.md](../spike/README.md#vehicle-screen-spike-spec-0002)): per rig
    member, the joint type number and its name; `dynamicMountedObjects`
    with each object's typeName, `isPallet`, specs and fills; a bigbag on
    a lifter (what holds it); for the 5 nearest vehicles, their fill units
    and `getFillUnitAllowsFillType` for the carried type; Motorized's
    temperature fields. Vincent runs it: a pallet on forks, a seed bigbag
-   on a lifter over a seeder, a bucket of potatoes by a trailer.
+   on a lifter over a seeder, a bucket of potatoes by a trailer. The probe
+   also dumps the lights spec (work lights apart?). The mod was built
+   before it, on the names in the table, all guarded: a wrong name leaves
+   its field out.
 2. **Mod (0.8.5):** `VehicleState.lua` adds `joint` to `cab.rig`;
    `collectors/Vehicles.lua` adds `carried`, `target` and the warning;
    the version in `mod/modDesc.xml` and `Companion.VERSION`.
@@ -172,32 +233,33 @@ Risks:
 ## Acceptance
 
 Automated (written before the code):
-- [ ] `mod/tests/run.lua`: rig entries carry `joint` from the joint's type
+- [x] `mod/tests/run.lua`: rig entries carry `joint` from the joint's type
   name; none for the vehicle.
-- [ ] `mod/tests/run.lua`: `carried` lists mounted pallets and bigbags with
+- [x] `mod/tests/run.lua`: `carried` lists mounted pallets and bigbags with
   fills, absent with nothing mounted.
-- [ ] `mod/tests/run.lua`: `target` is the nearest farm vehicle within 15 m
+- [x] `mod/tests/run.lua`: `target` is the nearest farm vehicle within 15 m
   that allows the fill type; not in the own rig, not a pallet, not another
   farm's; the last one stays `stale` out of range.
-- [ ] `web/test.html` "vehicle screen: band": job, model and hours, speed
+- [x] `web/test.html` "vehicle screen: band": job, model and hours, speed
   with gear and direction, fuel and DEF range, wear's orange, Engine hot.
-- [ ] `web/test.html` "vehicle screen: rig strip": driving order, links
+- [x] `web/test.html` "vehicle screen: rig strip": driving order, links
   named by joint, solid / dashed, tap selects and opens Implement; "Nothing
   attached".
-- [ ] `web/test.html` "vehicle screen: load card": bucket, pallet, bigbag,
+- [x] `web/test.html` "vehicle screen: load card": bucket, pallet, bigbag,
   several, Empty; Loads without a loader.
-- [ ] `web/test.html` "vehicle screen: tally": a bucket's dump counts once,
+- [x] `web/test.html` "vehicle screen: tally": a bucket's dump counts once,
   a pallet leaving counts, mass per fill type, Reset.
-- [ ] `web/test.html` "vehicle screen: target": meter, "≈ n more loads",
+- [x] `web/test.html` "vehicle screen: target": meter, "≈ n more loads",
   Full, out of range, none yet; full width Load without a loader.
-- [ ] `web/test.html`: the column has no Implement group, Drive shows
+- [x] `web/test.html`: the column has no Implement group, Drive shows
   Cruise − / Cruise / Cruise +.
-- [ ] Replay in the browser pane at 1180×820, day and night: loader with a
+- [x] Replay in the browser pane at 1180×820, day and night: loader with a
   bucket by a trailer, pallet forks, a seeding rig without a loader;
   nothing overflows, touch targets 48 px or more.
 
-Live check (mod 0.8.5; a tractor with a front loader, a bucket, pallet
-forks and a bigbag lifter; a trailer and a seeder nearby):
+Live check (mod 0.8.6; a tractor with a front loader, a bucket, pallet
+forks and a bigbag lifter; a trailer and a seeder nearby; the spike is
+done):
 - [ ] The rig strip's links name the couplings the game uses.
 - [ ] The bucket's fill type and litres match the game's HUD.
 - [ ] A pallet and a bigbag on the loader show their content.
@@ -206,6 +268,14 @@ forks and a bigbag lifter; a trailer and a seeder nearby):
 - [ ] The tally counts each bucket dumped and each pallet set down once.
 - [ ] Fuel range is close to what the game's usage says.
 - [ ] A tap on a rig tile selects that tool in game and opens Implement.
+- [ ] Engine hot shows once the engine reaches 100 °C.
+- [ ] DEF shows a range after a few minutes of work.
+- [ ] On the Merlo (electric) the band says Battery.
+- [ ] The L90H's bucket tile has one bar (its second unit hidden).
+- [ ] A bag on the bigbag lifter: the lifter is the tool, the strip's
+  link reads Hook, the seeder is the target; emptied into the seeder and
+  set down, the tally counts its 1,000 L once.
+- [ ] Bags hung on bare tines: "Nothing mounted", no target.
 
 ## Decisions
 
@@ -220,6 +290,10 @@ forks and a bigbag lifter; a trailer and a seeder nearby):
 - Engine moves to the column's Drive group, as on Harvester.
 - Engine is two columns wide in Drive, on every screen that shows it
   (Vincent, 2026-10-25, canvas comment).
+- The target's distance runs from the vehicle you drive, not the tool or
+  the load (Vincent, 2026-10-26).
+- Front loaders and their tools have no lowered or raised: the dashboard
+  never shows one for them (Vincent, 2026-10-26, while testing).
 
 ## Out of scope / open questions
 
@@ -246,3 +320,142 @@ forks and a bigbag lifter; a trailer and a seeder nearby):
   tile is all yellow (not a yellow border) and the page gaps are 12.
 - 2026-10-25: approved by Vincent, with the tally kept across vehicles
   until Reset; build not started.
+- 2026-10-26: built (mod 0.8.5). The spike's probes are written but not
+  run: the mod reads the names in the Data contract table, all guarded, so
+  the spike and the live check can go together. Automated: 5 new Lua tests
+  (pytest 104 passed) and 16 new checks in `web/test.html` (251, all
+  green); the old readout card and vehicle card are gone with their tests,
+  and the condition tiles and implement rows left this page. Replay
+  checked in the browser pane at 1180×820, day and night (a loader with a
+  bucket by a trailer, pallet forks with Engine hot, a seeding rig) and
+  in portrait: no overflow, every button 48 px or more, a tile's tap
+  opens Implement. Settled while building (now in Behaviour and the Data
+  contract): the direction comes from the gear's name; DEF's usage from
+  its level's drop (DEF now to 0.01 L); Engine hot falls back to 100 °C
+  without a game level; a tool that doesn't lower has a solid link; tool
+  tiles keep the Implement tab's "Working · Lowered"; a loaded tool's tile
+  shows its load; Loads shows the rig's mass, as there's no rig limit in
+  the data; Reset is a column-style button. The column's controls carry
+  `data-control`, so Engine is two columns wide on Map, Vehicle and
+  Harvester.
+- 2026-10-26: spike, first report (Vincent: a Merlo EW25.5-90 telehandler
+  with an Albutt Pallet Fork, a Corteva Solid Fertilizer pallet on it).
+  The joint registry holds 24 names (implement, trailer, trailerLow,
+  trailerSaddled, trailerCar, telehandler, frontloader, loaderFork,
+  semitrailer, semitrailerHook, semitrailerCar, attachableFrontloader,
+  wheelLoader, manureBarrel, cutter, cutterHarvester, cutterTrailer,
+  skidSteer, conveyor, hookLift, bigBag, train, injectorToolCarrier,
+  premosBaleShredder); the forks hang on the telehandler by "frontloader".
+  `dynamicMountedObjects` is keyed by the pallet, `isPallet` is true, its
+  fills read as everywhere; `getFillUnitAllowsFillType` and
+  `getFillUnitFreeCapacity` answer. The telehandler itself has
+  `spec_dynamicMountAttacher` too, so without a tool it counts as its own
+  loader's tool. Nothing within 15 m took fertilizer, so the target wasn't
+  seen. The Merlo is electric (Vincent): its temperature has no warning
+  level (only value, valueMin 20, valueMax 120; the fan on at 95 °C, off
+  at 85), but that says nothing yet about a diesel's; a dump in a diesel
+  tractor settles it. Found for the code: the link names miss
+  "cutterTrailer" (reads Header, should be Drawbar) and "bigBag" (reads
+  Front or Rear); on an electric vehicle the band's "Fuel" is the battery
+  and should say so. Still to see: a bucket (`spec_shovel`), a bigbag on a
+  lifter, a target, a diesel's temperature.
+- 2026-10-26: spike, second report (the Merlo's pallet fork with two
+  Lizard Seeds bigbags hanging on the tines by their straps, a Pöttinger
+  Aerosem VT 5000 DD 4.3 m away). The fork's `dynamicMountedObjects` and
+  `pendingDynamicMountObjects` are empty: the bags hang by physics, not a
+  mount. Each bag is its own vehicle (typeName bigBag, `isPallet` true,
+  `spec_bigBag` with its strap joint, `spec_mountable`,
+  `spec_fillTriggerVehicle`: it fills what's under it), 1,000 L of seeds,
+  0.5 m from the fork. So the mod sends no `carried` and, with no carried
+  fill type, no target. Decided with Vincent: don't guess from distance;
+  next, look at the bags' `spec_mountable`.
+- 2026-10-26: fix from Vincent's testing: front loaders and their tools
+  have no lowered or raised, so the dashboard never shows one for them
+  (Behaviour, Decisions). `isLoaderGear` and `lowersInRig` in
+  selectors.js, used by the Vehicle strip, the Implement tab's tiles and
+  card, Lower, Lower all, the implement rows, the job and the worked
+  area. Web only, no mod change. 6 new checks in `web/test.html` (257,
+  all green); pytest 104.
+- 2026-10-26: spike, third report (the Merlo with a Quicke BIG BAG LIFTER
+  - DUAL, two Lizard Seeds bigbags hooked on it, the Pöttinger Aerosem VT
+  5000 DD 5–7 m away). Here the game does record the load: the lifter
+  hangs on the Merlo by "frontloader" (typeName implement, no
+  `spec_dynamicMountAttacher`, no `spec_shovel`), and each bag hangs on
+  the lifter by joint type "bigBag" as an attached implement, so the bags
+  are rig members with `spec_bigBag`, `isPallet` and 1,000 L of seeds each.
+  The mod lists them as `carried` (rig members that are pallets or
+  bags). The seeder's first unit answers `getFillUnitAllowsFillType` for
+  seeds (1,400 L free); its fertilizer unit doesn't: so the target is
+  the seeder, from what the game says. With the build as it is: the
+  loader's tool is the Merlo itself (it has a dynamic mount; the lifter
+  has neither spec), so the distance runs from the Merlo (7.0 m; from the
+  bags 5.4–5.7 m).
+  To fix, with the others found so far (after the bucket and diesel
+  reports):
+  1. link names: "cutterTrailer" reads Drawbar; "bigBag" gets a name of
+     its own ("Hook" proposed), not Front / Rear;
+  2. on an electric vehicle the band's "Fuel" says "Battery";
+  3. mod: the target's distance from the controlled vehicle, always
+     (Vincent: keep it simple; the Merlo here, 7.0 m), and the target is
+     looked for when something is carried too, not only with a bucket or
+     forks (a tractor's front loader with a bigbag lifter has neither);
+  4. web: a carried bag or pallet in the rig is never the loader's tool:
+     today the bag matches the tool pattern, so the card would name it
+     the tool and the tally would count its emptying as a bucket's dump,
+     then count it again when it's set down;
+  5. tally: a carried bag or pallet counts what it held at the most, so a
+     bag emptied into the seeder and set down counts its 1,000 L, not 0;
+  6. forks with nothing mounted say "Nothing mounted", not "Empty"
+     (settled by spike 0.0.3, below);
+  7. the three guessed temperature fields go: the game has no warning
+     level, Engine hot goes by 100 °C (the fan comes on at 95 °C).
+- 2026-10-26: spike, fourth and last report (a Volvo L90H wheel loader,
+  diesel with DEF, its General Purpose Bucket full of potatoes beside a
+  Fliegl ASW 271 hitched to a Versatile Nemesis 255 CVT). The bucket
+  (typeName shovelLeveler, `spec_shovel`) hangs by "wheelLoader" (reads
+  Tool); it holds 3,102 L of potatoes in its first unit and has a second,
+  empty one of 3,100 L (to see live whether the game hides it from the
+  HUD; if not, the bucket's tile shows two bars). The trailer's unit
+  answers that it takes potatoes, 29,500 L free; the tractor pulling it
+  doesn't. From the L90H, 4.1 m: so the target is the trailer, ≈ 10 more
+  loads. Its weight: max 24 t, 16.3 t available. The L90H's temperature
+  table is the electric Merlo's (value, valueMin 20, valueMax 120): no
+  warning level for diesels either. Its typeName is "tractor"; its shop
+  category makes it a loader. With this, the spike is done; the bags'
+  `spec_mountable` (fix 6) is the only probe left open.
+- 2026-10-26: spike 0.0.3, bags on bare tines again (the Merlo's pallet
+  fork, two Lizard Seeds bigbags, the Aerosem 4.5 m away). The fork's
+  mounts and pending mounts are empty; each bag's `spec_mountable` holds
+  the same fields as the seeder's or a tractor's (its component node,
+  force limits, empty lock positions and listeners), nothing that names
+  the fork, and none of the mount getters answer. The game doesn't record
+  what a strap-hung bag hangs on, so it isn't carried (Behaviour, Only
+  what the game records); fix 6 stands. `showOnHud` is true on the bags'
+  and the seeder's units; the bucket's second unit is still to dump.
+- 2026-10-26: spike 0.0.3, the L90H's bucket with 2,498 L of potatoes
+  (the Fliegl now holds 9,992 L, 19,508 L free, 4.4 m away). The
+  bucket's first unit has `showOnHud` true. The second (3,100 L, empty)
+  came back with none, as did the Versatile's diesel, DEF and air: the
+  spike wrote a false as nothing (fixed in the spike, same version).
+  FillUnit loads `showOnHud` as true unless the vehicle's file says
+  false, and Vincent's HUD shows one unit, so the second is hidden; the
+  mod already skips hidden units, so the bucket's tile has one bar. To
+  confirm in the live check.
+- 2026-10-26: the 7 fixes from the spike, built (mod 0.8.6, installed):
+  1. links: "cutterTrailer" reads Drawbar, "bigBag" reads Hook;
+  2. an electric vehicle's Fuel reads Battery;
+  3. mod: the target's distance runs from the controlled vehicle, and a
+     target is looked for when something is carried too (a bigbag lifter
+     has no bucket or forks);
+  4. web: a carried bag or pallet in the rig is never the loader's tool,
+     so the lifter is the tool and the bag's emptying isn't a dump;
+  5. tally: a carried bag or pallet counts what it held at the most;
+  6. forks or a hook with nothing mounted read "Nothing mounted";
+  7. mod: the guessed temperature fields and `temperatureWarning` are
+     gone; Engine hot goes by 100 °C.
+  Also fixed: the Load card kept "Empty" when the tool changed but the
+  load stayed empty (its redraw check left the tool out). Lua: a new test
+  for a bag on a lifter, the target test measures from the tractor, the
+  temperature test checks nothing is sent (pytest 104). `web/test.html`
+  259, all green (joint names, Battery, Engine hot at 100 °C, Nothing
+  mounted, a bag on a lifter). Live check boxes added for these.

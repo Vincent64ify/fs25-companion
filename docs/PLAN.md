@@ -35,10 +35,11 @@ up to date until the live check.
   or from the tab's menu; a band with the tank, until full, yield and
   speed, then Combine and Header cards whose tiles are their buttons.
   Confirmed in game on 2026-10-25 with mod 0.8.4.
-- Next: the Vehicle screen redesign, spec
-  [0002](../specs/0002-vehicle-screen.md), approved on 2026-10-25, not
-  started. It begins with a spike for pallets, bigbags, nearby vehicles and
-  couplings. Canvases are now built from the design system
+- The Vehicle screen redesign is built (mod 0.8.6, spec
+  [0002](../specs/0002-vehicle-screen.md), 2026-10-26): the band with the
+  rig strip, Load with the session's tally, Target. Its spike is done and
+  its findings are in (0.8.6); next for it: the live check. Canvases are built
+  from the design system
   ([THEMES.md](THEMES.md#design-system-2026-10-25)).
 - macOS is still to test, and a few things are still to confirm in game (see
   [Open checks](#open-checks)).

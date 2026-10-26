@@ -31,6 +31,36 @@ The three files from `Documents/My Games/FarmingSimulator2025/modSettings/FS25_C
 
 Remove the mod afterwards.
 
+## Vehicle screen spike (spec 0002)
+
+The report's `vehicles.controlledDetail.vehicleScreen` (spike 0.0.2) holds
+what [spec 0002](../specs/0002-vehicle-screen.md) needs: the joint type
+names the game registered, each rig member's joint and its type, what
+hangs on forks and hooks (`isPallet`, `spec_bigBag`, fills), the 5 nearest
+other vehicles with their fill units and whether each takes what you carry
+(`getFillUnitAllowsFillType`, `getFillUnitFreeCapacity`), and the motor's
+temperature and lights specs.
+
+1. Rebuild the zip from `FS25_CompanionSpike/` (it's not in git) and
+   install it as above, beside FS25 Companion 0.8.5.
+2. For each of these, get in, set it up, open the console and type
+   `csDump`, then copy `report.json` away before the next (it's
+   overwritten):
+   - a tractor with a front loader and pallet forks, a pallet on the forks;
+   - the same with a bigbag lifter and a seed bigbag on it, over a seeder;
+   - the same with a bucket of potatoes, beside a trailer;
+   - a tractor working hard until the engine warning shows, if it ever
+     does.
+3. Send back the reports (and `log.txt` if something failed).
+
+Spike 0.0.3 adds, for every object near you, `mountable`: what
+`spec_mountable` holds and what the mount getters answer (does the game
+record what a bigbag on bare tines hangs on?), and `showOnHud` on each
+fill unit (is a bucket's second unit hidden from the game's HUD?). Two
+dumps:
+- the pallet fork with bigbags hanging on the tines by their straps;
+- the Volvo L90H with its General Purpose Bucket (full or empty).
+
 ## Command spike (C0)
 
 `FS25_CommandSpike` checks the command channel planned for Controls (see

@@ -449,12 +449,18 @@ function VehicleState.selectables(root)
     return list
 end
 
--- "front" or "rear" from the attacher joint, nil when unknown
-local function sideOf(parent, jointIndex)
+-- the parent's attacher joint at this index, or nil
+local function jointAt(parent, jointIndex)
     local spec = parent.spec_attacherJoints
     local joints = type(spec) == "table" and spec.attacherJoints or nil
     local joint = type(joints) == "table" and jointIndex ~= nil and joints[jointIndex] or nil
-    if type(joint) ~= "table" or joint.jointTransform == nil or parent.rootNode == nil
+    return type(joint) == "table" and joint or nil
+end
+
+-- "front" or "rear" from the attacher joint, nil when unknown
+local function sideOf(parent, jointIndex)
+    local joint = jointAt(parent, jointIndex)
+    if joint == nil or joint.jointTransform == nil or parent.rootNode == nil
         or localToLocal == nil then
         return nil
     end
@@ -465,10 +471,33 @@ local function sideOf(parent, jointIndex)
     return z >= 0 and "front" or "rear"
 end
 
+-- Vehicle screen (specs/0002): the coupling's name, the attacher joint's
+-- type as the game registered it ("implement", "trailer", "frontloader"):
+-- its jointType number, looked up backwards in
+-- AttacherJoints.jointTypeNameToInt. Unverified (the spec's spike).
+local jointNames, jointNamesOf = {}, nil
+
+local function jointTypeName(parent, jointIndex)
+    local registry = type(AttacherJoints) == "table" and AttacherJoints.jointTypeNameToInt or nil
+    if type(registry) ~= "table" then
+        return nil
+    end
+    if registry ~= jointNamesOf then
+        jointNames, jointNamesOf = {}, registry
+        for name, n in pairs(registry) do
+            if type(name) == "string" then
+                jointNames[n] = name
+            end
+        end
+    end
+    local joint = jointAt(parent, jointIndex)
+    return joint ~= nil and joint.jointType ~= nil and jointNames[joint.jointType] or nil
+end
+
 local MAX_RIG_DEPTH = 6
 
--- every attached object, depth first: {object, parent, depth, side}; a
--- tool on a tool (a loader's bucket) takes its parent's side
+-- every attached object, depth first: {object, parent, depth, side, joint};
+-- a tool on a tool (a loader's bucket) takes its parent's side
 function VehicleState.attachedTree(vehicle)
     local out = {}
     local function walk(parent, depth, parentSide)
@@ -480,7 +509,8 @@ function VehicleState.attachedTree(vehicle)
             local object = type(entry) == "table" and entry.object or nil
             if type(object) == "table" then
                 local side = parentSide or sideOf(parent, entry.jointDescIndex)
-                out[#out + 1] = { object = object, parent = parent, depth = depth, side = side }
+                out[#out + 1] = { object = object, parent = parent, depth = depth, side = side,
+                    joint = jointTypeName(parent, entry.jointDescIndex) }
                 if depth < MAX_RIG_DEPTH then
                     walk(object, depth + 1, side)
                 end
@@ -554,6 +584,7 @@ function VehicleState.rig(vehicle)
         e.parent = node.parent.id
         e.depth = node.depth
         e.side = node.side
+        e.joint = node.joint
         rig[#rig + 1] = e
     end
     return rig

@@ -40,7 +40,7 @@ import { hasIcon, icon } from "../ui/icons.js";
  * @property {string} [tab] another screen whose tab this one shares (the
  *   Harvester screen on the Vehicle tab): a second tap on that tab offers
  *   both, by their `choice` labels
- * @property {string} [choice] its name in that tab's menu ("Tractor")
+ * @property {string} [choice] its name in that tab's menu ("Vehicle")
  * @property {keyof typeof DETECT} [when] the tab picks this screen by itself
  *   while this holds, with the auto pick on
  */

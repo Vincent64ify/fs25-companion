@@ -12,7 +12,8 @@
 // in game moves the mark, since it follows the cab's rig. Older mods send
 // no rig: rows only show.
 
-import { cabOf, controlledVehicle, fillLimitPct, fillMax, fillName, fillPct, implementsOf, kindLabel, rigOf, vehicleKind }
+import { cabOf, controlledVehicle, fillLimitPct, fillMax, fillName, fillPct, implementsOf, isLoaderGear, kindLabel, rigOf,
+  vehicleKind }
   from "../data/selectors.js";
 import { sendCommand } from "../connection.js";
 import { h } from "../ui/dom.js";
@@ -24,7 +25,7 @@ import { icon } from "../ui/icons.js";
  */
 export function implementLine(impl) {
   const bits = [];
-  if (impl.lowered) bits.push("lowered");
+  if (impl.lowered && !isLoaderGear(undefined, impl)) bits.push("lowered");
   if (impl.turnedOn) bits.push("on");
   if (impl.pto === true) bits.push("PTO");
   if ((impl.wear ?? 0) > 0) bits.push(`wear ${Math.round(100 * (impl.wear ?? 0))}%`);
@@ -96,7 +97,9 @@ function implementRow(impl, rig, send) {
   const row = h("li", { className: "impl-row" }, badge,
     h("div", { className: "impl-text" }, h("b", { text: impl.name || "Implement" }),
       h("span", { text: kindLabel(impl) })),
-    chip(hitchText(impl), impl.lowered ? "on" : "off", icon(impl.lowered ? "hitchDown" : "hitchUp")),
+    // a front loader and its tools have no lowered or raised
+    ...(isLoaderGear(/** @type {any} */ (rig), impl) ? []
+      : [chip(hitchText(impl), impl.lowered ? "on" : "off", icon(impl.lowered ? "hitchDown" : "hitchUp"))]),
     chip(impl.turnedOn ? "Working" : "Off", impl.turnedOn ? "active" : "off", h("span", { className: "impl-dot" })));
   if (typeof impl.pto === "boolean") {
     row.append(chip(impl.pto ? "PTO on" : "PTO off", impl.pto ? "active" : "off", icon("pto")));
