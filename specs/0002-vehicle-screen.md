@@ -1,6 +1,6 @@
-# 0002: Vehicle screen
+# 0002: Vehicle and Loader screens
 
-Status: live-checked
+Status: live-checked (revision 1, mod 0.8.6, 2026-10-26); revision 2: approved
 Mod: 0.8.6 · Started: 2026-10-25 · Design: [THEMES.md, Vehicle screen](../docs/THEMES.md#t4-vehicle-screen)
 (revised by this spec),
 canvas [FS25 Companion: Vehicle screen](https://claude.ai/artifact/UCGXbQrd4gTozRk67NcnWw)
@@ -15,6 +15,130 @@ for yard work with a loader: what's on the loader, how full the thing
 you're filling is, how many more loads it takes, and what you've moved so
 far. It drops what the Implement tab already does (per-tool buttons,
 implement rows), the same clean-up as spec 0001's revision 2.
+
+## Revision 2: Loader and Vehicle (approved, 2026-10-26)
+
+Why (Vincent, after the live check): this page turned out to be a loader
+page. With a seeder or on a truck, half of it has nothing to show. And
+a tap on the Merlo's or the L90H's tile opened the Implement tab, where a
+telehandler or a wheel loader has nothing to do. Revision 2 splits the
+page in two and stops taps from changing the page. Everything in
+revision 1 not named here stays as it is (band, strip, links, tally,
+target, column). At build, this section folds into Behaviour and the rest.
+
+### Behaviour
+
+- **Three pages on the Vehicle tab:** the tab keeps its name "Vehicle"
+  and wears the shown page's icon, as it does today; its menu offers:
+  - **Loader** (icon `loader`): revision 1's page as live-checked: the
+    band with the rig strip, then On the loader and Target;
+  - **Vehicle** (icon `tractor`), for now: the band with the rig strip,
+    then the Loads card full width (every fill unit in the rig as a meter, the
+    rig's weight in its head; revision 1's "without a loader" card). No
+    On the loader, no Target;
+  - **Harvester**: unchanged (spec 0001).
+- **The pick** (Screen for what I drive, on by default):
+  - Harvester for a combine (unchanged);
+  - Loader when the vehicle is a loader machine (its shop category says
+    loader, telehandler, skid steer or forklift, but not a loader wagon;
+    else its type name: wheelLoader, teleHandler, skidSteer, forklift),
+    or a loader tool is in the rig (a bucket or shovel, forks, a hook or
+    bigbag lifter, a bale grab). A front loader with no tool on it isn't
+    enough: the arm often stays on while you pull a trailer;
+  - Vehicle for everything else.
+- **When the pick runs** (as the Harvester pick works today): when what
+  it picks changes (you get into another vehicle, or couple or drop a
+  loader tool), the Vehicle tab takes the page for it. If you are on the
+  Vehicle tab, the page changes there. On any other tab nothing moves;
+  the Vehicle tab opens on the new page the next time you tap it. A page
+  chosen from the tab's menu stays until the pick changes again. With the
+  setting off, the tab never picks.
+- **The Implement tab is never picked by itself,** and nothing opens it
+  but its own tab.
+- **A tap selects; it never changes the page.** On every page, a tap on
+  a rig tile (the strip here, the band on the Implement tab) selects that
+  tool, or the vehicle, in game (`implement.select`), as the game's
+  select key would; the tile turns yellow and the page stays. Only the
+  bottom tabs change the page, plus the pick inside the Vehicle tab.
+  Revision 1's "a tap on a tile opens the Implement tab" is gone.
+  (Harvester's tiles are its buttons; they act and stay too.)
+- **Loader picked by hand with no loader in the rig:** it shows what
+  Vehicle shows (Loads, full width), as revision 1 did.
+
+### Data contract
+
+- **Mod:** nothing new; no version bump.
+- **Web:**
+  - `selectors.js`: `isLoaderVehicle(v)` (category, else type name) and
+    `loaderRig(v, cab)` (a loader machine, or a loader tool in the rig:
+    `loaderTool` in vehicleScreen.js, which leaves carried bags out);
+  - `themes/render.js`: a `loader` detector next to `harvester`; the
+    first screen whose detector holds wins (Harvester before Loader);
+  - `themes/newholland/theme.js`: a `loader` screen (tab `vehicle`,
+    choice "Loader", when `loader`) with the band, On the loader and
+    Target; the `vehicle` screen with the band and Loads;
+  - `vehicleScreen.js`: `loadCard` takes a variant (`loader` or `loads`)
+    instead of deciding by the rig; the strip's tap no longer dispatches
+    `showscreen`; `main.js` drops its `showscreen` listener (nothing else
+    sends it).
+- **Game API:** none new. The shop category and type name are verified
+  (DONE.md); the loader tools are those of revision 1 (DONE.md, Vehicle
+  screen).
+
+### Plan
+
+1. Web: the detector and selectors first, with their tests; then
+   theme.js (two screens) and the `loadCard` variant; then the strip's
+   tap.
+2. Docs: THEMES.md's Vehicle screen section gets the two pages; the
+   Behaviour above folds into this spec's Behaviour.
+
+Risk: the pick now changes the page while you drive (coupling a bucket
+on the Vehicle tab switches to Loader). That's the point, but it is the
+first time the page moves under you without a change of vehicle.
+
+### Acceptance
+
+Automated:
+- [ ] `web/test.html` "loader pick": the Merlo (telehandler), the L90H
+  (wheel loader), a tractor with a bucket, with forks, with a bigbag
+  lifter → Loader; a tractor with a front loader and no tool, a tractor
+  with a seeder, a truck → Vehicle; a combine → Harvester.
+- [ ] `web/test.html` "loader pick: when": on the Vehicle tab the page
+  follows the pick; on the Map tab nothing moves and the Vehicle tab
+  opens on the new page; a page chosen from the menu stays until the
+  pick changes; setting off: no pick.
+- [ ] `web/test.html` "tap selects": a tap on a strip tile sends
+  `implement.select` with its id and the page stays the same (Vehicle,
+  Loader); no `showscreen` event.
+- [ ] `web/test.html` "vehicle page": Loads full width, no On the loader,
+  no Target; Loader page: both cards.
+- [ ] Replay in the browser pane at 1180×820, day and night: both pages,
+  nothing overflows.
+
+Live check (no mod change: reload the dashboard):
+- [ ] Get into the Merlo, then the L90H: the Vehicle tab opens on Loader.
+  A tractor with a seeder: Vehicle.
+- [ ] In a tractor with a front loader, on the Vehicle tab: couple the
+  bucket and the page turns to Loader; drop it and it turns back.
+  The same on the Map tab: the Map stays.
+- [ ] A tap on the Merlo's tile, then on the bucket's: each is selected
+  in game, and the page doesn't move.
+- [ ] Loader chosen from the tab's menu on a tractor with a seeder
+  stays until you get into another vehicle.
+
+### Decisions (revision 2)
+
+- Coupling a loader tool while on the Vehicle tab turns the page to
+  Loader at once (Vincent, 2026-10-26).
+- A tractor with a front loader but no tool gets Vehicle (Vincent,
+  2026-10-26).
+
+- Until it gets its own spec, the plain Vehicle page is the band, the
+  strip and the Loads card (the rig's tanks and weight), as revision 1
+  showed without a loader (Vincent, 2026-10-26). Vincent wants that page
+  to become one card per attached tool with all its controls; how it
+  divides the work with the Implement tab (spec 0003) is decided later.
 
 ## Behaviour
 
@@ -465,3 +589,12 @@ done):
   opened before the update; a reload showed "Battery". The game API
   names in the Data contract table are moved to DONE.md. Status:
   live-checked.
+- 2026-10-26: revision 2 drafted with Vincent: the page is a loader
+  page, so it becomes Loader, picked by itself like Harvester; a plain
+  Vehicle page for everything else; a tap on a tile selects and no longer
+  opens the Implement tab. The Implement tab gets its own spec (0003).
+  Waiting for approval.
+- 2026-10-26: Vincent's answers: Loader at once on coupling a loader
+  tool; a front loader with no tool gets Vehicle; the plain Vehicle page
+  keeps the Loads card until its own spec. No open questions left.
+- 2026-10-26: revision 2 approved by Vincent; build not started.
