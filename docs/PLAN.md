@@ -6,7 +6,7 @@ it relies on, are in [DONE.md](DONE.md). Small fixes go in
 [specs/](../specs/README.md): written and approved before the code, kept
 up to date until the live check.
 
-## Where things stand (2026-10-25)
+## Where things stand (2026-10-26)
 
 - Phases 0 to 4 of the rework are built and run live on Windows (Solek, and
   Kinlaig, a paid DLC map): the file stream, the client and backend, and the
@@ -35,11 +35,10 @@ up to date until the live check.
   or from the tab's menu; a band with the tank, until full, yield and
   speed, then Combine and Header cards whose tiles are their buttons.
   Confirmed in game on 2026-10-25 with mod 0.8.4.
-- The Vehicle screen redesign is built (mod 0.8.6, spec
-  [0002](../specs/0002-vehicle-screen.md), 2026-10-26): the band with the
-  rig strip, Load with the session's tally, Target. Its spike is done and
-  its findings are in (0.8.6); next for it: the live check. Canvases are built
-  from the design system
+- The Vehicle screen redesign is done (mod 0.8.6, spec
+  [0002](../specs/0002-vehicle-screen.md)): the band with the rig strip,
+  Load with the session's tally, Target. Confirmed in game on 2026-10-26
+  with mod 0.8.6. Canvases are built from the design system
   ([THEMES.md](THEMES.md#design-system-2026-10-25)).
 - macOS is still to test, and a few things are still to confirm in game (see
   [Open checks](#open-checks)).
@@ -436,10 +435,10 @@ Built, but not yet confirmed in game:
   control indicators (lights, beacon, hazard, turn signals, engine,
   implement lowered and working), the alert chips and Day / Night, on a
   tablet over the LAN and on a second monitor.
-- **Vehicle screen live:** the readout card, condition tiles and implement
-  rows while working with an implement, and whether the Map screen's slot
-  zoom (about 505 m across a 1180×820 screen) is close enough in a cab.
-  The gear, brand and shop category are confirmed (see DONE.md).
+- **Map slot zoom:** whether the Map screen's slot zoom (about 505 m
+  across a 1180×820 screen) is close enough in a cab. (The Vehicle
+  screen's readout card, condition tiles and implement rows were replaced
+  by spec 0002, confirmed live.)
 - **Full screen and home screen:** the full-screen button and toggle in
   Chrome or Edge on the PC and on the tablets (the app's browser pane
   doesn't answer the request), Keep screen on over `localhost`, and on an

@@ -156,6 +156,29 @@ These results override any API guesses later in this document.
   - Precision Farming's `spec_<mod>.extendedCombine` (found by its
     `extendedcombine` suffix): `lastYieldWeight`, `lastYieldPercentage`
     and `lastYieldPotential` match its yield HUD.
+- **Vehicle screen** (confirmed by Vincent, 2026-10-26, the Merlo
+  EW25.5-90 with forks and a bigbag lifter, the Volvo L90H with its
+  bucket, mod 0.8.6; spec 0002):
+  - An attacher joint's `jointType` is a number;
+    `AttacherJoints.jointTypeNameToInt` read backwards names it (24
+    names, e.g. implement, frontloader, attachableFrontloader,
+    wheelLoader, cutterTrailer, bigBag), and the rig strip's links match
+    the couplings in game.
+  - `spec_dynamicMountAttacher.dynamicMountedObjects` is keyed by the
+    mounted objects; a pallet has `isPallet` true. A bigbag is its own
+    vehicle (`spec_bigBag`, `isPallet` true). On a bigbag lifter it is an
+    attached implement by joint type "bigBag"; hung on bare tines by its
+    straps it isn't recorded anywhere (`spec_mountable` empty).
+  - `spec_shovel` is on a bucket (the L90H's hangs by joint type
+    "wheelLoader"). A fill unit with `showOnHud` false (the bucket's
+    second unit) isn't on the game's HUD.
+  - `getFillUnitAllowsFillType(index, fillType)` and
+    `getFillUnitFreeCapacity(index, fillType, farmId)` answer: the
+    target's level and "≈ n more loads" came out right.
+  - An electric vehicle's consumer fill type is `ELECTRICCHARGE` (kWh).
+  - `spec_motorized.motorTemperature` has value, valueMin 20 and valueMax
+    120, no warning level; the motor fan switches on at 95 °C and off at
+    85.
 
 ---
 
@@ -473,8 +496,8 @@ Changes since Phase 4 (2026-10-21 to 2026-10-22):
   Farming's yield and the crop's mass per litre from the mod. Details in
   its spec,
   [specs/0001-harvester-screen.md](../specs/0001-harvester-screen.md).
-- **Vehicle screen redesign** (2026-10-26, mod 0.8.6, built, live check
-  open): the band with the rig strip and its couplings, what's on the
+- **Vehicle screen redesign** (2026-10-26, mod 0.8.6, confirmed live):
+  the band with the rig strip and its couplings, what's on the
   loader with the session's tally, and the vehicle nearby it goes into.
   Details in its spec,
   [specs/0002-vehicle-screen.md](../specs/0002-vehicle-screen.md).

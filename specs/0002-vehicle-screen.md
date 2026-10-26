@@ -1,6 +1,6 @@
 # 0002: Vehicle screen
 
-Status: built
+Status: live-checked
 Mod: 0.8.6 · Started: 2026-10-25 · Design: [THEMES.md, Vehicle screen](../docs/THEMES.md#t4-vehicle-screen)
 (revised by this spec),
 canvas [FS25 Companion: Vehicle screen](https://claude.ai/artifact/UCGXbQrd4gTozRk67NcnWw)
@@ -178,14 +178,14 @@ from a spike first (Plan, step 1); this table changes with its results.
 
 | Name | Where from | State |
 |---|---|---|
-| `AttacherJoints.jointTypeNameToInt` (read backwards for a name) | AttacherJoints.lua, registerJointType | seen in the spike (pallet on forks, 2026-10-26); live check to confirm: 24 names, e.g. 1 implement, 7 frontloader, 12 attachableFrontloader |
-| `spec_dynamicMountAttacher.dynamicMountedObjects` (keys are the objects) | DynamicMountAttacher.lua | seen in the spike (pallet on forks, 2026-10-26); live check to confirm |
-| `object.isPallet` | Pallet.lua | seen in the spike (pallet on forks, 2026-10-26); live check to confirm: true on a pallet, typeName pallet |
-| `spec_bigBag` on a bigbag, and how a lifter holds it | BigBag.lua | seen in the spike (bigbag lifter, 2026-10-26); live check to confirm: a bag is its own vehicle (typeName bigBag, `isPallet` true); a lifter holds it as an attached implement by joint type "bigBag", so it is a rig member; on bare tines it hangs by physics, not recorded |
-| `getFillUnitAllowsFillType(index, fillType)` | FillUnit.lua | seen in the spike (pallet on forks, 2026-10-26); live check to confirm: answers true |
-| `getFillUnitFreeCapacity(index, fillType, farmId)` | FillUnit.lua | seen in the spike (pallet on forks, 2026-10-26); live check to confirm: answers (0 on a full pallet) |
-| attacher joint `jointType` (the number registered) | AttacherJoints.lua | seen in the spike (pallet on forks, 2026-10-26); live check to confirm: a number on the joint |
-| `spec_shovel` on a bucket (the loader's tool) | Shovel.lua | seen in the spike (Volvo L90H bucket, 2026-10-26); live check to confirm: on the bucket (typeName shovelLeveler), which hangs by joint type "wheelLoader" |
+| `AttacherJoints.jointTypeNameToInt` (read backwards for a name) | AttacherJoints.lua, registerJointType | verified (DONE.md, Vehicle screen): 24 names, e.g. 1 implement, 7 frontloader, 12 attachableFrontloader |
+| `spec_dynamicMountAttacher.dynamicMountedObjects` (keys are the objects) | DynamicMountAttacher.lua | verified (DONE.md, Vehicle screen) |
+| `object.isPallet` | Pallet.lua | verified (DONE.md, Vehicle screen): true on a pallet, typeName pallet |
+| `spec_bigBag` on a bigbag, and how a lifter holds it | BigBag.lua | verified (DONE.md, Vehicle screen): a bag is its own vehicle (typeName bigBag, `isPallet` true); a lifter holds it as an attached implement by joint type "bigBag", so it is a rig member; on bare tines it hangs by physics, not recorded |
+| `getFillUnitAllowsFillType(index, fillType)` | FillUnit.lua | verified (DONE.md, Vehicle screen): answers true |
+| `getFillUnitFreeCapacity(index, fillType, farmId)` | FillUnit.lua | verified (DONE.md, Vehicle screen): answers (0 on a full pallet) |
+| attacher joint `jointType` (the number registered) | AttacherJoints.lua | verified (DONE.md, Vehicle screen): a number on the joint |
+| `spec_shovel` on a bucket (the loader's tool) | Shovel.lua | verified (DONE.md, Vehicle screen): on the bucket (typeName shovelLeveler), which hangs by joint type "wheelLoader" |
 | the engine's temperature warning level: `motorTemperature.warningTemperature`, `valueWarning` or `warning` (guesses) | Motorized.lua | not there (spike, 2026-10-26: the electric Merlo and the diesel Volvo L90H alike): motorTemperature has only value, valueMin 20, valueMax 120 and heating rates; motorFan switches on at 95 °C, off at 85 |
 | `fillType.massPerLiter` | FillTypeManager | verified (DONE.md, Harvester screen) |
 | attacher joint front / rear (`jointTransform` z) | AttacherJoints.lua | verified (PLAN.md, C3) |
@@ -260,22 +260,22 @@ Automated (written before the code):
 Live check (mod 0.8.6; a tractor with a front loader, a bucket, pallet
 forks and a bigbag lifter; a trailer and a seeder nearby; the spike is
 done):
-- [ ] The rig strip's links name the couplings the game uses.
-- [ ] The bucket's fill type and litres match the game's HUD.
-- [ ] A pallet and a bigbag on the loader show their content.
-- [ ] The target is the trailer or seeder you're filling, its level
+- [x] The rig strip's links name the couplings the game uses.
+- [x] The bucket's fill type and litres match the game's HUD.
+- [x] A pallet and a bigbag on the loader show their content.
+- [x] The target is the trailer or seeder you're filling, its level
   matches the game, and "≈ n more loads" is right after one more load.
-- [ ] The tally counts each bucket dumped and each pallet set down once.
-- [ ] Fuel range is close to what the game's usage says.
-- [ ] A tap on a rig tile selects that tool in game and opens Implement.
-- [ ] Engine hot shows once the engine reaches 100 °C.
-- [ ] DEF shows a range after a few minutes of work.
-- [ ] On the Merlo (electric) the band says Battery.
-- [ ] The L90H's bucket tile has one bar (its second unit hidden).
-- [ ] A bag on the bigbag lifter: the lifter is the tool, the strip's
+- [x] The tally counts each bucket dumped and each pallet set down once.
+- [x] Fuel range is close to what the game's usage says.
+- [x] A tap on a rig tile selects that tool in game and opens Implement.
+- [x] Engine hot shows once the engine reaches 100 °C.
+- [x] DEF shows a range after a few minutes of work.
+- [x] On the Merlo (electric) the band says Battery.
+- [x] The L90H's bucket tile has one bar (its second unit hidden).
+- [x] A bag on the bigbag lifter: the lifter is the tool, the strip's
   link reads Hook, the seeder is the target; emptied into the seeder and
   set down, the tally counts its 1,000 L once.
-- [ ] Bags hung on bare tines: "Nothing mounted", no target.
+- [x] Bags hung on bare tines: "Nothing mounted", no target.
 
 ## Decisions
 
@@ -459,3 +459,9 @@ done):
   temperature test checks nothing is sent (pytest 104). `web/test.html`
   259, all green (joint names, Battery, Engine hot at 100 °C, Nothing
   mounted, a bag on a lifter). Live check boxes added for these.
+- 2026-10-26: live check passed, all 13 boxes confirmed by Vincent (mod
+  0.8.6; the Merlo EW25.5-90 with forks and a bigbag lifter, the Volvo
+  L90H with its bucket, a Fliegl trailer and a seeder). "Fuel" on the Merlo turned out to be a dashboard tab
+  opened before the update; a reload showed "Battery". The game API
+  names in the Data contract table are moved to DONE.md. Status:
+  live-checked.
