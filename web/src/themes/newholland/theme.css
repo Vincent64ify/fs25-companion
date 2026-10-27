@@ -592,6 +592,17 @@ button { font: inherit; color: inherit; }
   cursor: pointer;
 }
 .tab .icon { width: 22px; height: 22px; flex: none; }
+/* a tab of several pages ("Vehicle · Harvester"): a chevron for its menu */
+.tab-more {
+  flex: none;
+  width: 7px;
+  height: 7px;
+  margin: -3px 0 0 2px;
+  border-right: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  transform: rotate(45deg);
+  opacity: 0.8;
+}
 .tab:hover { color: var(--text); }
 .tab[aria-pressed="true"] { background: var(--tab-sel); color: var(--tab-sel-text); box-shadow: var(--tab-sel-shadow); }
 
@@ -622,7 +633,7 @@ button { font: inherit; color: inherit; }
 /* --- Vehicle screen (specs/0002): the band with the rig strip over the Load
    and Target cards, then the control column (widgets/vehicleScreen.js) ------- */
 
-.screen[data-screen="vehicle"] {
+.screen[data-screen="vehicle"], .screen[data-screen="loader"] {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 268px;
   gap: 12px;
@@ -638,8 +649,8 @@ button { font: inherit; color: inherit; }
   min-height: 0;
 }
 .slot:has(> .veh-band) { grid-column: 1 / -1; }
-/* without a loader there's no Target: Load takes the full width */
-.slot-group[data-group="vehicle"]:has(.veh-target[hidden]) .slot:has(> .veh-load) { grid-column: 1 / -1; }
+/* no Target (the Vehicle page, or Loader without a loader): Load takes the full width */
+.slot-group[data-group="vehicle"]:not(:has(.veh-target:not([hidden]))) .slot:has(> .veh-load) { grid-column: 1 / -1; }
 
 .slot { display: grid; min-width: 0; min-height: 0; }
 .slot:has(> [hidden]) { display: none; }
@@ -1641,7 +1652,7 @@ button { font: inherit; color: inherit; }
     overflow: visible;
   }
   /* the Vehicle screen scrolls: its cards, then the control dock */
-  .screen[data-screen="vehicle"] {
+  .screen[data-screen="vehicle"], .screen[data-screen="loader"] {
     grid-template-columns: minmax(0, 1fr);
     align-content: start;
     overflow-y: auto;
@@ -1653,8 +1664,9 @@ button { font: inherit; color: inherit; }
   .veh-strip .rig-tile { flex: 0 0 190px; }
   .veh-card { overflow: visible; }
   /* the screen scrolls, so its rows keep their content's height */
-  .screen[data-screen="vehicle"] .slot-group, .screen[data-screen="vehicle"] .slot,
-  .screen[data-screen="vehicle"] .control-column { min-height: auto; }
+  :is(.screen[data-screen="vehicle"], .screen[data-screen="loader"]) :is(.slot-group, .slot, .control-column) {
+    min-height: auto;
+  }
   /* the Implement screen scrolls too: the band (its tiles a scrolling row),
      the card full width, the details, then the control dock */
   .screen[data-screen="implement"] { grid-template-columns: minmax(0, 1fr); align-content: start; }
@@ -1673,7 +1685,7 @@ button { font: inherit; color: inherit; }
   .harv-card { overflow: visible; }
   /* unselected tabs drop to icons; the readout keeps speed, rpm and fuel */
   .tab:not([aria-pressed="true"]) { padding: 0; }
-  .tab:not([aria-pressed="true"]) .tab-label { display: none; }
+  .tab:not([aria-pressed="true"]) :is(.tab-label, .tab-more) { display: none; }
   .tab-readout > :nth-child(2), .tab-readout > :nth-child(n+5) { display: none !important; }
 }
 

@@ -1,14 +1,14 @@
 // @ts-check
-// The Vehicle screen (specs/0002-vehicle-screen.md; look in docs/THEMES.md,
-// Vehicle screen): the Vehicle tab's default page, tuned for yard work with
-// a loader.
+// The Vehicle and Loader screens (specs/0002-vehicle-screen.md; look in
+// docs/THEMES.md, Vehicle screen): the Vehicle tab's pages for yard work
+// with a loader (Loader) and for everything else (Vehicle); hasLoader picks
+// between them.
 // - vehicleBand: the job, speed, fuel and DEF as a range, wear and Engine
 //   hot, over the rig strip: every vehicle in the rig as a tile in driving
 //   order, joined by links that name the coupling. A tap on a tile selects
-//   that tool in game and opens the Implement tab (a "showscreen" event
-//   that bubbles up to main.js).
+//   that tool in game; the page stays.
 // - loadCard: what's on the loader and the session's tally (createTally);
-//   without a loader, every tank in the rig.
+//   on the Vehicle page, or without a loader, every tank in the rig.
 // - targetCard: the vehicle nearby that takes what you carry (the mod picks
 //   it) and how many more loads it takes.
 // Data: the vehicles topic's controlled vehicle (carried and target since
@@ -45,7 +45,7 @@ const LOAD_FULL_PCT = 50;
 const LOAD_EMPTY_PCT = 5;
 const FT_PER_M = 3.28084;
 
-// a vehicle that is a loader, or a rig with a loader, by shop category
+// a loader's tool by shop category ("frontLoaderTools")
 const LOADER_RE = /LOADER|TELEHANDLER|SKIDSTEER|FORKLIFT/;
 // a loader's tool by type name: a bucket (shovel), forks and hooks
 // (dynamic mounts), a bigbag lifter, a bale grab
@@ -63,14 +63,17 @@ export function carriedOf(v) {
 }
 
 /**
- * Whether the page is about loading: the vehicle is a loader, or the rig
- * has a loader or a loader's tool, or something hangs on it.
+ * Whether it's the Loader page's (specs/0002 revision 2): the vehicle is a
+ * loader machine (a wheel loader, telehandler, skid steer or forklift, by
+ * its shop category, else its type name), or a loader's tool is in the rig
+ * (a bucket, forks, a hook or bigbag lifter, a bale grab), or something
+ * hangs on it. A front loader with no tool isn't: it stays on while you
+ * pull a trailer.
  * @param {Vehicle|undefined} v
  */
 export function hasLoader(v) {
   if (!v) return false;
-  if (vehicleKind(v) === "loader" || carriedOf(v).length || /** @type {any} */ (v).target) return true;
-  return implementsOf(v).some((i) => LOADER_RE.test(cat(i)) || isLoaderTool(i));
+  return vehicleKind(v) === "loader" || carriedOf(v).length > 0 || loaderTools(v).length > 0;
 }
 
 /** The loader's tool: the last one in the rig (a bucket on a loader). @param {Vehicle|undefined} v */
@@ -267,8 +270,8 @@ function entryKind(/** @type {RigEntry} */ e, /** @type {Vehicle|undefined} */ v
 
 /**
  * One tile: badge, model, state line, a bar per fill unit. A tap selects
- * it in game (implement.select, unless it is selected already) and opens
- * the Implement tab.
+ * it in game (implement.select, unless it is selected already); the page
+ * stays (specs/0002 revision 2).
  * @param {RigEntry} e
  * @param {Vehicle|undefined} v
  * @param {Send} send
@@ -294,9 +297,8 @@ function stripTile(e, v, send) {
   tile.dataset.pick = "true";
   tile.tabIndex = 0;
   tile.setAttribute("role", "button");
-  tile.setAttribute("aria-label", `${name}: select in game and open Implement`);
+  tile.setAttribute("aria-label", `${name}: select in game`);
   const pick = async () => {
-    tile.dispatchEvent(new CustomEvent("showscreen", { bubbles: true, detail: "implement" }));
     if (e.selected || tile.dataset.pending === "true") return;
     tile.dataset.pending = "true";
     const result = await send("implement.select", id);
@@ -519,8 +521,8 @@ function cardHead(/** @type {string} */ cls) {
 
 /**
  * The Load card: on the loader, what's on it (big), the tool, and the
- * session's tally with Reset; without a loader, Loads: every tank in the
- * rig and the rig's weight.
+ * session's tally with Reset; Loads, every tank in the rig and the rig's
+ * weight, on the Vehicle page (`variant: "loads"`) and without a loader.
  * @type {import("./widget.js").CreateWidget}
  */
 export function loadCard(store, opts = {}) {
@@ -547,7 +549,7 @@ export function loadCard(store, opts = {}) {
   let lastKey = "";
   const render = () => {
     const v = controlledVehicle(store);
-    const loader = hasLoader(v);
+    const loader = opts.variant !== "loads" && hasLoader(v);
     head.label.textContent = loader ? "On the loader" : "Loads";
     root.dataset.mode = loader ? "loader" : "loads";
     tallyEl.hidden = !loader;

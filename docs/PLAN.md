@@ -6,7 +6,7 @@ it relies on, are in [DONE.md](DONE.md). Small fixes go in
 [specs/](../specs/README.md): written and approved before the code, kept
 up to date until the live check.
 
-## Where things stand (2026-10-26)
+## Where things stand (2026-10-27)
 
 - Phases 0 to 4 of the rework are built and run live on Windows (Solek, and
   Kinlaig, a paid DLC map): the file stream, the client and backend, and the
@@ -38,7 +38,12 @@ up to date until the live check.
 - The Vehicle screen redesign is done (mod 0.8.6, spec
   [0002](../specs/0002-vehicle-screen.md)): the band with the rig strip,
   Load with the session's tally, Target. Confirmed in game on 2026-10-26
-  with mod 0.8.6. Canvases are built from the design system
+  with mod 0.8.6. Revision 2 is built (2026-10-27, dashboard only): that
+  page is now Loader, picked by itself, beside a plain Vehicle page, and a
+  tap on a tile no longer opens Implement; next for it: the live check.
+  Spec [0003](../specs/0003-implement-screen.md), the Implement screen, is
+  a draft waiting on how it and the Vehicle page divide the work.
+  Canvases are built from the design system
   ([THEMES.md](THEMES.md#design-system-2026-10-25)).
 - macOS is still to test, and a few things are still to confirm in game (see
   [Open checks](#open-checks)).

@@ -6,6 +6,7 @@
 import { createWidget, WIDGETS } from "../widgets/index.js";
 import { controlGroup, CONTROLS } from "../widgets/controls.js";
 import { isHarvester } from "../widgets/harvesterScreen.js";
+import { hasLoader } from "../widgets/vehicleScreen.js";
 import { controlledVehicle } from "../data/selectors.js";
 import { h } from "../ui/dom.js";
 import { hasIcon, icon } from "../ui/icons.js";
@@ -48,6 +49,7 @@ import { hasIcon, icon } from "../ui/icons.js";
 /** What a screen's `when` can name: whether the store's state calls for it. */
 export const DETECT = {
   harvester: (/** @type {Store} */ store) => isHarvester(controlledVehicle(store)),
+  loader: (/** @type {Store} */ store) => hasLoader(controlledVehicle(store)),
 };
 
 /**
@@ -232,6 +234,12 @@ export function renderTheme(theme, app, store, frame, settings, autoPick) {
     if (shared) {
       shared.screens.push(screen);
       tab = shared.button;
+      // a tab of several pages: a chevron for its menu
+      if (!tab.querySelector(".tab-more")) {
+        const more = h("span", { className: "tab-more" });
+        more.setAttribute("aria-hidden", "true");
+        tab.append(more);
+      }
     } else {
       tab = h("button", { className: "tab" },
         ...(screen.icon ? [icon(screen.icon)] : []), h("span", { className: "tab-label", text: screen.label }));
@@ -306,15 +314,28 @@ export function renderTheme(theme, app, store, frame, settings, autoPick) {
     document.addEventListener("pointerdown", group.away, true);
   }
 
+  /**
+   * The page a tab opens on. The tab wears its icon (a tractor, a combine)
+   * and names it after its own: "Vehicle · Harvester" ("Vehicle" alone on
+   * the tab's first page).
+   * @param {TabGroup} group
+   * @param {Screen} screen
+   */
+  function setPick(group, screen) {
+    group.pick = screen.id;
+    if (screen.icon) group.button.querySelector(".icon")?.replaceWith(icon(screen.icon));
+    const first = group.screens[0];
+    const name = screen === first ? first.label : `${first.label} · ${screen.choice || screen.label}`;
+    const label = group.button.querySelector(".tab-label");
+    if (label) label.textContent = name;
+    group.button.title = name;
+  }
+
   /** @param {string} id */
   function showScreen(id) {
     const screen = screens.find((s) => s.id === id);
     const group = screen && tabGroups.get(tabOf(screen));
-    if (group && screen) {
-      group.pick = id;
-      // the tab wears the shown screen's icon (a tractor, a combine)
-      if (screen.icon) group.button.querySelector(".icon")?.replaceWith(icon(screen.icon));
-    }
+    if (group && screen) setPick(group, screen);
     for (const [screenId, s] of built) {
       const shown = screenId === id;
       s.el.hidden = !shown;
@@ -340,7 +361,7 @@ export function renderTheme(theme, app, store, frame, settings, autoPick) {
       detected.set(tabId, fits.id);
       if (autoPick && !autoPick.wanted()) continue;
       if (group.screens.some((s) => s.id === app.dataset.screen)) showScreen(fits.id);
-      else group.pick = fits.id;
+      else setPick(group, fits);
     }
   };
   store.subscribe("vehicles", autoDetect);

@@ -40,11 +40,24 @@ export default {
       ],
     },
     {
-      // the Vehicle tab's default page (specs/0002): the band with the rig
-      // strip over the Load and Target cards (rows auto | 1fr, columns
-      // 1fr | 1fr; Load full width without a loader), then the column with
+      // the Vehicle tab's default page (specs/0002 revision 2): the band
+      // with the rig strip over Loads, full width, then the column with
       // Lights and Drive. The tools' buttons are on the Implement tab.
       id: "vehicle", label: "Vehicle", icon: "tractor", choice: "Vehicle",
+      slots: [
+        { group: "vehicle", slots: [
+          { widget: "vehicleBand" },
+          { widget: "loadCard", variant: "loads" },
+        ] },
+        { controls: true, omit: ["implementLowered", "fold", "implementOn", "hitch"] },
+      ],
+    },
+    {
+      // the Vehicle tab's page for a loader (specs/0002): the band with the
+      // rig strip over the Load and Target cards (rows auto | 1fr, columns
+      // 1fr | 1fr; Load full width without a loader), then the column as
+      // on Vehicle
+      id: "loader", label: "Loader", icon: "loader", tab: "vehicle", choice: "Loader", when: "loader",
       slots: [
         { group: "vehicle", slots: [
           { widget: "vehicleBand" },

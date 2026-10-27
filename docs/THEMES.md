@@ -1301,6 +1301,12 @@ on its own canvas,
 and night). Behaviour, data and checks are in the spec,
 [specs/0002-vehicle-screen.md](../specs/0002-vehicle-screen.md).
 
+Revision 2 (2026-10-27): this page is now **Loader** (the loader icon),
+picked by itself like Harvester. A plain **Vehicle** page sits beside it
+on the same tab: the same band and strip over the Loads card at full
+width. Both use the same grid (`data-group="vehicle"`); Load takes the
+full width whenever no Target shows.
+
 - **Layout:** one readout card across the content area: "Vehicle", the
   job (and an orange Engine hot chip), then Speed, Fuel, DEF and Wear on
   the right, each a label, a 28 px number and a line under it; the rig

@@ -40,5 +40,5 @@ behaviour, in Behaviour too: the spec always says what the code does now.
 | # | Feature | Status | Mod |
 |---|---|---|---|
 | [0001](0001-harvester-screen.md) | Harvester screen | live-checked (revision 2) | 0.8.4 |
-| [0002](0002-vehicle-screen.md) | Vehicle and Loader screens | live-checked; revision 2: approved | 0.8.6 |
+| [0002](0002-vehicle-screen.md) | Vehicle and Loader screens | built (revision 2); revision 1 live-checked | 0.8.6 |
 | [0003](0003-implement-screen.md) | Implement screen | draft | 0.8.7 |

@@ -1539,8 +1539,9 @@ check("vehicle screen: rig strip: driving order, links by joint, solid while low
 check("vehicle screen: band: job, the four numbers, Engine hot", [bandText, hotShown],
   [["Seeding", ["speed:14.2km/h:F5 · forward", "fuel:≈ 3h:42%", "wear:74%:repair soon:alert"], true],
     ["Loading · Potatoes", false, "Engine hot"]]);
-check("vehicle screen: rig strip: a tap selects that tool in game and opens Implement", [stripSent, stripOpened],
-  [[["implement.select", 1], ["implement.select", 5]], ["implement", "implement", "implement"]]);
+check("tap selects: a tap on a strip tile selects that tool in game and the page stays", [stripSent, stripOpened,
+  vBand.querySelector(".rig-tile[data-pick]").getAttribute("aria-label")],
+  [[["implement.select", 1], ["implement.select", 5]], [], "T7.315 HD: select in game"]);
 stripS.set("vehicles", { controlledId: 1, vehicles: [{ ...seedVehicle(), implements: [] }] });
 stripS.set("cab", { inVehicle: true, implements: [], rig: [seedCab().rig[0]] });
 check("vehicle screen: rig strip: the vehicle alone, Nothing attached", [stripShow(), vBand.querySelector(".veh-strip-none").hidden],
@@ -1685,21 +1686,101 @@ gearStore.set("vehicles", { controlledId: 1, vehicles: [loaderVehicle({ bucket: 
 check("loader gear: implement rows have no Lowered or Raised chip",
   [...gearRows.querySelectorAll(".impl-chip")].map((c) => c.textContent).filter((t) => /Lowered|Raised|Hitch/.test(t)), []);
 
-// the theme's Vehicle screen: the band, Load and Target; Lights and Drive,
-// Engine two columns wide, no Implement group
+// the theme's Vehicle and Loader screens (specs/0002 revision 2): the band
+// with Loads, or with On the loader and Target; Lights and Drive, Engine two
+// columns wide, no Implement group
 const appV = document.createElement("div");
 renderTheme(THEMES[0], appV, createStore(), createMapFrame(createStore()));
 const vehScreen = appV.querySelector('.screen[data-screen="vehicle"]');
+const loaderScreen = appV.querySelector('.screen[data-screen="loader"]');
 const vehGroups = [...vehScreen.querySelectorAll(".control-column .control-group")];
+const slotsOf = (el) => ["veh-band", "veh-load", "veh-target", "vehicle-card", "readout-arc", "widget-condition", "implements-card"]
+  .map((c) => !!el?.querySelector(`.${c}`));
 check("theme: the Vehicle screen's slots and its column", [
-  ["veh-band", "veh-load", "veh-target", "vehicle-card", "readout-arc", "widget-condition", "implements-card"]
-    .map((c) => !!vehScreen.querySelector(`.${c}`)),
+  slotsOf(vehScreen), slotsOf(loaderScreen),
   vehGroups.map((g) => q(g, ".control-group-label")),
   [...vehGroups[1].querySelectorAll(".control-label")].map((e) => e.textContent),
+  [...loaderScreen.querySelectorAll(".control-column .control-group-label")].map((e) => e.textContent),
   [...appV.querySelectorAll('.control-column .control[data-control="engineOn"]')].length,
-  THEMES[0].screens.find((s) => s.id === "vehicle").choice],
-  [[true, true, true, false, false, false, false], ["Lights", "Drive"], ["Cruise −", "Cruise", "Cruise +", "Engine", "AI worker"],
-    3, "Vehicle"]);
+  THEMES[0].screens.filter((s) => s.tab === "vehicle" || s.id === "vehicle").map((s) => `${s.choice}:${s.icon}`),
+  [...appV.querySelectorAll(".tab")].map((t) => t.dataset.screen)],
+  [[true, true, false, false, false, false, false], [true, true, true, false, false, false, false],
+    ["Lights", "Drive"], ["Cruise −", "Cruise", "Cruise +", "Engine", "AI worker"], ["Lights", "Drive"],
+    4, ["Vehicle:tractor", "Loader:loader", "Harvester:harvester"], ["map", "vehicle", "implement"]]);
+
+// the Vehicle page's card: Loads (the rig's tanks and weight) even with a
+// loader; Loader picked by hand with no loader shows the same
+const pageS = createStore();
+const loadsEl = vsc.loadCard(pageS, { variant: "loads", tally: vsc.createTally(pageS) });
+const onLoaderEl = vsc.loadCard(pageS, { variant: "loader", tally: vsc.createTally(pageS) });
+const pageShow = (el) => [q(el, ".veh-card-label"), el.dataset.mode, el.querySelector(".veh-tally").hidden];
+pageS.set("vehicles", { controlledId: 1, vehicles: [loaderVehicle({ extra: { mass: 9.4 } })] });
+pageS.set("cab", loaderCab());
+const withLoader = [pageShow(loadsEl), q(loadsEl, ".veh-rig-mass"), pageShow(onLoaderEl)];
+pageS.set("vehicles", { controlledId: 1, vehicles: [seedVehicle()] });
+pageS.set("cab", seedCab());
+check("vehicle page: Loads on the Vehicle page, On the loader on Loader (Loads without a loader)",
+  [withLoader, pageShow(onLoaderEl)],
+  [[["Loads", "loads", true], "Rig 9.4 t", ["On the loader", "loader", false]], ["Loads", "loads", true]]);
+
+// the pick (specs/0002 revision 2): Loader for a loader machine or a loader
+// tool in the rig; a front loader with no tool, a wagon, a seeder or a
+// truck isn't; a combine is Harvester
+const merlo = { id: 1, name: "MERLO EW25.5-90", brand: "MERLO", category: "FRONTLOADERVEHICLES", typeName: "teleHandler",
+  motorized: true, implements: [] };
+const l90h = { id: 1, name: "Volvo L90H", typeName: "wheelLoader", motorized: true, implements: [] };
+const armOnly = loaderVehicle({ extra: { implements: [loaderVehicle().implements[0]] } });
+const wagon = { ...seedVehicle(), implements: [{ id: 3, name: "Lely Tigo XR", typeName: "forageWagon", category: "loaderWagons", depth: 1 }] };
+const combine = { id: 1, name: "CH7.70", category: "harvesters", typeName: "combineDrivable", motorized: true, implements: [] };
+check("loader pick", [merlo, l90h, { ...l90h, typeName: undefined, category: "wheelLoaders" }, { ...merlo, category: "skidSteers",
+  typeName: "skidSteer" }, { id: 1, category: "forklifts", implements: [] }, loaderVehicle(), forksVehicle(undefined),
+  lifterVehicle(0, false), armOnly, wagon, seedVehicle(), { id: 1, category: "trucks", typeName: "car", implements: [] }, combine,
+  undefined].map((v) => vsc.hasLoader(v)),
+  [true, true, true, true, true, true, true, true, false, false, false, false, false, false]);
+
+// when the pick runs: inside the Vehicle tab only, at once; a page chosen
+// from the tab's menu stays until the pick changes; off in Settings
+const pickS = createStore();
+let pickOn = true;
+const appP = document.createElement("div");
+document.body.append(appP);
+const uiP = renderTheme(THEMES[0], appP, pickS, createMapFrame(createStore()), undefined,
+  { wanted: () => pickOn, set: (on) => { pickOn = on; } });
+const drivePick = (v) => pickS.set("vehicles", { controlledId: 1, vehicles: [v] });
+const vehTab = appP.querySelector('.tab[data-screen="vehicle"]');
+const screenNow = () => appP.dataset.screen;
+const tabName = () => [q(vehTab, ".tab-label"), vehTab.title, !!vehTab.querySelector(".tab-more")];
+uiP.showScreen("vehicle");
+const tabNames = [tabName()];
+const pickSteps = [];
+drivePick(merlo); pickSteps.push(screenNow());
+drivePick(seedVehicle()); pickSteps.push(screenNow());
+drivePick(loaderVehicle()); pickSteps.push(screenNow());
+drivePick(armOnly); pickSteps.push(screenNow());
+drivePick(combine); pickSteps.push(screenNow());
+tabNames.push(tabName());
+uiP.showScreen("map");
+drivePick(l90h); pickSteps.push(screenNow());
+tabNames.push(tabName());
+vehTab.click(); pickSteps.push(screenNow());
+drivePick(seedVehicle());
+vehTab.click();
+const menuChoices = [...appP.querySelectorAll(".tab-menu button")].map((b) => b.textContent);
+[...appP.querySelectorAll(".tab-menu button")].find((b) => b.textContent === "Loader").click();
+pickSteps.push(screenNow());
+drivePick({ ...seedVehicle(), speed: 9 }); pickSteps.push(screenNow());
+drivePick(merlo); pickSteps.push(screenNow());
+pickOn = false;
+drivePick(seedVehicle()); pickSteps.push(screenNow());
+pickOn = true;
+appP.remove();
+check("tab name: the Vehicle tab names the page it opens on, with a menu chevron", [tabNames,
+  q(appP, '.tab[data-screen="map"] .tab-label'), !!appP.querySelector('.tab[data-screen="map"] .tab-more')],
+  [[["Vehicle", "Vehicle", true], ["Vehicle · Harvester", "Vehicle · Harvester", true],
+    ["Vehicle · Loader", "Vehicle · Loader", true]], "Map", false]);
+check("loader pick: when", [pickSteps, menuChoices],
+  [["loader", "vehicle", "loader", "vehicle", "harvester", "map", "loader", "loader", "loader", "loader", "loader"],
+    ["Vehicle", "Loader", "Harvester"]]);
 
 // --- icons (ui/icons.js) --------------------------------------------------------
 

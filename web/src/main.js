@@ -141,14 +141,6 @@ app.addEventListener("showonmap", () => {
   }
   follow.recentre();
 });
-// the Vehicle screen's rig tiles: the Implement tab, with the tool selected
-app.addEventListener("showscreen", (ev) => {
-  const id = /** @type {CustomEvent} */ (ev).detail;
-  if (rendered.showScreen && typeof id === "string") {
-    rendered.showScreen(id);
-    rememberScreen();
-  }
-});
 keepPopupsInside(map, { avoid: frame.fieldInfo, inset: TOOLBAR_INSET });
 
 // --- animation -------------------------------------------------------------

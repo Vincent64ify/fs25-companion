@@ -1,156 +1,71 @@
 # 0002: Vehicle and Loader screens
 
-Status: live-checked (revision 1, mod 0.8.6, 2026-10-26); revision 2: approved
+Status: built (revision 2, 2026-10-27); revision 1 live-checked (mod 0.8.6, 2026-10-26)
 Mod: 0.8.6 · Started: 2026-10-25 · Design: [THEMES.md, Vehicle screen](../docs/THEMES.md#t4-vehicle-screen)
 (revised by this spec),
 canvas [FS25 Companion: Vehicle screen](https://claude.ai/artifact/UCGXbQrd4gTozRk67NcnWw)
 
 ## Goal
 
-The Vehicle tab's default page: good at everything, and second best to
-the specialized pages (Harvester, the Implement tab). It answers "what is
-my machine, what is hitched to it, and what am I handling". Road driving
-belongs to the Map, field work to the Implement tab, so this page is tuned
-for yard work with a loader: what's on the loader, how full the thing
-you're filling is, how many more loads it takes, and what you've moved so
-far. It drops what the Implement tab already does (per-tool buttons,
+The Vehicle tab's pages for what isn't a combine. It answers "what is my
+machine, what is hitched to it, and what am I handling". Road driving
+belongs to the Map, field work to the Implement tab. **Loader** is tuned
+for yard work: what's on the loader, how full the thing you're filling
+is, how many more loads it takes, and what you've moved so far. **Vehicle**
+is the plain page for everything else, for now the band and the rig's
+tanks. Both drop what the Implement tab already does (per-tool buttons,
 implement rows), the same clean-up as spec 0001's revision 2.
 
-## Revision 2: Loader and Vehicle (approved, 2026-10-26)
+Revision 2 (Vincent, after revision 1's live check): revision 1's page
+turned out to be a loader page, half empty with a seeder or on a truck,
+and a tap on the Merlo's or the L90H's tile opened the Implement tab,
+where a telehandler or a wheel loader has nothing to do. So the page
+became Loader, picked by itself like Harvester, with a plain Vehicle page
+beside it, and a tap no longer changes the page.
 
-Why (Vincent, after the live check): this page turned out to be a loader
-page. With a seeder or on a truck, half of it has nothing to show. And
-a tap on the Merlo's or the L90H's tile opened the Implement tab, where a
-telehandler or a wheel loader has nothing to do. Revision 2 splits the
-page in two and stops taps from changing the page. Everything in
-revision 1 not named here stays as it is (band, strip, links, tally,
-target, column). At build, this section folds into Behaviour and the rest.
+## Behaviour
 
-### Behaviour
-
-- **Three pages on the Vehicle tab:** the tab keeps its name "Vehicle"
-  and wears the shown page's icon, as it does today; its menu offers:
-  - **Loader** (icon `loader`): revision 1's page as live-checked: the
-    band with the rig strip, then On the loader and Target;
+- **Three pages on the Vehicle tab:** the tab wears the icon of the page
+  it opens on and names it: "Vehicle · Loader", "Vehicle · Harvester",
+  just "Vehicle" on the plain page, with a chevron for its menu
+  (Vincent, 2026-10-27, as on the Harvester canvas). Its menu offers
+  Vehicle, Loader, Harvester:
+  - **Loader** (icon `loader`): the band with the rig strip, then On the
+    loader and Target;
   - **Vehicle** (icon `tractor`), for now: the band with the rig strip,
-    then the Loads card full width (every fill unit in the rig as a meter, the
-    rig's weight in its head; revision 1's "without a loader" card). No
-    On the loader, no Target;
-  - **Harvester**: unchanged (spec 0001).
+    then the Loads card full width. No On the loader, no Target;
+  - **Harvester**: spec 0001.
 - **The pick** (Screen for what I drive, on by default):
-  - Harvester for a combine (unchanged);
+  - Harvester for a combine;
   - Loader when the vehicle is a loader machine (its shop category says
     loader, telehandler, skid steer or forklift, but not a loader wagon;
     else its type name: wheelLoader, teleHandler, skidSteer, forklift),
     or a loader tool is in the rig (a bucket or shovel, forks, a hook or
-    bigbag lifter, a bale grab). A front loader with no tool on it isn't
-    enough: the arm often stays on while you pull a trailer;
+    bigbag lifter, a bale grab), or something is carried. A front loader
+    with no tool on it isn't enough: the arm often stays on while you
+    pull a trailer (Vincent, 2026-10-26);
   - Vehicle for everything else.
-- **When the pick runs** (as the Harvester pick works today): when what
-  it picks changes (you get into another vehicle, or couple or drop a
-  loader tool), the Vehicle tab takes the page for it. If you are on the
-  Vehicle tab, the page changes there. On any other tab nothing moves;
-  the Vehicle tab opens on the new page the next time you tap it. A page
+- **When the pick runs:** when what it picks changes (you get into
+  another vehicle, or couple or drop a loader tool), the Vehicle tab takes
+  the page for it. If you are on the Vehicle tab, the page changes there
+  at once (Vincent, 2026-10-26). On any other tab nothing moves; the
+  Vehicle tab opens on the new page the next time you tap it. A page
   chosen from the tab's menu stays until the pick changes again. With the
   setting off, the tab never picks.
 - **The Implement tab is never picked by itself,** and nothing opens it
   but its own tab.
 - **A tap selects; it never changes the page.** On every page, a tap on
-  a rig tile (the strip here, the band on the Implement tab) selects that
-  tool, or the vehicle, in game (`implement.select`), as the game's
-  select key would; the tile turns yellow and the page stays. Only the
-  bottom tabs change the page, plus the pick inside the Vehicle tab.
-  Revision 1's "a tap on a tile opens the Implement tab" is gone.
-  (Harvester's tiles are its buttons; they act and stay too.)
-- **Loader picked by hand with no loader in the rig:** it shows what
-  Vehicle shows (Loads, full width), as revision 1 did.
-
-### Data contract
-
-- **Mod:** nothing new; no version bump.
-- **Web:**
-  - `selectors.js`: `isLoaderVehicle(v)` (category, else type name) and
-    `loaderRig(v, cab)` (a loader machine, or a loader tool in the rig:
-    `loaderTool` in vehicleScreen.js, which leaves carried bags out);
-  - `themes/render.js`: a `loader` detector next to `harvester`; the
-    first screen whose detector holds wins (Harvester before Loader);
-  - `themes/newholland/theme.js`: a `loader` screen (tab `vehicle`,
-    choice "Loader", when `loader`) with the band, On the loader and
-    Target; the `vehicle` screen with the band and Loads;
-  - `vehicleScreen.js`: `loadCard` takes a variant (`loader` or `loads`)
-    instead of deciding by the rig; the strip's tap no longer dispatches
-    `showscreen`; `main.js` drops its `showscreen` listener (nothing else
-    sends it).
-- **Game API:** none new. The shop category and type name are verified
-  (DONE.md); the loader tools are those of revision 1 (DONE.md, Vehicle
-  screen).
-
-### Plan
-
-1. Web: the detector and selectors first, with their tests; then
-   theme.js (two screens) and the `loadCard` variant; then the strip's
-   tap.
-2. Docs: THEMES.md's Vehicle screen section gets the two pages; the
-   Behaviour above folds into this spec's Behaviour.
-
-Risk: the pick now changes the page while you drive (coupling a bucket
-on the Vehicle tab switches to Loader). That's the point, but it is the
-first time the page moves under you without a change of vehicle.
-
-### Acceptance
-
-Automated:
-- [ ] `web/test.html` "loader pick": the Merlo (telehandler), the L90H
-  (wheel loader), a tractor with a bucket, with forks, with a bigbag
-  lifter → Loader; a tractor with a front loader and no tool, a tractor
-  with a seeder, a truck → Vehicle; a combine → Harvester.
-- [ ] `web/test.html` "loader pick: when": on the Vehicle tab the page
-  follows the pick; on the Map tab nothing moves and the Vehicle tab
-  opens on the new page; a page chosen from the menu stays until the
-  pick changes; setting off: no pick.
-- [ ] `web/test.html` "tap selects": a tap on a strip tile sends
-  `implement.select` with its id and the page stays the same (Vehicle,
-  Loader); no `showscreen` event.
-- [ ] `web/test.html` "vehicle page": Loads full width, no On the loader,
-  no Target; Loader page: both cards.
-- [ ] Replay in the browser pane at 1180×820, day and night: both pages,
-  nothing overflows.
-
-Live check (no mod change: reload the dashboard):
-- [ ] Get into the Merlo, then the L90H: the Vehicle tab opens on Loader.
-  A tractor with a seeder: Vehicle.
-- [ ] In a tractor with a front loader, on the Vehicle tab: couple the
-  bucket and the page turns to Loader; drop it and it turns back.
-  The same on the Map tab: the Map stays.
-- [ ] A tap on the Merlo's tile, then on the bucket's: each is selected
-  in game, and the page doesn't move.
-- [ ] Loader chosen from the tab's menu on a tractor with a seeder
-  stays until you get into another vehicle.
-
-### Decisions (revision 2)
-
-- Coupling a loader tool while on the Vehicle tab turns the page to
-  Loader at once (Vincent, 2026-10-26).
-- A tractor with a front loader but no tool gets Vehicle (Vincent,
-  2026-10-26).
-
-- Until it gets its own spec, the plain Vehicle page is the band, the
-  strip and the Loads card (the rig's tanks and weight), as revision 1
-  showed without a loader (Vincent, 2026-10-26). Vincent wants that page
-  to become one card per attached tool with all its controls; how it
-  divides the work with the Implement tab (spec 0003) is decided later.
-
-## Behaviour
-
-- **Picking the screen:** as now. The Vehicle tab shows this page (the menu's
-  "Vehicle", formerly "Tractor") for everything except a combine, which
-  gets Harvester (spec 0001). The tab's menu and Screen for what I drive
-  are unchanged.
+  a rig tile selects that tool, or the vehicle, in game
+  (`implement.select`), as the game's select key would; the tile turns
+  yellow and the page stays. Only the bottom tabs change the page, plus
+  the pick inside the Vehicle tab. (Harvester's tiles are its buttons;
+  they act and stay too.)
 - **Layout (1180×820):** the band with the rig strip under it, both on one
-  readout card (as the Implement tab's rig band); under that, two
-  cards side by side, Load (left) and Target (right). The control column
-  on the right, as on every screen. No vehicle card, no Show on map (the
-  bottom nav opens the Map), no condition tiles row, no implement rows.
+  readout card (as the Implement tab's rig band); under that, on Loader,
+  two cards side by side, Load (left) and Target (right); on Vehicle,
+  Loads full width. The control column on the right, as on every screen.
+  No vehicle card, no Show on map (the bottom nav opens the Map), no
+  condition tiles row, no implement rows.
 - **Band:** on the left, the job (the model is on the vehicle's rig tile
   only, its state line ends with the operating hours: "PTO on · 1,240 h").
   On the right, always shown:
@@ -193,9 +108,9 @@ Live check (no mod change: reload the dashboard):
   joints (conveyor, manure barrel, train...) read "Front" or "Rear". The link is solid while
   the tool is lowered, dashed while raised; a tool that doesn't lower (a
   trailer, a front loader and its tools) is solid. The game's selected
-  tool is the yellow tile, as on the Implement tab. A tap on a tile opens
-  the Implement tab and selects that tool in game (unless it is selected
-  already). With nothing attached, the strip shows the vehicle alone and
+  tool is the yellow tile, as on the Implement tab. A tap on a tile
+  selects that tool in game (unless it is selected already); the page
+  stays. With nothing attached, the strip shows the vehicle alone and
   "Nothing attached".
 - **No lowered or raised for loader gear,** anywhere on the dashboard: a
   front loader and its tools (bucket, forks, hooks, a bigbag lifter;
@@ -212,9 +127,8 @@ Live check (no mod change: reload the dashboard):
   fork's mounts and the bag's `spec_mountable` are empty; spike, 0.0.3),
   so it isn't carried, and forks with nothing mounted read "Nothing
   mounted", not "Empty".
-- **Load card** ("On the loader"), when the rig has a loader, a loader tool
-  or the vehicle is itself a loader (wheel loader, telehandler, skid
-  steer, forklift):
+- **Load card** ("On the loader"), on Loader when the pick's rule holds
+  (a loader machine, a loader tool in the rig, or something carried):
   - what's on it, big: a bucket's or shovel's fill type, litres and t; a
     pallet or bigbag on forks or a hook: its content ("Seed bigbag",
     "Potatoes pallet"), litres and t, one line each when there are several;
@@ -232,13 +146,14 @@ Live check (no mod change: reload the dashboard):
     page was opened, across vehicles; getting out isn't setting down (a
     pallet still on the forks then doesn't count). A Reset button on the
     card clears it.
-  Without a loader, the card is **Loads**: every fill unit in the rig as a
+  On the Vehicle page, and on Loader with no loader in the rig (chosen
+  from the menu), the card is **Loads**: every fill unit in the rig as a
   meter ("Seeds · 58%", "2,900 / 5,000 L"), with the weight limit's
   shading and MAX as elsewhere, and the rig's weight in the card's head
   ("Rig 14.6 t", the vehicle's total mass). The data has no limit for the
   whole rig, so each unit shows its own.
-- **Target card** (with a loader only; without one, Load takes the full
-  width): the nearest vehicle that can take what you carry:
+- **Target card** (Loader only, with a loader; without one, Load takes
+  the full width): the nearest vehicle that can take what you carry:
   - picked by the mod: within 15 m of the vehicle you drive (its own
     position, not the tool's: simple, Vincent 2026-10-26), not in your own rig,
     yours (the farm's), with a fill unit that accepts the carried fill
@@ -298,7 +213,14 @@ from a spike first (Plan, step 1); this table changes with its results.
     `loadCard`, `targetCard`; the tally (`createTally`) and the range
     (`fuelRange`).
   - `web/src/data/rates.js`: the fuel usage over 5 minutes.
-  - `web/src/themes/newholland/theme.js`: the Vehicle screen definition.
+  - `web/src/themes/newholland/theme.js`: the Vehicle and Loader screens
+    (Loader: tab `vehicle`, choice "Loader", when `loader`); `loadCard`'s
+    variant `loads` on Vehicle.
+  - `web/src/themes/render.js`: a `loader` detector next to `harvester`
+    (`hasLoader` in vehicleScreen.js); the first screen in the tab whose
+    detector holds wins.
+  - Revision 2 has no mod change. `main.js` no longer listens for
+    `showscreen` (nothing sends it).
 
 | Name | Where from | State |
 |---|---|---|
@@ -317,7 +239,7 @@ from a spike first (Plan, step 1); this table changes with its results.
 ## Commands
 
 One new use of an existing one: a rig tile sends `implement.select` with
-its id (as the Implement tab's tiles) and opens the Implement tab. Cruise
+its id (as the Implement tab's tiles); the page stays. Cruise
 −, Cruise, Cruise +, Engine and AI worker as on Harvester. Reset (the
 tally) is local to the page.
 
@@ -346,7 +268,13 @@ tally) is local to the page.
    condition tiles row, the implements rows and the Implement group on
    this page.
 
+5. **Revision 2** (web only): the `loader` detector and `hasLoader`'s
+   new rule, the Loader screen and Vehicle's Loads, the strip's tap.
+
 Risks:
+- The pick changes the page while you drive (coupling a bucket on the
+  Vehicle tab switches to Loader): wanted, but the first time the page
+  moves without a change of vehicle.
 - Finding the target scans the farm's vehicles; done at the 500 ms
   topic's rate, only with a loader in the rig, and only within 15 m.
 - The tally reads a bucket's level at 500 ms; a quick dump still shows as
@@ -367,7 +295,7 @@ Automated (written before the code):
 - [x] `web/test.html` "vehicle screen: band": job, model and hours, speed
   with gear and direction, fuel and DEF range, wear's orange, Engine hot.
 - [x] `web/test.html` "vehicle screen: rig strip": driving order, links
-  named by joint, solid / dashed, tap selects and opens Implement; "Nothing
+  named by joint, solid / dashed, tap selects; "Nothing
   attached".
 - [x] `web/test.html` "vehicle screen: load card": bucket, pallet, bigbag,
   several, Empty; Loads without a loader.
@@ -381,6 +309,28 @@ Automated (written before the code):
   bucket by a trailer, pallet forks, a seeding rig without a loader;
   nothing overflows, touch targets 48 px or more.
 
+Automated, revision 2:
+- [x] `web/test.html` "loader pick": the Merlo (telehandler), the L90H
+  (wheel loader), a skid steer, a forklift, a tractor with a bucket,
+  with forks, with a bigbag lifter → Loader; a tractor with a front
+  loader and no tool, a forage wagon, a seeder, a truck, a combine → not.
+- [x] `web/test.html` "loader pick: when": on the Vehicle tab the page
+  follows the pick (Loader, Vehicle, Harvester); on the Map tab nothing
+  moves and the Vehicle tab opens on the new page; a page chosen from
+  the menu stays until the pick changes; setting off: no pick.
+- [x] `web/test.html` "tab name": the Vehicle tab reads "Vehicle",
+  "Vehicle · Harvester", "Vehicle · Loader" (also while another tab is
+  shown), with the chevron; Map has neither.
+- [x] `web/test.html` "tap selects": a tap on a strip tile sends
+  `implement.select` with its id; no `showscreen` event.
+- [x] `web/test.html` "vehicle page" and "theme: the Vehicle screen's
+  slots": Vehicle has Loads and no Target; Loader both cards; Loader
+  with no loader shows Loads.
+- [x] Replay in the browser pane at 1180×820, day and night: Loader with
+  a bucket, then the bucket swapped for a seeder while on the tab (the
+  page turns to Vehicle, Loads full width); nothing overflows, touch
+  targets 48 px or more.
+
 Live check (mod 0.8.6; a tractor with a front loader, a bucket, pallet
 forks and a bigbag lifter; a trailer and a seeder nearby; the spike is
 done):
@@ -391,7 +341,8 @@ done):
   matches the game, and "≈ n more loads" is right after one more load.
 - [x] The tally counts each bucket dumped and each pallet set down once.
 - [x] Fuel range is close to what the game's usage says.
-- [x] A tap on a rig tile selects that tool in game and opens Implement.
+- [x] A tap on a rig tile selects that tool in game and opens Implement
+  (revision 1; revision 2 no longer opens Implement).
 - [x] Engine hot shows once the engine reaches 100 °C.
 - [x] DEF shows a range after a few minutes of work.
 - [x] On the Merlo (electric) the band says Battery.
@@ -401,10 +352,24 @@ done):
   set down, the tally counts its 1,000 L once.
 - [x] Bags hung on bare tines: "Nothing mounted", no target.
 
+Live check, revision 2 (no mod change: reload the dashboard):
+- [ ] Get into the Merlo, then the L90H: the Vehicle tab opens on Loader.
+  A tractor with a seeder: Vehicle.
+- [ ] In a tractor with a front loader, on the Vehicle tab: couple the
+  bucket and the page turns to Loader; drop it and it turns back.
+  The same on the Map tab: the Map stays.
+- [ ] The Vehicle tab names its page ("Vehicle · Loader") on the tablet,
+  and the chevron's tap opens the menu as before.
+- [ ] A tap on the Merlo's tile, then on the bucket's: each is selected
+  in game, and the page doesn't move.
+- [ ] Loader chosen from the tab's menu on a tractor with a seeder
+  stays until you get into another vehicle.
+
 ## Decisions
 
-- The page stays "Vehicle", the default for everything but combines;
-  specialized pages win when they exist (Vincent, 2026-10-25).
+- Revision 1: the page stays "Vehicle", the default for everything but
+  combines; specialized pages win when they exist (Vincent, 2026-10-25).
+  Revision 2 made it Loader, picked by itself (Vincent, 2026-10-26).
 - Links between rig tiles name the coupling (Vincent, 2026-10-25, from the
   Implement screen's first canvas).
 - Target is the nearest vehicle, not a pinned one (Vincent, 2026-10-25).
@@ -418,6 +383,18 @@ done):
   the load (Vincent, 2026-10-26).
 - Front loaders and their tools have no lowered or raised: the dashboard
   never shows one for them (Vincent, 2026-10-26, while testing).
+- Coupling a loader tool while on the Vehicle tab turns the page to
+  Loader at once; a tractor with a front loader but no tool gets Vehicle
+  (Vincent, 2026-10-26).
+- Until it gets its own spec, the plain Vehicle page is the band, the
+  strip and the Loads card (Vincent, 2026-10-26). Vincent wants it to
+  become one card per attached tool with all its controls; how it divides
+  the work with the Implement tab (spec 0003) is decided later.
+- As built: `hasLoader` (vehicleScreen.js) is the rule, used by the
+  detector and the cards, instead of the drafted `isLoaderVehicle` and
+  `loaderRig` in selectors.js. Its old rule took any implement whose
+  category says LOADER, so a front loader with no tool, or a forage
+  wagon ("loaderWagons"), made a loader rig; both now don't.
 
 ## Out of scope / open questions
 
@@ -598,3 +575,12 @@ done):
   tool; a front loader with no tool gets Vehicle; the plain Vehicle page
   keeps the Loads card until its own spec. No open questions left.
 - 2026-10-26: revision 2 approved by Vincent; build not started.
+- 2026-10-27: revision 2 built (web only, no mod change): the Loader
+  screen with its own pick, a plain Vehicle page with Loads, a tap on a
+  tile no longer opens Implement. `web/test.html` 262, all green (3 new
+  checks, 2 changed); pytest 104. Replay checked at 1180×820, day and
+  night. Live check open.
+- 2026-10-27: the Vehicle tab names the page it opens on ("Vehicle ·
+  Loader"), with a chevron for its menu (Vincent, from the Harvester
+  canvas); render.js `setPick`. `web/test.html` 263, all green; replay
+  checked by day and night.
