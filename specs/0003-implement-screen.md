@@ -60,7 +60,8 @@ checks the rule, and real rigs dumped from the game are the tests.
   - **tip side**, for a trailer that tips more than one way: one button,
     "Tip side" over the current side ("Back"), that steps to the next
     side, as the game's key does;
-  - **working width**, for a tool with sections (sprayers, spreaders):
+  - **working width** (left out for now: open question 4), for a tool
+    with sections (sprayers, spreaders):
     the width used against the full one ("30 / 36 m"), a segment per
     section (off ones grey), and Left in / Left out / Right in / Right
     out;
@@ -68,9 +69,10 @@ checks the rule, and real rigs dumped from the game are the tests.
     "Runs out first"), as the Implement card has them today; a load
     ("Wheat · 92%", "Covered").
 - **All row** (two or more working things): one button per capability
-  that two or more of them share, acting on each in turn: Unfold all /
-  Fold all, Lower all / Raise all (the game's own Ctrl+V), Turn on all /
-  Turn off all, Tip all, Uncover all / Cover all. Lit while all are in
+  that two or more of them share: Unfold all / Fold all, Lower all /
+  Raise all and Turn on all / Turn off all are the game's own keys ("Fold
+  all tools", "Lower/raise all tools", "Turn on/off all tools"; spike
+  0.0.4); Tip all and Uncover all / Cover all act on each in turn. Lit while all are in
   the "on" state; the label says what a tap does. Turn on all is
   unavailable while one of them is folded, with "Unfold first" under it
   (Vincent, 2026-10-26).
@@ -94,31 +96,40 @@ checks the rule, and real rigs dumped from the game are the tests.
 ## Capabilities: one rule for every tool
 
 The mod sends, per rig member (the vehicle included), `can`: the actions
-the game's parts on it allow. Each comes from a specialization being
-there and, where the game has one, its own check:
+the game's parts on it allow. A specialization being there is not
+enough: the census found Foldable on 178 of the game's 196 vehicle types,
+and a trailer, a weight and a baler carry Foldable with no folding part,
+Cover with no cover, or Attachable without lowering (spike 0.0.4). So each
+capability needs the part **and what it holds**:
 
 | `can` | From the game | State sent with it |
 |---|---|---|
-| `lower` | an attacher joint that lowers (`canLower`) | `lowered` |
-| `fold` | Foldable with folding parts | `unfolded`, `foldMoving` |
-| `turnOn` | TurnOnVehicle | `turnedOn` |
-| `tip` | Trailer / Dischargeable | `discharging` |
-| `tipSide` | a Trailer with two or more tip sides | `tipSide {name, index, count}` |
-| `cover` | Cover | `cover {open}` |
+| `lower` | the attacher joint lowers it (`canLower`, as today) | `lowered` |
+| `fold` | `spec_foldable.foldingParts` has at least one part | `unfolded`, `foldMoving` |
+| `turnOn` | TurnOnVehicle and `getCanBeTurnedOn()` | `turnedOn` |
+| `tip` | `spec_trailer.tipSideCount` ≥ 1 (a sprayer's Dischargeable "Dump on ground" is not tipping) | `discharging` |
+| `tipSide` | `spec_trailer.tipSideCount` ≥ 2 | `tipSide {index, count}` (`preferedTipSideIndex`), its name when known |
+| `cover` | `spec_cover.hasCovers` | `cover {open}` |
 | `pipe` | Pipe | `pipe {out, moving}` |
-| `rotate` | a Plow that rotates | `plow {rotated}` |
-| `width` | VariableWorkWidth | `width {used, full, sections: [on…]}` |
-| `detach` | attached, and `isDetachAllowed` says yes | |
+| `rotate` | `spec_plow.rotationPart.turnAnimation` | `plow {rotated}` (`rotationMax`) |
+| `width` (later: open question 4) | `spec_variableWorkWidth.hasSections` (a mower has the part, no sections) | `width {left, leftMax, right, rightMax, center}` |
+| `detach` | Attachable | |
 
-Each also carries `canNow` where the game answers why not ("You first
-need to unfold the tool"), so a button is unavailable with the game's own
-reason in its title. The page reads nothing else to decide a button: a
-type it has never seen gets whatever its parts allow.
+Each also carries `canNow` where the game answers why not, so a button
+is unavailable with the game's own words in its title (spike 0.0.4:
+`getIsFoldAllowed` → "Folding is not allowed while the tool is lowered.",
+`isDetachAllowed` → "You first need to fold up the tool (mower)!"). The
+page reads nothing else to decide a button: a type it has never seen
+gets whatever its parts allow.
 
 ## Data contract
 
-All additions; Protocol v1 is unchanged. The names marked unverified come
-from the spike first (Plan, step 1); this table changes with its results.
+All additions; Protocol v1 is unchanged. "Seen in spike 0.0.4" means on
+Vincent's rigs on 2026-10-27 (front and rear mowers, two tippers, a
+trailed sprayer with sections, a rotating plow, a baler-wrapper, a front
+weight, a hook-lift truck with a container); the dumps are in
+`mod/tests/fixtures/spike0003/`. They move to DONE.md after the live
+check.
 
 - **Mod → backend** (`cab`):
   - every `cab.rig[]` entry gains `can` (array of the names above) and
@@ -147,14 +158,19 @@ from the spike first (Plan, step 1); this table changes with its results.
 | `setSelectedObject` (select a tool), `isDetachAllowed` | Vehicle.lua, AttacherJoints.lua | verified (PLAN.md, C3) |
 | `LOWER_ALL_IMPLEMENTS`, pipe, discharge, cover (keys and fields) | inputBinding.xml, Pipe.lua, Dischargeable.lua, Cover.lua | built (mod 0.8.0); live check open (PLAN.md, Open checks) |
 | `getAIWorkAreaWidth()`, `getSpeedLimit()` | WorkArea.lua, Vehicle.lua | built (mod 0.8.0); live check open |
-| the census: `g_vehicleTypeManager` and each type's specialization names | VehicleTypeManager.lua | unverified (spike) |
-| a tool's own "can't now" reason (e.g. `getIsTurnedOnAllowed`, `getIsFoldAllowed` and their warnings) | TurnOnVehicle.lua, Foldable.lua | unverified (spike) |
-| a trailer's tip sides: the list, the current one, the key that changes it | Trailer.lua | unverified (spike; Vincent, 2026-10-27) |
-| `spec_variableWorkWidth`: sections, used and full width, the keys per side | VariableWorkWidth.lua | unverified (spike; Vincent, 2026-10-27) |
-| `spec_plow`: whether it rotates, its state, the key | Plow.lua | unverified (spike) |
-| `spec_baler`: the chamber's fill unit, a bale count or a bale-dropped event | Baler.lua | unverified (spike) |
-| what's in reach to attach: `spec_attacherJoints.attachableInfo`, or the ATTACH action event's active state | AttacherJoints.lua | unverified (spike) |
-| no game key for "fold all" or "turn on all" (the mod loops) | inputBinding.xml | unverified (spike) |
+| the census: `g_vehicleTypeManager.types`, each with `name` and `specializationNames` (a mod's carry its prefix, "FS25_precisionFarming.extendedSprayer") | VehicleTypeManager.lua | seen in spike 0.0.4: 196 types |
+| `setSelectedObject` on every tool, and putting the selection back | Vehicle.lua | seen in spike 0.0.4: all 7 rigs, restored each time |
+| each spec's `actionEvents` (keyed by input action) and the input binding's `events[id]`: `isActive`, `contextDisplayText` (the game's own label: "Fold mower", "Rotate plow", "Tip side (Left)") | InputBinding.lua | seen in spike 0.0.4; a tool's keys are registered only while it is selected |
+| `getIsFoldAllowed(direction, false)` → allowed, reason; `isDetachAllowed()` → allowed, reason | Foldable.lua, Attachable.lua | seen in spike 0.0.4 |
+| turn on's "can't now": `getIsTurnedOnAllowed` isn't there in FS25; `getCanToggleTurnedOn`, `getTurnedOnNotAllowedWarning` are | TurnOnVehicle.lua | seen in spike 0.0.4 (the names; what they answer is unverified) |
+| `FOLD_ALL_IMPLEMENTS` ("Fold all tools"), `TURN_ON_ALL_IMPLEMENTS` ("Turn on/off all tools"), registered on each foldable / turn-on tool | inputBinding.xml | seen in spike 0.0.4 |
+| a trailer's tip sides: `spec_trailer.tipSideCount`, `preferedTipSideIndex`, key `TOGGLE_TIPSIDE` ("Tip side (Grain door)"); `TOGGLE_TIPSTATE` "Dump", `TOGGLE_TIPSTATE_GROUND` "Unload here" | Trailer.lua, Dischargeable.lua | seen in spike 0.0.4; a side's name inside `tipSides[i]` unverified (the key's label has it while selected) |
+| `spec_cover.hasCovers` | Cover.lua | seen in spike 0.0.4 (false on the tippers and the baler) |
+| `spec_plow.rotationMax`, `rotationPart.turnAnimation`, `limitToField`; keys `IMPLEMENT_EXTRA` "Rotate plow", `IMPLEMENT_EXTRA3` "Allow create fields"; `getIsPlowRotationAllowed`, `getCanTogglePlowRotation` | Plow.lua | seen in spike 0.0.4 (the getters' answers unverified) |
+| `spec_variableWorkWidth.hasSections`, `leftSide` / `leftSideMax`, `rightSide` / `rightSideMax`, `hasCenter`, `sections` | VariableWorkWidth.lua | seen in spike 0.0.4 (the sprayer: 4 + 4 + center, 9 sections) |
+| the width keys: `VARIABLE_WORK_WIDTH_LEFT`, `_RIGHT`, `_TOGGLE` exist, but weren't registered on the selected sprayer | inputBinding.xml | unverified: open question 4 |
+| the baler: chamber = its fill unit with the HUD (straw, net, wrap); `spec_baleCounter` with `BALE_COUNTER_RESET` "Reset bale counter"; keys `IMPLEMENT_EXTRA3` "Unload round bale", `IMPLEMENT_EXTRA4` "Turn on automatic drop" | Baler.lua, BaleCounter.lua | seen in spike 0.0.4; the counter's fields unverified |
+| in reach to attach: the vehicle's `spec_attacherJoints.attachableInfo.attachable` is the tool, empty otherwise; the `ATTACH` key's label is "Attach", empty otherwise | AttacherJoints.lua | seen in spike 0.0.4 |
 
 ## Commands
 
@@ -173,12 +189,13 @@ New, each with the tool's id:
 - `implement.widthLeftIn`, `widthLeftOut`, `widthRightIn`,
   `widthRightOut`: the variable width keys.
 
-**All** (value 1 = on / unfold / open, 0 = off / fold / close):
-`implement.foldAll`, `implement.turnOnAll`, `implement.tipAll`,
-`implement.coverAll`: the mod runs the one-tool command on each working
-thing that has the capability and isn't there yet, in driving order,
-then puts the selection back; the ack names any the game refused.
-`implement.lowerAll` stays the game's own key.
+**All:** `implement.foldAll` and `implement.turnOnAll` press the game's
+own `FOLD_ALL_IMPLEMENTS` and `TURN_ON_ALL_IMPLEMENTS`, as
+`implement.lowerAll` presses `LOWER_ALL_IMPLEMENTS`. `implement.tipAll`
+and `implement.coverAll` (value 1 = open / tip, 0 = close / stop; no game
+key) run the one-tool command on each that has the capability and isn't
+there yet, in driving order, then put the selection back; the ack names
+any the game refused.
 
 `hitch.toggle` becomes Attach's: the attach key, only while
 `cab.attachable`. `implement.select` and `implement.detach` are
@@ -295,20 +312,37 @@ Live check (mod 0.8.7; the spike is done; the rigs above):
   2026-10-27).
 - Card buttons are control-size, filling the card's width (Vincent,
   2026-10-27, canvas comment).
+- The baler's card shows the game's own bale counter and its "Reset
+  bale counter" key as a button; no count of our own (Vincent,
+  2026-10-27, after spike 0.0.4).
+- The working width control is left out for now (Vincent, 2026-10-27):
+  the `width` capability and its card section wait for open question 4.
+- **The selected tool's other keys:** its card also shows the live keys
+  the capability list doesn't cover, as buttons with the game's own label
+  ("Allow create fields", "Turn on automatic drop", "Unload round bale",
+  a modded tool's own), pressed as the game's key. Only on the selected
+  tool: the game registers a tool's keys only while it is selected
+  (Vincent, 2026-10-27, after spike 0.0.4).
 - From spec 0003's first draft: no page of its own for a weight; the cards
   fit without scrolling; Turn on all unavailable while a tool is folded;
   Hitch becomes Attach, Detach per tool (Vincent, 2026-10-26).
 
 ## Out of scope / open questions
 
-1. **Bales this session:** if the game keeps no count, count them by
-   watching the chamber drop from nearly full to empty, or leave the
-   count out? Decide after the spike (Vincent, 2026-10-26).
+1. ~~Bales~~: decided, see Decisions.
 2. **More than six working things:** rare; scroll, or the selected one's
    card and a list for the rest? Decide when a dump has one.
 3. The Loader page keeps its own cards (spec 0002); a loader rig's other
    tools (a seeder behind a tractor with a front loader) show there as
    strip tiles only. Revisit if it comes up.
+4. **Working width, later:** FS25 has partial width (the sprayer's own
+   HUD block is "PARTIAL WIDTH", 9 sections; the input actions
+   `VARIABLE_WORK_WIDTH_LEFT`, `_RIGHT`, `_TOGGLE` exist), but its keys
+   weren't registered while the sprayer was selected: maybe only while it
+   is unfolded and turned on, or the keys have no default binding. Left
+   out of this spec (Vincent, 2026-10-27); a later probe with the sprayer
+   working, then its own small change.
+5. ~~A tool's other keys~~: decided, see Decisions.
 - The coupling links between tiles (spec 0002) are on this page's strip
   already; on the Map's column nothing changes but Attach.
 
@@ -345,3 +379,16 @@ Live check (mod 0.8.7; the spike is done; the rigs above):
   input actions for the new buttons, and `csSelect`, which selects each
   tool in turn and puts the selection back. Checked offline in Lua on a
   made-up census and rig; not run in game yet.
+- 2026-10-27: spike 0.0.4 run by Vincent on 8 rigs and the census; all
+  probes worked, the selection came back every time. Findings: the
+  capability rule needs what each part holds, not just the part
+  (Capabilities); the game has its own Fold all and Turn on all keys (the
+  All row uses them); each key carries the game's label; the baler has a
+  bale counter; the width keys weren't registered (open question 4); a
+  tool's other keys could become buttons (open question 5). Trimmed dumps
+  and the census in `mod/tests/fixtures/spike0003/`. Data contract table
+  updated.
+- 2026-10-27: Vincent's answers after the spike: the game's bale count and
+  its reset on the baler's card; the working width left out for now (open
+  question 4); the selected tool's other keys as buttons with the game's
+  labels.

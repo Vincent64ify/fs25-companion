@@ -1,0 +1,332 @@
+{
+ "spikeVersion": "0.0.4",
+ "rig": "baler",
+ "selectedId": 1041,
+ "selectable": [
+  1035,
+  1041
+ ],
+ "selectTest": {
+  "after": 1041,
+  "before": 1041,
+  "restored": true
+ },
+ "attachInReach": false,
+ "members": [
+  {
+   "id": 1035,
+   "depth": 0,
+   "typeName": "tractor",
+   "name": "Versatile Nemesis 175 PS",
+   "specs": [
+    "FS25_interactiveControl.interactiveControl",
+    "FS25_precisionFarming.cropSensor",
+    "FS25_precisionFarming.extendedMotorized",
+    "FS25_precisionFarming.extendedWearable",
+    "FS25_precisionFarming.precisionFarmingStatistic",
+    "additionalToolConnections",
+    "aiAutomaticSteering",
+    "aiDrivable",
+    "aiFieldWorker",
+    "aiImplement",
+    "aiJobVehicle",
+    "aiModeSelection",
+    "aiVehicle",
+    "aiVehicleObstacle",
+    "animatedVehicle",
+    "articulatedAxis",
+    "attacherJoints",
+    "attacherJointsCompControl",
+    "baseMaterial",
+    "bunkerSiloCompacter",
+    "connectedAttributes",
+    "connectionHoses",
+    "crabSteering",
+    "crawlers",
+    "cylindered",
+    "dashboard",
+    "drivable",
+    "dynamicallyLoadedParts",
+    "enterable",
+    "enterablePassenger",
+    "externalVehicleControl",
+    "fillUnit",
+    "foliageBending",
+    "frontloaderAttacher",
+    "handToolHolders",
+    "headlandAnimation",
+    "honk",
+    "hudInfoTrigger",
+    "ikChains",
+    "interactiveControl",
+    "licensePlates",
+    "lights",
+    "motorized",
+    "mountable",
+    "pdlc_daimlerTruckPack.enterableCameraMirrors",
+    "pdlc_strawHarvestPack.strawHarvestPelletizerMotor",
+    "powerTakeOffs",
+    "realDirtColor",
+    "ropes",
+    "shallowWaterObstacles",
+    "slopeCompensation",
+    "speedRotatingParts",
+    "strawHarvestPelletizerMotor",
+    "suspensions",
+    "tensionBeltObject",
+    "tipOccluder",
+    "tireTracks",
+    "vehicleSettings",
+    "washable",
+    "wearable",
+    "wheels",
+    "winch",
+    "windBending",
+    "wipers"
+   ],
+   "speedLimit": 5,
+   "fills": [
+    {
+     "capacity": 375,
+     "fillType": 124,
+     "level": 373.99971257297,
+     "name": "DIESEL",
+     "showOnHud": false,
+     "unit": 1
+    },
+    {
+     "capacity": 35,
+     "fillType": 125,
+     "level": 35,
+     "name": "DEF",
+     "showOnHud": false,
+     "unit": 2
+    },
+    {
+     "capacity": 4000,
+     "fillType": 126,
+     "level": 2911.7199258804,
+     "name": "AIR",
+     "showOnHud": false,
+     "unit": 3
+    }
+   ],
+   "keys": {
+    "attacherJoints": [
+     {
+      "action": "DETACH",
+      "active": true,
+      "text": "Detach tool"
+     },
+     {
+      "action": "LOWER_ALL_IMPLEMENTS",
+      "active": true,
+      "text": "Lower/raise all tools"
+     },
+     {
+      "action": "ATTACH",
+      "active": true,
+      "text": ""
+     }
+    ]
+   },
+   "selected": 1035
+  },
+  {
+   "id": 1041,
+   "depth": 1,
+   "parent": 1035,
+   "typeName": "balerWrapper",
+   "name": "GÖWEIL G-1 F125 Kombi",
+   "specs": [
+    "FS25_interactiveControl.interactiveControl",
+    "FS25_precisionFarming.extendedWearable",
+    "FS25_precisionFarming.precisionFarmingStatistic",
+    "additionalToolConnections",
+    "aiImplement",
+    "aiLoadable",
+    "aiVehicle",
+    "aiVehicleObstacle",
+    "animatedVehicle",
+    "attachable",
+    "attacherJoints",
+    "attacherJointsCompControl",
+    "baleCounter",
+    "baleWrapper",
+    "baler",
+    "baseMaterial",
+    "connectedAttributes",
+    "connectionHoses",
+    "consumable",
+    "cover",
+    "crawlers",
+    "cylindered",
+    "cylinderedFoldable",
+    "dashboard",
+    "dynamicallyLoadedParts",
+    "externalVehicleControl",
+    "fillUnit",
+    "fillVolume",
+    "foldable",
+    "foldableSteps",
+    "foliageBending",
+    "groundAdjustedNodes",
+    "groundReference",
+    "handToolHolders",
+    "hudInfoTrigger",
+    "interactiveControl",
+    "jigglingParts",
+    "licensePlates",
+    "lights",
+    "mountable",
+    "pickup",
+    "powerConsumer",
+    "powerTakeOffs",
+    "randomlyMovingParts",
+    "realDirtColor",
+    "ropes",
+    "shallowWaterObstacles",
+    "slopeCompensation",
+    "speedRotatingParts",
+    "suspensions",
+    "tensionBeltObject",
+    "testAreas",
+    "tipOccluder",
+    "tireTracks",
+    "turnOnVehicle",
+    "variableWorkWidth",
+    "vehicleSettings",
+    "washable",
+    "wearable",
+    "wheels",
+    "winch",
+    "windBending",
+    "workArea",
+    "workParticles"
+   ],
+   "fold": {
+    "allowed": [
+     true
+    ],
+    "animTime": 0,
+    "moveDirection": 0,
+    "parts": 0,
+    "toggledDirection": 1
+   },
+   "turnOn": {
+    "canBeTurnedOn": true
+   },
+   "detach": [
+    true
+   ],
+   "workWidth": 0,
+   "speedLimit": 17,
+   "fills": [
+    {
+     "capacity": 5000,
+     "fillType": 31,
+     "level": 2731.7647868302,
+     "name": "STRAW",
+     "showOnHud": true,
+     "unit": 1
+    },
+    {
+     "capacity": 5,
+     "fillType": 142,
+     "level": 4,
+     "name": "BALE_NET",
+     "showOnHud": true,
+     "unit": 2
+    },
+    {
+     "capacity": 14,
+     "fillType": 141,
+     "level": 12,
+     "name": "BALE_WRAP",
+     "showOnHud": true,
+     "unit": 3
+    }
+   ],
+   "cover": {
+    "hasCovers": false,
+    "state": 0
+   },
+   "variableWorkWidth": {
+    "aiKeepCurrentWidth": false,
+    "aiStateLeft": 0,
+    "aiStateRight": 0,
+    "drawInputHelp": false,
+    "hasCenter": false,
+    "hasSections": false,
+    "isActive": false,
+    "leftSide": 0,
+    "leftSideMax": 0,
+    "minSideState": 1,
+    "rightSide": 0,
+    "rightSideMax": 0,
+    "widthReferenceWorkArea": 1
+   },
+   "baler": {
+    "automaticDrop": true,
+    "balesToUnload": 0,
+    "canUnloadUnfinishedBale": false,
+    "fillUnitIndex": 1,
+    "isRoundBaler": true,
+    "unloadingState": 1
+   },
+   "keys": {
+    "baleCounter": [
+     {
+      "action": "BALE_COUNTER_RESET",
+      "active": true,
+      "text": "Reset bale counter"
+     }
+    ],
+    "baleWrapper": [
+     {
+      "action": "IMPLEMENT_EXTRA3",
+      "active": false,
+      "text": "Unload round bale"
+     },
+     {
+      "action": "IMPLEMENT_EXTRA4",
+      "active": true,
+      "text": "Turn on automatic drop"
+     }
+    ],
+    "baler": [
+     {
+      "action": "IMPLEMENT_EXTRA3",
+      "active": false,
+      "text": "Unload round bale"
+     },
+     {
+      "action": "IMPLEMENT_EXTRA4",
+      "active": true,
+      "text": "Turn on automatic drop"
+     }
+    ],
+    "pickup": [
+     {
+      "action": "LOWER_IMPLEMENT",
+      "active": true,
+      "text": "Lower pickup"
+     }
+    ],
+    "turnOnVehicle": [
+     {
+      "action": "TURN_ON_ALL_IMPLEMENTS",
+      "active": true,
+      "text": "Turn on/off all tools"
+     },
+     {
+      "action": "IMPLEMENT_EXTRA",
+      "active": true,
+      "text": "Turn on baler"
+     }
+    ]
+   },
+   "selected": 1041
+  }
+ ]
+}

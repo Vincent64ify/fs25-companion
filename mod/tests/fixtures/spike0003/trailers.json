@@ -1,0 +1,378 @@
+{
+ "spikeVersion": "0.0.4",
+ "rig": "trailers",
+ "selectedId": 1004,
+ "selectable": [
+  998,
+  1003,
+  1004
+ ],
+ "selectTest": {
+  "after": 1004,
+  "before": 1004,
+  "restored": true
+ },
+ "attachInReach": false,
+ "members": [
+  {
+   "id": 998,
+   "depth": 0,
+   "typeName": "tractor",
+   "name": "Case IH Vestrum 100",
+   "specs": [
+    "FS25_interactiveControl.interactiveControl",
+    "FS25_precisionFarming.cropSensor",
+    "FS25_precisionFarming.extendedMotorized",
+    "FS25_precisionFarming.extendedWearable",
+    "FS25_precisionFarming.precisionFarmingStatistic",
+    "additionalToolConnections",
+    "aiAutomaticSteering",
+    "aiDrivable",
+    "aiFieldWorker",
+    "aiImplement",
+    "aiJobVehicle",
+    "aiModeSelection",
+    "aiVehicle",
+    "aiVehicleObstacle",
+    "animatedVehicle",
+    "articulatedAxis",
+    "attacherJoints",
+    "attacherJointsCompControl",
+    "baseMaterial",
+    "bunkerSiloCompacter",
+    "connectedAttributes",
+    "connectionHoses",
+    "crabSteering",
+    "crawlers",
+    "cylindered",
+    "dashboard",
+    "drivable",
+    "dynamicallyLoadedParts",
+    "enterable",
+    "enterablePassenger",
+    "externalVehicleControl",
+    "fillUnit",
+    "foliageBending",
+    "frontloaderAttacher",
+    "handToolHolders",
+    "headlandAnimation",
+    "honk",
+    "hudInfoTrigger",
+    "ikChains",
+    "interactiveControl",
+    "licensePlates",
+    "lights",
+    "motorized",
+    "mountable",
+    "pdlc_daimlerTruckPack.enterableCameraMirrors",
+    "pdlc_strawHarvestPack.strawHarvestPelletizerMotor",
+    "powerTakeOffs",
+    "realDirtColor",
+    "ropes",
+    "shallowWaterObstacles",
+    "slopeCompensation",
+    "speedRotatingParts",
+    "strawHarvestPelletizerMotor",
+    "suspensions",
+    "tensionBeltObject",
+    "tipOccluder",
+    "tireTracks",
+    "vehicleSettings",
+    "washable",
+    "wearable",
+    "wheels",
+    "winch",
+    "windBending",
+    "wipers"
+   ],
+   "speedLimit": 5,
+   "fills": [
+    {
+     "capacity": 180,
+     "fillType": 124,
+     "level": 180,
+     "name": "DIESEL",
+     "showOnHud": false,
+     "unit": 1
+    },
+    {
+     "capacity": 19,
+     "fillType": 125,
+     "level": 19,
+     "name": "DEF",
+     "showOnHud": false,
+     "unit": 2
+    },
+    {
+     "capacity": 4000,
+     "fillType": 126,
+     "level": 3553.4991495609,
+     "name": "AIR",
+     "showOnHud": false,
+     "unit": 3
+    }
+   ],
+   "keys": {
+    "attacherJoints": [
+     {
+      "action": "DETACH",
+      "active": true,
+      "text": "Detach tool"
+     },
+     {
+      "action": "LOWER_ALL_IMPLEMENTS",
+      "active": true,
+      "text": "Lower/raise all tools"
+     },
+     {
+      "action": "LOWER_IMPLEMENT",
+      "active": false,
+      "text": "Lower tipper"
+     },
+     {
+      "action": "ATTACH",
+      "active": true,
+      "text": ""
+     }
+    ]
+   },
+   "selected": 998
+  },
+  {
+   "id": 1003,
+   "depth": 1,
+   "parent": 998,
+   "typeName": "trailer",
+   "name": "Farmtech EDK 650",
+   "specs": [
+    "FS25_interactiveControl.interactiveControl",
+    "FS25_precisionFarming.extendedWearable",
+    "FS25_precisionFarming.precisionFarmingStatistic",
+    "additionalToolConnections",
+    "aiDischargeable",
+    "aiImplement",
+    "aiLoadable",
+    "aiVehicle",
+    "aiVehicleObstacle",
+    "animatedVehicle",
+    "attachable",
+    "attacherJoints",
+    "attacherJointsCompControl",
+    "baseMaterial",
+    "connectedAttributes",
+    "connectionHoses",
+    "cover",
+    "crawlers",
+    "cylindered",
+    "cylinderedFoldable",
+    "dashboard",
+    "dischargeable",
+    "dynamicallyLoadedParts",
+    "externalVehicleControl",
+    "fillUnit",
+    "fillVolume",
+    "foldable",
+    "foldableSteps",
+    "foliageBending",
+    "handToolHolders",
+    "hudInfoTrigger",
+    "interactiveControl",
+    "licensePlates",
+    "lights",
+    "mountable",
+    "powerConsumer",
+    "powerTakeOffs",
+    "realDirtColor",
+    "ropes",
+    "shallowWaterObstacles",
+    "slopeCompensation",
+    "speedRotatingParts",
+    "suspensions",
+    "tensionBeltObject",
+    "tensionBelts",
+    "tipOccluder",
+    "tireTracks",
+    "trailer",
+    "vehicleSettings",
+    "washable",
+    "wearable",
+    "wheels",
+    "winch",
+    "windBending"
+   ],
+   "fold": {
+    "allowed": [
+     true
+    ],
+    "animTime": 0,
+    "moveDirection": 0,
+    "parts": 0,
+    "toggledDirection": 1
+   },
+   "detach": [
+    true
+   ],
+   "dischargeState": 0,
+   "fills": [
+    {
+     "capacity": 8000,
+     "fillType": 1,
+     "level": 0,
+     "name": "UNKNOWN",
+     "showOnHud": true,
+     "unit": 1
+    }
+   ],
+   "trailer": {
+    "infoText": "Tip side (%s)",
+    "preferedTipSideIndex": 2,
+    "tipSideCount": 4,
+    "tipState": 0
+   },
+   "cover": {
+    "hasCovers": false,
+    "state": 0
+   },
+   "keys": {
+    "dischargeable": [
+     {
+      "action": "TOGGLE_TIPSTATE",
+      "active": true,
+      "text": "Dump"
+     },
+     {
+      "action": "TOGGLE_TIPSTATE_GROUND",
+      "active": true,
+      "text": "Unload here"
+     }
+    ],
+    "trailer": [
+     {
+      "action": "TOGGLE_TIPSIDE",
+      "active": true,
+      "text": "Tip side (Grain door)"
+     }
+    ]
+   },
+   "selected": 1003
+  },
+  {
+   "id": 1004,
+   "depth": 2,
+   "parent": 1003,
+   "typeName": "trailer",
+   "name": "Farmtech EDK 650",
+   "specs": [
+    "FS25_interactiveControl.interactiveControl",
+    "FS25_precisionFarming.extendedWearable",
+    "FS25_precisionFarming.precisionFarmingStatistic",
+    "additionalToolConnections",
+    "aiDischargeable",
+    "aiImplement",
+    "aiLoadable",
+    "aiVehicle",
+    "aiVehicleObstacle",
+    "animatedVehicle",
+    "attachable",
+    "attacherJoints",
+    "attacherJointsCompControl",
+    "baseMaterial",
+    "connectedAttributes",
+    "connectionHoses",
+    "cover",
+    "crawlers",
+    "cylindered",
+    "cylinderedFoldable",
+    "dashboard",
+    "dischargeable",
+    "dynamicallyLoadedParts",
+    "externalVehicleControl",
+    "fillUnit",
+    "fillVolume",
+    "foldable",
+    "foldableSteps",
+    "foliageBending",
+    "handToolHolders",
+    "hudInfoTrigger",
+    "interactiveControl",
+    "licensePlates",
+    "lights",
+    "mountable",
+    "powerConsumer",
+    "powerTakeOffs",
+    "realDirtColor",
+    "ropes",
+    "shallowWaterObstacles",
+    "slopeCompensation",
+    "speedRotatingParts",
+    "suspensions",
+    "tensionBeltObject",
+    "tensionBelts",
+    "tipOccluder",
+    "tireTracks",
+    "trailer",
+    "vehicleSettings",
+    "washable",
+    "wearable",
+    "wheels",
+    "winch",
+    "windBending"
+   ],
+   "fold": {
+    "allowed": [
+     true
+    ],
+    "animTime": 0,
+    "moveDirection": 0,
+    "parts": 0,
+    "toggledDirection": 1
+   },
+   "detach": [
+    true
+   ],
+   "dischargeState": 0,
+   "fills": [
+    {
+     "capacity": 8000,
+     "fillType": 1,
+     "level": 0,
+     "name": "UNKNOWN",
+     "showOnHud": true,
+     "unit": 1
+    }
+   ],
+   "trailer": {
+    "infoText": "Tip side (%s)",
+    "preferedTipSideIndex": 3,
+    "tipSideCount": 4,
+    "tipState": 0
+   },
+   "cover": {
+    "hasCovers": false,
+    "state": 0
+   },
+   "keys": {
+    "dischargeable": [
+     {
+      "action": "TOGGLE_TIPSTATE_GROUND",
+      "active": true,
+      "text": "Unload here"
+     },
+     {
+      "action": "TOGGLE_TIPSTATE",
+      "active": true,
+      "text": "Dump"
+     }
+    ],
+    "trailer": [
+     {
+      "action": "TOGGLE_TIPSIDE",
+      "active": true,
+      "text": "Tip side (Left)"
+     }
+    ]
+   },
+   "selected": 1004
+  }
+ ]
+}

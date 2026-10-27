@@ -1,0 +1,212 @@
+{
+ "spikeVersion": "0.0.4",
+ "rig": "weight",
+ "selectedId": 1044,
+ "selectable": [
+  1035,
+  1044
+ ],
+ "selectTest": {
+  "after": 1044,
+  "before": 1044,
+  "restored": true
+ },
+ "attachInReach": false,
+ "members": [
+  {
+   "id": 1035,
+   "depth": 0,
+   "typeName": "tractor",
+   "name": "Versatile Nemesis 175 PS",
+   "specs": [
+    "FS25_interactiveControl.interactiveControl",
+    "FS25_precisionFarming.cropSensor",
+    "FS25_precisionFarming.extendedMotorized",
+    "FS25_precisionFarming.extendedWearable",
+    "FS25_precisionFarming.precisionFarmingStatistic",
+    "additionalToolConnections",
+    "aiAutomaticSteering",
+    "aiDrivable",
+    "aiFieldWorker",
+    "aiImplement",
+    "aiJobVehicle",
+    "aiModeSelection",
+    "aiVehicle",
+    "aiVehicleObstacle",
+    "animatedVehicle",
+    "articulatedAxis",
+    "attacherJoints",
+    "attacherJointsCompControl",
+    "baseMaterial",
+    "bunkerSiloCompacter",
+    "connectedAttributes",
+    "connectionHoses",
+    "crabSteering",
+    "crawlers",
+    "cylindered",
+    "dashboard",
+    "drivable",
+    "dynamicallyLoadedParts",
+    "enterable",
+    "enterablePassenger",
+    "externalVehicleControl",
+    "fillUnit",
+    "foliageBending",
+    "frontloaderAttacher",
+    "handToolHolders",
+    "headlandAnimation",
+    "honk",
+    "hudInfoTrigger",
+    "ikChains",
+    "interactiveControl",
+    "licensePlates",
+    "lights",
+    "motorized",
+    "mountable",
+    "pdlc_daimlerTruckPack.enterableCameraMirrors",
+    "pdlc_strawHarvestPack.strawHarvestPelletizerMotor",
+    "powerTakeOffs",
+    "realDirtColor",
+    "ropes",
+    "shallowWaterObstacles",
+    "slopeCompensation",
+    "speedRotatingParts",
+    "strawHarvestPelletizerMotor",
+    "suspensions",
+    "tensionBeltObject",
+    "tipOccluder",
+    "tireTracks",
+    "vehicleSettings",
+    "washable",
+    "wearable",
+    "wheels",
+    "winch",
+    "windBending",
+    "wipers"
+   ],
+   "speedLimit": 5,
+   "fills": [
+    {
+     "capacity": 375,
+     "fillType": 124,
+     "level": 372.99963111785,
+     "name": "DIESEL",
+     "showOnHud": false,
+     "unit": 1
+    },
+    {
+     "capacity": 35,
+     "fillType": 125,
+     "level": 35,
+     "name": "DEF",
+     "showOnHud": false,
+     "unit": 2
+    },
+    {
+     "capacity": 4000,
+     "fillType": 126,
+     "level": 2136.3105280399,
+     "name": "AIR",
+     "showOnHud": false,
+     "unit": 3
+    }
+   ],
+   "keys": {
+    "attacherJoints": [
+     {
+      "action": "DETACH",
+      "active": true,
+      "text": "Detach tool"
+     },
+     {
+      "action": "LOWER_ALL_IMPLEMENTS",
+      "active": true,
+      "text": "Lower/raise all tools"
+     },
+     {
+      "action": "LOWER_IMPLEMENT",
+      "active": true,
+      "text": "Lower Weight"
+     },
+     {
+      "action": "ATTACH",
+      "active": true,
+      "text": ""
+     }
+    ]
+   },
+   "selected": 1035
+  },
+  {
+   "id": 1044,
+   "depth": 1,
+   "parent": 1035,
+   "typeName": "implement",
+   "name": "Fendt 3300",
+   "specs": [
+    "FS25_interactiveControl.interactiveControl",
+    "FS25_precisionFarming.extendedWearable",
+    "FS25_precisionFarming.precisionFarmingStatistic",
+    "additionalToolConnections",
+    "aiImplement",
+    "aiVehicle",
+    "aiVehicleObstacle",
+    "animatedVehicle",
+    "attachable",
+    "attacherJoints",
+    "attacherJointsCompControl",
+    "baseMaterial",
+    "connectedAttributes",
+    "connectionHoses",
+    "crawlers",
+    "cylindered",
+    "cylinderedFoldable",
+    "dashboard",
+    "dynamicallyLoadedParts",
+    "externalVehicleControl",
+    "foldable",
+    "foldableSteps",
+    "foliageBending",
+    "handToolHolders",
+    "hudInfoTrigger",
+    "interactiveControl",
+    "licensePlates",
+    "lights",
+    "mountable",
+    "powerConsumer",
+    "powerTakeOffs",
+    "realDirtColor",
+    "ropes",
+    "shallowWaterObstacles",
+    "slopeCompensation",
+    "speedRotatingParts",
+    "suspensions",
+    "tensionBeltObject",
+    "tipOccluder",
+    "tireTracks",
+    "vehicleSettings",
+    "washable",
+    "wearable",
+    "wheels",
+    "winch",
+    "windBending"
+   ],
+   "fold": {
+    "allowed": [
+     true
+    ],
+    "animTime": 0,
+    "moveDirection": 0,
+    "parts": 0,
+    "toggledDirection": 1
+   },
+   "detach": [
+    true
+   ],
+   "lower": {
+    "allows": true
+   },
+   "selected": 1044
+  }
+ ]
+}

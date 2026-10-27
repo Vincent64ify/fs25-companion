@@ -1,0 +1,334 @@
+{
+ "spikeVersion": "0.0.4",
+ "rig": "sprayer",
+ "selectedId": 1031,
+ "selectable": [
+  1033,
+  1031
+ ],
+ "selectTest": {
+  "after": 1031,
+  "before": 1031,
+  "restored": true
+ },
+ "attachInReach": false,
+ "members": [
+  {
+   "id": 1033,
+   "depth": 0,
+   "typeName": "tractor",
+   "name": "CLAAS ARION 410",
+   "specs": [
+    "FS25_interactiveControl.interactiveControl",
+    "FS25_precisionFarming.cropSensor",
+    "FS25_precisionFarming.extendedMotorized",
+    "FS25_precisionFarming.extendedWearable",
+    "FS25_precisionFarming.precisionFarmingStatistic",
+    "additionalToolConnections",
+    "aiAutomaticSteering",
+    "aiDrivable",
+    "aiFieldWorker",
+    "aiImplement",
+    "aiJobVehicle",
+    "aiModeSelection",
+    "aiVehicle",
+    "aiVehicleObstacle",
+    "animatedVehicle",
+    "articulatedAxis",
+    "attacherJoints",
+    "attacherJointsCompControl",
+    "baseMaterial",
+    "bunkerSiloCompacter",
+    "connectedAttributes",
+    "connectionHoses",
+    "crabSteering",
+    "crawlers",
+    "cylindered",
+    "dashboard",
+    "drivable",
+    "dynamicallyLoadedParts",
+    "enterable",
+    "enterablePassenger",
+    "externalVehicleControl",
+    "fillUnit",
+    "foliageBending",
+    "frontloaderAttacher",
+    "handToolHolders",
+    "headlandAnimation",
+    "honk",
+    "hudInfoTrigger",
+    "ikChains",
+    "interactiveControl",
+    "licensePlates",
+    "lights",
+    "motorized",
+    "mountable",
+    "pdlc_daimlerTruckPack.enterableCameraMirrors",
+    "pdlc_strawHarvestPack.strawHarvestPelletizerMotor",
+    "powerTakeOffs",
+    "realDirtColor",
+    "ropes",
+    "shallowWaterObstacles",
+    "slopeCompensation",
+    "speedRotatingParts",
+    "strawHarvestPelletizerMotor",
+    "suspensions",
+    "tensionBeltObject",
+    "tipOccluder",
+    "tireTracks",
+    "vehicleSettings",
+    "washable",
+    "wearable",
+    "wheels",
+    "winch",
+    "windBending",
+    "wipers"
+   ],
+   "speedLimit": 5,
+   "fills": [
+    {
+     "capacity": 140,
+     "fillType": 124,
+     "level": 140,
+     "name": "DIESEL",
+     "showOnHud": false,
+     "unit": 1
+    },
+    {
+     "capacity": 17,
+     "fillType": 125,
+     "level": 17,
+     "name": "DEF",
+     "showOnHud": false,
+     "unit": 2
+    },
+    {
+     "capacity": 3000,
+     "fillType": 126,
+     "level": 2519.0872724533,
+     "name": "AIR",
+     "showOnHud": false,
+     "unit": 3
+    }
+   ],
+   "keys": {
+    "attacherJoints": [
+     {
+      "action": "DETACH",
+      "active": true,
+      "text": "Detach tool"
+     },
+     {
+      "action": "LOWER_ALL_IMPLEMENTS",
+      "active": true,
+      "text": "Lower/raise all tools"
+     },
+     {
+      "action": "LOWER_IMPLEMENT",
+      "active": false,
+      "text": "Lower sprayer"
+     },
+     {
+      "action": "ATTACH",
+      "active": true,
+      "text": ""
+     }
+    ]
+   },
+   "selected": 1033
+  },
+  {
+   "id": 1031,
+   "depth": 1,
+   "parent": 1033,
+   "typeName": "sprayer",
+   "name": "Berthoud Vantage 4300",
+   "specs": [
+    "FS25_interactiveControl.interactiveControl",
+    "FS25_precisionFarming.extendedSprayer",
+    "FS25_precisionFarming.extendedSprayerEffects",
+    "FS25_precisionFarming.extendedWearable",
+    "FS25_precisionFarming.manureSensor",
+    "FS25_precisionFarming.precisionFarmingStatistic",
+    "FS25_precisionFarming.weedSpotSpray",
+    "additionalToolConnections",
+    "aiImplement",
+    "aiLoadable",
+    "aiVehicle",
+    "aiVehicleObstacle",
+    "animatedVehicle",
+    "attachable",
+    "attacherJoints",
+    "attacherJointsCompControl",
+    "baseMaterial",
+    "connectedAttributes",
+    "connectionHoses",
+    "cover",
+    "crawlers",
+    "cylindered",
+    "cylinderedFoldable",
+    "dashboard",
+    "dischargeable",
+    "dynamicallyLoadedParts",
+    "externalVehicleControl",
+    "fillUnit",
+    "fillVolume",
+    "foldable",
+    "foldableSteps",
+    "foliageBending",
+    "groundAdjustedNodes",
+    "groundReference",
+    "handToolHolders",
+    "hudInfoTrigger",
+    "interactiveControl",
+    "jigglingParts",
+    "licensePlates",
+    "lights",
+    "mountable",
+    "pdlc_pumpsAndHosesPack.pfExtendedSprayer",
+    "powerConsumer",
+    "powerTakeOffs",
+    "randomlyMovingParts",
+    "realDirtColor",
+    "ropes",
+    "shallowWaterObstacles",
+    "slopeCompensation",
+    "speedRotatingParts",
+    "sprayer",
+    "suspensions",
+    "tensionBeltObject",
+    "testAreas",
+    "tipOccluder",
+    "tireTracks",
+    "turnOnVehicle",
+    "variableWorkWidth",
+    "vehicleSettings",
+    "washable",
+    "wearable",
+    "wheels",
+    "winch",
+    "windBending",
+    "workArea",
+    "workMode",
+    "workParticles"
+   ],
+   "fold": {
+    "allowed": [
+     true
+    ],
+    "animTime": 0,
+    "moveDirection": 0,
+    "parts": 1,
+    "toggledDirection": 1
+   },
+   "turnOn": {
+    "canBeTurnedOn": true
+   },
+   "detach": [
+    true
+   ],
+   "dischargeState": 0,
+   "workWidth": 32.999965667725,
+   "speedLimit": 12,
+   "fills": [
+    {
+     "capacity": 4300,
+     "fillType": 150,
+     "level": 4109.9999880791,
+     "name": "HERBICIDE",
+     "showOnHud": true,
+     "unit": 1
+    }
+   ],
+   "cover": {
+    "hasCovers": false,
+    "state": 0
+   },
+   "variableWorkWidth": {
+    "aiKeepCurrentWidth": false,
+    "aiStateLeft": 4,
+    "aiStateRight": 4,
+    "drawInputHelp": false,
+    "hasCenter": true,
+    "hasSections": true,
+    "isActive": true,
+    "leftSide": 4,
+    "leftSideMax": 4,
+    "minSideState": 0,
+    "rightSide": 4,
+    "rightSideMax": 4,
+    "widthReferenceWorkArea": 1
+   },
+   "keys": {
+    "FS25_precisionFarming.extendedSprayer": [
+     {
+      "action": "PRECISIONFARMING_SPRAY_AMOUNT",
+      "active": false,
+      "text": "Change application rate"
+     },
+     {
+      "action": "TOGGLE_SEEDS",
+      "active": false,
+      "text": "Change Nitrogen reference value"
+     },
+     {
+      "action": "PRECISIONFARMING_SPRAY_AMOUNT_MODE",
+      "active": false,
+      "text": "Deactivate automatic application rate"
+     }
+    ],
+    "dischargeable": [
+     {
+      "action": "TOGGLE_TIPSTATE_GROUND",
+      "active": true,
+      "text": "Dump on ground"
+     },
+     {
+      "action": "TOGGLE_TIPSTATE",
+      "active": true,
+      "text": "Dump"
+     }
+    ],
+    "fillUnit": [
+     {
+      "action": "UNLOAD",
+      "active": true,
+      "text": "Unload"
+     }
+    ],
+    "foldable": [
+     {
+      "action": "FOLD_ALL_IMPLEMENTS",
+      "active": true,
+      "text": "Fold all tools"
+     },
+     {
+      "action": "IMPLEMENT_EXTRA2",
+      "active": true,
+      "text": "Fold sprayer"
+     }
+    ],
+    "sprayer": [
+     {
+      "action": "DOUBLED_SPRAY_AMOUNT",
+      "active": false,
+      "text": "Activate doubled application rate"
+     }
+    ],
+    "turnOnVehicle": [
+     {
+      "action": "TURN_ON_ALL_IMPLEMENTS",
+      "active": true,
+      "text": "Turn on/off all tools"
+     },
+     {
+      "action": "IMPLEMENT_EXTRA",
+      "active": true,
+      "text": "Turn on sprayer"
+     }
+    ]
+   },
+   "selected": 1031
+  }
+ ]
+}

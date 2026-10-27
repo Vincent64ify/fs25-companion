@@ -1,0 +1,401 @@
+{
+ "spikeVersion": "0.0.4",
+ "rig": "mowers",
+ "selectedId": 996,
+ "selectable": [
+  992,
+  994,
+  996
+ ],
+ "selectTest": {
+  "after": 996,
+  "before": 996,
+  "restored": true
+ },
+ "attachInReach": false,
+ "members": [
+  {
+   "id": 992,
+   "depth": 0,
+   "typeName": "tractor",
+   "name": "New Holland T7.300",
+   "specs": [
+    "FS25_interactiveControl.interactiveControl",
+    "FS25_precisionFarming.cropSensor",
+    "FS25_precisionFarming.extendedMotorized",
+    "FS25_precisionFarming.extendedWearable",
+    "FS25_precisionFarming.precisionFarmingStatistic",
+    "additionalToolConnections",
+    "aiAutomaticSteering",
+    "aiDrivable",
+    "aiFieldWorker",
+    "aiImplement",
+    "aiJobVehicle",
+    "aiModeSelection",
+    "aiVehicle",
+    "aiVehicleObstacle",
+    "animatedVehicle",
+    "articulatedAxis",
+    "attacherJoints",
+    "attacherJointsCompControl",
+    "baseMaterial",
+    "bunkerSiloCompacter",
+    "connectedAttributes",
+    "connectionHoses",
+    "crabSteering",
+    "crawlers",
+    "cylindered",
+    "dashboard",
+    "drivable",
+    "dynamicallyLoadedParts",
+    "enterable",
+    "enterablePassenger",
+    "externalVehicleControl",
+    "fillUnit",
+    "foliageBending",
+    "frontloaderAttacher",
+    "handToolHolders",
+    "headlandAnimation",
+    "honk",
+    "hudInfoTrigger",
+    "ikChains",
+    "interactiveControl",
+    "licensePlates",
+    "lights",
+    "motorized",
+    "mountable",
+    "pdlc_daimlerTruckPack.enterableCameraMirrors",
+    "pdlc_strawHarvestPack.strawHarvestPelletizerMotor",
+    "powerTakeOffs",
+    "realDirtColor",
+    "ropes",
+    "shallowWaterObstacles",
+    "slopeCompensation",
+    "speedRotatingParts",
+    "strawHarvestPelletizerMotor",
+    "suspensions",
+    "tensionBeltObject",
+    "tipOccluder",
+    "tireTracks",
+    "vehicleSettings",
+    "washable",
+    "wearable",
+    "wheels",
+    "winch",
+    "windBending",
+    "wipers"
+   ],
+   "speedLimit": 5,
+   "fills": [
+    {
+     "capacity": 390,
+     "fillType": 124,
+     "level": 390,
+     "name": "DIESEL",
+     "showOnHud": false,
+     "unit": 1
+    },
+    {
+     "capacity": 48,
+     "fillType": 125,
+     "level": 48,
+     "name": "DEF",
+     "showOnHud": false,
+     "unit": 2
+    },
+    {
+     "capacity": 4000,
+     "fillType": 126,
+     "level": 3538.720048666,
+     "name": "AIR",
+     "showOnHud": false,
+     "unit": 3
+    }
+   ],
+   "keys": {
+    "attacherJoints": [
+     {
+      "action": "DETACH",
+      "active": true,
+      "text": "Detach tool"
+     },
+     {
+      "action": "LOWER_ALL_IMPLEMENTS",
+      "active": true,
+      "text": "Lower/raise all tools"
+     },
+     {
+      "action": "ATTACH",
+      "active": true,
+      "text": ""
+     }
+    ]
+   },
+   "selected": 992
+  },
+  {
+   "id": 994,
+   "depth": 1,
+   "parent": 992,
+   "typeName": "mower",
+   "name": "Samasz KDF 341 S",
+   "specs": [
+    "FS25_interactiveControl.interactiveControl",
+    "FS25_precisionFarming.extendedMower",
+    "FS25_precisionFarming.extendedWearable",
+    "FS25_precisionFarming.precisionFarmingStatistic",
+    "additionalToolConnections",
+    "aiImplement",
+    "aiVehicle",
+    "aiVehicleObstacle",
+    "animatedVehicle",
+    "attachable",
+    "attacherJoints",
+    "attacherJointsCompControl",
+    "baseMaterial",
+    "connectedAttributes",
+    "connectionHoses",
+    "crawlers",
+    "cylindered",
+    "cylinderedFoldable",
+    "dashboard",
+    "dynamicallyLoadedParts",
+    "externalVehicleControl",
+    "foldable",
+    "foldableSteps",
+    "foliageBending",
+    "fruitExtraObjects",
+    "groundAdjustedNodes",
+    "groundReference",
+    "handToolHolders",
+    "hudInfoTrigger",
+    "interactiveControl",
+    "jigglingParts",
+    "licensePlates",
+    "lights",
+    "mountable",
+    "mower",
+    "powerConsumer",
+    "powerTakeOffs",
+    "randomlyMovingParts",
+    "realDirtColor",
+    "ropes",
+    "shallowWaterObstacles",
+    "slopeCompensation",
+    "speedRotatingParts",
+    "suspensions",
+    "tensionBeltObject",
+    "testAreas",
+    "tipOccluder",
+    "tireTracks",
+    "turnOnVehicle",
+    "variableWorkWidth",
+    "vehicleSettings",
+    "washable",
+    "wearable",
+    "wheels",
+    "winch",
+    "windBending",
+    "workArea",
+    "workMode",
+    "workParticles"
+   ],
+   "fold": {
+    "allowed": [
+     false,
+     "Folding is not allowed while the tool is lowered."
+    ],
+    "animTime": 0,
+    "moveDirection": 0,
+    "parts": 1,
+    "toggledDirection": 1
+   },
+   "turnOn": {
+    "canBeTurnedOn": true
+   },
+   "detach": [
+    true
+   ],
+   "lower": {
+    "allows": true,
+    "lowered": true
+   },
+   "workWidth": 3.4000000953674,
+   "speedLimit": 22,
+   "variableWorkWidth": {
+    "aiKeepCurrentWidth": false,
+    "aiStateLeft": 0,
+    "aiStateRight": 0,
+    "drawInputHelp": false,
+    "hasCenter": false,
+    "hasSections": false,
+    "isActive": false,
+    "leftSide": 0,
+    "leftSideMax": 0,
+    "minSideState": 1,
+    "rightSide": 0,
+    "rightSideMax": 0,
+    "widthReferenceWorkArea": 1
+   },
+   "keys": {
+    "foldable": [
+     {
+      "action": "FOLD_ALL_IMPLEMENTS",
+      "active": true,
+      "text": "Fold all tools"
+     },
+     {
+      "action": "IMPLEMENT_EXTRA2",
+      "active": true,
+      "text": "Fold mower"
+     }
+    ],
+    "turnOnVehicle": [
+     {
+      "action": "IMPLEMENT_EXTRA",
+      "active": true,
+      "text": "Turn on mower"
+     },
+     {
+      "action": "TURN_ON_ALL_IMPLEMENTS",
+      "active": true,
+      "text": "Turn on/off all tools"
+     }
+    ]
+   },
+   "selected": 994
+  },
+  {
+   "id": 996,
+   "depth": 1,
+   "parent": 992,
+   "typeName": "mower",
+   "name": "Samasz XT 390",
+   "specs": [
+    "FS25_interactiveControl.interactiveControl",
+    "FS25_precisionFarming.extendedMower",
+    "FS25_precisionFarming.extendedWearable",
+    "FS25_precisionFarming.precisionFarmingStatistic",
+    "additionalToolConnections",
+    "aiImplement",
+    "aiVehicle",
+    "aiVehicleObstacle",
+    "animatedVehicle",
+    "attachable",
+    "attacherJoints",
+    "attacherJointsCompControl",
+    "baseMaterial",
+    "connectedAttributes",
+    "connectionHoses",
+    "crawlers",
+    "cylindered",
+    "cylinderedFoldable",
+    "dashboard",
+    "dynamicallyLoadedParts",
+    "externalVehicleControl",
+    "foldable",
+    "foldableSteps",
+    "foliageBending",
+    "fruitExtraObjects",
+    "groundAdjustedNodes",
+    "groundReference",
+    "handToolHolders",
+    "hudInfoTrigger",
+    "interactiveControl",
+    "jigglingParts",
+    "licensePlates",
+    "lights",
+    "mountable",
+    "mower",
+    "powerConsumer",
+    "powerTakeOffs",
+    "randomlyMovingParts",
+    "realDirtColor",
+    "ropes",
+    "shallowWaterObstacles",
+    "slopeCompensation",
+    "speedRotatingParts",
+    "suspensions",
+    "tensionBeltObject",
+    "testAreas",
+    "tipOccluder",
+    "tireTracks",
+    "turnOnVehicle",
+    "variableWorkWidth",
+    "vehicleSettings",
+    "washable",
+    "wearable",
+    "wheels",
+    "winch",
+    "windBending",
+    "workArea",
+    "workMode",
+    "workParticles"
+   ],
+   "fold": {
+    "allowed": [
+     true
+    ],
+    "animTime": 0,
+    "middle": 0.20000000298023,
+    "moveDirection": 0,
+    "parts": 1,
+    "toggledDirection": 1
+   },
+   "turnOn": {
+    "canBeTurnedOn": true
+   },
+   "detach": [
+    false,
+    "You first need to fold up the tool (mower)!"
+   ],
+   "lower": {
+    "lowered": true
+   },
+   "workWidth": 3.9000000953674,
+   "speedLimit": 22,
+   "variableWorkWidth": {
+    "aiKeepCurrentWidth": false,
+    "aiStateLeft": 0,
+    "aiStateRight": 0,
+    "drawInputHelp": false,
+    "hasCenter": false,
+    "hasSections": false,
+    "isActive": false,
+    "leftSide": 0,
+    "leftSideMax": 0,
+    "minSideState": 1,
+    "rightSide": 0,
+    "rightSideMax": 0,
+    "widthReferenceWorkArea": 1
+   },
+   "keys": {
+    "foldable": [
+     {
+      "action": "FOLD_ALL_IMPLEMENTS",
+      "active": true,
+      "text": "Fold all tools"
+     },
+     {
+      "action": "IMPLEMENT_EXTRA2",
+      "active": true,
+      "text": "Fold mower"
+     }
+    ],
+    "turnOnVehicle": [
+     {
+      "action": "TURN_ON_ALL_IMPLEMENTS",
+      "active": true,
+      "text": "Turn on/off all tools"
+     },
+     {
+      "action": "IMPLEMENT_EXTRA",
+      "active": true,
+      "text": "Turn on mower"
+     }
+    ]
+   },
+   "selected": 996
+  }
+ ]
+}

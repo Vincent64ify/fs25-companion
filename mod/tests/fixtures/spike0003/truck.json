@@ -1,0 +1,286 @@
+{
+ "spikeVersion": "0.0.4",
+ "rig": "truck",
+ "selectedId": 1051,
+ "selectable": [
+  1053,
+  1051
+ ],
+ "selectTest": {
+  "after": 1051,
+  "before": 1051,
+  "restored": true
+ },
+ "attachInReach": false,
+ "members": [
+  {
+   "id": 1053,
+   "depth": 0,
+   "typeName": "pdlc_daimlerTruckPack.tractorHookLiftTrailer",
+   "name": "Mercedes-Benz Trucks Arocs 4133 + TECTRUM RS26",
+   "specs": [
+    "FS25_interactiveControl.interactiveControl",
+    "FS25_precisionFarming.cropSensor",
+    "FS25_precisionFarming.extendedMotorized",
+    "FS25_precisionFarming.extendedWearable",
+    "FS25_precisionFarming.precisionFarmingStatistic",
+    "additionalToolConnections",
+    "aiAutomaticSteering",
+    "aiDrivable",
+    "aiFieldWorker",
+    "aiImplement",
+    "aiJobVehicle",
+    "aiModeSelection",
+    "aiVehicle",
+    "aiVehicleObstacle",
+    "animatedVehicle",
+    "articulatedAxis",
+    "attacherJoints",
+    "attacherJointsCompControl",
+    "baseMaterial",
+    "bunkerSiloCompacter",
+    "connectedAttributes",
+    "connectionHoses",
+    "crabSteering",
+    "crawlers",
+    "cylindered",
+    "dashboard",
+    "drivable",
+    "dynamicallyLoadedParts",
+    "enterable",
+    "enterablePassenger",
+    "externalVehicleControl",
+    "fillUnit",
+    "foldable",
+    "foliageBending",
+    "frontloaderAttacher",
+    "handToolHolders",
+    "headlandAnimation",
+    "honk",
+    "hookLiftTrailer",
+    "hudInfoTrigger",
+    "ikChains",
+    "interactiveControl",
+    "licensePlates",
+    "lights",
+    "motorized",
+    "mountable",
+    "pdlc_daimlerTruckPack.enterableCameraMirrors",
+    "pdlc_strawHarvestPack.strawHarvestPelletizerMotor",
+    "powerTakeOffs",
+    "realDirtColor",
+    "ropes",
+    "shallowWaterObstacles",
+    "slopeCompensation",
+    "speedRotatingParts",
+    "strawHarvestPelletizerMotor",
+    "suspensions",
+    "tensionBeltObject",
+    "tipOccluder",
+    "tireTracks",
+    "vehicleSettings",
+    "washable",
+    "wearable",
+    "wheels",
+    "winch",
+    "windBending",
+    "wipers"
+   ],
+   "fold": {
+    "allowed": [
+     true
+    ],
+    "animTime": 0,
+    "moveDirection": 0,
+    "parts": 1,
+    "toggledDirection": 1
+   },
+   "speedLimit": 5,
+   "fills": [
+    {
+     "capacity": 320,
+     "fillType": 124,
+     "level": 320,
+     "name": "DIESEL",
+     "showOnHud": false,
+     "unit": 1
+    },
+    {
+     "capacity": 60,
+     "fillType": 125,
+     "level": 60,
+     "name": "DEF",
+     "showOnHud": false,
+     "unit": 2
+    },
+    {
+     "capacity": 4000,
+     "fillType": 126,
+     "level": 3422.5528894424,
+     "name": "AIR",
+     "showOnHud": false,
+     "unit": 3
+    }
+   ],
+   "keys": {
+    "attacherJoints": [
+     {
+      "action": "DETACH",
+      "active": true,
+      "text": "Detach tool"
+     },
+     {
+      "action": "LOWER_ALL_IMPLEMENTS",
+      "active": true,
+      "text": "Lower/raise all tools"
+     },
+     {
+      "action": "LOWER_IMPLEMENT",
+      "active": false,
+      "text": "Lower container"
+     },
+     {
+      "action": "ATTACH",
+      "active": true,
+      "text": ""
+     }
+    ],
+    "foldable": [
+     {
+      "action": "FOLD_ALL_IMPLEMENTS",
+      "active": true,
+      "text": "Fold all tools"
+     },
+     {
+      "action": "IMPLEMENT_EXTRA2",
+      "active": true,
+      "text": "Drop off container"
+     }
+    ]
+   },
+   "selected": 1053
+  },
+  {
+   "id": 1051,
+   "depth": 1,
+   "parent": 1053,
+   "typeName": "hookLiftContainerTrailer",
+   "name": "Fliegl Push-Off Container",
+   "specs": [
+    "FS25_interactiveControl.interactiveControl",
+    "FS25_precisionFarming.extendedWearable",
+    "FS25_precisionFarming.precisionFarmingStatistic",
+    "additionalToolConnections",
+    "aiDischargeable",
+    "aiImplement",
+    "aiLoadable",
+    "aiVehicle",
+    "aiVehicleObstacle",
+    "animatedVehicle",
+    "attachable",
+    "attacherJoints",
+    "attacherJointsCompControl",
+    "baseMaterial",
+    "connectedAttributes",
+    "connectionHoses",
+    "cover",
+    "crawlers",
+    "cylindered",
+    "cylinderedFoldable",
+    "dashboard",
+    "dischargeable",
+    "dynamicallyLoadedParts",
+    "externalVehicleControl",
+    "fillUnit",
+    "fillVolume",
+    "foldable",
+    "foldableSteps",
+    "foliageBending",
+    "handToolHolders",
+    "hookLiftContainer",
+    "hudInfoTrigger",
+    "interactiveControl",
+    "licensePlates",
+    "lights",
+    "mountable",
+    "powerConsumer",
+    "powerTakeOffs",
+    "realDirtColor",
+    "ropes",
+    "shallowWaterObstacles",
+    "slopeCompensation",
+    "speedRotatingParts",
+    "suspensions",
+    "tensionBeltObject",
+    "tensionBelts",
+    "tipOccluder",
+    "tireTracks",
+    "trailer",
+    "vehicleSettings",
+    "washable",
+    "wearable",
+    "wheels",
+    "winch",
+    "windBending"
+   ],
+   "fold": {
+    "allowed": [
+     true
+    ],
+    "animTime": 0,
+    "moveDirection": 0,
+    "parts": 0,
+    "toggledDirection": 1
+   },
+   "detach": [
+    false
+   ],
+   "lower": {
+    "allows": true
+   },
+   "dischargeState": 0,
+   "fills": [
+    {
+     "capacity": 30000,
+     "fillType": 2,
+     "level": 7500,
+     "name": "WHEAT",
+     "showOnHud": true,
+     "unit": 1
+    }
+   ],
+   "trailer": {
+    "infoText": "Tip side (%s)",
+    "preferedTipSideIndex": 1,
+    "tipSideCount": 2,
+    "tipState": 0
+   },
+   "cover": {
+    "hasCovers": false,
+    "state": 0
+   },
+   "keys": {
+    "dischargeable": [
+     {
+      "action": "TOGGLE_TIPSTATE_GROUND",
+      "active": true,
+      "text": "Unload here"
+     },
+     {
+      "action": "TOGGLE_TIPSTATE",
+      "active": true,
+      "text": "Dump"
+     }
+    ],
+    "trailer": [
+     {
+      "action": "TOGGLE_TIPSIDE",
+      "active": true,
+      "text": "Tip side (Back)"
+     }
+    ]
+   },
+   "selected": 1051
+  }
+ ]
+}
