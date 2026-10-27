@@ -1,6 +1,6 @@
 # 0002: Vehicle and Loader screens
 
-Status: built (revision 2, 2026-10-27); revision 1 live-checked (mod 0.8.6, 2026-10-26)
+Status: live-checked (revision 2, 2026-10-27; revision 1, mod 0.8.6, 2026-10-26)
 Mod: 0.8.6 · Started: 2026-10-25 · Design: [THEMES.md, Vehicle screen](../docs/THEMES.md#t4-vehicle-screen)
 (revised by this spec),
 canvas [FS25 Companion: Vehicle screen](https://claude.ai/artifact/UCGXbQrd4gTozRk67NcnWw)
@@ -353,16 +353,16 @@ done):
 - [x] Bags hung on bare tines: "Nothing mounted", no target.
 
 Live check, revision 2 (no mod change: reload the dashboard):
-- [ ] Get into the Merlo, then the L90H: the Vehicle tab opens on Loader.
+- [x] Get into the Merlo, then the L90H: the Vehicle tab opens on Loader.
   A tractor with a seeder: Vehicle.
-- [ ] In a tractor with a front loader, on the Vehicle tab: couple the
+- [x] In a tractor with a front loader, on the Vehicle tab: couple the
   bucket and the page turns to Loader; drop it and it turns back.
   The same on the Map tab: the Map stays.
-- [ ] The Vehicle tab names its page ("Vehicle · Loader") on the tablet,
+- [x] The Vehicle tab names its page ("Vehicle · Loader") on the tablet,
   and the chevron's tap opens the menu as before.
-- [ ] A tap on the Merlo's tile, then on the bucket's: each is selected
+- [x] A tap on the Merlo's tile, then on the bucket's: each is selected
   in game, and the page doesn't move.
-- [ ] Loader chosen from the tab's menu on a tractor with a seeder
+- [x] Loader chosen from the tab's menu on a tractor with a seeder
   stays until you get into another vehicle.
 
 ## Decisions
@@ -584,3 +584,8 @@ Live check, revision 2 (no mod change: reload the dashboard):
   Loader"), with a chevron for its menu (Vincent, from the Harvester
   canvas); render.js `setPick`. `web/test.html` 263, all green; replay
   checked by day and night.
+- 2026-10-27: revision 2 live-checked: Vincent confirmed all 5 boxes (the
+  pick for the Merlo, the L90H and a seeder; a bucket coupled and dropped
+  on the Vehicle tab and on the Map; the tab's name and menu; a tap only
+  selects; a page chosen from the menu stays). No new game API names.
+  Status: live-checked.

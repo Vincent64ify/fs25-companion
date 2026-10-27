@@ -38,9 +38,9 @@ up to date until the live check.
 - The Vehicle screen redesign is done (mod 0.8.6, spec
   [0002](../specs/0002-vehicle-screen.md)): the band with the rig strip,
   Load with the session's tally, Target. Confirmed in game on 2026-10-26
-  with mod 0.8.6. Revision 2 is built (2026-10-27, dashboard only): that
-  page is now Loader, picked by itself, beside a plain Vehicle page, and a
-  tap on a tile no longer opens Implement; next for it: the live check.
+  with mod 0.8.6. Revision 2 (dashboard only) is confirmed in game on
+  2026-10-27: that page is now Loader, picked by itself, beside a plain
+  Vehicle page; the tab names its page; a tap on a tile only selects.
   Spec [0003](../specs/0003-implement-screen.md), the Implement screen, is
   a draft waiting on how it and the Vehicle page divide the work.
   Canvases are built from the design system

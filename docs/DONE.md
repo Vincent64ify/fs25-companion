@@ -499,7 +499,7 @@ Changes since Phase 4 (2026-10-21 to 2026-10-22):
 - **Vehicle screen redesign** (2026-10-26, mod 0.8.6, confirmed live):
   the band with the rig strip and its couplings, what's on the
   loader with the session's tally, and the vehicle nearby it goes into.
-  Revision 2 (2026-10-27, built, live check open): that page is Loader,
+  Revision 2 (2026-10-27, confirmed live): that page is Loader,
   picked by itself, beside a plain Vehicle page; a tap on a tile only
   selects. Details in its spec,
   [specs/0002-vehicle-screen.md](../specs/0002-vehicle-screen.md).
