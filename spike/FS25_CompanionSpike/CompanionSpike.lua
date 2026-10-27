@@ -23,7 +23,7 @@
 CompanionSpike = {}
 local CS = CompanionSpike
 
-local SPIKE_VERSION = "0.0.3"
+local SPIKE_VERSION = "0.0.4"
 local MOD_DIR = g_currentModDirectory or ""
 
 local LIMITS = {
@@ -946,8 +946,292 @@ local function vehicleScreenProbe(v)
     return res
 end
 
--- the controlled vehicle's fuel, wear and hours candidates (fuel, wear
--- and hours arrived empty in the first live session)
+-- 0.0.4, a card per tool (specs/0003): what each tool can do, read from
+-- the game's own parts; a census of every vehicle type the game loaded;
+-- the keys and the "can't now" reasons. Read-only, all guarded; the
+-- selection test (csSelect) is the one probe that changes something, and
+-- it puts the selection back.
+
+-- the capability rule (specs/0003): a capability for each of these
+-- specializations. A mod's spec may carry its mod's prefix
+-- ("FS25_x.plow"), so the last part counts.
+local CAPABILITY_ORDER = { "lower", "fold", "turnOn", "tip", "tipSide", "cover", "pipe", "rotate", "width", "detach" }
+local CAPABILITY_SPECS = {
+    lower = { "attachable" }, fold = { "foldable" }, turnOn = { "turnonvehicle" },
+    tip = { "trailer", "dischargeable" }, tipSide = { "trailer" }, cover = { "cover" },
+    pipe = { "pipe" }, rotate = { "plow" }, width = { "variableworkwidth" },
+    detach = { "attachable" },
+}
+
+local function shortSpecName(name)
+    name = tostring(name)
+    if name:sub(1, 5) == "spec_" then
+        name = name:sub(6)
+    end
+    return (name:match("([^%.]+)$") or name):lower()
+end
+
+local function capabilitiesOf(specNames)
+    local have = {}
+    for _, n in ipairs(specNames) do
+        have[shortSpecName(n)] = true
+    end
+    local can = {}
+    for _, cap in ipairs(CAPABILITY_ORDER) do
+        for _, s in ipairs(CAPABILITY_SPECS[cap]) do
+            if have[s] then
+                can[#can + 1] = cap
+                break
+            end
+        end
+    end
+    return can
+end
+
+-- every vehicle type: g_vehicleTypeManager.types (else getTypes()), each
+-- with specializationNames (else the keys of specializationsByName)
+local function probeCensus()
+    local res = { count = 0, types = {}, perCapability = {}, specCounts = {} }
+    local mgr = g_vehicleTypeManager
+    if type(mgr) ~= "table" then
+        res.error = "no g_vehicleTypeManager"
+        return res
+    end
+    res.manager = describe(mgr, 1, nil, 40)
+    local types, source = mgr.types, "types"
+    if type(types) ~= "table" then
+        types, source = firstOf(mgr, "getTypes"), "getTypes()"
+    end
+    if type(types) ~= "table" then
+        res.error = "no types table"
+        return res
+    end
+    res.source = source
+    local first = nil
+    for key, t in pairs(types) do
+        if type(t) == "table" then
+            first = first or t
+            local name = type(t.name) == "string" and t.name or tostring(key)
+            local specNames = {}
+            if type(t.specializationNames) == "table" then
+                for _, n in ipairs(t.specializationNames) do
+                    specNames[#specNames + 1] = tostring(n)
+                end
+            elseif type(t.specializationsByName) == "table" then
+                for n in pairs(t.specializationsByName) do
+                    specNames[#specNames + 1] = tostring(n)
+                end
+            end
+            table.sort(specNames)
+            local can = capabilitiesOf(specNames)
+            res.types[name] = { specs = specNames, can = can }
+            res.count = res.count + 1
+            for _, c in ipairs(can) do
+                res.perCapability[c] = (res.perCapability[c] or 0) + 1
+            end
+            for _, n in ipairs(specNames) do
+                local s = shortSpecName(n)
+                res.specCounts[s] = (res.specCounts[s] or 0) + 1
+            end
+        end
+    end
+    res.firstType = describe(first, 1, nil, 40)
+    return res
+end
+
+local function twoOf(obj, name, ...)
+    local r = tryCall(obj, name, ...)
+    if r == nil then
+        return nil
+    end
+    return { r[2], r[3] }
+end
+
+-- the methods a card's buttons may need, found by name rather than guessed
+local TOOL_METHOD_PATTERNS = { "TipSide", "Rotat", "WorkWidth", "Section", "Bale", "Wrap", "Fold", "TurnedOn",
+    "TurnOn", "Cover", "Attach", "Detach", "Lower", "Discharge", "Pipe" }
+
+local function toolMethods(o)
+    local out = {}
+    for _, name in ipairs(methodsOf(o)) do
+        for _, p in ipairs(TOOL_METHOD_PATTERNS) do
+            if name:find(p, 1, true) then
+                out[#out + 1] = name
+                break
+            end
+        end
+    end
+    return out
+end
+
+-- each spec's registered action events (the keys the tool answers to),
+-- with the input binding's active state and text where it has them
+local function actionEventsOf(o)
+    local out = {}
+    local ib = g_inputBinding
+    local events = type(ib) == "table" and (ib.events or ib.actionEvents) or nil
+    for k, spec in pairs(o) do
+        if type(k) == "string" and k:sub(1, 5) == "spec_" and type(spec) == "table"
+            and type(spec.actionEvents) == "table" then
+            local list = {}
+            for action, ev in pairs(spec.actionEvents) do
+                local entry = { action = tostring(action) }
+                if type(ev) == "table" then
+                    entry.id = ev.actionEventId
+                    local e = type(events) == "table" and ev.actionEventId ~= nil and events[ev.actionEventId] or nil
+                    if type(e) == "table" then
+                        entry.active = e.isActive
+                        entry.text = e.contextDisplayText
+                    end
+                end
+                list[#list + 1] = entry
+            end
+            if #list > 0 then
+                out[k] = list
+            end
+        end
+    end
+    return out
+end
+
+local INPUT_PATTERNS = { "FOLD", "TURN_ON", "TIP", "ROTAT", "WIDTH", "SECTION", "ATTACH", "LOWER", "IMPLEMENT_EXTRA",
+    "COVER", "PIPE", "DISCHARGE", "BALE", "WRAP" }
+
+-- the input actions the game has that spec 0003's buttons may press
+local function inputActionNames()
+    local out = {}
+    if type(InputAction) ~= "table" then
+        return out
+    end
+    for name in pairs(InputAction) do
+        if type(name) == "string" then
+            for _, p in ipairs(INPUT_PATTERNS) do
+                if name:find(p, 1, true) then
+                    out[#out + 1] = name
+                    break
+                end
+            end
+        end
+    end
+    table.sort(out)
+    return out
+end
+
+-- one rig member: its parts, the rule's capabilities, the states and the
+-- game's own "can't now" answers, and the parts spec 0003 isn't sure of
+local function toolInfo(o)
+    local info = vehicleInfo(o)
+    info.can = capabilitiesOf(info.specs)
+    info.methods = toolMethods(o)
+    info.actionEvents = actionEventsOf(o)
+    info.fills = fillsOf(o)
+    info.workWidth = firstOf(o, "getAIWorkAreaWidth")
+    info.speedLimit = firstOf(o, "getSpeedLimit")
+    info.lower = { allows = firstOf(o, "getAllowsLowering"), lowered = firstOf(o, "getIsLowered", false) }
+    local fold = o.spec_foldable
+    if type(fold) == "table" then
+        local dir = firstOf(o, "getToggledFoldDirection")
+        info.fold = {
+            parts = type(fold.foldingParts) == "table" and countKeys(fold.foldingParts) or nil,
+            toggledDirection = dir, moveDirection = fold.foldMoveDirection, middle = fold.foldMiddleAnimTime,
+            animTime = firstOf(o, "getFoldAnimTime"), allowed = twoOf(o, "getIsFoldAllowed", dir or 1, false),
+        }
+    end
+    if type(o.spec_turnOnVehicle) == "table" then
+        info.turnOn = {
+            canBeTurnedOn = firstOf(o, "getCanBeTurnedOn"), isTurnedOn = firstOf(o, "getIsTurnedOn"),
+            allowed = twoOf(o, "getIsTurnedOnAllowed", true), warning = firstOf(o, "getTurnedOnNotAllowedWarning"),
+        }
+    end
+    info.detach = twoOf(o, "isDetachAllowed")
+    info.dischargeState = firstOf(o, "getDischargeState")
+    info.spec_trailer = describe(o.spec_trailer, 2, nil, 60)
+    info.spec_dischargeable = describe(o.spec_dischargeable, 1, nil, 60)
+    info.spec_cover = describe(o.spec_cover, 1, nil, 40)
+    info.spec_plow = describe(o.spec_plow, 2, nil, 60)
+    info.spec_variableWorkWidth = describe(o.spec_variableWorkWidth, 2, nil, 80)
+    info.spec_baler = describe(o.spec_baler, 1, nil, 120)
+    info.spec_baleWrapper = describe(o.spec_baleWrapper, 1, nil, 80)
+    local aj = o.spec_attacherJoints
+    info.attachableInfo = describe(type(aj) == "table" and aj.attachableInfo or nil, 2, nil, 40)
+    return info
+end
+
+-- the controlled vehicle's whole rig, the vehicle first, then what hangs
+-- on it, depth first
+local function rigMembers(root)
+    local members = { { o = root, depth = 0 } }
+    local function walk(parent, depth)
+        local attached = firstOf(parent, "getAttachedImplements")
+        if type(attached) ~= "table" or depth > 6 then
+            return
+        end
+        for _, entry in pairs(attached) do
+            local o = type(entry) == "table" and entry.object or nil
+            if type(o) == "table" then
+                members[#members + 1] = { o = o, depth = depth, parent = parent.id, jointDescIndex = entry.jointDescIndex }
+                walk(o, depth + 1)
+            end
+        end
+    end
+    walk(root, 1)
+    return members
+end
+
+local function toolsProbe(v)
+    local root = firstOf(v, "getRootVehicle") or v
+    local res = { members = {}, selectable = {} }
+    for _, m in ipairs(rigMembers(root)) do
+        local info = toolInfo(m.o)
+        info.depth, info.parent, info.jointDescIndex = m.depth, m.parent, m.jointDescIndex
+        res.members[#res.members + 1] = info
+    end
+    local sel = firstOf(root, "getSelectedVehicle")
+    res.selectedId = type(sel) == "table" and sel.id or nil
+    for _, so in ipairs(type(root.selectableObjects) == "table" and root.selectableObjects or {}) do
+        local veh = type(so) == "table" and so.vehicle or nil
+        res.selectable[#res.selectable + 1] = {
+            vehicleId = type(veh) == "table" and veh.id or nil, index = type(so) == "table" and so.index or nil,
+            subSelections = type(so) == "table" and type(so.subSelections) == "table" and #so.subSelections or nil,
+        }
+    end
+    res.missionAttachableInfo = describe(g_currentMission ~= nil and g_currentMission.attachableInfo or nil, 1, nil, 40)
+    res.inputActions = inputActionNames()
+    return res
+end
+
+-- csSelect: select each selectable member in turn, one every 400 ms (the
+-- game registers a tool's keys on the frames after it's selected), note
+-- what's selected and which keys are live, then put the selection back
+local SELECT_STEP_MS = 400
+
+local function selectStep(run)
+    local root = run.root
+    if run.i > 0 then
+        local so = run.list[run.i]
+        local now = firstOf(root, "getSelectedVehicle")
+        local target = type(so) == "table" and so.vehicle or nil
+        run.out.steps[#run.out.steps + 1] = {
+            target = type(target) == "table" and target.id or nil, ok = run.ok, error = run.err,
+            selected = type(now) == "table" and now.id or nil,
+            actionEvents = type(target) == "table" and actionEventsOf(target) or nil,
+        }
+    end
+    run.i = run.i + 1
+    if run.i > #run.list then
+        if run.before ~= nil then
+            pcall(root.setSelectedObject, root, run.before)
+        end
+        local after = firstOf(root, "getSelectedVehicle")
+        run.out.after = type(after) == "table" and after.id or nil
+        run.out.restored = run.out.after == run.out.before
+        return true
+    end
+    local ok, err = pcall(root.setSelectedObject, root, run.list[run.i])
+    run.ok, run.err = ok, (not ok) and tostring(err) or nil
+    return false
+end
+
 local function vehicleDetail(v)
     local function first(name, ...)
         local r = tryCall(v, name, ...)
@@ -984,6 +1268,7 @@ local function vehicleDetail(v)
     res.spec_powerConsumer = describe(v.spec_powerConsumer, 1, nil, 100)
     res.spec_aiJobVehicle = describe(v.spec_aiJobVehicle, 2, nil, 100)
     res.vehicleScreen = vehicleScreenProbe(v)
+    res.tools = toolsProbe(v)
     return res
 end
 
@@ -1080,6 +1365,8 @@ function CS.writeReport()
     section(report, "vehicles", probeVehicles)
     section(report, "player", probePlayer)
     section(report, "types", probeTypes)
+    section(report, "census", probeCensus)
+    report.selectTest = ctx.selectTest
     report.log = ctx.log
 
     if dir == nil then
@@ -1176,6 +1463,8 @@ function CompanionSpike:loadMap(name)
     if addConsoleCommand ~= nil then
         addConsoleCommand("csDump", "Write the FS25 Companion spike report again",
             "consoleDump", CompanionSpike)
+        addConsoleCommand("csSelect", "Select each tool of the rig in turn, then put the selection back",
+            "consoleSelect", CompanionSpike)
     end
 end
 
@@ -1186,7 +1475,9 @@ function CompanionSpike:deleteMap()
     end
     if removeConsoleCommand ~= nil then
         removeConsoleCommand("csDump")
+        removeConsoleCommand("csSelect")
     end
+    ctx.selectRun = nil
 end
 
 function CompanionSpike:consoleDump()
@@ -1194,8 +1485,45 @@ function CompanionSpike:consoleDump()
     return ok and ("report written to " .. tostring(ctx.dir)) or "report failed, see log"
 end
 
+function CompanionSpike:consoleSelect()
+    local v = getControlledVehicle()
+    if v == nil then
+        return "get in a vehicle first"
+    end
+    local root = firstOf(v, "getRootVehicle") or v
+    if type(root.setSelectedObject) ~= "function" or type(root.selectableObjects) ~= "table" then
+        return "this vehicle has no selection"
+    end
+    local list = {}
+    for _, so in ipairs(root.selectableObjects) do
+        list[#list + 1] = so
+    end
+    local before = firstOf(root, "getSelectedVehicle")
+    ctx.selectTest = nil
+    ctx.selectRun = {
+        root = root, list = list, i = 0, timer = 0, before = firstOf(root, "getSelectedObject"),
+        out = { before = type(before) == "table" and before.id or nil, steps = {} },
+    }
+    ctx.status = "selection test running"
+    return string.format("selecting %d objects, one every %d ms; the report follows", #list, SELECT_STEP_MS)
+end
+
 function CompanionSpike:update(dt)
     ctx.elapsed = ctx.elapsed + dt
+    local run = ctx.selectRun
+    if run ~= nil then
+        run.timer = run.timer + dt
+        if run.i == 0 or run.timer >= SELECT_STEP_MS then
+            run.timer = 0
+            local ok, done = pcall(selectStep, run)
+            if not ok or done then
+                ctx.selectRun = nil
+                ctx.selectTest = ok and run.out or { error = tostring(done) }
+                local written = CS.writeReport()
+                ctx.status = written and "selection test written to report.json" or "selection test: report FAILED"
+            end
+        end
+    end
     if not ctx.dumped and ctx.elapsed >= DUMP_DELAY_MS then
         ctx.dumped = true
         local ok = CS.writeReport()
@@ -1247,6 +1575,10 @@ end
 -- exposed for offline tests (lupa / plain Lua)
 CS._Json = Json
 CS._describe = describe
+CS._capabilitiesOf = capabilitiesOf
+CS._probeCensus = probeCensus
+CS._toolsProbe = toolsProbe
+CS._selectStep = selectStep
 
 if addModEventListener ~= nil then
     addModEventListener(CompanionSpike)

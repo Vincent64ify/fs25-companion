@@ -61,6 +61,54 @@ dumps:
 - the pallet fork with bigbags hanging on the tines by their straps;
 - the Volvo L90H with its General Purpose Bucket (full or empty).
 
+## A card per tool spike (spec 0003)
+
+Spike 0.0.4 answers what [spec 0003](../specs/0003-implement-screen.md)
+needs before the mod is built: what each tool can do, read from the
+game's own parts, for every vehicle type the game knows.
+
+- `census` (every report): every vehicle type the game loaded, base game,
+  DLCs and mods, with its specializations and what the capability rule
+  makes of it (`can`), how many types have each capability, and how often
+  each specialization appears.
+- `vehicles.controlledDetail.tools` (when you're in a vehicle): each rig
+  member, the vehicle first, with its specializations, `can`, its fills,
+  working width and speed limit, the fold and turn-on state with the
+  game's own "can't now" answers (`getIsFoldAllowed`,
+  `getIsTurnedOnAllowed`, `isDetachAllowed`), the keys each part has
+  registered (`actionEvents`, live or not, with their text), and the parts
+  spec 0003 isn't sure of: `spec_trailer` (tip sides), `spec_plow`,
+  `spec_variableWorkWidth`, `spec_baler`, `spec_baleWrapper`, `spec_cover`
+  and what's in reach to attach. Also the input actions the game has for
+  folding, turning on, tipping, rotating, widths, sections and attaching.
+- `selectTest` (after `csSelect`): the one probe that changes something.
+  It selects each tool in turn, one every 0.4 s, notes what got selected
+  and which of its keys went live, then puts your selection back.
+
+1. Rebuild `FS25_CompanionSpike.zip` from the folder's contents and copy
+   it into the mods folder beside FS25 Companion. Enable it in the
+   savegame's mods.
+2. Load the savegame: the first report (5 s after loading) already has the
+   census. Copy that `report.json` away as `census.json`.
+3. For each rig, get in, set it up, open the console (`~`) and type
+   `csSelect`. Wait for "selection test written to report.json" on screen
+   (about a second per tool), then copy `report.json` away under the rig's
+   name before the next:
+   - `mowers`: a tractor with a front and a rear mower, unfolded and
+     lowered;
+   - `trailers`: a tractor with two trailers, one that tips more than one
+     way (and its tip side changed once with the game's key);
+   - `sprayer`: a sprayer with sections, a few sections switched off with
+     the game's keys (self-propelled or trailed);
+   - `plow`: a tractor with a plow that rotates, raised;
+   - `baler`: a baler, part way through a bale (and a baler-wrapper if you
+     have one);
+   - `weight`: a tractor with only a front weight;
+   - `truck`: a tipper truck, loaded;
+   - `attach`: a tractor backed up to a tool, with the game's Attach
+     prompt on screen (`csDump` is enough here).
+4. Send back the reports (and `log.txt` if something failed).
+
 ## Command spike (C0)
 
 `FS25_CommandSpike` checks the command channel planned for Controls (see

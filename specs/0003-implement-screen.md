@@ -186,8 +186,10 @@ unchanged.
 
 ## Plan
 
-1. **Spike 0.0.4** (`spike/FS25_CompanionSpike`): Vincent runs it once
-   per rig and the census once on any save.
+1. **Spike 0.0.4** (`spike/FS25_CompanionSpike`; written 2026-10-27,
+   not run yet; how to run it in
+   [spike/README.md](../spike/README.md#a-card-per-tool-spike-spec-0003)):
+   Vincent runs it once per rig and the census once on any save.
    - **Census:** every vehicle type the game has loaded (base game, DLCs
      and mods): its name and specialization names, and what the
      capability rule makes of it. Written to the report as a table.
@@ -337,3 +339,9 @@ Live check (mod 0.8.7; the spike is done; the rigs above):
   reads from the game's parts; a census of every vehicle type and real
   rig dumps from spike 0.0.4 are the tests. Waiting for approval.
 - 2026-10-27: approved by Vincent; next, spike 0.0.4.
+- 2026-10-27: spike 0.0.4 written and installed: the census of every
+  vehicle type (`census`), each rig member's parts, capabilities, states,
+  "can't now" answers and registered keys (`controlledDetail.tools`), the
+  input actions for the new buttons, and `csSelect`, which selects each
+  tool in turn and puts the selection back. Checked offline in Lua on a
+  made-up census and rig; not run in game yet.
