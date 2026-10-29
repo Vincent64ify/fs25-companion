@@ -414,6 +414,218 @@ function VehicleState.extras(object, out)
     return out
 end
 
+-- Capabilities (specs/0003) -------------------------------------------------
+-- What each rig member can do, read from the game's own parts, so a tool
+-- the dashboard has never seen gets a button for each thing it does. A part
+-- being there isn't enough: spike 0.0.4's census found Foldable on 178 of
+-- 196 vehicle types, and trailers, weights and balers with Foldable but no
+-- folding part, Cover with no cover. So each needs what the part holds.
+-- Names seen in spike 0.0.4 (the spec's Data contract) unless marked.
+
+VehicleState.CAPABILITIES = { "lower", "fold", "turnOn", "tip", "tipSide", "cover", "pipe", "rotate", "bales", "detach" }
+
+-- the game's own "can't now": a boolean and its warning text
+local function allowed(object, name, ...)
+    if type(object) ~= "table" or type(object[name]) ~= "function" then
+        return nil
+    end
+    local ok, can, why = pcall(object[name], object, ...)
+    if not ok or type(can) ~= "boolean" then
+        return nil
+    end
+    return can, type(why) == "string" and why or nil
+end
+
+-- the attacher joint lowers it: the input joint's allowsLowering
+-- (unverified), else getAllowsLowering as today, which also says "not now"
+-- (a mower folded for transport: false, while it still lowers)
+local function lowers(object, out)
+    local joint = Api.tryCall(object, "getActiveInputAttacherJoint")
+    if type(joint) == "table" and type(joint.allowsLowering) == "boolean" then
+        return joint.allowsLowering
+    end
+    return Api.tryCall(object, "getAllowsLowering") ~= false or out.lowered == true
+end
+
+-- a trailer's tip side: its index, how many, its name when the game's
+-- tipSides entry has one (unverified), else from the tip side key's label
+-- ("Tip side (Back)"), which the game shows while the trailer is selected
+local function tipSideOf(object, spec)
+    local index = type(spec.preferedTipSideIndex) == "number" and spec.preferedTipSideIndex or 1
+    local out = { index = index, count = spec.tipSideCount }
+    local side = type(spec.tipSides) == "table" and spec.tipSides[index] or nil
+    if type(side) == "table" and type(side.name) == "string" and side.name ~= "" then
+        out.name = side.name
+    else
+        local key = VehicleState.liveKey(object, "TOGGLE_TIPSIDE")
+        out.name = key ~= nil and key.text ~= nil and key.text:match("%((.+)%)") or nil
+    end
+    return out
+end
+
+-- sets out.can (the capabilities in CAPABILITIES' order), the state each
+-- goes with (lowered, unfolded, turnedOn, discharging, tipSide, cover,
+-- pipe, plow, bales), and out.canNow[cap] = false with out.whyNot[cap] (the
+-- game's own words) for what the game refuses now. depth 0: the vehicle.
+function VehicleState.capabilities(object, out, depth)
+    local has, canNow, whyNot = {}, {}, {}
+    local function refuse(cap, can, why)
+        if can == false then
+            canNow[cap] = false
+            whyNot[cap] = why
+        end
+    end
+    if depth > 0 then
+        out.lowered = Api.tryCall(object, "getIsLowered", true) == true
+        if lowers(object, out) then
+            has.lower = true
+            -- it says whether it may lower: raising stays allowed
+            if not out.lowered then
+                refuse("lower", allowed(object, "getAllowsLowering"))
+            end
+        end
+        has.detach = true
+        refuse("detach", allowed(object, "isDetachAllowed"))
+    end
+    if VehicleState.fold(object, out) then
+        has.fold = true
+        refuse("fold", allowed(object, "getIsFoldAllowed", Api.tryCall(object, "getToggledFoldDirection") or 1, false))
+    end
+    if object.spec_turnOnVehicle ~= nil and Api.tryCall(object, "getCanBeTurnedOn") ~= false then
+        has.turnOn = true
+        out.turnedOn = Api.tryCall(object, "getIsTurnedOn") == true
+        -- getIsTurnedOnAllowed isn't in FS25; what these answer is unverified
+        if Api.tryCall(object, "getCanToggleTurnedOn") == false then
+            local why = Api.tryCall(object, "getTurnedOnNotAllowedWarning")
+            refuse("turnOn", false, type(why) == "string" and why or nil)
+        end
+    end
+    local trailer = object.spec_trailer
+    if type(trailer) == "table" and type(trailer.tipSideCount) == "number" and trailer.tipSideCount >= 1 then
+        has.tip = true
+        if trailer.tipSideCount >= 2 then
+            has.tipSide = true
+            out.tipSide = tipSideOf(object, trailer)
+        end
+    end
+    has.cover = out.cover ~= nil
+    has.pipe = out.pipe ~= nil
+    local plow = object.spec_plow
+    if type(plow) == "table" and type(plow.rotationPart) == "table" and plow.rotationPart.turnAnimation ~= nil then
+        has.rotate = true
+        out.plow = { rotated = plow.rotationMax == true }
+        if Api.tryCall(object, "getIsPlowRotationAllowed") == false then
+            refuse("rotate", false)
+        end
+    end
+    -- the game's own bale count (BaleCounter.lua; its fields are unverified)
+    local counter = object.spec_baleCounter
+    if type(counter) == "table" then
+        has.bales = true
+        out.bales = { count = type(counter.sessionCounter) == "number" and counter.sessionCounter or nil,
+            total = type(counter.lifetimeCounter) == "number" and counter.lifetimeCounter or nil }
+    end
+    out.can = {}
+    for _, cap in ipairs(VehicleState.CAPABILITIES) do
+        if has[cap] then
+            out.can[#out.can + 1] = cap
+        end
+    end
+    if next(canNow) ~= nil then
+        out.canNow, out.whyNot = canNow, next(whyNot) ~= nil and whyNot or nil
+    end
+    return out
+end
+
+-- The selected tool's keys (specs/0003): each spec's actionEvents, keyed by
+-- input action, and the input binding's events[id] with isActive and the
+-- game's own label (contextDisplayText). The game registers a tool's keys
+-- only while it is selected (spike 0.0.4).
+
+-- an object's registered key for this input action: {action, text, active}
+function VehicleState.liveKey(object, action)
+    local events = type(g_inputBinding) == "table" and g_inputBinding.events or nil
+    if type(events) ~= "table" then
+        return nil
+    end
+    for k, spec in pairs(object) do
+        if type(k) == "string" and k:sub(1, 5) == "spec_" and type(spec) == "table"
+            and type(spec.actionEvents) == "table" then
+            local ev = spec.actionEvents[action]
+            local e = type(ev) == "table" and ev.actionEventId ~= nil and events[ev.actionEventId] or nil
+            if type(e) == "table" then
+                return { action = action, text = e.contextDisplayText, active = e.isActive ~= false, spec = k }
+            end
+        end
+    end
+    return nil
+end
+
+-- the input actions a capability's button presses, by the spec that
+-- registers them where one action does different things (IMPLEMENT_EXTRA:
+-- turn on, a plow's rotate). The all-tools keys, Attach and Detach are the
+-- All row's, the column's and every card's; the vehicle's attacher joints'
+-- keys (Lower plow, Detach tool) act on its tools, which have their cards.
+local KEY_CAPS = {
+    LOWER_IMPLEMENT = "lower", IMPLEMENT_EXTRA2 = "fold", TOGGLE_TIPSIDE = "tipSide",
+    TOGGLE_TIPSTATE = "tip", TOGGLE_TIPSTATE_GROUND = "tip", TOGGLE_COVER = "cover", TOGGLE_PIPE = "pipe",
+    DETACH = "detach", BALE_COUNTER_RESET = "bales",
+    IMPLEMENT_EXTRA = { spec_turnOnVehicle = "turnOn", spec_plow = "rotate" },
+}
+local NOT_A_TOOL_KEY = { FOLD_ALL_IMPLEMENTS = true, TURN_ON_ALL_IMPLEMENTS = true, LOWER_ALL_IMPLEMENTS = true,
+    ATTACH = true, DETACH = true }
+
+-- the selected tool's live keys that no capability in `can` covers, each
+-- once, by input action: {action, text} ("Allow create fields", "Turn on
+-- automatic drop", a modded tool's own)
+function VehicleState.extraKeys(object, can)
+    local events = type(g_inputBinding) == "table" and g_inputBinding.events or nil
+    if type(events) ~= "table" then
+        return {}
+    end
+    local covered = {}
+    for _, cap in ipairs(can or {}) do
+        covered[cap] = true
+    end
+    local seen, out = {}, {}
+    for k, spec in pairs(object) do
+        if type(k) == "string" and k:sub(1, 5) == "spec_" and k ~= "spec_attacherJoints" and type(spec) == "table"
+            and type(spec.actionEvents) == "table" then
+            for action, ev in pairs(spec.actionEvents) do
+                local e = type(ev) == "table" and ev.actionEventId ~= nil and events[ev.actionEventId] or nil
+                local cap = KEY_CAPS[action]
+                if type(cap) == "table" then
+                    cap = cap[k]
+                end
+                if type(action) == "string" and type(e) == "table" and e.isActive ~= false
+                    and type(e.contextDisplayText) == "string" and e.contextDisplayText ~= ""
+                    and not NOT_A_TOOL_KEY[action] and not (cap ~= nil and covered[cap]) and not seen[action] then
+                    seen[action] = true
+                    out[#out + 1] = { action = action, text = e.contextDisplayText }
+                end
+            end
+        end
+    end
+    table.sort(out, function(a, b) return a.action < b.action end)
+    return out
+end
+
+-- whether the game has something in reach to attach (its Attach prompt is
+-- up): the vehicle's attachableInfo.attachable, else the attach key's label
+function VehicleState.attachable(vehicle)
+    for _, v in ipairs({ vehicle, VehicleState.rootOf(vehicle) }) do
+        local spec = v.spec_attacherJoints
+        if type(spec) == "table" and type(spec.attachableInfo) == "table" then
+            if spec.attachableInfo.attachable ~= nil then
+                return true
+            end
+            return false
+        end
+    end
+    local key = VehicleState.liveKey(vehicle, "ATTACH")
+    return key ~= nil and key.active and type(key.text) == "string" and key.text ~= ""
+end
+
 -- Rig (Controls C3) ---------------------------------------------------------
 -- The tractor and everything attached, and which tool each implement key
 -- acts on. Verified live with the selection spike (mod 0.6.4, PLAN.md C3):
@@ -578,14 +790,31 @@ function VehicleState.rig(vehicle)
     if VehicleState.fold(vehicle, head) then
         head.foldable = true
     end
-    local rig = { mark(VehicleState.extras(vehicle, head), vehicle) }
+    local rig = { mark(VehicleState.capabilities(vehicle, VehicleState.extras(vehicle, head), 0), vehicle) }
     for _, node in ipairs(VehicleState.attachedTree(vehicle)) do
         local e = mark(VehicleState.extras(node.object, VehicleState.implement(node.object)), node.object)
+        VehicleState.capabilities(node.object, e, node.depth)
+        -- a joint that lowers it: a mower folded for transport still lowers
+        for _, cap in ipairs(e.can) do
+            if cap == "lower" then
+                e.canLower = true
+            end
+        end
         e.parent = node.parent.id
         e.depth = node.depth
         e.side = node.side
         e.joint = node.joint
         rig[#rig + 1] = e
+    end
+    -- the selected one's other keys (specs/0003)
+    for i, e in ipairs(rig) do
+        if e.selected then
+            local object = i == 1 and vehicle or VehicleState.attachedById(vehicle, e.id)
+            local keys = object ~= nil and VehicleState.extraKeys(object, e.can) or {}
+            if #keys > 0 then
+                e.extraKeys = keys
+            end
+        end
     end
     return rig
 end

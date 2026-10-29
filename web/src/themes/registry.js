@@ -11,6 +11,15 @@ import newHolland from "./newholland/theme.js";
 /** @type {Theme[]} the first is the fallback */
 export const THEMES = [newHolland];
 
+/** Screens that are gone, and where a device that saved one opens now. */
+const MOVED_SCREENS = /** @type {Record<string, string>} */ ({
+  // specs/0003: the Implement tab merged into the Vehicle page
+  implement: "vehicle",
+});
+
+/** The screen to open for one a device saved. @param {string|undefined} id */
+export const savedScreen = (id) => (id && MOVED_SCREENS[id]) || id;
+
 export const STORAGE_KEYS = { theme: "fs25companion.theme", palette: "fs25companion.palette" };
 
 /**

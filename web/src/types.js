@@ -71,6 +71,8 @@
  * @property {{state: string, speed?: number}} [cruise]
  * @property {boolean} [aiActive]
  * @property {boolean} [hitched] something is attached
+ * @property {boolean} [attachable] something is in reach to attach: the
+ *   game's Attach prompt is up (mod 0.8.7)
  * @property {SelectedImplement} [implement] the one the implement keys act on
  * @property {{lowered: boolean, turnedOn: boolean}[]} [implements]
  * @property {RigEntry[]} [rig] the vehicle, then everything attached, depth
@@ -86,9 +88,17 @@
  * hanging on it. Tools also carry the SelectedImplement fields.
  * The Implement screen's (mod 0.8.0), on the vehicle too: pipe (out, and
  * moving), discharging (tipping or unloading), trailer, cover (open).
+ * The Vehicle page's cards (mod 0.8.7, specs/0003): can, what the game's
+ * parts on it allow; canNow[cap] false (whyNot[cap], the game's words)
+ * while the game refuses it now; a trailer's tipSide, a plow's rotation,
+ * the bale counter; the selected one's other live keys with the game's
+ * labels (extraKeys).
  * @typedef {SelectedImplement & {id?: number, parent?: number, depth: number, side?: "front"|"rear",
  *   selectable?: boolean, selected?: boolean, pipe?: {out: boolean, moving: boolean}, discharging?: boolean,
- *   trailer?: boolean, cover?: {open: boolean}}} RigEntry
+ *   trailer?: boolean, cover?: {open: boolean}, can?: string[], canNow?: Record<string, boolean>,
+ *   whyNot?: Record<string, string>, tipSide?: {index: number, count: number, name?: string},
+ *   plow?: {rotated: boolean}, bales?: {count?: number, total?: number},
+ *   extraKeys?: {action: string, text: string}[]}} RigEntry
  */
 
 /**

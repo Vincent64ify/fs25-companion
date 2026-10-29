@@ -21,7 +21,7 @@ export default {
       { label: "Lights", controls: ["lights", "highBeam", "beacon", "hazard", "turnLeft", "turnRight"] },
       { label: "Drive", controls: ["cruiseDown", "cruise", "cruiseUp", "engineOn", "aiWorker"] },
       { label: "Implement", implementName: true,
-        controls: ["implementLowered", "fold", "implementOn", "hitch"] },
+        controls: ["implementLowered", "fold", "implementOn", "attach"] },
     ],
   },
   screens: [
@@ -40,16 +40,20 @@ export default {
       ],
     },
     {
-      // the Vehicle tab's default page (specs/0002 revision 2): the band
-      // with the rig strip over Loads, full width, then the column with
-      // Lights and Drive. The tools' buttons are on the Implement tab.
+      // the Vehicle tab's default page (specs/0003, the Implement tab
+      // merged in): the band with the rig strip, the All row, a card per
+      // working thing, Also attached; then the column with Lights, Drive
+      // and Hitch (Attach)
       id: "vehicle", label: "Vehicle", icon: "tractor", choice: "Vehicle",
       slots: [
-        { group: "vehicle", slots: [
+        { group: "tools", slots: [
           { widget: "vehicleBand" },
-          { widget: "loadCard", variant: "loads" },
+          { widget: "toolsAll" },
+          { widget: "toolCards" },
+          { widget: "toolsAlso" },
         ] },
-        { controls: true, omit: ["implementLowered", "fold", "implementOn", "hitch"] },
+        { controls: true, omit: ["implementLowered", "fold", "implementOn", "attach"],
+          add: [{ label: "Hitch", controls: ["attach"] }] },
       ],
     },
     {
@@ -64,23 +68,7 @@ export default {
           { widget: "loadCard" },
           { widget: "targetCard" },
         ] },
-        { controls: true, omit: ["implementLowered", "fold", "implementOn", "hitch"] },
-      ],
-    },
-    {
-      // the rig band over the implement card and its details (rows
-      // 132 | 1fr, columns 1fr | 250), then the controls: the band has the
-      // Engine and the card the tool's buttons, so the column keeps Lights,
-      // Drive and All implements
-      id: "implement", label: "Implement", icon: "implement",
-      slots: [
-        { group: "implement", slots: [
-          { widget: "rigBand" },
-          { widget: "implementCard" },
-          { widget: "implementDetails" },
-        ] },
-        { controls: true, omit: ["engineOn", "implementLowered", "fold", "implementOn", "hitch"],
-          add: [{ label: "All implements", controls: ["lowerAll", "hitch"] }] },
+        { controls: true, omit: ["implementLowered", "fold", "implementOn", "attach"] },
       ],
     },
     {
@@ -95,8 +83,8 @@ export default {
           { widget: "combineCard" },
           { widget: "headerCard" },
         ] },
-        // Lower all and Hitch stay on the Implement tab
-        { controls: true, omit: ["implementLowered", "fold", "implementOn", "hitch"] },
+        // the header's buttons are on its card; Attach is on Vehicle
+        { controls: true, omit: ["implementLowered", "fold", "implementOn", "attach"] },
       ],
     },
   ],

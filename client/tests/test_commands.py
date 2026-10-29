@@ -241,5 +241,30 @@ def test_implement_screen_actions_are_the_games_keys(tmp_path):
         writer.submit(str(n), action)
         assert attrs(tmp_path / "cmd" / f"{n}.xml")["action"] == game
         assert "value" not in attrs(tmp_path / "cmd" / f"{n}.xml")
-    writer.submit("6", "implement.pipe", 1)
+    writer.submit("6", "implement.lowerAll", 1)
     assert [a["data"]["reason"] for a in acks] == ["value not allowed"]
+
+
+def test_vehicle_page_cards_aim_at_one_tool_and_act_on_all(tmp_path):
+    """specs/0003: one-tool commands take the tool's id (or none: the key's
+    tool, as before); the new ones; the All row's; others still refuse one."""
+    writer, acks, _ = make(tmp_path)
+    sent = [("implement.lower", 994), ("implement.fold", None), ("implement.turnOn", 7),
+            ("implement.unload", 1003), ("implement.cover", 1003), ("implement.pipe", 20),
+            ("implement.tipSide", 1003), ("implement.rotate", 1037), ("implement.baleReset", 1041),
+            ("implement.key", 2), ("implement.foldAll", None), ("implement.turnOnAll", None),
+            ("implement.tipAll", 1), ("implement.coverAll", 0)]
+    games = ["LOWER_IMPLEMENT", "FOLD_IMPLEMENT", "TURN_ON_IMPLEMENT", "TOGGLE_DISCHARGE", "TOGGLE_COVER",
+             "TOGGLE_PIPE", "TOGGLE_TIPSIDE", "ROTATE_PLOW", "RESET_BALE_COUNTER", "PRESS_TOOL_KEY",
+             "FOLD_ALL_IMPLEMENTS", "TURN_ON_ALL_IMPLEMENTS", "TIP_ALL", "COVER_ALL"]
+    for n, (action, value) in enumerate(sent, start=1):
+        writer.submit(str(n), action, value)
+        a = attrs(tmp_path / "cmd" / f"{n}.xml")
+        assert a["action"] == games[n - 1]
+        assert a.get("value") == (None if value is None else f"{value:.3f}")
+    assert acks == []
+    for n, (action, value) in enumerate([("implement.tipAll", 2), ("implement.tipAll", None),
+                                         ("implement.foldAll", 1), ("implement.key", 0),
+                                         ("implement.lower", -1), ("implement.width", None)], start=20):
+        writer.submit(str(n), action, value)
+    assert [a["data"]["reason"] for a in acks] == ["value not allowed"] * 5 + ["action not allowed"]

@@ -29,7 +29,14 @@
 -- pipe {out, moving}, discharging, trailer and cover {open}, and keys also
 -- name the pipe's, unloading's, the cover's and lower all's tool. Since the
 -- Vehicle screen (0.8.5) a tool's entry carries joint, its coupling's type
--- name as the game registered it ("implement", "frontloader").
+-- name as the game registered it ("implement", "frontloader"). Since the
+-- Vehicle page's cards (0.8.7, specs/0003) every entry carries `can`, what
+-- the game's parts on it allow (lower, fold, turnOn, tip, tipSide, cover,
+-- pipe, rotate, bales, detach), the states that go with them (tipSide
+-- {index, count, name}, plow {rotated}, bales {count}), canNow / whyNot for
+-- what the game refuses now and why, and the selected one its other live
+-- keys (extraKeys [{action, text}]); cab.attachable is true while
+-- something is in reach to attach.
 --
 -- On foot: {"inVehicle":false}.
 
@@ -90,6 +97,10 @@ local function cabOf(vehicle)
     -- C3: the whole rig and which tool each implement key acts on
     cab.rig = VehicleState.rig(vehicle)
     cab.keys = VehicleState.keys()
+    -- specs/0003: something in reach to attach (the game's Attach prompt)
+    if VehicleState.attachable(vehicle) then
+        cab.attachable = true
+    end
     return cab
 end
 

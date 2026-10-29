@@ -1,14 +1,15 @@
 // @ts-check
 // The Vehicle and Loader screens (specs/0002-vehicle-screen.md; look in
 // docs/THEMES.md, Vehicle screen): the Vehicle tab's pages for yard work
-// with a loader (Loader) and for everything else (Vehicle); hasLoader picks
-// between them.
-// - vehicleBand: the job, speed, fuel and DEF as a range, wear and Engine
-//   hot, over the rig strip: every vehicle in the rig as a tile in driving
-//   order, joined by links that name the coupling. A tap on a tile selects
-//   that tool in game; the page stays.
+// with a loader (Loader) and for everything else (Vehicle, its tools'
+// cards in vehicleTools.js, specs/0003); hasLoader picks between them.
+// - vehicleBand: its label names the vehicle's brand; the job, speed, fuel
+//   and DEF as a range, wear and Engine hot, over the rig strip: every
+//   vehicle in the rig as a tile in driving order (the model alone), joined
+//   by links that name the coupling. A tap on a tile selects that tool in
+//   game; the page stays.
 // - loadCard: what's on the loader and the session's tally (createTally);
-//   on the Vehicle page, or without a loader, every tank in the rig.
+//   without a loader, every tank in the rig.
 // - targetCard: the vehicle nearby that takes what you carry (the mod picks
 //   it) and how many more loads it takes.
 // Data: the vehicles topic's controlled vehicle (carried and target since
@@ -16,12 +17,12 @@
 
 import {
   LIMITS, cabOf, controlledVehicle, defPct, drivingOrder, entryModel, fillMax, fillName, fillPct, fillStop, fillsOf,
-  fuelPct, gearName, implementById, implementsOf, kindLabel, lowersInRig, rigJob, vehicleKind,
+  fuelPct, gearName, implementById, implementsOf, kindLabel, lowersInRig, rigJob, screenRig, vehicleBrand, vehicleKind,
 } from "../data/selectors.js";
 import { speedUnit, speedValue, unitsOf } from "../data/units.js";
 import { ratesOf } from "../data/rates.js";
 import { sendCommand } from "../connection.js";
-import { screenRig, tileState } from "./implementScreen.js";
+import { tileState } from "./vehicleTools.js";
 import { fillMeter, maxBadge } from "./implements.js";
 import { fmt, h } from "../ui/dom.js";
 import { icon } from "../ui/icons.js";
@@ -358,9 +359,10 @@ export function vehicleBand(store, opts = {}) {
   const strip = h("ol", { className: "veh-strip" });
   strip.setAttribute("aria-label", "Rig");
   const none = h("p", { className: "veh-strip-none", text: "Nothing attached" });
+  const label = h("span", { className: "veh-cap", text: "Vehicle" });
   const root = h("section", { className: "veh-band" },
     h("div", { className: "veh-band-head" },
-      h("div", { className: "veh-band-text" }, h("span", { className: "veh-cap", text: "Vehicle" }),
+      h("div", { className: "veh-band-text" }, label,
         h("div", { className: "veh-job-row" }, job, hot)),
       ros),
     h("div", { className: "veh-strip-row" }, strip, none));
@@ -373,6 +375,9 @@ export function vehicleBand(store, opts = {}) {
     const v = controlledVehicle(store);
     const cab = cabOf(store);
     const units = unitsOf(store);
+    // the shop's brand on the label; the strip's tiles keep the model alone
+    const brand = vehicleBrand(v);
+    label.textContent = brand ? `Vehicle · ${brand}` : "Vehicle";
     job.textContent = vehicleJob(v, cab).text;
     hot.hidden = !engineHot(v);
     const readouts = bandReadouts(v, { fuel: fuelRange(v?.fuel, rates.fuelPerHour()),
@@ -522,7 +527,7 @@ function cardHead(/** @type {string} */ cls) {
 /**
  * The Load card: on the loader, what's on it (big), the tool, and the
  * session's tally with Reset; Loads, every tank in the rig and the rig's
- * weight, on the Vehicle page (`variant: "loads"`) and without a loader.
+ * weight, without a loader (or with `variant: "loads"`).
  * @type {import("./widget.js").CreateWidget}
  */
 export function loadCard(store, opts = {}) {

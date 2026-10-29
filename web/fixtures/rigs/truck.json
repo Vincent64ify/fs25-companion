@@ -1,0 +1,134 @@
+{
+ "rig": "truck",
+ "source": "mod/tests/fixtures/spike0003/truck.json, through the mod's Cab collector",
+ "cab": {
+  "aiActive": false,
+  "engineOn": false,
+  "engineState": "off",
+  "hitched": true,
+  "implement": {
+   "canLower": true,
+   "canTurnOn": false,
+   "foldable": false,
+   "lowered": false,
+   "name": "Fliegl Push-Off Container",
+   "turnedOn": false
+  },
+  "implements": [
+   {
+    "lowered": false,
+    "turnedOn": false
+   }
+  ],
+  "inVehicle": true,
+  "keys": {
+   "fold": 1053,
+   "lowerAll": 1053,
+   "unload": 1051
+  },
+  "lights": {
+   "beacon": false,
+   "hazard": false,
+   "high": false,
+   "left": false,
+   "on": false,
+   "right": false
+  },
+  "rig": [
+   {
+    "can": [
+     "fold"
+    ],
+    "depth": 0,
+    "foldMoving": false,
+    "foldable": true,
+    "id": 1053,
+    "name": "Mercedes-Benz Trucks Arocs 4133 + TECTRUM RS26",
+    "selectable": true,
+    "selected": false,
+    "unfolded": false
+   },
+   {
+    "can": [
+     "lower",
+     "tip",
+     "tipSide",
+     "detach"
+    ],
+    "canLower": true,
+    "canNow": {
+     "detach": false
+    },
+    "canTurnOn": false,
+    "depth": 1,
+    "discharging": false,
+    "foldable": false,
+    "id": 1051,
+    "lowered": false,
+    "name": "Fliegl Push-Off Container",
+    "parent": 1053,
+    "selectable": true,
+    "selected": true,
+    "side": "rear",
+    "tipSide": {
+     "count": 2,
+     "index": 1,
+     "name": "Back"
+    },
+    "trailer": true,
+    "turnedOn": false
+   }
+  ],
+  "vehicleId": 1053
+ },
+ "vehicles": {
+  "controlledId": 1053,
+  "vehicles": [
+   {
+    "id": 1053,
+    "name": "Mercedes-Benz Trucks Arocs 4133 + TECTRUM RS26",
+    "brand": "Mercedes-Benz Trucks",
+    "category": "trucks",
+    "categoryTitle": "Trucks",
+    "typeName": "pdlc_daimlerTruckPack.tractorHookLiftTrailer",
+    "fills": [],
+    "wear": 0.23,
+    "speed": 8.4,
+    "engineOn": true,
+    "fuel": 280,
+    "fuelCapacity": 400,
+    "motorized": true,
+    "implements": [
+     {
+      "id": 1051,
+      "name": "Fliegl Push-Off Container",
+      "brand": "Fliegl",
+      "category": "containerTrailers",
+      "categoryTitle": "Container trailers",
+      "typeName": "hookLiftContainerTrailer",
+      "fills": [
+       {
+        "unit": 1,
+        "level": 7500,
+        "capacity": 30000,
+        "fillType": "wheat",
+        "fillTitle": "Wheat"
+       }
+      ],
+      "wear": 0.12,
+      "depth": 1
+     }
+    ]
+   }
+  ]
+ },
+ "expect": {
+  "cards": [
+   "Push-Off Container: Lower:off, Tip:off, Tip side:off, Detach:unavailable",
+   "Arocs 4133 + TECTRUM RS26: Unfold:off"
+  ],
+  "selected": "Push-Off Container",
+  "also": [],
+  "all": []
+ }
+}

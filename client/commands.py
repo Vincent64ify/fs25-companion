@@ -68,6 +68,19 @@ ACTIONS = {
     "implement.cover": "TOGGLE_COVER",
     # the Harvester screen: a combine's straw, swath or chopped
     "implement.straw": "TOGGLE_STRAW",
+    # the Vehicle page's cards (specs/0003): with the tool's id, the
+    # one-tool actions above and these select it, press its key and put the
+    # selection back; key: the selected tool's other key, by number
+    "implement.tipSide": "TOGGLE_TIPSIDE",
+    "implement.rotate": "ROTATE_PLOW",
+    "implement.baleReset": "RESET_BALE_COUNTER",
+    "implement.key": "PRESS_TOOL_KEY",
+    # the All row: fold and turn on all are the game's keys; tip and cover
+    # all (1 tip / open, 0 stop / close) act on each tool in turn
+    "implement.foldAll": "FOLD_ALL_IMPLEMENTS",
+    "implement.turnOnAll": "TURN_ON_ALL_IMPLEMENTS",
+    "implement.tipAll": "TIP_ALL",
+    "implement.coverAll": "COVER_ALL",
 }
 
 # actions that carry a value, and its range; the backend checks the same
@@ -75,7 +88,17 @@ VALUES = {
     "cruise.set": (1.0, 250.0),
     "implement.select": (0, 2**31),
     "implement.detach": (0, 2**31),
+    **{a: (0, 2**31) for a in ("implement.lower", "implement.fold", "implement.turnOn", "implement.unload",
+                               "implement.cover", "implement.pipe", "implement.tipSide", "implement.rotate",
+                               "implement.baleReset")},
+    "implement.key": (1, 64),
+    "implement.tipAll": (0, 1),
+    "implement.coverAll": (0, 1),
 }
+
+# actions whose value may also be left out (the tool the key acts on)
+OPTIONAL = {"implement.lower", "implement.fold", "implement.turnOn", "implement.unload", "implement.cover",
+            "implement.pipe", "implement.tipSide", "implement.rotate", "implement.baleReset"}
 
 # latest wins: one in the game at a time, the newest waits
 COALESCE = {"cruise.set"}
@@ -97,6 +120,8 @@ def value_ok(action: str, value: Any) -> bool:
     limits = VALUES.get(action)
     if limits is None:
         return value is None
+    if value is None and action in OPTIONAL:
+        return True
     if isinstance(value, bool) or not isinstance(value, (int, float)):
         return False
     return limits[0] <= value <= limits[1]

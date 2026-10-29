@@ -1,0 +1,107 @@
+{
+ "rig": "weight",
+ "source": "mod/tests/fixtures/spike0003/weight.json, through the mod's Cab collector",
+ "cab": {
+  "aiActive": false,
+  "engineOn": false,
+  "engineState": "off",
+  "hitched": true,
+  "implement": {
+   "canLower": true,
+   "canTurnOn": false,
+   "foldable": false,
+   "lowered": false,
+   "name": "Fendt 3300",
+   "turnedOn": false
+  },
+  "implements": [
+   {
+    "lowered": false,
+    "turnedOn": false
+   }
+  ],
+  "inVehicle": true,
+  "keys": {
+   "lower": 1035,
+   "lowerAll": 1035
+  },
+  "lights": {
+   "beacon": false,
+   "hazard": false,
+   "high": false,
+   "left": false,
+   "on": false,
+   "right": false
+  },
+  "rig": [
+   {
+    "can": [],
+    "depth": 0,
+    "id": 1035,
+    "name": "Versatile Nemesis 175 PS",
+    "selectable": true,
+    "selected": false
+   },
+   {
+    "can": [
+     "lower",
+     "detach"
+    ],
+    "canLower": true,
+    "canTurnOn": false,
+    "depth": 1,
+    "foldable": false,
+    "id": 1044,
+    "lowered": false,
+    "name": "Fendt 3300",
+    "parent": 1035,
+    "selectable": true,
+    "selected": true,
+    "side": "front",
+    "turnedOn": false
+   }
+  ],
+  "vehicleId": 1035
+ },
+ "vehicles": {
+  "controlledId": 1035,
+  "vehicles": [
+   {
+    "id": 1035,
+    "name": "Versatile Nemesis 175 PS",
+    "brand": "Versatile",
+    "category": "tractorsM",
+    "categoryTitle": "Tractors M",
+    "typeName": "tractor",
+    "fills": [],
+    "wear": 0.23,
+    "speed": 8.4,
+    "engineOn": true,
+    "fuel": 280,
+    "fuelCapacity": 400,
+    "motorized": true,
+    "implements": [
+     {
+      "id": 1044,
+      "name": "Fendt 3300",
+      "brand": "Fendt",
+      "category": "weights",
+      "categoryTitle": "Weights",
+      "typeName": "implement",
+      "fills": [],
+      "wear": 0.12,
+      "depth": 1
+     }
+    ]
+   }
+  ]
+ },
+ "expect": {
+  "cards": [],
+  "selected": null,
+  "also": [
+   "3300 · Fendt · Weights · Front · Raised: Lower:off, Detach:off"
+  ],
+  "all": []
+ }
+}

@@ -21,7 +21,7 @@ import { createHotspotsLayer } from "./map/layers/hotspotsLayer.js";
 import { createVehiclesLayer } from "./map/layers/vehiclesLayer.js";
 import { createPlayerLayer } from "./map/layers/playerLayer.js";
 import { createFieldInfoPanel } from "./panels/fieldInfoPanel.js";
-import { chooseTheme, saveChoice, savedChoice, THEMES, withoutParams } from "./themes/registry.js";
+import { chooseTheme, saveChoice, savedChoice, savedScreen, THEMES, withoutParams } from "./themes/registry.js";
 import { renderTheme } from "./themes/render.js";
 import { addEdgeControls, TOOLBAR_INSET } from "./themes/newholland/mapControls.js";
 import { createSettings } from "./ui/settings.js";
@@ -92,8 +92,10 @@ const rememberScreen = () => {
 };
 if (rendered.showScreen) {
   try { screens = JSON.parse(localStorage.getItem(SCREEN_KEY) || "{}") || {}; } catch { /* private mode */ }
-  if (screens[theme.id] && app.querySelector(`.screen[data-screen="${screens[theme.id]}"]`)) {
-    rendered.showScreen(screens[theme.id]);
+  // a page saved before it moved ("implement" is on Vehicle now)
+  const saved = savedScreen(screens[theme.id]);
+  if (saved && app.querySelector(`.screen[data-screen="${saved}"]`)) {
+    rendered.showScreen(saved);
   }
   // a tab, or a shared tab's menu
   app.addEventListener("click", (ev) => {
@@ -133,14 +135,6 @@ fadeIdleControls(map);
 
 createFieldInfoPanel(store, frame.fieldInfo);
 
-// Show on map (the Implement tab's details): the Map screen, following the vehicle
-app.addEventListener("showonmap", () => {
-  if (rendered.showScreen && rendered.mapScreen) {
-    rendered.showScreen(rendered.mapScreen);
-    rememberScreen();
-  }
-  follow.recentre();
-});
 keepPopupsInside(map, { avoid: frame.fieldInfo, inset: TOOLBAR_INSET });
 
 // --- animation -------------------------------------------------------------

@@ -1,0 +1,126 @@
+{
+ "rig": "plow",
+ "source": "mod/tests/fixtures/spike0003/plow.json, through the mod's Cab collector",
+ "cab": {
+  "aiActive": false,
+  "engineOn": false,
+  "engineState": "off",
+  "hitched": true,
+  "implement": {
+   "canLower": true,
+   "canTurnOn": false,
+   "foldMoving": false,
+   "foldable": true,
+   "lowered": false,
+   "name": "PÖTTINGER SERVO T 6000 P",
+   "turnedOn": false,
+   "unfolded": false
+  },
+  "implements": [
+   {
+    "lowered": false,
+    "turnedOn": false
+   }
+  ],
+  "inVehicle": true,
+  "keys": {
+   "fold": 1037,
+   "lower": 1035,
+   "lowerAll": 1035,
+   "turnOn": 1037
+  },
+  "lights": {
+   "beacon": false,
+   "hazard": false,
+   "high": false,
+   "left": false,
+   "on": false,
+   "right": false
+  },
+  "rig": [
+   {
+    "can": [],
+    "depth": 0,
+    "id": 1035,
+    "name": "Versatile Nemesis 175 PS",
+    "selectable": true,
+    "selected": false
+   },
+   {
+    "can": [
+     "lower",
+     "fold",
+     "rotate",
+     "detach"
+    ],
+    "canLower": true,
+    "canTurnOn": false,
+    "depth": 1,
+    "extraKeys": [
+     {
+      "action": "IMPLEMENT_EXTRA3",
+      "text": "Allow create fields"
+     }
+    ],
+    "foldMoving": false,
+    "foldable": true,
+    "id": 1037,
+    "lowered": false,
+    "name": "PÖTTINGER SERVO T 6000 P",
+    "parent": 1035,
+    "plow": {
+     "rotated": false
+    },
+    "selectable": true,
+    "selected": true,
+    "side": "rear",
+    "turnedOn": false,
+    "unfolded": false
+   }
+  ],
+  "vehicleId": 1035
+ },
+ "vehicles": {
+  "controlledId": 1035,
+  "vehicles": [
+   {
+    "id": 1035,
+    "name": "Versatile Nemesis 175 PS",
+    "brand": "Versatile",
+    "category": "tractorsM",
+    "categoryTitle": "Tractors M",
+    "typeName": "tractor",
+    "fills": [],
+    "wear": 0.23,
+    "speed": 8.4,
+    "engineOn": true,
+    "fuel": 280,
+    "fuelCapacity": 400,
+    "motorized": true,
+    "implements": [
+     {
+      "id": 1037,
+      "name": "PÖTTINGER SERVO T 6000 P",
+      "brand": "Pöttinger",
+      "category": "plows",
+      "categoryTitle": "Plows",
+      "typeName": "plow",
+      "fills": [],
+      "wear": 0.12,
+      "workWidth": 5.43,
+      "speedLimit": 12.2,
+      "depth": 1
+     }
+    ]
+   }
+  ]
+ },
+ "expect": {
+  "cards": [
+   "SERVO T 6000 P: Lower:off, Unfold:off, Rotate:off, Detach:off, Allow create fields:off"
+  ],
+  "selected": "SERVO T 6000 P",
+  "also": [],
+  "all": []
+ }
+}

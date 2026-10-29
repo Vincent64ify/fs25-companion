@@ -1,0 +1,172 @@
+{
+ "rig": "mowers",
+ "source": "mod/tests/fixtures/spike0003/mowers.json, through the mod's Cab collector",
+ "cab": {
+  "aiActive": false,
+  "engineOn": false,
+  "engineState": "off",
+  "hitched": true,
+  "implement": {
+   "canLower": false,
+   "canTurnOn": true,
+   "foldMoving": false,
+   "foldable": true,
+   "lowered": true,
+   "name": "Samasz XT 390",
+   "turnedOn": false,
+   "unfolded": false
+  },
+  "implements": [
+   {
+    "lowered": true,
+    "turnedOn": false
+   },
+   {
+    "lowered": true,
+    "turnedOn": false
+   }
+  ],
+  "inVehicle": true,
+  "keys": {
+   "fold": 996,
+   "lowerAll": 992,
+   "turnOn": 996
+  },
+  "lights": {
+   "beacon": false,
+   "hazard": false,
+   "high": false,
+   "left": false,
+   "on": false,
+   "right": false
+  },
+  "rig": [
+   {
+    "can": [],
+    "depth": 0,
+    "id": 992,
+    "name": "New Holland T7.300",
+    "selectable": true,
+    "selected": false
+   },
+   {
+    "can": [
+     "lower",
+     "fold",
+     "turnOn",
+     "detach"
+    ],
+    "canLower": true,
+    "canNow": {
+     "fold": false
+    },
+    "canTurnOn": true,
+    "depth": 1,
+    "foldMoving": false,
+    "foldable": true,
+    "id": 994,
+    "lowered": true,
+    "name": "Samasz KDF 341 S",
+    "parent": 992,
+    "selectable": true,
+    "selected": false,
+    "side": "front",
+    "turnedOn": false,
+    "unfolded": false,
+    "whyNot": {
+     "fold": "Folding is not allowed while the tool is lowered."
+    }
+   },
+   {
+    "can": [
+     "lower",
+     "fold",
+     "turnOn",
+     "detach"
+    ],
+    "canLower": true,
+    "canNow": {
+     "detach": false
+    },
+    "canTurnOn": true,
+    "depth": 1,
+    "foldMoving": false,
+    "foldable": true,
+    "id": 996,
+    "lowered": true,
+    "name": "Samasz XT 390",
+    "parent": 992,
+    "selectable": true,
+    "selected": true,
+    "side": "rear",
+    "turnedOn": false,
+    "unfolded": false,
+    "whyNot": {
+     "detach": "You first need to fold up the tool (mower)!"
+    }
+   }
+  ],
+  "vehicleId": 992
+ },
+ "vehicles": {
+  "controlledId": 992,
+  "vehicles": [
+   {
+    "id": 992,
+    "name": "New Holland T7.300",
+    "brand": "New Holland",
+    "category": "tractorsM",
+    "categoryTitle": "Tractors M",
+    "typeName": "tractor",
+    "fills": [],
+    "wear": 0.23,
+    "speed": 8.4,
+    "engineOn": true,
+    "fuel": 280,
+    "fuelCapacity": 400,
+    "motorized": true,
+    "implements": [
+     {
+      "id": 994,
+      "name": "Samasz KDF 341 S",
+      "brand": "Samasz",
+      "category": "mowers",
+      "categoryTitle": "Mowers",
+      "typeName": "mower",
+      "fills": [],
+      "wear": 0.12,
+      "workWidth": 3.4,
+      "speedLimit": 22,
+      "depth": 1
+     },
+     {
+      "id": 996,
+      "name": "Samasz XT 390",
+      "brand": "Samasz",
+      "category": "mowers",
+      "categoryTitle": "Mowers",
+      "typeName": "mower",
+      "fills": [],
+      "wear": 0.12,
+      "workWidth": 3.9,
+      "speedLimit": 22,
+      "depth": 1
+     }
+    ]
+   }
+  ]
+ },
+ "expect": {
+  "cards": [
+   "XT 390: Raise:on, Unfold:off, Turn on:unavailable, Detach:unavailable",
+   "KDF 341 S: Raise:on, Unfold:unavailable, Turn on:unavailable, Detach:off"
+  ],
+  "selected": "XT 390",
+  "also": [],
+  "all": [
+   "Unfold all:off",
+   "Raise all:on",
+   "Turn on all:unavailable"
+  ]
+ }
+}

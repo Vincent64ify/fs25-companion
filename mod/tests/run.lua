@@ -862,6 +862,8 @@ test("commands C2: each action runs its input event, as the key does", function(
     end
     local vehicle = c2Tractor()
     local run = c2Commands()
+    -- Attach: something in reach (specs/0003)
+    vehicle.spec_attacherJoints = { attachableInfo = { attachable = {} } }
     local expected = {
         TOGGLE_HIGH_BEAM_LIGHT = "TOGGLE_HIGH_BEAM_LIGHT",
         TOGGLE_BEACON_LIGHTS = "TOGGLE_BEACON_LIGHTS",
@@ -945,11 +947,13 @@ test("commands C2: setters when no key event is active, single cruise steps", fu
     local ack = run("TOGGLE_AI")
     eq(ack.ok, false, "AI: only through its key")
     eq(ack.reason, "not available now")
-    setter("HITCH")
-    eq(#vehicle.attached, 0, "detached")
+    -- Attach only attaches, and only while the game has something in reach
+    -- (specs/0003): no key, no detach fallback
     ack = run("HITCH")
-    eq(ack.ok, false, "nothing to attach in range")
-    eq(ack.reason, "nothing in range")
+    eq(ack.ok, false, "nothing to attach in reach")
+    eq(ack.reason, "nothing in reach")
+    eq(#vehicle.attached, 1, "Attach never detaches")
+    vehicle.attached = {}
     ack = run("FOLD_IMPLEMENT")
     eq(ack.reason, "can't fold", "no implement, and the vehicle doesn't fold")
     vehicle.spec_foldable = {}
@@ -1177,7 +1181,7 @@ test("commands C3: select a tool by id, next and previous, detach a chosen one",
     bucket.isDetachAllowed = function() return false, "lower it first" end
     ack = run("DETACH_IMPLEMENT", 6)
     eq(ack.ok, false)
-    eq(ack.reason, "can't detach now")
+    eq(ack.reason, "lower it first", "the game's reason (specs/0003)")
     bucket.isDetachAllowed = function() return true end
     eq(run("DETACH_IMPLEMENT", 6).ok, true, "detached")
     eq(#loader.attached, 0)
@@ -1888,6 +1892,296 @@ local function stubGame()
     addModEventListener = function(l) listener = l end
     return player, vehicle, function() return listener end
 end
+
+-- Vehicle page's cards (specs/0003): capabilities, aimed and All commands -----
+
+load("tests/spike_rigs.lua")
+local SPIKE = MOD_ROOT .. "tests/fixtures/spike0003/"
+local function spikeDump(name)
+    return SpikeRigs.decode(SpikeRigs.readFile(SPIKE .. name .. ".json"))
+end
+local function joined(list)
+    local out = {}
+    for _, x in ipairs(list or {}) do
+        out[#out + 1] = type(x) == "table" and x.text or x
+    end
+    return table.concat(out, ",")
+end
+local function shortSpec(name)
+    return name:match("([^%.]+)$") or name
+end
+-- the sides the dumps don't record: the front mower and the front weight
+local SIDES = { [994] = "front", [1044] = "front" }
+
+test("capabilities: every census type, from its parts and what they hold; an unknown part adds nothing", function()
+    g_inputBinding = nil
+    local VS = Companion.VehicleState
+    local census = spikeDump("census")
+    local names = {}
+    for name in pairs(census.types) do
+        names[#names + 1] = name
+    end
+    table.sort(names)
+    eq(#names, census.count, "every type")
+    local full, empty, present = {}, {}, {}
+    local function add(counts, can)
+        for _, c in ipairs(can) do
+            counts[c] = (counts[c] or 0) + 1
+        end
+    end
+    for _, name in ipairs(names) do
+        local specs = census.types[name]
+        local depth, seen = 0, {}
+        for _, s in ipairs(specs) do
+            if not seen[shortSpec(s)] then
+                seen[shortSpec(s)] = true
+                present[shortSpec(s)] = (present[shortSpec(s)] or 0) + 1
+            end
+            if shortSpec(s) == "attachable" then
+                depth = 1
+            end
+        end
+        local function caps(list, isFull)
+            local o = SpikeRigs.censusObject(list, isFull)
+            return VS.capabilities(o, VS.extras(o, {}), depth)
+        end
+        local f = caps(specs, true)
+        add(full, f.can)
+        add(empty, caps(specs, false).can)
+        local more = { "FS25_madeUp.laserLeveller", "hoseReel" }
+        for _, s in ipairs(specs) do
+            more[#more + 1] = s
+        end
+        eq(joined(caps(more, true).can), joined(f.can), name .. ": an unknown part adds nothing")
+        -- each capability comes with its state
+        for _, c in ipairs(f.can) do
+            local state = ({ lower = f.lowered, turnOn = f.turnedOn, tipSide = f.tipSide, cover = f.cover,
+                pipe = f.pipe, rotate = f.plow, bales = f.bales, fold = f.foldMoving, tip = true, detach = true })[c]
+            assert(state ~= nil, name .. ": " .. c .. " without its state")
+        end
+    end
+    -- with each part holding something: one capability per part, as the
+    -- spike counted them; a sprayer's Dischargeable isn't tipping
+    for cap, spec in pairs({ fold = "foldable", turnOn = "turnOnVehicle", cover = "cover", pipe = "pipe",
+        rotate = "plow", detach = "attachable", lower = "attachable", tip = "trailer", tipSide = "trailer",
+        bales = "baleCounter" }) do
+        eq(full[cap], present[spec], cap .. " with full parts")
+    end
+    eq(full.fold, census.perCapability.fold, "fold, as the spike's census")
+    eq(full.tip, 24, "tip: trailers only, not every Dischargeable (75)")
+    -- with every part empty: only Detach, and the bale counter (it holds no part)
+    for cap in pairs(full) do
+        eq(empty[cap], (cap == "detach" or cap == "bales") and full[cap] or nil, cap .. " with empty parts")
+    end
+end)
+
+test("capabilities: spike 0.0.4's rigs give each member its buttons, can't-now reasons and the selected one's keys", function()
+    local VS = Companion.VehicleState
+    local expect = {
+        mowers = { [992] = "", [994] = "lower,fold,turnOn,detach", [996] = "lower,fold,turnOn,detach" },
+        trailers = { [998] = "", [1003] = "tip,tipSide,detach", [1004] = "tip,tipSide,detach" },
+        sprayer = { [1033] = "", [1031] = "fold,turnOn,detach" },
+        plow = { [1035] = "", [1037] = "lower,fold,rotate,detach" },
+        baler = { [1035] = "", [1041] = "turnOn,bales,detach" },
+        weight = { [1035] = "", [1044] = "lower,detach" },
+        truck = { [1053] = "fold", [1051] = "lower,tip,tipSide,detach" },
+        attach = { [514] = "" },
+    }
+    local rigs = {}
+    for name, members in pairs(expect) do
+        local root = SpikeRigs.rig(spikeDump(name), SIDES)
+        local byId = {}
+        for _, e in ipairs(VS.rig(root)) do
+            byId[e.id] = e
+        end
+        rigs[name] = byId
+        for id, can in pairs(members) do
+            eq(joined(byId[id].can), can, name .. " " .. id)
+        end
+    end
+    local mowers = rigs.mowers
+    eq(mowers[994].canNow.fold, false, "the front mower can't fold while lowered")
+    eq(mowers[994].whyNot.fold, "Folding is not allowed while the tool is lowered.")
+    eq(mowers[996].canNow.detach, false)
+    eq(mowers[996].whyNot.detach, "You first need to fold up the tool (mower)!")
+    eq(mowers[996].canNow.fold, nil, "the rear one may fold")
+    eq(mowers[994].side, "front")
+    eq(mowers[996].canLower, true, "a joint that lowers it")
+    eq(rigs.truck[1051].canNow.detach, false, "the container: no reason given")
+    eq(rigs.truck[1051].whyNot, nil)
+    local t = rigs.trailers[1004].tipSide
+    eq(t.index .. "/" .. t.count .. " " .. tostring(t.name), "3/4 Left", "the selected trailer's side, from its key's label")
+    t = rigs.trailers[1003].tipSide
+    eq(t.index .. "/" .. t.count .. " " .. tostring(t.name), "2/4 nil", "not selected: no label")
+    eq(rigs.truck[1051].tipSide.name, "Back")
+    eq(rigs.plow[1037].plow.rotated, false)
+    eq(rigs.baler[1041].bales.count, 0)
+    eq(rigs.trailers[1004].discharging, false)
+    eq(rigs.mowers[996].lowered, true)
+    -- the selected one's other keys, each once, by input action
+    eq(joined(rigs.plow[1037].extraKeys), "Allow create fields")
+    eq(joined(rigs.baler[1041].extraKeys), "Turn on automatic drop,Lower pickup", "the pickup lowers by its own key")
+    eq(joined(rigs.sprayer[1031].extraKeys), "Dump,Dump on ground,Unload", "a sprayer's dump isn't tipping")
+    eq(rigs.mowers[996].extraKeys, nil, "all covered")
+    eq(rigs.mowers[994].extraKeys, nil, "not selected")
+    eq(rigs.attach[514].extraKeys, nil, "the tractor's own: Detach and Attach aren't")
+    g_inputBinding = nil
+    localToLocal = nil
+end)
+
+test("cab: attachable follows the game's attach prompt", function()
+    load("src/collectors/Cab.lua")
+    local Cab = Companion.Collectors.Cab
+    Cab.reset()
+    SpikeRigs.rig(spikeDump("attach"))
+    eq(Cab.collect({}).attachable, true, "something in reach")
+    Cab.reset()
+    SpikeRigs.rig(spikeDump("mowers"), SIDES)
+    eq(Cab.collect({}).attachable, nil, "nothing in reach: absent")
+    -- no attachableInfo: the attach key's label
+    local root = SpikeRigs.rig(spikeDump("attach"))
+    root.spec_attacherJoints.attachableInfo = nil
+    eq(Companion.VehicleState.attachable(root), true, "the ATTACH key says Attach")
+    root = SpikeRigs.rig(spikeDump("mowers"), SIDES)
+    root.spec_attacherJoints.attachableInfo = nil
+    eq(Companion.VehicleState.attachable(root), false, "its label is empty")
+    g_inputBinding = nil
+    localToLocal = nil
+end)
+
+-- a command queue on a spike rig: each poll is a game frame
+local function spikeCommands(name)
+    local root, byId = SpikeRigs.rig(spikeDump(name), SIDES)
+    local dir = TMP_DIR .. "/c0003" .. name .. "_"
+    local write = commandStubs(dir)
+    local commands = Companion.Commands.new(dir, "S7", function() end)
+    local n = 0
+    local function frame()
+        SpikeRigs.frame(root)
+        return commands:poll()
+    end
+    -- the ack and how many frames it took
+    local function run(action, value)
+        n = n + 1
+        write(n, "S7", action, nil, value)
+        for i = 1, 60 do
+            local ack = frame()
+            if ack ~= nil then
+                return ack, i
+            end
+        end
+        error(action .. ": no ack")
+    end
+    local function pressed()
+        local out = {}
+        for _, p in ipairs(g_inputBinding.pressed) do
+            out[#out + 1] = p.id .. ":" .. p.action
+        end
+        g_inputBinding.pressed = {}
+        return table.concat(out, ",")
+    end
+    return run, root, byId, pressed
+end
+
+test("commands, aimed: a tool's id selects it, presses its key, puts the selection back; the game's reason", function()
+    if TMP_DIR == nil then
+        return
+    end
+    local run, root, byId, pressed = spikeCommands("mowers")
+    eq(root:getSelectedVehicle().id, 996, "the rear mower is selected")
+    local ack, frames = run("TURN_ON_IMPLEMENT", 994)
+    eq(ack.ok, true, "turn on the front mower")
+    eq(ack.via, "IMPLEMENT_EXTRA")
+    eq(pressed(), "994:IMPLEMENT_EXTRA", "its key, on it alone")
+    eq(frames, 2, "selected, then its key a frame later")
+    eq(root:getSelectedVehicle().id, 996, "the selection put back")
+    -- the selected one's key is live: pressed at once
+    ack, frames = run("FOLD_IMPLEMENT", 996)
+    eq(ack.ok, true)
+    eq(frames, 1, "no selecting")
+    eq(pressed(), "996:IMPLEMENT_EXTRA2")
+    -- the game refuses: its words, nothing pressed, nothing selected
+    ack = run("FOLD_IMPLEMENT", 994)
+    eq(ack.ok, false)
+    eq(ack.reason, "Folding is not allowed while the tool is lowered.")
+    eq(pressed(), "")
+    ack = run("DETACH_IMPLEMENT", 996)
+    eq(ack.reason, "You first need to fold up the tool (mower)!")
+    -- what it can't do at all, and an id not in the rig
+    eq(run("ROTATE_PLOW", 994).reason, "can't rotate")
+    eq(run("LOWER_IMPLEMENT", 4242).reason, "not attached")
+    -- the key never comes: the setter, and the selection still put back
+    Companion.Commands.KEY_WAIT_FRAMES = 3
+    root.keysDue = false
+    local frame = SpikeRigs.frame
+    SpikeRigs.frame = function() end
+    ack, frames = run("TURN_ON_IMPLEMENT", 994)
+    SpikeRigs.frame = frame
+    Companion.Commands.KEY_WAIT_FRAMES = 30
+    eq(ack.ok, true, "setter")
+    eq(ack.via, "setter")
+    eq(frames, 4, "selected, waited three frames")
+    eq(byId[994].on, true, "turned on by its setter")
+    eq(pressed(), "")
+    eq(root:getSelectedVehicle().id, 996, "put back")
+    -- without an id: as before, the key the game has live
+    ack = run("FOLD_IMPLEMENT")
+    eq(ack.via, "IMPLEMENT_EXTRA2")
+    eq(pressed(), "996:IMPLEMENT_EXTRA2")
+    -- the selected tool's other keys, by number
+    run, root, byId, pressed = spikeCommands("plow")
+    ack = run("PRESS_TOOL_KEY", 1)
+    eq(ack.via, "IMPLEMENT_EXTRA3", "Allow create fields")
+    eq(pressed(), "1037:IMPLEMENT_EXTRA3")
+    eq(run("PRESS_TOOL_KEY", 2).reason, "no such key")
+    ack = run("ROTATE_PLOW")
+    eq(ack.via, "IMPLEMENT_EXTRA", "rotate: the selected plow")
+    eq(pressed(), "1037:IMPLEMENT_EXTRA")
+    run, root, byId, pressed = spikeCommands("trailers")
+    ack = run("TOGGLE_TIPSIDE", 1003)
+    eq(ack.via, "TOGGLE_TIPSIDE")
+    eq(pressed(), "1003:TOGGLE_TIPSIDE")
+    eq(root:getSelectedVehicle().id, 1004)
+    g_inputBinding = nil
+    localToLocal = nil
+end)
+
+test("commands, all: the game's own keys, else setters; tip all in driving order, skipping what's there", function()
+    if TMP_DIR == nil then
+        return
+    end
+    local run, root, byId, pressed = spikeCommands("mowers")
+    local ack = run("FOLD_ALL_IMPLEMENTS")
+    eq(ack.via, "FOLD_ALL_IMPLEMENTS", "the game's key")
+    eq(pressed(), "996:FOLD_ALL_IMPLEMENTS")
+    -- no event: every mower's setter, unfolding while one is folded
+    SpikeRigs.unregister(byId[996])
+    ack = run("FOLD_ALL_IMPLEMENTS")
+    eq(ack.via, "setter")
+    eq(tostring(byId[994]:getIsUnfolded()) .. tostring(byId[996]:getIsUnfolded()), "truetrue", "both unfolded")
+    run("FOLD_ALL_IMPLEMENTS")
+    eq(tostring(byId[994]:getIsUnfolded()) .. tostring(byId[996]:getIsUnfolded()), "falsefalse", "both folded")
+    byId[996].on = true
+    eq(run("TURN_ON_ALL_IMPLEMENTS").via, "setter")
+    eq(tostring(byId[994].on) .. tostring(byId[996].on), "truetrue", "the one that was off turned on")
+    run("TURN_ON_ALL_IMPLEMENTS")
+    eq(tostring(byId[994].on) .. tostring(byId[996].on), "falsefalse", "all on: all off")
+    eq(run("COVER_ALL", 1).ok, true, "nothing has a cover: nothing to do")
+    eq(pressed(), "")
+
+    run, root, byId, pressed = spikeCommands("trailers")
+    ack = run("TIP_ALL", 1)
+    eq(ack.ok, true)
+    eq(pressed(), "1004:TOGGLE_TIPSTATE,1003:TOGGLE_TIPSTATE", "the last trailer first, as they're driven")
+    eq(root:getSelectedVehicle().id, 1004, "the selection put back")
+    byId[1004].spec_dischargeable.currentDischargeState = 1
+    run("TIP_ALL", 1)
+    eq(pressed(), "1003:TOGGLE_TIPSTATE", "the one already tipping is skipped")
+    run("TIP_ALL", 0)
+    eq(pressed(), "1004:TOGGLE_TIPSTATE", "stop: only the one tipping")
+    g_inputBinding = nil
+    localToLocal = nil
+end)
 
 test("whole mod streams every topic", function()
     if TMP_DIR == nil then

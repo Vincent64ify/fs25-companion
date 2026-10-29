@@ -1072,6 +1072,11 @@ PLAN.md, Open checks). A wrong guess leaves the value out, nothing breaks.
 
 ### Implement screen (design, 2026-10-24)
 
+> Replaced (mod 0.8.7, 2026-10-29): the Implement tab merged into the
+> Vehicle page, a card per tool with a button for each thing its parts
+> allow: [specs/0003](../specs/0003-implement-screen.md). What follows is
+> the history of the tab as it was.
+
 Approved by Vincent on 2026-10-24 in the Claude Design canvas
 "FS25 Companion: Implement screen" (board C · Hybrid, private, on
 claude.ai), then brought in line with the C3 decisions the same evening

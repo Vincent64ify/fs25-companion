@@ -198,6 +198,12 @@ const PATHS = {
   workWidth: '<path d="M3 6.5v11M21 6.5v11M3 12h18M6.5 8.5L3 12l3.5 3.5M17.5 8.5L21 12l-3.5 3.5"/>',
   // a hatched square: the area worked (ISO 7000)
   area: '<rect x="3.5" y="3.5" width="17" height="17" rx="2"/><path d="M5 10.5L10.5 5M5 19L19 5M13.5 19l5.5-5.5"/>',
+  // a tipper's body over the ground, the way it tips stepping on: the tip side
+  tipSide: '<path d="M5 15.5h14l-2-6H7z"/><path d="M3 19.5h18M9 3.5l-3 3 3 3M15 3.5l3 3-3 3"/>',
+  // turning over: a plow's rotate
+  rotate: '<path d="M19 12a7 7 0 1 1-2.05-4.95"/><path d="M19.5 3.5v4h-4"/>',
+  // back to zero: a counter's reset
+  reset: '<path d="M4.5 12a7.5 7.5 0 1 0 2.2-5.3"/><path d="M4.5 3.5v3.7h3.7"/><path d="M12 8.5V12l2.5 2"/>',
 };
 
 /** The icons by group, in the order the contact sheet shows them. */
@@ -214,6 +220,7 @@ export const ICON_GROUPS = {
              "cruiseDown", "cruiseUp", "pto", "hitchUp", "hitchDown", "fold", "hitch", "implementOn",
              "aiWorker", "engineOn", "toolPrev", "toolNext"],
   "Implement screen": ["lowerAll", "pipe", "unload", "cover", "straw", "lock", "workWidth", "area"],
+  "Vehicle page": ["tipSide", "rotate", "reset"],
 };
 
 /** @param {string} name */

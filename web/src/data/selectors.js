@@ -368,6 +368,126 @@ export function isLoaderGear(entry, impl) {
 export const lowersInRig = (e, v) => e.depth > 0 && e.canLower !== false && typeof e.lowered === "boolean" &&
   !isLoaderGear(e, implementById(v, e.id));
 
+// --- the Vehicle page's cards (specs/0003) ---------------------------------
+
+/**
+ * The rig the Vehicle page shows: the cab's, or (a mod before 0.7.0) the
+ * vehicle and its implements, none of them selectable.
+ * @param {Vehicle|undefined} v
+ * @param {import("../types.js").Cab|undefined} cab
+ * @returns {import("../types.js").RigEntry[]}
+ */
+export function screenRig(v, cab) {
+  const rig = rigOf(cab);
+  if (rig.length || !v) return rig;
+  return [{ id: /** @type {any} */ (v.id), name: v.name, depth: 0 },
+    ...implementsOf(v).map((i) => ({ ...i, depth: i.depth || 1 }))];
+}
+
+/** A card's buttons come from these, in this order (mod 0.8.7's `can`). */
+export const CAPABILITIES = ["lower", "fold", "turnOn", "tip", "tipSide", "cover", "pipe", "rotate", "bales", "detach"];
+
+/**
+ * What a rig member can do: the mod's `can`, read from the game's parts
+ * (mod 0.8.7); from an older mod, what its fields show.
+ * @param {import("../types.js").RigEntry} e
+ * @returns {string[]}
+ */
+export function canOf(e) {
+  if (Array.isArray(e.can)) return e.can.filter((c) => typeof c === "string");
+  const out = [];
+  if (e.depth > 0 && e.canLower !== false && typeof e.lowered === "boolean") out.push("lower");
+  if (e.foldable) out.push("fold");
+  if (e.canTurnOn) out.push("turnOn");
+  if (e.trailer && typeof e.discharging === "boolean") out.push("tip");
+  if (e.cover) out.push("cover");
+  if (e.pipe) out.push("pipe");
+  if (e.depth > 0) out.push("detach");
+  return out;
+}
+
+/** The ids of what's mounted on the loader's forks or hook (mod 0.8.5). @param {Vehicle|undefined} v */
+const carriedIds = (v) => new Set((Array.isArray(/** @type {any} */ (v)?.carried) ? /** @type {any} */ (v).carried : [])
+  .map((/** @type {any} */ c) => c?.id));
+
+/**
+ * A working thing gets a card: a rig member, the vehicle too, that can do
+ * more than lower and detach, or has tanks on the HUD. Loader gear and a
+ * carried bag or pallet never do: they're the Loader page's.
+ * @param {import("../types.js").RigEntry} e
+ * @param {Vehicle|undefined} v
+ */
+export function isWorkingThing(e, v) {
+  const impl = e.depth === 0 ? undefined : implementById(v, e.id);
+  if (e.depth > 0 && (isLoaderGear(e, impl) || carriedIds(v).has(e.id))) return false;
+  if (canOf(e).some((c) => c !== "lower" && c !== "detach")) return true;
+  return fillsOf(/** @type {any} */ (e.depth === 0 ? v : impl)).length > 0;
+}
+
+/**
+ * The cards, in driving order (rear tools on the left, the vehicle in its
+ * place, front tools on the right).
+ * @param {Vehicle|undefined} v
+ * @param {import("../types.js").Cab|undefined} cab
+ */
+export const cardsOf = (v, cab) => drivingOrder(screenRig(v, cab)).filter((e) => isWorkingThing(e, v));
+
+/**
+ * Also attached: each tool with no card, in driving order; a carried bag
+ * or pallet is a load, never a tool.
+ * @param {Vehicle|undefined} v
+ * @param {import("../types.js").Cab|undefined} cab
+ */
+export const alsoAttached = (v, cab) => drivingOrder(screenRig(v, cab))
+  .filter((e) => e.depth > 0 && !isWorkingThing(e, v) && !carriedIds(v).has(e.id));
+
+/**
+ * One button of the All row: its command, lit while every one of them is
+ * on, labelled with what a tap does.
+ * @typedef {{cap: string, action: string, value?: number, label: string, on: boolean, unavailable?: boolean,
+ *   note?: string, moving?: boolean}} AllAction
+ */
+
+/**
+ * The All row: a button for each capability two or more cards share. Fold,
+ * lower and turn on all are the game's own keys; tip and cover all act on
+ * each in turn. Turn on all waits while one of them is folded.
+ * @param {import("../types.js").RigEntry[]} cards
+ * @returns {AllAction[]}
+ */
+export function allActions(cards) {
+  /** @type {AllAction[]} */
+  const out = [];
+  /** @param {string} cap @param {(list: import("../types.js").RigEntry[]) => Omit<AllAction, "cap">} make */
+  const add = (cap, make) => {
+    const list = cards.filter((e) => canOf(e).includes(cap));
+    if (list.length >= 2) out.push({ cap, ...make(list) });
+  };
+  add("fold", (list) => {
+    const on = list.every((e) => e.unfolded === true);
+    return { action: "implement.foldAll", on, label: on ? "Fold all" : "Unfold all", moving: list.some((e) => e.foldMoving) };
+  });
+  add("lower", (list) => {
+    const on = list.every((e) => e.lowered === true);
+    return { action: "implement.lowerAll", on, label: on ? "Raise all" : "Lower all" };
+  });
+  add("turnOn", (list) => {
+    const on = list.every((e) => e.turnedOn === true);
+    const folded = !on && list.some((e) => canOf(e).includes("fold") && e.unfolded === false);
+    return { action: "implement.turnOnAll", on, label: on ? "Turn off all" : "Turn on all", unavailable: folded,
+      note: folded ? "Unfold first" : undefined };
+  });
+  add("tip", (list) => {
+    const on = list.every((e) => e.discharging === true);
+    return { action: "implement.tipAll", value: on ? 0 : 1, on, label: on ? "Stop all" : "Tip all" };
+  });
+  add("cover", (list) => {
+    const on = list.every((e) => e.cover?.open === true);
+    return { action: "implement.coverAll", value: on ? 0 : 1, on, label: on ? "Cover all" : "Uncover all" };
+  });
+  return out;
+}
+
 // what a working tool does, by its shop category; first match wins
 const JOBS = /** @type {[RegExp, string][]} */ ([
   [/FORAGEHARVESTER/, "Chopping"], [/PLOW/, "Ploughing"], [/CULTIVATOR/, "Cultivating"],

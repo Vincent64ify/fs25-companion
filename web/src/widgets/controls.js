@@ -340,11 +340,12 @@ export const CONTROLS = {
     const i = toolFor("turnOn")(v, cab);
     return i && (!cab || i.canTurnOn) ? i.turnedOn === true : undefined;
   }, value: toolNote("turnOn") },
-  // the attach key (Q): attaches what's in range or detaches the selected
-  // implement, as the game decides; pending until what's attached changes
-  hitch: { label: "Hitch", icon: "hitch", action: "hitch.toggle",
-    read: (v, cab) => either(v, cab, (src) => (cab ? src.hitched === true : impls(src).length > 0)),
-    settle: { ms: 1500, key: attachedSet, hint: "None in range", quiet: ["nothing in range"] } },
+  // Attach (specs/0003): the attach key (Q), faded until the game has
+  // something in reach (its own Attach prompt is up), then it attaches
+  // that; pending until what's attached changes. Detaching is each card's.
+  attach: { label: "Attach", icon: "hitch", action: "hitch.toggle",
+    read: (v, cab) => (cab?.inVehicle && cab.attachable === true ? false : undefined),
+    settle: { ms: 1500, key: attachedSet, hint: "None in reach", quiet: ["nothing in reach"] } },
   // a status, not a button: unavailable without an implement that has a PTO
   pto: { label: "PTO", icon: "pto", read: ptoOf },
   // the Implement screen's keys, each as the game's key: Ctrl+V lowers or

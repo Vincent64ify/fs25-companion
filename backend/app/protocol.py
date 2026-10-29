@@ -429,6 +429,9 @@ COMMAND_ACTIONS = frozenset({
     "implement.select", "implement.next", "implement.previous", "implement.detach",
     "implement.lowerAll", "implement.pipe", "implement.unload", "implement.cover",
     "implement.straw",
+    # the Vehicle page's cards (specs/0003)
+    "implement.tipSide", "implement.rotate", "implement.baleReset", "implement.key",
+    "implement.foldAll", "implement.turnOnAll", "implement.tipAll", "implement.coverAll",
 })
 
 # Actions that carry a number ({"value": ...}) and its allowed range. Any
@@ -439,15 +442,33 @@ COMMAND_VALUES = {
     # a tool's id, the cab's rig (C3)
     "implement.select": (0, 2**31),
     "implement.detach": (0, 2**31),
+    # specs/0003: the tool a card's button acts on; without one, the tool
+    # the game's key acts on (COMMAND_VALUE_OPTIONAL)
+    **{a: (0, 2**31) for a in ("implement.lower", "implement.fold", "implement.turnOn", "implement.unload",
+                               "implement.cover", "implement.pipe", "implement.tipSide", "implement.rotate",
+                               "implement.baleReset")},
+    # the selected tool's other key, by its number in the cab's extraKeys
+    "implement.key": (1, 64),
+    # 1: tip, open; 0: stop, close
+    "implement.tipAll": (0, 1),
+    "implement.coverAll": (0, 1),
 }
+
+# Actions whose number may also be left out.
+COMMAND_VALUE_OPTIONAL = frozenset({
+    "implement.lower", "implement.fold", "implement.turnOn", "implement.unload", "implement.cover",
+    "implement.pipe", "implement.tipSide", "implement.rotate", "implement.baleReset",
+})
 
 
 def command_value_ok(action: str, value: Any) -> bool:
     """Whether value fits the action: a number in range for an action in
-    COMMAND_VALUES, else absent."""
+    COMMAND_VALUES (or none, where it's optional), else absent."""
     limits = COMMAND_VALUES.get(action)
     if limits is None:
         return value is None
+    if value is None and action in COMMAND_VALUE_OPTIONAL:
+        return True
     if isinstance(value, bool) or not isinstance(value, (int, float)):
         return False
     return limits[0] <= value <= limits[1]
@@ -472,6 +493,6 @@ def parse_envelope(raw: Any) -> Dict[str, Any]:
 
 __all__ = [
     "PROTOCOL_VERSION", "ProtocolVersionError", "ValidationError",
-    "Envelope", "TOPIC_MODELS", "EVENT_TOPICS", "COMMAND_ACTIONS", "COMMAND_VALUES",
+    "Envelope", "TOPIC_MODELS", "EVENT_TOPICS", "COMMAND_ACTIONS", "COMMAND_VALUES", "COMMAND_VALUE_OPTIONAL",
     "command_value_ok", "parse_envelope",
 ]

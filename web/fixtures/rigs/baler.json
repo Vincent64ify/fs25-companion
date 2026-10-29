@@ -1,0 +1,145 @@
+{
+ "rig": "baler",
+ "source": "mod/tests/fixtures/spike0003/baler.json, through the mod's Cab collector",
+ "cab": {
+  "aiActive": false,
+  "engineOn": false,
+  "engineState": "off",
+  "hitched": true,
+  "implement": {
+   "canLower": false,
+   "canTurnOn": true,
+   "foldable": false,
+   "lowered": false,
+   "name": "GÖWEIL G-1 F125 Kombi",
+   "turnedOn": false
+  },
+  "implements": [
+   {
+    "lowered": false,
+    "turnedOn": false
+   }
+  ],
+  "inVehicle": true,
+  "keys": {
+   "lower": 1041,
+   "lowerAll": 1035,
+   "turnOn": 1041
+  },
+  "lights": {
+   "beacon": false,
+   "hazard": false,
+   "high": false,
+   "left": false,
+   "on": false,
+   "right": false
+  },
+  "rig": [
+   {
+    "can": [],
+    "depth": 0,
+    "id": 1035,
+    "name": "Versatile Nemesis 175 PS",
+    "selectable": true,
+    "selected": false
+   },
+   {
+    "bales": {
+     "count": 0
+    },
+    "can": [
+     "turnOn",
+     "bales",
+     "detach"
+    ],
+    "canLower": false,
+    "canTurnOn": true,
+    "depth": 1,
+    "extraKeys": [
+     {
+      "action": "IMPLEMENT_EXTRA4",
+      "text": "Turn on automatic drop"
+     },
+     {
+      "action": "LOWER_IMPLEMENT",
+      "text": "Lower pickup"
+     }
+    ],
+    "foldable": false,
+    "id": 1041,
+    "lowered": false,
+    "name": "GÖWEIL G-1 F125 Kombi",
+    "parent": 1035,
+    "selectable": true,
+    "selected": true,
+    "side": "rear",
+    "turnedOn": false
+   }
+  ],
+  "vehicleId": 1035
+ },
+ "vehicles": {
+  "controlledId": 1035,
+  "vehicles": [
+   {
+    "id": 1035,
+    "name": "Versatile Nemesis 175 PS",
+    "brand": "Versatile",
+    "category": "tractorsM",
+    "categoryTitle": "Tractors M",
+    "typeName": "tractor",
+    "fills": [],
+    "wear": 0.23,
+    "speed": 8.4,
+    "engineOn": true,
+    "fuel": 280,
+    "fuelCapacity": 400,
+    "motorized": true,
+    "implements": [
+     {
+      "id": 1041,
+      "name": "GÖWEIL G-1 F125 Kombi",
+      "brand": "Göweil",
+      "category": "balers",
+      "categoryTitle": "Balers",
+      "typeName": "balerWrapper",
+      "fills": [
+       {
+        "unit": 1,
+        "level": 2731.8,
+        "capacity": 5000,
+        "fillType": "straw",
+        "fillTitle": "Straw"
+       },
+       {
+        "unit": 2,
+        "level": 4,
+        "capacity": 5,
+        "fillType": "bale_net",
+        "fillTitle": "Bale Net"
+       },
+       {
+        "unit": 3,
+        "level": 12,
+        "capacity": 14,
+        "fillType": "bale_wrap",
+        "fillTitle": "Bale Wrap"
+       }
+      ],
+      "wear": 0.12,
+      "speedLimit": 17,
+      "depth": 1
+     }
+    ]
+   }
+  ]
+ },
+ "expect": {
+  "cards": [
+   "G-1 F125 Kombi: Turn on:off, Reset count:off, Detach:off, Turn on automatic drop:off, Lower pickup:off"
+  ],
+  "selected": "G-1 F125 Kombi",
+  "also": [],
+  "all": []
+ }
+}

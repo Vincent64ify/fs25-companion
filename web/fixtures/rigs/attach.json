@@ -1,0 +1,63 @@
+{
+ "rig": "attach",
+ "source": "mod/tests/fixtures/spike0003/attach.json, through the mod's Cab collector",
+ "cab": {
+  "aiActive": false,
+  "attachable": true,
+  "engineOn": false,
+  "engineState": "off",
+  "hitched": false,
+  "implements": [],
+  "inVehicle": true,
+  "keys": {
+   "lowerAll": 514
+  },
+  "lights": {
+   "beacon": false,
+   "hazard": false,
+   "high": false,
+   "left": false,
+   "on": false,
+   "right": false
+  },
+  "rig": [
+   {
+    "can": [],
+    "depth": 0,
+    "id": 514,
+    "name": "Versatile Nemesis 255 CVT",
+    "selectable": true,
+    "selected": true
+   }
+  ],
+  "vehicleId": 514
+ },
+ "vehicles": {
+  "controlledId": 514,
+  "vehicles": [
+   {
+    "id": 514,
+    "name": "Versatile Nemesis 255 CVT",
+    "brand": "Versatile",
+    "category": "tractorsL",
+    "categoryTitle": "Tractors L",
+    "typeName": "tractor",
+    "fills": [],
+    "wear": 0.23,
+    "speed": 8.4,
+    "engineOn": true,
+    "fuel": 280,
+    "fuelCapacity": 400,
+    "motorized": true,
+    "implements": []
+   }
+  ]
+ },
+ "expect": {
+  "cards": [],
+  "selected": null,
+  "also": [],
+  "all": [],
+  "attach": "available"
+ }
+}

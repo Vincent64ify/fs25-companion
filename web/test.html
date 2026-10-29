@@ -457,20 +457,20 @@ const sentC2 = [];
 const c2send = (action) => { sentC2.push(action); return Promise.resolve({ ok: true }); };
 const drive = controlGroup({ label: "Drive", controls: ["cruiseDown", "cruise", "cruiseUp", "engineOn", "aiWorker"] }, c2, c2send);
 const impl = controlGroup({ label: "Implement", implementName: true,
-  controls: ["implementLowered", "fold", "implementOn", "hitch"] }, c2, c2send);
-const c2cab = (extra) => ({ inVehicle: true, vehicleId: 3, engineOn: true, aiActive: false, hitched: true,
+  controls: ["implementLowered", "fold", "implementOn", "attach"] }, c2, c2send);
+const c2cab = (extra) => ({ inVehicle: true, vehicleId: 3, engineOn: true, aiActive: false, hitched: true, attachable: true,
   cruise: { state: "on", speed: 15 }, lights: { on: false }, implements: [],
   implement: { name: "Rubin 12", lowered: false, canLower: true, turnedOn: false, canTurnOn: false,
     foldable: true, unfolded: false, foldMoving: false }, ...extra });
 c2.set("cab", c2cab({}));
 check("C2: drive and implement state from the cab", [states(drive), states(impl), impl.querySelector("h2").textContent],
-  [["off", "on", "off", "on", "off"], ["off", "off", "unavailable", "on"], "Implement · Rubin 12"]);
+  [["off", "on", "off", "on", "off"], ["off", "off", "unavailable", "off"], "Implement · Rubin 12"]);
 c2.set("cab", c2cab({ implement: { ...c2cab({}).implement, foldMoving: true } }));
 check("C2: a running fold shows pending", states(impl)[1], "pending");
 c2.set("cab", c2cab({ implement: { ...c2cab({}).implement, unfolded: true } }));
 check("C2: then the end state", states(impl)[1], "on");
 c2.set("cab", c2cab({ hitched: false, implement: undefined }));
-check("C2: nothing attached: hitch off, implement controls unavailable, plain label",
+check("C2: nothing attached: Attach (something in reach) off, implement controls unavailable, plain label",
   [states(impl), impl.querySelector("h2").textContent], [["unavailable", "unavailable", "unavailable", "off"], "Implement"]);
 c2.set("cab", c2cab({ cruise: undefined }));
 check("C2: cruise steps need cruise control", states(drive).slice(0, 3), ["unavailable", "unavailable", "unavailable"]);
@@ -487,9 +487,9 @@ check("C2: each button sends its own action", sentC2,
 const fb = createStore();
 let answer;
 const fbSend = () => new Promise((r) => { answer = r; });
-const fbGroup = controlGroup({ label: "F", controls: ["engineOn", "hitch", "cruise"] }, fb, fbSend);
+const fbGroup = controlGroup({ label: "F", controls: ["engineOn", "attach", "cruise"] }, fb, fbSend);
 const [engBtn, hitchBtn, cruiseBtn] = fbGroup.querySelectorAll(".control");
-const fbCab = (extra) => ({ inVehicle: true, engineOn: false, engineState: "off", hitched: true,
+const fbCab = (extra) => ({ inVehicle: true, engineOn: false, engineState: "off", hitched: true, attachable: true,
   cruise: { state: "off", speed: 15, speedReverse: 8, reverse: false },
   implement: { name: "Rubin 12" }, implements: [{ lowered: false, turnedOn: false }], ...extra });
 fb.set("cab", fbCab({}));
@@ -508,18 +508,18 @@ fb.set("cab", fbCab({ engineState: "starting" }));
 check("feedback: starting from a key in game shows pending too", engBtn.dataset.state, "pending");
 fb.set("cab", fbCab({}));
 tap(hitchBtn);
-answer({ ok: false, reason: "nothing in range" });
+answer({ ok: false, reason: "nothing in reach" });
 await Promise.resolve(); await Promise.resolve(); await Promise.resolve();
-check("feedback: hitch with nothing in range: a quiet hint, not a failure",
+check("feedback: Attach with nothing in reach after all: a quiet hint, not a failure",
   [hitchBtn.dataset.state, "hint" in hitchBtn.dataset, "error" in hitchBtn.dataset, hitchBtn.querySelector(".control-label").textContent],
-  ["on", true, false, "None in range"]);
+  ["off", true, false, "None in reach"]);
 tap(hitchBtn);
 answer({ ok: true });
 await new Promise((r) => setTimeout(r, 50));
 const hitchWaiting = hitchBtn.dataset.state;
 fb.set("cab", fbCab({ hitched: false, implement: undefined, implements: [] }));
 await Promise.resolve(); await Promise.resolve();
-check("feedback: hitch pending until what's attached changes", [hitchWaiting, hitchBtn.dataset.state], ["pending", "off"]);
+check("feedback: Attach pending until what's attached changes", [hitchWaiting, hitchBtn.dataset.state], ["pending", "off"]);
 const val = () => cruiseBtn.querySelector(".control-value").textContent;
 const cruiseFwd = val();
 fb.set("cab", fbCab({ cruise: { state: "on", speed: 15, speedReverse: 8, reverse: true } }));
@@ -1137,62 +1137,8 @@ await new Promise((r) => setTimeout(r, 0));
 check("implement controls: Detach sends the selected tool's id, Lower all the key",
   icSent, [["implement.detach", 22], ["implement.lowerAll", undefined]]);
 
-// the band and the card
-const { rigBand, implementCard, implementDetails, tankRows, cardStats } = await import("./src/widgets/implementScreen.js");
-const bs = createStore();
-const bandSent = [];
-const band = rigBand(bs, { send: (a, v) => { bandSent.push([a, v]); return Promise.resolve({ ok: true }); } });
-bs.set("vehicles", { controlledId: 3, vehicles: [{ id: 3, name: "JCB Fastrac", brand: "JCB", speed: 11.5, pto: true,
-  engineOn: true, implements: [{ id: 5, name: "Quicke Q6M", brand: "Quicke" }, { id: 6, name: "Albutt Bucket", brand: "Albutt" },
-    { id: 9, name: "PÖTTINGER TERRIA 6040", brand: "Pöttinger", hitch: 0.4, lowered: true,
-      fills: [{ unit: 1, level: 50, capacity: 100 }] }] }] });
-bs.set("cab", c3Rig(5, {}));
-const tileEls = () => [...band.querySelectorAll(".rig-tile")];
-check("rig band: tiles in driving order, the game's selection marked, a bar per tank",
-  [tileEls().map((t) => `${t.querySelector("b").textContent}:${t.dataset.selected}`),
-    tileEls()[0].querySelectorAll(".rig-bars .widget-meter").length, q(band, ".rig-job"), q(band, ".rig-speed")],
-  [["TERRIA 6040:false", "Fastrac:false", "Loader:true", "Bucket:false"], 1, "Driving", "11.5 km/h"]);
-tileEls()[3].click();
-await Promise.resolve();
-check("rig band: a tap selects that tool in game", [bandSent, tileEls()[3].dataset.pending], [[["implement.select", 6]], "true"]);
-bs.set("cab", c3Rig(6, {}));
-check("rig band: the game's selection moves the mark", tileEls().map((t) => t.dataset.selected),
-  ["false", "false", "false", "true"]);
-
-const cardStore = createStore();
-const cardSent = [];
-const card = implementCard(cardStore, { send: (a, v) => { cardSent.push([a, v]); return Promise.resolve({ ok: true }); } });
-const details = implementDetails(cardStore);
-cardStore.set("vehicles", { controlledId: 20, vehicles: [{ id: 20, name: "Big Combine", speed: 14, speedLimit: 10,
-  fills: [{ unit: 1, level: 9000, capacity: 10000, fillType: "wheat", fillTitle: "Wheat" }],
-  implements: [{ id: 21, name: "Cutter 9", category: "cutters", speedLimit: 10, workWidth: 9, wear: 0.25 },
-    { id: 22, name: "Tipper", category: "trailers", fills: [{ unit: 1, level: 6000, capacity: 20000 }] }] }] });
-cardStore.set("cab", harvest({ selected: 20 }));
-const shownButtons = () => [...card.querySelectorAll(".control")].filter((b) => !b.hidden).map(lbl);
-check("implement card: a combine: its pipe and unloading join the buttons; speed against the limit",
-  [q(card, ".impl-card-name"), shownButtons(), [...card.querySelectorAll(".impl-stat-value")].map((e) => e.textContent),
-    card.querySelectorAll(".impl-stat")[3].dataset.level, q(card, ".tank-name")],
-  ["Big Combine", ["Lower", "Work", "Unload", "Unfold", "Pipe out", "Detach"], ["–", "On", "–", "14 / 10 km/h"], "warn", "Wheat"]);
-cardStore.set("cab", harvest({ selected: 22, tipping: true, keys: { unload: 22, cover: 22 } }));
-check("implement card: a trailer: Load (every trailer), Tipping and Cover; the combine keeps its pipe",
-  [shownButtons(), [...card.querySelectorAll(".impl-stat-label")].map((e) => e.textContent),
-    [...card.querySelectorAll(".impl-stat-value")].slice(0, 3).map((e) => e.textContent), q(card, ".impl-card-sub")],
-  [["Lower", "Tipping", "Unfold", "Uncover", "Pipe out", "Detach"], ["Load", "Tipping", "Cover", "Speed"], ["30%", "On", "Closed"],
-    "Trailer · Rear"]);
-cardStore.set("cab", harvest({ selected: 21 }));
-check("implement details: wear, width, folding for the selected tool",
-  [...details.querySelectorAll("dd")].map((e) => e.textContent), ["25%", "9.0 m", "–", "–"]);
-const swipe = (dx) => {
-  card.dispatchEvent(new PointerEvent("pointerdown", { clientX: 200, clientY: 100, bubbles: true }));
-  card.dispatchEvent(new PointerEvent("pointerup", { clientX: 200 + dx, clientY: 105, bubbles: true }));
-};
-cardSent.length = 0;
-swipe(-120);
-swipe(120);
-swipe(20);
-await new Promise((r) => setTimeout(r, 0));
-check("implement card: a swipe left selects the next tool, right the previous one",
-  cardSent, [["implement.next", undefined], ["implement.previous", undefined]]);
+// the tanks on a card (the Implement screen's, the Vehicle page's cards' since specs/0003)
+const { tankRows } = await import("./src/widgets/vehicleTools.js");
 const tank = (level, minutes, full) => ({ entry: { depth: 1 }, fill: { level, capacity: 1000, fillType: "seeds" },
   left: minutes === undefined ? undefined : { minutes, full } });
 check("implement card: the tank that runs out first; a filling tank nearly full calls a trailer",
@@ -1209,14 +1155,6 @@ check("implement card: the weight limit: MAX, near full of the limit calls a tra
     .map((f) => [sel.fillStop(f), sel.fillLimitPct(f), sel.fillMax(f)])],
   [[[["Call a trailer"], false]], [[["Call a trailer"], true, "at its weight limit"]], [[[], "at its weight limit"]],
     [[760, 76, true], [50, 50, false], [100, undefined, false]]]);
-// the Harvester screen: the combine's keys on the card with the header selected
-cardStore.set("cab", (() => {
-  const c = harvest({ selected: 21, keys: { straw: 20, unload: 20 } });
-  c.rig[0] = { ...c.rig[0], straw: { swath: true } };
-  return c;
-})());
-check("implement card: the header selected keeps the combine's pipe, unloading and straw",
-  shownButtons(), ["Lower", "Work", "Unload", "Unfold", "Pipe out", "Straw swath", "Detach"]);
 // --- Harvester screen (specs/0001-harvester-screen.md, revision 2) --------------
 
 const harv = await import("./src/widgets/harvesterScreen.js");
@@ -1380,21 +1318,8 @@ check("harvester screen: standing, no header, no Precision Farming", [
   q(hCombine, '.harv-stat[data-stat="yield"] small'), q(hHeader, ".harv-card-name"), hHeader.dataset.empty],
   ["Standing", "Big Combine", "Standing", "", "", true, "estimate, no Precision Farming", "No header", "true"]);
 
-check("implement card: stats without a limit or a lift",
-  cardStats({ depth: 1, id: 2, canLower: false, canTurnOn: false }, { id: 1, speed: 8, implements: [{ id: 2 }] }, [],
-    units.METRIC).map((s) => s.value), ["–", "–", "–", "8.0 km/h"]);
-
-// the theme's Implement screen: the band, card and details, and a column
-// without the Engine and the per-tool buttons, with All implements
 const appI = document.createElement("div");
 renderTheme(THEMES[0], appI, createStore(), createMapFrame(createStore()));
-const implScreen = appI.querySelector('.screen[data-screen="implement"]');
-check("theme: the Implement screen's slots and its column",
-  [!!implScreen.querySelector(".rig-band"), !!implScreen.querySelector(".impl-card"), !!implScreen.querySelector(".impl-details"),
-    [...implScreen.querySelectorAll(".control-column .control-group-label")].map((e) => e.textContent),
-    [...implScreen.querySelectorAll(".control-column .control-label")].slice(-2).map((e) => e.textContent),
-    [...appI.querySelectorAll(".tab")].map((t) => t.dataset.screen)],
-  [true, true, true, ["Lights", "Drive", "All implements"], ["Lower all", "Hitch"], ["map", "vehicle", "implement"]]);
 // the theme's Harvester screen: the band and the two cards; Lights and Drive
 // in the column, no Harvester group, no Show on map, no Unload anywhere
 const harvScreen = appI.querySelector('.screen[data-screen="harvester"]');
@@ -1650,7 +1575,7 @@ check("vehicle screen: target card: live, stale, none yet; hidden without a load
   ["none", "Come near something to fill"], true]);
 
 // a front loader and its tools have no lowered or raised (Vincent, 2026-10-26)
-const impS = await import("./src/widgets/implementScreen.js");
+const impS = await import("./src/widgets/vehicleTools.js");
 check("loader gear: by joint, category or type; not a loader wagon or a cultivator", [
   sel.isLoaderGear({ joint: "frontloader" }), sel.isLoaderGear({ joint: "attachableFrontloader" }),
   sel.isLoaderGear({ joint: "loaderFork" }), sel.isLoaderGear({ joint: "bigBag" }), sel.isLoaderGear({}, { category: "wheelLoaderTools" }),
@@ -1661,10 +1586,10 @@ check("loader gear: by joint, category or type; not a loader wagon or a cultivat
 const gearCab = (lowered) => ({ ...loaderCab(), rig: loaderCab().rig.map((e) => (e.depth ? { ...e, lowered, canLower: true } : e)),
   keys: { lower: 7 } });
 const bucketEntry = gearCab(true).rig[2];
-check("loader gear: no Lowered or Raised on the Implement tab's tiles and card, no Lift", [
+check("loader gear: no Lowered or Raised on the strip's tiles, and no card", [
   impS.tileState(bucketEntry, loaderVehicle()), impS.tileState({ ...bucketEntry, lowered: false }, loaderVehicle()),
-  impS.cardStats(bucketEntry, loaderVehicle(), gearCab(true).rig, units.METRIC)[0]],
-  ["", "", { label: "Lift", value: "–" }]);
+  sel.cardsOf(loaderVehicle(), gearCab(true)).map((e) => e.id)],
+  ["", "", []]);
 const gearStore = createStore();
 const gearGroup = controlGroup({ label: "Implement", controls: ["implementLowered", "lowerAll"] }, gearStore);
 gearStore.set("vehicles", { controlledId: 1, vehicles: [loaderVehicle({ bucket: 0 })] });
@@ -1686,27 +1611,29 @@ gearStore.set("vehicles", { controlledId: 1, vehicles: [loaderVehicle({ bucket: 
 check("loader gear: implement rows have no Lowered or Raised chip",
   [...gearRows.querySelectorAll(".impl-chip")].map((c) => c.textContent).filter((t) => /Lowered|Raised|Hitch/.test(t)), []);
 
-// the theme's Vehicle and Loader screens (specs/0002 revision 2): the band
-// with Loads, or with On the loader and Target; Lights and Drive, Engine two
-// columns wide, no Implement group
+// the theme's Vehicle and Loader screens (specs/0003; Loader: specs/0002
+// revision 2): the band, the All row, the cards and Also attached, or the
+// band with On the loader and Target; Lights, Drive and Hitch (Attach) on
+// Vehicle, Lights and Drive on Loader; Engine two columns wide
 const appV = document.createElement("div");
 renderTheme(THEMES[0], appV, createStore(), createMapFrame(createStore()));
 const vehScreen = appV.querySelector('.screen[data-screen="vehicle"]');
 const loaderScreen = appV.querySelector('.screen[data-screen="loader"]');
 const vehGroups = [...vehScreen.querySelectorAll(".control-column .control-group")];
-const slotsOf = (el) => ["veh-band", "veh-load", "veh-target", "vehicle-card", "readout-arc", "widget-condition", "implements-card"]
+const slotsOf = (el) => ["veh-band", "veh-load", "veh-target", "tools-all", "tool-cards", "tools-also", "implements-card"]
   .map((c) => !!el?.querySelector(`.${c}`));
 check("theme: the Vehicle screen's slots and its column", [
   slotsOf(vehScreen), slotsOf(loaderScreen),
   vehGroups.map((g) => q(g, ".control-group-label")),
   [...vehGroups[1].querySelectorAll(".control-label")].map((e) => e.textContent),
+  [...vehGroups[2].querySelectorAll(".control-label")].map((e) => e.textContent),
   [...loaderScreen.querySelectorAll(".control-column .control-group-label")].map((e) => e.textContent),
   [...appV.querySelectorAll('.control-column .control[data-control="engineOn"]')].length,
   THEMES[0].screens.filter((s) => s.tab === "vehicle" || s.id === "vehicle").map((s) => `${s.choice}:${s.icon}`),
   [...appV.querySelectorAll(".tab")].map((t) => t.dataset.screen)],
-  [[true, true, false, false, false, false, false], [true, true, true, false, false, false, false],
-    ["Lights", "Drive"], ["Cruise −", "Cruise", "Cruise +", "Engine", "AI worker"], ["Lights", "Drive"],
-    4, ["Vehicle:tractor", "Loader:loader", "Harvester:harvester"], ["map", "vehicle", "implement"]]);
+  [[true, false, false, true, true, true, false], [true, true, true, false, false, false, false],
+    ["Lights", "Drive", "Hitch"], ["Cruise −", "Cruise", "Cruise +", "Engine", "AI worker"], ["Attach"], ["Lights", "Drive"],
+    4, ["Vehicle:tractor", "Loader:loader", "Harvester:harvester"], ["map", "vehicle"]]);
 
 // the Vehicle page's card: Loads (the rig's tanks and weight) even with a
 // loader; Loader picked by hand with no loader shows the same
@@ -1781,6 +1708,215 @@ check("tab name: the Vehicle tab names the page it opens on, with a menu chevron
 check("loader pick: when", [pickSteps, menuChoices],
   [["loader", "vehicle", "loader", "vehicle", "harvester", "map", "loader", "loader", "loader", "loader", "loader"],
     ["Vehicle", "Loader", "Harvester"]]);
+
+// --- Vehicle page with a card per tool (specs/0003-implement-screen.md) ---------
+
+const vt = await import("./src/widgets/vehicleTools.js");
+const { savedScreen } = await import("./src/themes/registry.js");
+// spike 0.0.4's rigs, as the mod's Cab collector reads them (fixtures/rig_fixtures.py)
+const RIGS = ["mowers", "trailers", "sprayer", "plow", "baler", "weight", "truck", "attach"];
+const rigFix = {};
+for (const name of RIGS) rigFix[name] = await (await fetch(`fixtures/rigs/${name}.json`)).json();
+const noRates = { rate: () => undefined, rising: () => false, area: () => undefined };
+/** the page's tools on their own store: what they show, and what they send */
+const toolsPage = (vehicles, cab) => {
+  const s = createStore();
+  const sent = [];
+  const send = (a, v) => { sent.push([a, v]); return Promise.resolve({ ok: true }); };
+  const cardsEl = vt.toolCards(s, { send, rates: noRates });
+  const allEl = vt.toolsAll(s, { send });
+  const alsoEl = vt.toolsAlso(s, { send });
+  const attachEl = controlGroup({ label: "Hitch", controls: ["attach"] }, s, send).querySelector(".control");
+  s.set("vehicles", vehicles);
+  s.set("cab", cab);
+  const buttons = (el) => [...el.querySelectorAll(".control")].map((b) => `${lbl(b)}:${b.dataset.state}`).join(", ");
+  const shown = () => ({
+    cards: [...cardsEl.querySelectorAll(".tool-card")].map((c) => `${q(c, ".tool-name")}: ${buttons(c.querySelector(".tool-buttons"))}`),
+    selected: cardsEl.querySelector('.tool-card[data-selected="true"] .tool-name')?.textContent ?? null,
+    also: alsoEl.hidden ? [] : [...alsoEl.querySelectorAll(".tools-also-row")]
+      .map((r) => `${q(r, ".tools-also-text")}: ${buttons(r)}`),
+    all: allEl.hidden ? [] : [...allEl.querySelectorAll(".control")].map((b) => `${lbl(b)}:${b.dataset.state}`),
+  });
+  return { s, sent, cardsEl, allEl, alsoEl, attachEl, shown };
+};
+
+const fixShown = {};
+const fixWant = {};
+for (const name of RIGS) {
+  const f = rigFix[name];
+  const page = toolsPage(f.vehicles, f.cab);
+  fixShown[name] = { ...page.shown(), ...(f.expect.attach ? { attach: page.attachEl.dataset.state === "off" ? "available" : "faded" } : {}) };
+  fixWant[name] = f.expect;
+}
+check("tools: rig fixtures: the cards, each card's buttons, Also attached and the All row", fixShown, fixWant);
+
+// a tool the dashboard has never seen: exactly the buttons its `can` says
+const madeUp = { id: 50, name: "Laser Leveller 9000", depth: 1, side: "rear", selectable: true, selected: false,
+  can: ["fold", "turnOn"], unfolded: true, turnedOn: false, laser: { on: true }, canNow: { fold: false },
+  whyNot: { fold: "Lower the blade first" } };
+const madePage = toolsPage({ controlledId: 1, vehicles: [{ id: 1, name: "Tractor", implements: [
+  { id: 50, name: "Laser Leveller 9000", category: "levellers" }] }] }, { inVehicle: true, rig: [{ id: 1, depth: 0, can: [] }, madeUp] });
+const madeButtons = [...madePage.cardsEl.querySelectorAll(".tool-card .control")];
+const madeStates = madeButtons.map((b) => `${lbl(b)}:${b.dataset.state}`);
+tap(madeButtons[1]);
+await Promise.resolve();
+check("tools: buttons from can: an unknown part adds nothing; the game's \"not now\" with its words; each aims at its tool", [
+  vt.toolButtons(madeUp).map((b) => b.label), madeStates, madeButtons[0].title, madePage.sent],
+  [["Fold", "Turn on"], ["Fold:unavailable", "Turn on:off"], "Lower the blade first", [["implement.turnOn", 50]]]);
+check("tools: every capability's button, labelled with what a tap does", vt.toolButtons({ id: 9, depth: 1, selected: true,
+  can: ["lower", "fold", "turnOn", "tip", "tipSide", "cover", "pipe", "rotate", "bales", "detach"], lowered: true, unfolded: false,
+  turnedOn: false, discharging: true, tipSide: { index: 2, count: 3, name: "Left" }, cover: { open: false },
+  pipe: { out: true, moving: false }, plow: { rotated: false }, bales: { count: 12 },
+  extraKeys: [{ action: "IMPLEMENT_EXTRA3", text: "Allow create fields" }] })
+  .map((b) => [b.label, b.action, b.value, b.on, b.unavailable === true, b.line ?? ""].join("|")),
+  ["Raise|implement.lower|9|true|false|", "Unfold|implement.fold|9|false|false|", "Turn on|implement.turnOn|9|false|true|",
+    "Stop|implement.unload|9|true|false|", "Tip side|implement.tipSide|9|false|false|Left",
+    "Uncover|implement.cover|9|false|false|", "Pipe in|implement.pipe|9|true|false|", "Rotate|implement.rotate|9|false|false|",
+    "Reset count|implement.baleReset|9|false|false|12 bales", "Detach|implement.detach|9|false|false|",
+    "Allow create fields|implement.key|1|false|false|"]);
+check("tools: an older mod (no can): its fields give the buttons", [
+  sel.canOf({ depth: 1, canLower: true, lowered: false, foldable: true, canTurnOn: true }),
+  sel.canOf({ depth: 1, canLower: false, lowered: false, trailer: true, discharging: false, cover: { open: false } }),
+  sel.canOf({ depth: 0, canTurnOn: true, pipe: { out: false } })],
+  [["lower", "fold", "turnOn", "detach"], ["tip", "cover", "detach"], ["turnOn", "pipe"]]);
+
+// the vehicle's own card: a self-propelled sprayer, the tipper truck; a
+// plain tractor with a seeder has none
+const selfSprayer = toolsPage({ controlledId: 1, vehicles: [{ id: 1, name: "Hardi Rubicon 9000", brand: "Hardi",
+  category: "sprayers", categoryTitle: "Sprayers", speed: 12, speedLimit: 20, workWidth: 36, motorized: true, wear: 0.3,
+  fills: [{ unit: 1, level: 5000, capacity: 9000, fillType: "herbicide", fillTitle: "Herbicide" }], implements: [] }] },
+{ inVehicle: true, rig: [{ id: 1, depth: 0, selectable: true, selected: true, can: ["fold", "turnOn"], unfolded: true,
+  turnedOn: true }] });
+const truckPage = toolsPage(rigFix.truck.vehicles, rigFix.truck.cab);
+const truckCard = truckPage.cardsEl.querySelector('.tool-card[data-vehicle="true"]');
+const seederRig = toolsPage({ controlledId: 1, vehicles: [{ id: 1, name: "T7.315", category: "tractorsM", implements: [
+  { id: 2, name: "Amazone Cirrus", category: "seeders", fills: [{ unit: 1, level: 900, capacity: 3000, fillType: "seeds" }] }] }] },
+{ inVehicle: true, rig: [{ id: 1, depth: 0, can: [] }, { id: 2, name: "Amazone Cirrus", depth: 1,
+  can: ["lower", "fold", "turnOn", "detach"], lowered: false, unfolded: true, turnedOn: false }] });
+const statLabels = (card) => [...card.querySelectorAll(".tool-stat-label")].map((e) => e.textContent);
+check("tools: the vehicle's own card (a sprayer, the truck): no wear, no Detach; a tractor with a seeder has none", [
+  selfSprayer.shown().cards, statLabels(selfSprayer.cardsEl.querySelector(".tool-card")),
+  selfSprayer.cardsEl.querySelector(".tool-chip").hidden, q(selfSprayer.cardsEl, ".tool-sub"),
+  [q(truckCard, ".tool-name"), statLabels(truckCard), q(truckCard, ".tool-buttons")?.includes("Detach")],
+  seederRig.shown().cards.map((c) => c.split(":")[0]), q(seederRig.cardsEl, ".tank-name")],
+  [["Rubicon 9000: Fold:on, Turn off:on"], ["Speed", "Width", "Area"], false, "Hardi · Sprayers",
+    ["Arocs 4133 + TECTRUM RS26", ["Speed", "Width", "Area"], false], ["Amazone Cirrus"], "Seeds"]);
+
+// the All row: lit while all are on; Turn on all waits while one is folded;
+// tip and cover all carry what they do
+const pair = (a, b) => toolsPage({ controlledId: 1, vehicles: [{ id: 1, name: "T7", implements: [{ id: 2, name: "A" },
+  { id: 3, name: "B" }] }] }, { inVehicle: true, rig: [{ id: 1, depth: 0, can: [] },
+  { id: 2, depth: 1, side: "front", can: ["lower", "fold", "turnOn", "tip", "cover", "detach"], ...a },
+  { id: 3, depth: 1, side: "rear", can: ["lower", "fold", "turnOn", "tip", "cover", "detach"], ...b }] });
+const allOn = pair({ lowered: true, unfolded: true, turnedOn: true, discharging: true, cover: { open: true } },
+  { lowered: true, unfolded: true, turnedOn: true, discharging: true, cover: { open: true } });
+const mixed = pair({ lowered: true, unfolded: false, turnedOn: false, discharging: true, cover: { open: false } },
+  { lowered: false, unfolded: true, turnedOn: false, discharging: false, cover: { open: true } });
+const allButtons = mixed.allEl.querySelectorAll(".control");
+const allShown = [allOn.shown().all, mixed.shown().all];
+for (const b of allButtons) tap(b);
+for (const b of allOn.allEl.querySelectorAll(".control")) tap(b);
+await Promise.resolve();
+check("tools: the All row: lit while all are on, labelled with what a tap does; Turn on all waits while one is folded", [
+  ...allShown, allButtons[2].querySelector(".control-value")?.textContent, mixed.sent, allOn.sent.slice(3)],
+  [["Fold all:on", "Raise all:on", "Turn off all:on", "Stop all:on", "Cover all:on"],
+    ["Unfold all:off", "Lower all:off", "Turn on all:unavailable", "Tip all:off", "Uncover all:off"], "Unfold first",
+    [["implement.foldAll", undefined], ["implement.lowerAll", undefined], ["implement.tipAll", 1], ["implement.coverAll", 1]],
+    [["implement.tipAll", 0], ["implement.coverAll", 0]]]);
+check("tools: one working thing: no All row; nothing attached; on foot", [
+  rigFix.sprayer && toolsPage(rigFix.sprayer.vehicles, rigFix.sprayer.cab).allEl.hidden,
+  q(toolsPage(rigFix.attach.vehicles, rigFix.attach.cab).cardsEl, ".tool-none"),
+  q(toolsPage({ vehicles: [] }, { inVehicle: false }).cardsEl, ".tool-none")],
+  [true, "Nothing attached", "Get in a vehicle to see its tools here"]);
+
+// a tap on a card's head selects its tool in game; the page stays
+const headPage = toolsPage(rigFix.mowers.vehicles, rigFix.mowers.cab);
+const heads = [...headPage.cardsEl.querySelectorAll(".tool-head")];
+heads[0].click();
+heads[1].click();
+await Promise.resolve();
+check("tools: the head selects the tool in game (not the selected one again)", [heads.map((e) => e.dataset.pick ?? ""),
+  headPage.sent], [["", "true"], [["implement.select", 994]]]);
+
+// the band names the brand; the strip's tiles keep the model alone
+const brandS = createStore();
+const brandBand = vsc.vehicleBand(brandS, { rates: { fuelPerHour: () => undefined, defPerHour: () => undefined } });
+brandS.set("vehicles", rigFix.mowers.vehicles);
+brandS.set("cab", rigFix.mowers.cab);
+check("tools: the band's label is the brand; tiles the model alone", [q(brandBand, ".veh-cap"),
+  [...brandBand.querySelectorAll(".rig-tile b")].map((e) => e.textContent)],
+  ["Vehicle · New Holland", ["XT 390", "T7.300", "KDF 341 S"]]);
+
+// tabs: Map and Vehicle; a saved "implement" opens Vehicle; Attach faded
+// until the game has something in reach
+check("tools: tabs: Map and Vehicle; a saved Implement page opens Vehicle; Attach faded without something in reach", [
+  [...appV.querySelectorAll(".tab")].map((t) => t.dataset.screen), savedScreen("implement"), savedScreen("map"),
+  savedScreen(undefined), toolsPage(rigFix.mowers.vehicles, rigFix.mowers.cab).attachEl.dataset.state,
+  toolsPage(rigFix.attach.vehicles, rigFix.attach.cab).attachEl.dataset.state],
+  [["map", "vehicle"], "vehicle", "map", undefined, "unavailable", "off"]);
+
+// layout: every fixture and one to six working things at 1180 × 820, day
+// and night: no scrolling, nothing overflows, every button 48 px or more
+const layoutFrame = document.createElement("iframe");
+layoutFrame.style.cssText = "position: absolute; left: -12000px; top: 0; width: 1180px; height: 820px; border: 0";
+document.body.append(layoutFrame);
+const ldoc = /** @type {Document} */ (layoutFrame.contentDocument);
+ldoc.open();
+ldoc.write(`<!doctype html><html lang="en" data-theme="newholland" data-palette="day"><head><meta charset="utf-8">
+<base href="${location.href}"><link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="src/themes/newholland/theme.css"></head><body><div id="app"></div></body></html>`);
+ldoc.close();
+await Promise.all([...ldoc.querySelectorAll("link")].map((l) => (l.sheet ? Promise.resolve()
+  : new Promise((r) => { l.onload = l.onerror = r; }))));
+await ldoc.fonts?.ready;
+const lstore = createStore();
+const lapp = /** @type {HTMLElement} */ (ldoc.getElementById("app"));
+const lui = renderTheme(THEMES[0], lapp, lstore, createMapFrame(createStore()));
+lui.showScreen("vehicle");
+const madeRig = (n) => {
+  const kinds = [["seeders", "Amazone Cirrus 6003"], ["mowers", "Krone EasyCut F 320"], ["cultivators", "Lemken Karat 12"],
+    ["sprayers", "Kuhn Lexis 3000"], ["mowers", "Krone EasyCut B 870"], ["seeders", "Väderstad Tempo"]];
+  const tools = kinds.slice(0, n).map(([category, name], i) => ({ id: 10 + i, name, brand: name.split(" ")[0], category,
+    categoryTitle: category[0].toUpperCase() + category.slice(1), depth: 1, workWidth: 6, speedLimit: 12, wear: 0.1,
+    fills: i % 2 ? [] : [{ unit: 1, level: 1200, capacity: 3000, fillType: "seeds", fillTitle: "Seeds" }] }));
+  return {
+    vehicles: { controlledId: 1, vehicles: [{ id: 1, name: "New Holland T7.315", brand: "New Holland", category: "tractorsM",
+      speed: 9, fuel: 300, fuelCapacity: 400, wear: 0.2, motorized: true, engineOn: true, implements: tools }] },
+    cab: { inVehicle: true, attachable: false, rig: [{ id: 1, depth: 0, name: "New Holland T7.315", can: [], selectable: true },
+      ...tools.map((t, i) => ({ id: t.id, name: t.name, depth: 1, side: i % 2 ? "front" : "rear", selectable: true,
+        selected: i === 0, can: ["lower", "fold", "turnOn", "detach"], lowered: true, unfolded: true, turnedOn: i % 2 === 0 }))] },
+  };
+};
+const layouts = [...RIGS.map((name) => [name, rigFix[name]]), ...[1, 2, 3, 4, 5, 6].map((n) => [`${n} tools`, madeRig(n)])];
+const layoutIssues = [];
+for (const palette of ["day", "night"]) {
+  ldoc.documentElement.dataset.palette = palette;
+  for (const [name, f] of layouts) {
+    lstore.set("vehicles", f.vehicles);
+    lstore.set("cab", f.cab);
+    const label = `${name} (${palette})`;
+    const screen = /** @type {HTMLElement} */ (lapp.querySelector('.screen[data-screen="vehicle"]'));
+    if (screen.hidden) { layoutIssues.push(`${label}: not on the Vehicle page`); continue; }
+    if (screen.scrollHeight > screen.clientHeight + 1) layoutIssues.push(`${label}: the page scrolls`);
+    const box = screen.getBoundingClientRect();
+    for (const el of screen.querySelectorAll(".tool-card, .tools-all, .tools-also-row, .veh-band")) {
+      if (/** @type {HTMLElement} */ (el).offsetParent === null) continue;
+      const what = `${label}: ${el.className} ${el.querySelector(".tool-name")?.textContent ?? ""}`.trim();
+      if (el.scrollHeight > el.clientHeight + 1 || el.scrollWidth > el.clientWidth + 1) layoutIssues.push(`${what} overflows`);
+      const r = el.getBoundingClientRect();
+      if (r.bottom > box.bottom + 1 || r.right > box.right + 1) layoutIssues.push(`${what} is off the page`);
+    }
+    for (const b of screen.querySelectorAll(".slot-group .control, .control-column .control")) {
+      const r = b.getBoundingClientRect();
+      if (r.width > 0 && (r.width < 48 || r.height < 48)) {
+        layoutIssues.push(`${label}: ${lbl(b)} is ${Math.round(r.width)} × ${Math.round(r.height)}`);
+      }
+    }
+  }
+}
+check("tools: layout at 1180 × 820, day and night: every fixture and 1 to 6 tools fit, no scrolling, buttons 48 px or more",
+  layoutIssues, []);
+layoutFrame.remove();
 
 // --- icons (ui/icons.js) --------------------------------------------------------
 

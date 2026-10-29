@@ -149,3 +149,23 @@ def test_cab_and_command_ack():
     with pytest.raises(ValidationError):
         parse_envelope({**cab, "data": {**cab["data"], "implement": {"foldMoving": "maybe"}}})
     parse_envelope({**ack, "data": {**ack["data"], "via": "IMPLEMENT_EXTRA2"}})
+
+
+def test_vehicle_page_commands_and_their_values():
+    """specs/0003: a tool's id on the one-tool commands (or none), the new
+    commands, the All row's; others carry none."""
+    from backend.app.protocol import COMMAND_ACTIONS, command_value_ok
+    for action in ("implement.lower", "implement.fold", "implement.turnOn", "implement.unload",
+                   "implement.cover", "implement.pipe", "implement.tipSide", "implement.rotate",
+                   "implement.baleReset"):
+        assert action in COMMAND_ACTIONS
+        assert command_value_ok(action, 994) and command_value_ok(action, None)
+        assert not command_value_ok(action, -1) and not command_value_ok(action, "994")
+    assert {"implement.foldAll", "implement.turnOnAll", "implement.tipAll", "implement.coverAll",
+            "implement.key"} <= COMMAND_ACTIONS
+    assert command_value_ok("implement.tipAll", 1) and command_value_ok("implement.coverAll", 0)
+    assert not command_value_ok("implement.tipAll", None) and not command_value_ok("implement.tipAll", 2)
+    assert command_value_ok("implement.key", 3) and not command_value_ok("implement.key", None)
+    assert command_value_ok("implement.foldAll", None) and not command_value_ok("implement.foldAll", 1)
+    assert not command_value_ok("implement.lowerAll", 5)
+    assert "implement.width" not in COMMAND_ACTIONS

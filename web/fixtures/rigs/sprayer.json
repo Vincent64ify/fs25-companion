@@ -1,0 +1,139 @@
+{
+ "rig": "sprayer",
+ "source": "mod/tests/fixtures/spike0003/sprayer.json, through the mod's Cab collector",
+ "cab": {
+  "aiActive": false,
+  "engineOn": false,
+  "engineState": "off",
+  "hitched": true,
+  "implement": {
+   "canLower": false,
+   "canTurnOn": true,
+   "foldMoving": false,
+   "foldable": true,
+   "lowered": false,
+   "name": "Berthoud Vantage 4300",
+   "turnedOn": false,
+   "unfolded": false
+  },
+  "implements": [
+   {
+    "lowered": false,
+    "turnedOn": false
+   }
+  ],
+  "inVehicle": true,
+  "keys": {
+   "fold": 1031,
+   "lowerAll": 1033,
+   "turnOn": 1031,
+   "unload": 1031
+  },
+  "lights": {
+   "beacon": false,
+   "hazard": false,
+   "high": false,
+   "left": false,
+   "on": false,
+   "right": false
+  },
+  "rig": [
+   {
+    "can": [],
+    "depth": 0,
+    "id": 1033,
+    "name": "CLAAS ARION 410",
+    "selectable": true,
+    "selected": false
+   },
+   {
+    "can": [
+     "fold",
+     "turnOn",
+     "detach"
+    ],
+    "canLower": false,
+    "canTurnOn": true,
+    "depth": 1,
+    "discharging": false,
+    "extraKeys": [
+     {
+      "action": "TOGGLE_TIPSTATE",
+      "text": "Dump"
+     },
+     {
+      "action": "TOGGLE_TIPSTATE_GROUND",
+      "text": "Dump on ground"
+     },
+     {
+      "action": "UNLOAD",
+      "text": "Unload"
+     }
+    ],
+    "foldMoving": false,
+    "foldable": true,
+    "id": 1031,
+    "lowered": false,
+    "name": "Berthoud Vantage 4300",
+    "parent": 1033,
+    "selectable": true,
+    "selected": true,
+    "side": "rear",
+    "turnedOn": false,
+    "unfolded": false
+   }
+  ],
+  "vehicleId": 1033
+ },
+ "vehicles": {
+  "controlledId": 1033,
+  "vehicles": [
+   {
+    "id": 1033,
+    "name": "CLAAS ARION 410",
+    "brand": "CLAAS",
+    "category": "tractorsM",
+    "categoryTitle": "Tractors M",
+    "typeName": "tractor",
+    "fills": [],
+    "wear": 0.23,
+    "speed": 8.4,
+    "engineOn": true,
+    "fuel": 280,
+    "fuelCapacity": 400,
+    "motorized": true,
+    "implements": [
+     {
+      "id": 1031,
+      "name": "Berthoud Vantage 4300",
+      "brand": "Berthoud",
+      "category": "sprayers",
+      "categoryTitle": "Sprayers",
+      "typeName": "sprayer",
+      "fills": [
+       {
+        "unit": 1,
+        "level": 4110.0,
+        "capacity": 4300,
+        "fillType": "herbicide",
+        "fillTitle": "Herbicide"
+       }
+      ],
+      "wear": 0.12,
+      "workWidth": 33.0,
+      "speedLimit": 12,
+      "depth": 1
+     }
+    ]
+   }
+  ]
+ },
+ "expect": {
+  "cards": [
+   "Vantage 4300: Unfold:off, Turn on:unavailable, Detach:off, Dump:off, Dump on ground:off, Unload:off"
+  ],
+  "selected": "Vantage 4300",
+  "also": [],
+  "all": []
+ }
+}
