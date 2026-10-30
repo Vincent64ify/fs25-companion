@@ -43,3 +43,4 @@ behaviour, in Behaviour too: the spec always says what the code does now.
 | [0002](0002-vehicle-screen.md) | Vehicle and Loader screens | live-checked (revision 2) | 0.8.6 |
 | [0003](0003-implement-screen.md) | Vehicle page with a card per tool (Implement merges in) | built | 0.8.11 |
 | [0004](0004-acks-survive-rotation.md) | Command answers survive a stream rotation (review F1) | live-checked | 0.8.13 |
+| [0005](0005-tailer-sees-every-new-file.md) | The client notices every new stream file (review F2) | live-checked | no change |

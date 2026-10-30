@@ -16,8 +16,8 @@ Things to fix next, in no particular order. Longer-term ideas are under
   press but go through the same function.
 - **Code review of 2026-10-30:** seven findings (F1 to F7) in
   [REVIEW-2026-10-30.md](REVIEW-2026-10-30.md), with its suggested order.
-  F2 (the tailer misses a refill past its offset) changes the stream and
-  needs a spec; F3 and F4 matter before a hosted relay. F1 is fixed
+  F2 is fixed ([spec 0005](../specs/0005-tailer-sees-every-new-file.md),
+  client only, live-checked); F3 and F4 matter before a hosted relay. F1 is fixed
   ([spec 0004](../specs/0004-acks-survive-rotation.md), mod 0.8.13,
   live-checked); F5 (mod 0.8.12), F6 and F7 are fixed (2026-10-30).
 - **The other keys' labels are cut off** four to a row on a card ("Toggle

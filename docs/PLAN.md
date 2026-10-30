@@ -53,7 +53,10 @@ up to date until the live check.
   found seven issues. F5 to F7 are fixed (mod 0.8.12), and F1 is fixed and
   confirmed in game (spec [0004](../specs/0004-acks-survive-rotation.md),
   mod 0.8.13): a dashboard command's answer survives the stream starting
-  over, and Cruise − / + never get stuck. F2 to F4 are open
+  over, and Cruise − / + never get stuck. F2 is fixed in the client
+  (spec [0005](../specs/0005-tailer-sees-every-new-file.md)): it always
+  reads a new stream file from its top, confirmed in game across a
+  reload and a rotation. F3 and F4 are open
   ([NEXT.md](NEXT.md)).
 - macOS is still to test, and a few things are still to confirm in game (see
   [Open checks](#open-checks)).

@@ -24,37 +24,27 @@ from typing import Dict, Optional
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "client"))
 import paths  # noqa: E402
+from transport.file_tail import FileTail  # noqa: E402
 
 LOG_MARKS = ("[FS25_Companion]", "Error:", "Error (", "LUA call stack")
 
 
 class Tail:
-    """Lines added to a file since the last read; starts over when it shrinks."""
+    """Lines added to a file since the last read; starts over with a new
+    file, as the client does (FileTail, specs/0005)."""
 
     def __init__(self, path: Path, from_start: bool):
         self.path = path
-        self.pos = 0
-        if not from_start and path.exists():
-            self.pos = path.stat().st_size
-        self.buf = b""
+        self.file = FileTail(path)
+        if not from_start:
+            self.file.skip_to_end()
 
     def lines(self):
-        try:
-            size = self.path.stat().st_size
-        except OSError:
-            return []
-        if size < self.pos:
-            self.pos, self.buf = 0, b""
+        rotations = self.file.rotations
+        lines = self.file.poll()
+        if self.file.rotations != rotations:
             emit("--", f"{self.path.name} started over")
-        if size == self.pos:
-            return []
-        with open(self.path, "rb") as f:
-            f.seek(self.pos)
-            data = f.read()
-        self.pos += len(data)
-        self.buf += data
-        *done, self.buf = self.buf.split(b"\n")
-        return [line.decode("utf-8", "replace").rstrip("\r") for line in done]
+        return lines
 
 
 def emit(kind: str, text: str) -> None:
