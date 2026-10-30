@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8" standalone="no" ?>
 <modDesc descVersion="105">
     <author>fs25-companion</author>
-    <version>0.0.4</version>
+    <version>0.0.6</version>
     <title>
         <en>FS25 Companion API Spike</en>
     </title>

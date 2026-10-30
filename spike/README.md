@@ -109,6 +109,39 @@ game's own parts, for every vehicle type the game knows.
      prompt on screen (`csDump` is enough here).
 4. Send back the reports (and `log.txt` if something failed).
 
+## The All row's keys (spike 0.0.5, spec 0003)
+
+Why the dashboard's Lower all did nothing every other time while Ctrl+V
+always worked: Companion's `runInputAction` calls every active handler of
+a key, and the keyboard may reach only one. Two console commands:
+
+- `csKeys`: `keys.json` with every handler registered for
+  `LOWER_ALL_IMPLEMENTS`, `FOLD_ALL_IMPLEMENTS`, `TURN_ON_ALL_IMPLEMENTS`
+  and the one-tool `LOWER_IMPLEMENT`, `FOLD_IMPLEMENT`,
+  `TURN_ON_IMPLEMENT`: the object that owns it, the function it calls
+  (`AttacherJoints.…`), active or not, its plain fields (trigger up /
+  down, priority, context), and the rig's states.
+- `csTrace`, then `csTrace` again: in between, every call to those
+  handlers is logged (the keyboard's and the mod's) with its caller's
+  stack and the tools' states before it and 30 frames after. The
+  handlers still run; the second `csTrace` puts the originals back and
+  writes `keys.json`.
+
+1. Install `FS25_CompanionSpike.zip` (0.0.5) beside FS25 Companion and
+   restart the game.
+2. A tractor with a front and a rear mower, engine on, unfolded, raised.
+   Console (`~`): `csKeys`.
+3. `csTrace`. Then, waiting for each to finish: Ctrl+V on the keyboard,
+   Ctrl+V again; the dashboard's Fold all, then the keyboard's fold-all
+   key; Turn on all on the dashboard, then the keyboard's. Then
+   `csTrace` again.
+
+Spike 0.0.6 adds `csPress [KEY]` (default `LOWER_ALL_IMPLEMENTS`): on the
+next frame it presses the key exactly as Companion's `runInputAction`
+does (every active handler, 8 arguments), so the mod's press can be
+compared with the keyboard's on the same rig. The trace now records
+every argument from the 5th on, and marks the calls `csPress` made.
+
 ## Command spike (C0)
 
 `FS25_CommandSpike` checks the command channel planned for Controls (see

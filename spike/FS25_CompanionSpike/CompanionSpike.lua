@@ -23,7 +23,7 @@
 CompanionSpike = {}
 local CS = CompanionSpike
 
-local SPIKE_VERSION = "0.0.4"
+local SPIKE_VERSION = "0.0.6"
 local MOD_DIR = g_currentModDirectory or ""
 
 local LIMITS = {
@@ -1232,6 +1232,270 @@ local function selectStep(run)
     return false
 end
 
+---------------------------------------------------------------------------
+-- Key handlers (spike 0.0.5, spec 0003's All row)
+---------------------------------------------------------------------------
+
+-- csKeys: every handler the game registered for the All row's keys and the
+-- one-tool keys, who owns it and what it calls. csTrace: log each call to
+-- them (the keyboard's and the mod's), with the tools' states before and
+-- 30 frames after. The trace only wraps the callbacks; they still run.
+local KEY_ACTIONS = { "LOWER_ALL_IMPLEMENTS", "FOLD_ALL_IMPLEMENTS", "TURN_ON_ALL_IMPLEMENTS",
+    "LOWER_IMPLEMENT", "FOLD_IMPLEMENT", "TURN_ON_IMPLEMENT" }
+local TRACE_MAX_CALLS = 300
+local TRACE_AFTER_FRAMES = 30
+
+local functionNames = nil
+
+-- function -> "Class.method", from the global tables (the GIANTS classes)
+local function functionName(fn)
+    if type(fn) ~= "function" then
+        return nil
+    end
+    if functionNames == nil then
+        functionNames = {}
+        for gk, gv in pairs(_G) do
+            if type(gk) == "string" and type(gv) == "table" then
+                pcall(function()
+                    for k, v in pairs(gv) do
+                        if type(v) == "function" and type(k) == "string" and functionNames[v] == nil then
+                            functionNames[v] = gk .. "." .. k
+                        end
+                    end
+                end)
+            end
+        end
+    end
+    return functionNames[fn] or tostring(fn)
+end
+
+local function objectLabel(o)
+    if type(o) ~= "table" then
+        return o == nil and nil or ("<" .. type(o) .. ">")
+    end
+    local label = { class = classNameOf(o), id = o.id, typeName = o.typeName }
+    label.name = firstOf(o, "getFullName") or firstOf(o, "getName")
+    if type(o.configFileName) == "string" then
+        label.config = o.configFileName:match("[^/\\]+$")
+    end
+    return label
+end
+
+-- the plain fields of an event, and the names of its table fields
+local function eventFields(e)
+    local plain, tables = {}, {}
+    for k, v in pairs(e) do
+        local tv = type(v)
+        if tv == "string" or tv == "number" or tv == "boolean" then
+            plain[tostring(k)] = v
+        elseif tv == "table" then
+            tables[#tables + 1] = tostring(k)
+        end
+    end
+    table.sort(tables)
+    return plain, tables
+end
+
+local function eventsFor(name)
+    local ib = g_inputBinding
+    if type(ib) ~= "table" or type(ib.nameActions) ~= "table" or type(ib.actionEvents) ~= "table" then
+        return nil
+    end
+    local action = ib.nameActions[name]
+    return action ~= nil and ib.actionEvents[action] or nil
+end
+
+-- the first value, false kept (firstOf turns false into nil)
+local function valueOf(obj, name, ...)
+    local r = tryCall(obj, name, ...)
+    if r == nil then
+        return nil
+    end
+    return r[2]
+end
+
+-- the rig's states: what each button acts on
+local function rigStates()
+    local v = getControlledVehicle()
+    if v == nil then
+        return nil
+    end
+    local root = firstOf(v, "getRootVehicle") or v
+    local sel = firstOf(root, "getSelectedVehicle")
+    local out = {}
+    for _, m in ipairs(rigMembers(root)) do
+        local o = m.o
+        out[#out + 1] = {
+            id = o.id, name = firstOf(o, "getName"), selected = sel == o or nil,
+            lowered = valueOf(o, "getIsLowered", false),
+            foldAnimTime = valueOf(o, "getFoldAnimTime"),
+            foldMoveDirection = type(o.spec_foldable) == "table" and o.spec_foldable.foldMoveDirection or nil,
+            turnedOn = valueOf(o, "getIsTurnedOn"),
+            motorStarted = valueOf(o, "getIsMotorStarted"),
+        }
+    end
+    return out
+end
+
+local function probeKeys()
+    local ib = g_inputBinding
+    local res = { actions = {}, rig = rigStates(), binding = {} }
+    if type(ib) == "table" then
+        for k, v in pairs(ib) do
+            if type(k) == "string" then
+                local tv = type(v)
+                res.binding[k] = (tv == "table" or tv == "function") and ("<" .. tv .. ">") or v
+            end
+        end
+    end
+    for _, name in ipairs(KEY_ACTIONS) do
+        local events = eventsFor(name)
+        local list = {}
+        if type(events) == "table" then
+            for key, e in pairs(events) do
+                if type(e) == "table" then
+                    local plain, tables = eventFields(e)
+                    list[#list + 1] = {
+                        key = tostring(key), callback = functionName(e.callback), target = objectLabel(e.targetObject),
+                        isActive = e.isActive,
+                        -- what Companion's runInputAction calls: every one of these
+                        modCalls = type(e.callback) == "function" and e.isActive ~= false,
+                        sameAsEventsById = type(ib.events) == "table" and e.id ~= nil and ib.events[e.id] == e or nil,
+                        callbackState = describe(e.callbackState, 1),
+                        fields = plain, tableFields = tables,
+                    }
+                end
+            end
+        end
+        res.actions[name] = { known = events ~= nil, count = #list, events = list }
+    end
+    return res
+end
+
+local function shortStack()
+    if debug == nil or debug.traceback == nil then
+        return nil
+    end
+    local lines = {}
+    for line in tostring(debug.traceback("", 3)):gmatch("[^\n]+") do
+        if not line:find("stack traceback", 1, true) and #lines < 8 then
+            lines[#lines + 1] = line:gsub("^%s+", "")
+        end
+    end
+    return lines
+end
+
+-- wrap any of the keys' callbacks not wrapped yet; runs every frame while
+-- tracing, since the game registers a tool's events again on a selection
+local function traceWrap(tr)
+    for _, name in ipairs(KEY_ACTIONS) do
+        local events = eventsFor(name)
+        if type(events) == "table" then
+            for key, e in pairs(events) do
+                if type(e) == "table" and type(e.callback) == "function" and e.callback ~= tr.wrappers[e] then
+                    local original = e.callback
+                    local label = { action = name, key = tostring(key), callback = functionName(original),
+                        target = objectLabel(e.targetObject) }
+                    local function record(a)
+                        -- every argument from the 5th on (the keyboard's 9th: what is it?)
+                        local values, types = {}, {}
+                        for i = 5, math.max(a.n, 5) do
+                            values[#values + 1] = describe(a[i], 0)
+                            types[#types + 1] = type(a[i])
+                        end
+                        tr.calls[#tr.calls + 1] = {
+                            t = g_time, frame = tr.frame, action = label.action, key = label.key,
+                            callback = label.callback, target = label.target,
+                            inputValue = a[3], args = a.n, callbackState = describe(a[4], 0),
+                            argValues = values, argTypes = types, pressedBy = tr.pressing,
+                            stack = shortStack(), before = rigStates(),
+                        }
+                        tr.afterAt = tr.frame + TRACE_AFTER_FRAMES
+                    end
+                    -- the logging can never stop the game's handler from running
+                    local wrapper = function(...)
+                        if #tr.calls < TRACE_MAX_CALLS then
+                            pcall(record, pack(...))
+                        end
+                        return original(...)
+                    end
+                    tr.originals[e], tr.wrappers[e] = original, wrapper
+                    e.callback = wrapper
+                    tr.wrappedCount = tr.wrappedCount + 1
+                end
+            end
+        end
+    end
+end
+
+-- put back every original callback still in place
+local function traceUnwrap(tr)
+    local restored = 0
+    for e, wrapper in pairs(tr.wrappers) do
+        if e.callback == wrapper then
+            e.callback = tr.originals[e]
+            restored = restored + 1
+        end
+    end
+    tr.wrappers, tr.originals = {}, {}
+    return restored
+end
+
+local function traceFrame(tr)
+    tr.frame = tr.frame + 1
+    traceWrap(tr)
+    if tr.afterAt ~= nil and tr.frame >= tr.afterAt then
+        tr.afterAt = nil
+        tr.after[#tr.after + 1] = { t = g_time, frame = tr.frame, states = rigStates() }
+    end
+end
+
+local function newTrace()
+    return {
+        frame = 0, calls = {}, after = {}, wrappedCount = 0,
+        wrappers = setmetatable({}, { __mode = "k" }), originals = setmetatable({}, { __mode = "k" }),
+    }
+end
+
+-- csPress: press a key the way Companion's runInputAction does (mod
+-- 0.8.13): every active handler, from update(), with 8 arguments
+local function pressLikeTheMod(name)
+    local events = eventsFor(name)
+    local called = 0
+    if type(events) == "table" then
+        for _, e in pairs(events) do
+            if type(e) == "table" and type(e.callback) == "function" and e.isActive ~= false then
+                if pcall(e.callback, e.targetObject, name, 1, e.callbackState, false, false, nil, nil) then
+                    called = called + 1
+                end
+            end
+        end
+    end
+    return called
+end
+
+local function writeKeys(out)
+    local dir = ctx.dir or settingsDir()
+    ctx.dir = dir
+    if dir == nil then
+        return false
+    end
+    out.spikeVersion, out.gameTimeMs = SPIKE_VERSION, g_time
+    local ok, text = pcall(Json.encode, out)
+    if not ok then
+        log("keys encode failed: %s", tostring(text))
+        return false
+    end
+    local f = io.open(dir .. "keys.json", "w")
+    if f == nil then
+        return false
+    end
+    f:write(text)
+    f:close()
+    log("keys written: %skeys.json (%d bytes)", dir, #text)
+    return true
+end
+
 local function vehicleDetail(v)
     local function first(name, ...)
         local r = tryCall(v, name, ...)
@@ -1465,6 +1729,12 @@ function CompanionSpike:loadMap(name)
             "consoleDump", CompanionSpike)
         addConsoleCommand("csSelect", "Select each tool of the rig in turn, then put the selection back",
             "consoleSelect", CompanionSpike)
+        addConsoleCommand("csKeys", "Write the All row's key handlers to keys.json",
+            "consoleKeys", CompanionSpike)
+        addConsoleCommand("csTrace", "Start, or stop and write, a trace of the All row's key handlers",
+            "consoleTrace", CompanionSpike)
+        addConsoleCommand("csPress", "Press a key as FS25 Companion does (default LOWER_ALL_IMPLEMENTS)",
+            "consolePress", CompanionSpike)
     end
 end
 
@@ -1476,8 +1746,67 @@ function CompanionSpike:deleteMap()
     if removeConsoleCommand ~= nil then
         removeConsoleCommand("csDump")
         removeConsoleCommand("csSelect")
+        removeConsoleCommand("csKeys")
+        removeConsoleCommand("csTrace")
+        removeConsoleCommand("csPress")
     end
     ctx.selectRun = nil
+    ctx.pressNext = nil
+    if ctx.trace ~= nil then
+        pcall(traceUnwrap, ctx.trace)
+        ctx.trace = nil
+    end
+end
+
+function CompanionSpike:consoleKeys()
+    local ok, res = pcall(probeKeys)
+    if not ok then
+        log("keys probe failed: %s", tostring(res))
+        return "keys probe failed, see log"
+    end
+    local parts = {}
+    for _, name in ipairs(KEY_ACTIONS) do
+        parts[#parts + 1] = name .. "=" .. tostring(res.actions[name].count)
+    end
+    return (writeKeys({ keys = res }) and "keys.json written: " or "keys.json FAILED: ") .. table.concat(parts, " ")
+end
+
+function CompanionSpike:consolePress(name)
+    name = (name == nil or name == "") and "LOWER_ALL_IMPLEMENTS" or tostring(name):upper()
+    local known = false
+    for _, k in ipairs(KEY_ACTIONS) do
+        known = known or k == name
+    end
+    if not known then
+        return "csPress takes one of: " .. table.concat(KEY_ACTIONS, ", ")
+    end
+    ctx.pressNext = name
+    return "pressing " .. name .. " as the mod does, next frame"
+end
+
+function CompanionSpike:consoleTrace()
+    local tr = ctx.trace
+    if tr == nil then
+        ctx.trace = newTrace()
+        local ok, err = pcall(traceWrap, ctx.trace)
+        if not ok then
+            ctx.trace = nil
+            return "trace failed: " .. tostring(err)
+        end
+        ctx.status = "tracing the All row's keys (csTrace again to stop)"
+        return string.format("tracing: %d handlers wrapped; press the keys, then csTrace again", ctx.trace.wrappedCount)
+    end
+    ctx.trace = nil
+    local okUn, restored = pcall(traceUnwrap, tr)
+    local okKeys, keys = pcall(probeKeys)
+    local out = {
+        trace = { frames = tr.frame, calls = tr.calls, after = tr.after, wrapped = tr.wrappedCount,
+            restored = okUn and restored or tostring(restored) },
+        keys = okKeys and keys or { error = tostring(keys) },
+    }
+    ctx.status = "trace written to keys.json"
+    return string.format("%s: %d calls, %d handlers restored", writeKeys(out) and "keys.json written" or "keys.json FAILED",
+        #tr.calls, okUn and restored or -1)
 end
 
 function CompanionSpike:consoleDump()
@@ -1510,6 +1839,26 @@ end
 
 function CompanionSpike:update(dt)
     ctx.elapsed = ctx.elapsed + dt
+    if ctx.pressNext ~= nil then
+        local name = ctx.pressNext
+        ctx.pressNext = nil
+        if ctx.trace ~= nil then
+            ctx.trace.pressing = "csPress"
+        end
+        local ok, called = pcall(pressLikeTheMod, name)
+        if ctx.trace ~= nil then
+            ctx.trace.pressing = nil
+        end
+        log("csPress %s: %s handler(s) called", name, ok and tostring(called) or ("failed: " .. tostring(called)))
+    end
+    if ctx.trace ~= nil then
+        local ok, err = pcall(traceFrame, ctx.trace)
+        if not ok then
+            log("trace stopped: %s", tostring(err))
+            pcall(traceUnwrap, ctx.trace)
+            ctx.trace = nil
+        end
+    end
     local run = ctx.selectRun
     if run ~= nil then
         run.timer = run.timer + dt
@@ -1579,6 +1928,9 @@ CS._capabilitiesOf = capabilitiesOf
 CS._probeCensus = probeCensus
 CS._toolsProbe = toolsProbe
 CS._selectStep = selectStep
+CS._probeKeys = probeKeys
+CS._ctx = ctx
+CS._traceWrap, CS._traceUnwrap, CS._traceFrame, CS._newTrace = traceWrap, traceUnwrap, traceFrame, newTrace
 
 if addModEventListener ~= nil then
     addModEventListener(CompanionSpike)

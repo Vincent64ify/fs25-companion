@@ -633,3 +633,26 @@ Live check (mod 0.8.8; the spike is done; the rigs above):
   every handler registered for the key; which ones are there is
   unknown). Fixed in 0.8.11: Lower all is each tool's own Lower, which
   worked every time on all three mowers.
+- 2026-10-30: spikes 0.0.5 and 0.0.6 (`csKeys`, `csTrace`, `csPress`) on
+  the T7.300 with the KDF 341 S front and KDD 941 STH rear, mod 0.8.13,
+  to find why the mod's Lower all failed every other time. Findings:
+  - **One handler per All key**, raised or lowered, folded or not:
+    `LOWER_ALL_IMPLEMENTS` belongs to the tractor; `FOLD_ALL_IMPLEMENTS`
+    and `TURN_ON_ALL_IMPLEMENTS` to the selected tool (they follow the
+    selection). So the mod's "call every handler" never pressed twice.
+  - **The mod's press acts as the keyboard's.** 15 traced presses: the
+    dashboard's Fold all and Turn on all did what Ctrl+X and Ctrl+B did,
+    and `csPress` (Lower all exactly as `runInputAction` calls it, 8
+    arguments) lowered both on the first press, unfolded right before,
+    the KDD in work mode left (Vincent saw the same). The keyboard passes
+    two more: device category 253 and the binding; the handlers don't
+    need them.
+  - Ctrl+V pressed about a second into an unfold lowered both: not
+    "pressed while moving". While a tool rises, `getIsLowered` stays
+    true until its fold animation ends.
+  The 0.8.10 failure is not the key press; it was elsewhere in that
+  build's command flow (0.8.8 to 0.8.11 are one commit, so it can't be
+  looked at again). What stays true: an ack's ok only says a handler
+  ran. Next (Vincent, 2026-10-30): answers that check the tools moved,
+  then Lower all back on the game's key (NEXT.md). The four dumps are in
+  `mod/tests/fixtures/spike0003/keys-*.json`.

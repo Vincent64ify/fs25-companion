@@ -208,6 +208,24 @@ These results override any API guesses later in this document.
   - The XT 390 lowers through its fold (`foldMiddleAnimTime`): its own
     `LOWER_IMPLEMENT` lowers and raises it, and `LOWER_ALL_IMPLEMENTS`
     lowers both mowers (mod 0.8.8).
+- **The input binding** (spikes 0.0.5 and 0.0.6, 2026-10-30, the T7.300
+  with the KDF 341 S and KDD 941 STH; Vincent watched each press;
+  spec 0003's Log):
+  - `g_inputBinding.actionEvents[g_inputBinding.nameActions[name]]` holds
+    one event per registered handler: `callback`, `targetObject`,
+    `isActive`, `callbackState`, `id` (also the key into
+    `g_inputBinding.events`), `triggerDown` true, `triggerUp` and
+    `triggerAlways` false, `hasFrameTriggered`, `displayPriority`,
+    `contextDisplayText` ("Lower/raise all tools").
+    `g_inputBinding.currentContextName` is "VEHICLE" in a vehicle.
+  - One handler per All key on that rig: `LOWER_ALL_IMPLEMENTS` on the
+    tractor, `FOLD_ALL_IMPLEMENTS` and `TURN_ON_ALL_IMPLEMENTS` on the
+    selected tool.
+  - A key press calls `callback(target, actionName, 1, callbackState,
+    false, false, 253, <binding>)`; calling it with the last two nil (as
+    Companion does) acts the same.
+  - `getIsLowered` stays true while a tool that lowers through its fold
+    is still rising.
 
 ---
 
