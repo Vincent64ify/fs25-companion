@@ -386,6 +386,15 @@ check("commands: message, ack by id, failure, timeout, offline",
   [{ type: "command", id: "t-1", action: "lights.toggle" }, { ok: true },
    { ok: false, reason: "not in a vehicle" }, { ok: false, reason: "no answer" },
    { ok: false, reason: "not connected" }, 0]);
+// specs/0004: after a rotation the mod sends recent acks again; one for a
+// command answered or timed out already changes nothing
+const nextRun = cmd.send("lights.toggle");
+cmd.ack({ id: "t-1", ok: false, reason: "replayed" });
+cmd.ack({ id: "t-3", ok: true });
+cmd.ack({ id: "t-4", ok: false, reason: "not in a vehicle" });
+cmd.ack({ id: "t-4", ok: true });
+check("commands: a replayed ack is ignored", [await nextRun, cmd.roundTrips().count, cmd.pending()],
+  [{ ok: false, reason: "not in a vehicle" }, 3, 0]);
 
 const ccs = createStore();
 /** @type {((r: any) => void)[]} */

@@ -2495,6 +2495,84 @@ test("whole mod streams every topic", function()
     end
 end)
 
+-- specs/0004: an ack written in the frame that rotates is sent again in the
+-- new file, after hello and the resend topics (code review F1)
+test("acks survive a rotation", function()
+    if TMP_DIR == nil then
+        print("skip rotation test (no TMP_DIR)")
+        return
+    end
+    local player, vehicle, getListener = stubGame()
+    load("src/collectors/Hello.lua")
+    load("src/collectors/Cab.lua")
+    load("src/Companion.lua")
+    local mod = getListener()
+    local stream = TMP_DIR .. "/FS25_Companion/stream.ndjson"
+    local writeCommand = commandStubs(TMP_DIR .. "/FS25_Companion/cmd/")
+    vehicle.spec_lights = { lightsTypesMask = 0 }
+    vehicle.setLightsTypesMask = function(self, mask) self.spec_lights.lightsTypesMask = mask end
+    local realNew, transport = Companion.Transport.new, nil
+    Companion.Transport.new = function(...)
+        transport = realNew(...)
+        return transport
+    end
+    mod:loadMap("map")
+    Companion.Transport.new = realNew
+    player.currentVehicle = vehicle
+    for _ = 1, 5 do
+        mod:update(16)
+    end
+    local session = readFile(stream):match('"sessionId":"([^"]+)"')
+    local function rotateNextFrame()
+        transport.maxBytes = transport.bytes + 1
+    end
+    local function acksIn(ls)
+        local ids = {}
+        for _, line in ipairs(ls) do
+            if line:find('"topic":"command_ack"', 1, true) then
+                ids[#ids + 1] = line:match('"id":(%d+)')
+            end
+        end
+        return table.concat(ids, ",")
+    end
+
+    -- the command runs in the frame that crosses maxBytes
+    writeCommand(1, session, "TOGGLE_LIGHTS", "b7")
+    rotateNextFrame()
+    mod:update(16)
+    transport.maxBytes = Companion.Transport.DEFAULT_MAX_BYTES
+    eq(transport.rotations, 1, "rotated")
+    local ls = lines(readFile(stream))
+    assert(ls[1]:find('"topic":"hello"', 1, true), "hello first: " .. tostring(ls[1]))
+    assert(ls[1]:find('"next":2', 1, true), "the mod read 1: " .. ls[1])
+    -- then the resend topics (the cab among them), then the ack again
+    assert(ls[#ls]:find('"data":{"action":"TOGGLE_LIGHTS","id":1,"ok":true,"ref":"b7","via":"setter"}', 1, true),
+        "the ack last: " .. tostring(ls[#ls]))
+    eq(acksIn(ls), "1")
+    assert(table.concat(ls, "\n"):find('"topic":"cab"', 1, true), "the cab resent")
+    eq(vehicle.spec_lights.lightsTypesMask ~= 0, true, "the lights went on")
+    mod:update(16)
+    eq(vehicle.spec_lights.lightsTypesMask ~= 0, true, "once: not toggled back")
+
+    -- at most 16, the newest
+    for id = 2, 18 do
+        writeCommand(id, session, "TOGGLE_LIGHTS", "r" .. id)
+        mod:update(16)
+    end
+    rotateNextFrame()
+    mod:update(16)
+    eq(acksIn(lines(readFile(stream))), "3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18", "the last 16, oldest first")
+
+    -- older than 5 s of game time: not again
+    g_time = g_time + 5001
+    writeCommand(19, session, "TOGGLE_LIGHTS", "r19")
+    rotateNextFrame()
+    mod:update(16)
+    eq(transport.rotations, 3)
+    eq(acksIn(lines(readFile(stream))), "19", "only this frame's: the old ones aren't replayed")
+    mod:deleteMap()
+end)
+
 -- runner -------------------------------------------------------------------
 
 for _, t in ipairs(tests) do

@@ -222,6 +222,48 @@ def test_cruise_set_one_in_the_game_the_latest_waits(tmp_path):
     assert attrs(tmp_path / "cmd" / "4.xml")["value"] == "13.000"
 
 
+def test_cruise_slot_freed_by_a_hello_past_it(tmp_path):
+    """specs/0004: the ack of 1 fell in a rotation; the hello after it says
+    the mod read 1, so the waiting value goes in."""
+    writer, _, _ = make(tmp_path)
+    writer.submit("a", "cruise.set", 10)
+    writer.submit("b", "cruise.set", 11)  # waits
+    writer.on_hello({"sessionId": "S1", "commands": {"dir": "x", "next": 1}})
+    assert not (tmp_path / "cmd" / "2.xml").exists(), "1 not read yet: still waiting"
+    writer.on_hello({"sessionId": "S1", "commands": {"dir": "x", "next": 2}})
+    assert attrs(tmp_path / "cmd" / "2.xml")["value"] == "11.000"
+    assert attrs(tmp_path / "cmd" / "2.xml")["ref"] == "b"
+
+
+def test_cruise_slot_given_up_after_the_timeout(tmp_path):
+    writer, acks, clock = make(tmp_path)
+    writer.submit("a", "cruise.set", 10)
+    clock.now += commands_mod.IN_GAME_TIMEOUT_S - 1
+    writer.submit("b", "cruise.set", 11)
+    assert not (tmp_path / "cmd" / "2.xml").exists(), "within the timeout: waits"
+    clock.now += 2
+    writer.submit("c", "cruise.set", 12)
+    assert attrs(tmp_path / "cmd" / "2.xml")["value"] == "12.000", "1 given up: the newest goes in"
+    assert [(a["data"]["ref"], a["data"]["reason"]) for a in acks] == [("b", "superseded")]
+    # a late ack for 1 changes nothing: 2 stays in the game
+    writer.on_ack({"id": 1, "ok": True})
+    writer.submit("d", "cruise.set", 13)
+    assert not (tmp_path / "cmd" / "3.xml").exists()
+    writer.on_ack({"id": 2, "ok": True})
+    assert attrs(tmp_path / "cmd" / "3.xml")["value"] == "13.000"
+
+
+def test_a_replayed_ack_changes_nothing(tmp_path):
+    writer, acks, _ = make(tmp_path)
+    writer.submit("a", "cruise.set", 10)
+    writer.on_ack({"id": 1, "ok": True})
+    writer.submit("b", "cruise.set", 11)  # 2, in the game
+    writer.submit("c", "cruise.set", 12)  # waits
+    writer.on_ack({"id": 1, "ok": True})  # 1 again, after a rotation
+    assert sorted(p.name for p in (tmp_path / "cmd").iterdir()) == ["2.xml"]
+    assert acks == []
+
+
 def test_relay_passes_the_value_on():
     relay = WebSocketRelay("ws://h", "1", Outbox())
     got = []

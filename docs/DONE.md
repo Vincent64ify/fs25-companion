@@ -265,7 +265,7 @@ Why a file:
 
 As built (mod 0.4.0). A `prices` topic is still to come (see [PLAN.md](PLAN.md#later)).
 
-The `hello` message is re-emitted after every rotation, so a reader that starts late always gets the context it needs.
+The `hello` message is re-emitted after every rotation, so a reader that starts late always gets the context it needs. Since mod 0.8.13 ([spec 0004](../specs/0004-acks-survive-rotation.md)) the `command_ack`s of the last 5 s (16 at most) follow it again, after the resend topics: the frames just before a rotation may be gone before the reader got them.
 
 **Client side** (`client/transport/file_tail.py`):
 - Poll the file every 50 ms. Track the read offset, buffer partial lines, and drop lines that aren't valid JSON (for example a line cut off during rotation). If the file is smaller than the offset, reset to 0.

@@ -6,7 +6,7 @@ it relies on, are in [DONE.md](DONE.md). Small fixes go in
 [specs/](../specs/README.md): written and approved before the code, kept
 up to date until the live check.
 
-## Where things stand (2026-10-27)
+## Where things stand (2026-10-30)
 
 - Phases 0 to 4 of the rework are built and run live on Windows (Solek, and
   Kinlaig, a paid DLC map): the file stream, the client and backend, and the
@@ -49,6 +49,12 @@ up to date until the live check.
   other rigs are next.
   Canvases are built from the design system
   ([THEMES.md](THEMES.md#design-system-2026-10-25)).
+- The code review of 2026-10-30 ([REVIEW-2026-10-30.md](REVIEW-2026-10-30.md))
+  found seven issues. F5 to F7 are fixed (mod 0.8.12), and F1 is fixed and
+  confirmed in game (spec [0004](../specs/0004-acks-survive-rotation.md),
+  mod 0.8.13): a dashboard command's answer survives the stream starting
+  over, and Cruise − / + never get stuck. F2 to F4 are open
+  ([NEXT.md](NEXT.md)).
 - macOS is still to test, and a few things are still to confirm in game (see
   [Open checks](#open-checks)).
 

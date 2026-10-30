@@ -8,11 +8,11 @@
 --
 -- The other way, the client writes the dashboard's commands to cmd/ in the
 -- same folder (Commands.lua); each gets a command_ack and the cab topic in
--- the frame it runs.
+-- the frame it runs, and its ack again after a rotation within 5 s.
 
 Companion = Companion or {}
 
-Companion.VERSION = "0.8.12"
+Companion.VERSION = "0.8.13"
 Companion.DIR_NAME = "FS25_Companion"
 Companion.STREAM_FILE = "stream.ndjson"
 Companion.COMMAND_DIR = "cmd/"
@@ -24,6 +24,8 @@ local state = {
     ctx = nil,
     helloSent = false,
     clock = 0,
+    -- {time, ack}: the acks sent lately, oldest first
+    recentAcks = {},
 }
 
 local function log(msg)
@@ -114,6 +116,7 @@ function Companion:loadMap(name)
     state.scheduler = scheduler
     state.helloSent = false
     state.clock = 0
+    state.recentAcks = {}
     state.ctx = {
         modVersion = Companion.VERSION,
         sessionId = sessionId,
@@ -136,6 +139,11 @@ function Companion:deleteMap()
     state.ctx = nil
 end
 
+-- acks sent again after a rotation (specs/0004): the reader may not have
+-- read the frames before it
+Companion.ACK_REPLAY_MS = 5000
+Companion.ACK_REPLAY_MAX = 16
+
 -- Run the next dashboard command if the client wrote one, then send its ack
 -- and the cab topic in this frame. A failure here drops the command, never
 -- the game.
@@ -147,8 +155,25 @@ local function runCommands(transport, scheduler, ctx)
     local ok, ack = pcall(commands.poll, commands)
     if ok and ack ~= nil then
         pcall(transport.send, transport, "command_ack", ctx.time, ack)
+        local recent = state.recentAcks
+        recent[#recent + 1] = { time = ctx.time, ack = ack }
+        if #recent > Companion.ACK_REPLAY_MAX then
+            table.remove(recent, 1)
+        end
         scheduler:emit("cab", ctx)
     end
+end
+
+-- after hello and the resend topics: the acks of the last few seconds
+local function replayAcks(transport, ctx)
+    local kept = {}
+    for _, entry in ipairs(state.recentAcks) do
+        if ctx.time - entry.time <= Companion.ACK_REPLAY_MS then
+            kept[#kept + 1] = entry
+            pcall(transport.send, transport, "command_ack", ctx.time, entry.ack)
+        end
+    end
+    state.recentAcks = kept
 end
 
 function Companion:update(dt)
@@ -176,6 +201,7 @@ function Companion:update(dt)
     end
     if rotated then
         scheduler:resend(ctx)
+        replayAcks(transport, ctx)
         pcall(transport.flush, transport)
     end
 end

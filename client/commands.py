@@ -21,13 +21,17 @@ once with a command_ack of our own, so the dashboard isn't left waiting.
 and comes many times a second while a −/+ button is held. Only one is in
 the game at a time: a newer one waits until the mod answers the last, and
 replaces any that was waiting (that one is answered as superseded).
+The slot is also freed by a same-session hello whose commands.next is past
+it (the mod read it; its ack may have fallen in a rotation, specs/0004),
+and given up when the next value comes after IN_GAME_TIMEOUT_S without an
+answer.
 """
 
 import logging
 import os
 import time
 from pathlib import Path
-from typing import Any, Callable, Dict, Optional
+from typing import Any, Callable, Dict, Optional, Tuple
 from xml.sax.saxutils import quoteattr
 
 log = logging.getLogger("companion.commands")
@@ -107,6 +111,9 @@ COALESCE = {"cruise.set"}
 # new cab state go out as soon as the mod writes them
 FAST_POLL_S = 2.0
 
+# a coalesced command unanswered this long is given up for the next one
+IN_GAME_TIMEOUT_S = 5.0
+
 Envelope = Dict[str, Any]
 
 
@@ -139,8 +146,9 @@ class CommandWriter:
         self.session: Optional[str] = None
         self.next_id = 1
         self.fast_until = 0.0
-        # action -> the id in the game; action -> (ref, value) waiting
-        self._in_game: Dict[str, int] = {}
+        # action -> (the id in the game, when it was written);
+        # action -> (ref, value) waiting
+        self._in_game: Dict[str, Tuple[int, float]] = {}
         self._waiting: Dict[str, Any] = {}
 
     def on_hello(self, hello: Dict[str, Any]) -> None:
@@ -157,6 +165,8 @@ class CommandWriter:
                 self._clear()
         else:
             self.next_id = max(self.next_id, mod_next)
+            # the mod read everything below next
+            self._free(lambda cid: cid < mod_next)
 
     def on_ack(self, ack: Dict[str, Any]) -> None:
         """The mod answered command <id>: delete its file."""
@@ -168,8 +178,13 @@ class CommandWriter:
             (self.cmd_dir / f"{cid}.xml").unlink()
         except OSError:
             pass
-        for action, in_game in list(self._in_game.items()):
-            if in_game <= cid:
+        self._free(lambda in_game: in_game <= cid)
+
+    def _free(self, done: Callable[[int], bool]) -> None:
+        """Free the coalesced slots done says the mod is through with; their
+        waiting values go in."""
+        for action, (in_game, _) in list(self._in_game.items()):
+            if done(in_game):
                 del self._in_game[action]
                 waiting = self._waiting.pop(action, None)
                 if waiting is not None:
@@ -190,6 +205,14 @@ class CommandWriter:
             self.put(ack_envelope(ref, "game not running"))
             return
         if action in COALESCE and action in self._in_game:
+            cid, since = self._in_game[action]
+            if self.clock() - since > IN_GAME_TIMEOUT_S:
+                log.warning("no answer to command %d in %.0f s: giving up on it", cid, IN_GAME_TIMEOUT_S)
+                del self._in_game[action]
+                replaced = self._waiting.pop(action, None)
+                if replaced is not None:
+                    self.put(ack_envelope(replaced[0], "superseded", ok=True))
+        if action in COALESCE and action in self._in_game:
             replaced = self._waiting.get(action)
             if replaced is not None:
                 self.put(ack_envelope(replaced[0], "superseded", ok=True))
@@ -205,7 +228,7 @@ class CommandWriter:
             return
         self.next_id = cid + 1
         if action in COALESCE:
-            self._in_game[action] = cid
+            self._in_game[action] = (cid, self.clock())
         self.fast_until = self.clock() + FAST_POLL_S
 
     def write(self, cid: int, game_action: str, ref: str, value: Any = None) -> Path:
