@@ -18,10 +18,17 @@ local ESCAPES = {
     ['\n'] = '\\n', ['\r'] = '\\r', ['\t'] = '\\t',
 }
 
+local function escape(c)
+    return ESCAPES[c] or string.format("\\u%04x", c:byte())
+end
+
+-- JSON's own set: the quote, the backslash and bytes 0x00-0x1f. Not %c: it
+-- follows the C locale, and a UTF-8 one counts 0x80-0x9f in, splitting
+-- characters like Ö (code review F5)
 local function escapeString(s)
-    return '"' .. s:gsub('[%c"\\]', function(c)
-        return ESCAPES[c] or string.format("\\u%04x", c:byte())
-    end) .. '"'
+    s = s:gsub('["\\]', escape)
+    s = s:gsub('[^\32-\255]', escape)
+    return '"' .. s .. '"'
 end
 
 local function keyLess(a, b)

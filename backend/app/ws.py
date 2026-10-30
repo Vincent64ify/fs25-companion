@@ -30,7 +30,9 @@ The first message names the role.
                         on connect too; the images are at
                         /api/maps/<mapId>/<hash>/overview.png
     backend -> viewer:  {"type": "client_status", "connected": bool}
-    backend -> viewer:  {"type": "protocol_error", "message": str}
+    backend -> viewer:  {"type": "protocol_error", "message": str|null}
+                        on connect while there is one; null once the
+                        client's envelopes are good again
     backend -> viewer:  {"type": "command_ack", "id": str, "ok": bool,
                         "reason": str|null}
                         to the viewer that sent the command, with its own
@@ -138,7 +140,10 @@ async def handle_client(ws: WebSocket, session: Session) -> None:
                     log.warning("%s: dropped %d invalid envelope(s), latest: %s",
                                 session.code, invalid, e.errors()[:1])
                 continue
-            session.protocol_error = None
+            if session.protocol_error is not None:
+                session.protocol_error = None
+                log.info("%s: protocol error cleared", session.code)
+                await session.broadcast({"type": "protocol_error", "message": None})
             if envelope["topic"] in EVENT_TOPICS:
                 await answer_command(session, envelope["data"])
                 continue
@@ -183,7 +188,8 @@ async def handle_command(ws: WebSocket, session: Session, msg: dict) -> None:
         await safe_send(ws, {"type": "command_ack", "id": viewer_id, "ok": False, "reason": reason})
 
     action = msg.get("action")
-    if action not in COMMAND_ACTIONS:
+    # a list or object isn't hashable: check the type before the lookup
+    if not isinstance(action, str) or action not in COMMAND_ACTIONS:
         await refuse("action not allowed")
         return
     value = msg.get("value")

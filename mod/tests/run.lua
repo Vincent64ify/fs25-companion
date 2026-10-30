@@ -92,6 +92,26 @@ test("json string escaping", function()
     eq(Json.encode("Solek é"), '"Solek é"', "utf-8 passes through")
 end)
 
+-- %c follows the C locale: under a UTF-8 one (macOS) it caught 0x96, the
+-- second byte of Ö, and split the character (code review F5)
+test("json escaping keeps every byte above 0x1f, in any locale", function()
+    local high = {}
+    for b = 0x20, 0xff do
+        if b ~= 0x22 and b ~= 0x5c then high[#high + 1] = string.char(b) end
+    end
+    high = table.concat(high)
+    local old = os.setlocale and os.setlocale(nil, "ctype")
+    for _, locale in ipairs({ "C", "en_US.UTF-8", "C.UTF-8", ".UTF8" }) do
+        if os.setlocale == nil or os.setlocale(locale, "ctype") ~= nil then
+            eq(Json.encode("PÖTTINGER"), '"PÖTTINGER"', locale)
+            eq(Json.encode("日本 🚜"), '"日本 🚜"', locale)
+            eq(Json.encode(high), '"' .. high .. '"', locale)
+            eq(Json.encode("\0\31\b\f\n\r\t"), '"\\u0000\\u001f\\b\\f\\n\\r\\t"', locale)
+        end
+    end
+    if old ~= nil then os.setlocale(old, "ctype") end
+end)
+
 test("json arrays and objects", function()
     eq(Json.encode({}), "[]")
     eq(Json.encode({ 1, 2, 3 }), "[1,2,3]")

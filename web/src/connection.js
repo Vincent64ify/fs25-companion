@@ -78,6 +78,8 @@ export async function connect(store) {
     ws.onopen = () => {
       ws.send(JSON.stringify({ type: "hello", role: "viewer" }));
       setStatus({ backend: true });
+      // the backend says it again on connect if it still holds one
+      store.set("protocolError", null);
     };
     ws.onmessage = (ev) => {
       let msg;
@@ -99,7 +101,7 @@ export async function connect(store) {
         case "client_status":
           setStatus({ client: !!msg.connected });
           break;
-        case "protocol_error":
+        case "protocol_error": // message null: cleared
           store.set("protocolError", msg.message || null);
           break;
         case "command_ack":

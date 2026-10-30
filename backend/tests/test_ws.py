@@ -74,6 +74,27 @@ def test_protocol_mismatch_is_reported_to_viewers():
         assert recv(viewer) == {"type": "client_status", "connected": False}
 
 
+def test_protocol_recovery_clears_the_error():
+    client = TestClient(create_app())
+    with client.websocket_connect("/ws?pair=fix") as game, \
+            client.websocket_connect("/ws?pair=fix") as viewer:
+        game.send_text(json.dumps({"type": "hello", "role": "client"}))
+        assert recv(game)["type"] == "welcome"
+        viewer_hello(viewer)
+        send_env(game, env("player", {"x": 1, "z": 2}, v=99))
+        assert recv(viewer)["type"] == "protocol_error"
+        # a viewer that connects now hears of it too
+        with client.websocket_connect("/ws?pair=fix") as late:
+            viewer_hello(late)
+            assert recv(late)["type"] == "protocol_error"
+        # a good envelope clears it, once, before its update
+        send_env(game, hello())
+        send_env(game, env("player", {"x": 1, "z": 2}, seq=2))
+        assert recv(viewer) == {"type": "protocol_error", "message": None}
+        assert recv(viewer)["envelope"]["topic"] == "hello"
+        assert recv(viewer)["envelope"]["topic"] == "player"
+
+
 def test_missing_pairing_code_is_rejected():
     client = TestClient(create_app())
     try:
@@ -170,6 +191,11 @@ def test_commands_outside_the_allow_list_never_reach_the_client():
         assert recv(viewer) == {"type": "command_ack", "id": "x1", "ok": False,
                                 "reason": "action not allowed"}
         command(viewer, {"not": "a string"})  # no id to answer: ignored
+        # an action that isn't a string is refused, and the socket lives on
+        for bad in ([], {}, None, True, 3):
+            command(viewer, "x-bad", action=bad)
+            assert recv(viewer) == {"type": "command_ack", "id": "x-bad", "ok": False,
+                                    "reason": "action not allowed"}
         command(viewer, "x2")
         # the only thing the client got is the allowed command
         assert recv(game)["action"] == "lights.toggle"
