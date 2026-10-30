@@ -142,6 +142,14 @@ does (every active handler, 8 arguments), so the mod's press can be
 compared with the keyboard's on the same rig. The trace now records
 every argument from the 5th on, and marks the calls `csPress` made.
 
+Spike 0.0.7 adds `csCombo`: live, the game's Lower all lowered the
+T7.300's rear mower 2.0 s after the front one, every time. `csCombo`
+writes `combo.json`: what the tractor's attacher joints hold (every field
+named combo, each joint's plain fields, its Combo methods), then presses
+Lower all as the mod does and records every change in those and in the
+tools' states, frame by frame, for 8 s. Run it once to lower, once to
+raise; on a second tractor if there is one.
+
 ## Command spike (C0)
 
 `FS25_CommandSpike` checks the command channel planned for Controls (see

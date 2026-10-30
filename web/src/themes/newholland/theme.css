@@ -1175,7 +1175,10 @@ button { font: inherit; color: inherit; }
 .screen[data-screen="vehicle"] .veh-strip-none { display: none !important; }
 
 /* the All row: Unfold all, Lower all, Turn on all, ... */
-.tools-all { display: flex; align-items: center; gap: 14px; min-width: 0; }
+.tools-all { position: relative; display: flex; align-items: center; gap: 14px; min-width: 0; }
+/* a failed All row answer ("KDD 941 STH: Nothing moved"): just under the
+   row, over the cards' top, so nothing moves */
+.tools-all .tool-note { top: calc(100% + 6px); bottom: auto; left: 54px; right: 0; z-index: 2; }
 .tools-all > .veh-cap { flex: none; width: 40px; }
 .tools-all .tool-buttons { flex: 1; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); grid-auto-rows: 64px; }
 

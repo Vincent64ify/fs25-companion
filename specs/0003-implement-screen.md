@@ -1,7 +1,7 @@
 # 0003: Vehicle page with a card per tool (the Implement tab merges in)
 
-Status: built
-Mod: 0.8.11 · Started: 2026-10-26 · Design: canvas [FS25 Companion: Vehicle vs Implement](https://claude.ai/artifact/HvFL9rUTBC7cbDtnNH8WaT)
+Status: built (revision 2 live-checked on the mowers; the other rigs open)
+Mod: 0.8.15 · Started: 2026-10-26 · Design: canvas [FS25 Companion: Vehicle vs Implement](https://claude.ai/artifact/HvFL9rUTBC7cbDtnNH8WaT)
 (option A), [THEMES.md, Implement screen](../docs/THEMES.md#implement-screen-design-2026-10-24) (replaced)
 
 ## Goal
@@ -21,6 +21,176 @@ included, so nothing is written per tool type: **the mod sends what each
 tool can do, read from the game's own parts, and the page draws a button
 for each and nothing else.** A census of every vehicle type in the game
 checks the rule, and real rigs dumped from the game are the tests.
+
+## Revision 2: an ok means the tools moved
+
+Approved by Vincent and built (mod 0.8.14, 2026-10-30). This section is
+the revision whole; Behaviour and Commands below say the same where they
+changed.
+
+**Why.** Today a command's ok only says a key's handler ran (`stepJob`:
+`ok = job.done > 0`). Every failure of the mowers' live check was "ok and
+nothing moved" (Unfold and Lower with the engine off, the first Lower all
+after Unfold all), caught only by Vincent watching the game. Spikes 0.0.5
+and 0.0.6 showed the mod presses the keys as the keyboard does, so what's
+missing is knowing whether the press did anything. With that, Lower all
+goes back to the game's own key, and a scripted run of the All row is
+judged from the files instead of by eye.
+
+**What the player sees.**
+- A card's Fold / Unfold, Lower / Raise and Turn on / Turn off, and the
+  All row's Fold all, Lower all and Turn on all: the button stays pending
+  until the tools start moving the way its label says, then shows the
+  new state as today.
+- If nothing moves within 1 s of the press: the button shows "Failed"
+  for a moment, as a failure does today, with the game's words when the
+  tool has them (`whyNot`, `getTurnedOnNotAllowedWarning`), else "Nothing
+  moved". On the All row: ok only when every tool that should move did;
+  otherwise the reason names the others ("KDD 941 STH: Nothing moved").
+  As built: the reason shows on the card's note, and on a note just
+  under the All row, for 3 s, as a faded tap's does (a tablet has no
+  hover); any failed answer does, not only these.
+- **Lower all presses the game's key again** (`LOWER_ALL_IMPLEMENTS`,
+  once), not each tool's Lower. If it moves nothing, it fails and says so:
+  no second press, no fallback that hides it.
+- Not checked yet, answered as today: tip, cover, pipe, tip side, rotate,
+  bale reset, the other keys, Detach and Attach. Their rigs haven't had
+  their live check; each gets the same check once it has.
+
+**What "moved" means.** After the press the mod reads each tool every
+frame, for up to 1 s of game time (`CHECK_MS`):
+- fold / unfold: its fold animation moves the asked way
+  (`spec_foldable.foldMoveDirection`, or `getFoldAnimTime` changing toward
+  it);
+- lower / raise: `getIsLowered` becomes the asked state; for a tool that
+  lowers through its fold, its fold animation moving the asked way counts
+  too (`getIsLowered` stays true while such a tool rises: spike 0.0.6);
+- turn on / off: `getIsTurnedOn` becomes the asked state.
+
+The asked state is the one the button's label names, so the label and
+the check can't disagree. A tool already in the asked state doesn't
+count. Starting to move is enough: a fold takes seconds, and the cab
+topic shows the rest.
+
+**The labels in a mixed rig.** Today the All row says "Fold all" only
+while every tool is unfolded, "Raise all" only while every one is
+lowered, "Turn off all" only while every one is on (`allActions`,
+`selectors.js`). The game's key does otherwise at least once: with the
+KDF folded and the KDD unfolded, the dashboard said "Unfold all" and the
+game's Fold all folded the KDD (spike 0.0.5). So the label follows the
+game's key:
+- Fold all: "Fold all" while any is unfolded (seen), "Unfold all" when
+  all are folded.
+- Lower all and Turn on all in a mixed rig: not seen yet. The script's
+  run has a mixed step for each; until then their labels keep today's
+  rule, and a mismatch shows as a failure naming the tool, which tells
+  us the game's rule.
+
+**Data contract.** `command_ack` gains `checked: true` and `unmoved`
+(`[{id, name, why}]`, the tools that didn't move) on these actions;
+others keep today's fields. Protocol v1 (fields only). The backend's
+`CommandAck` model takes the new fields. Web: `COMMAND_TIMEOUT_MS` goes
+from 2 s to 5 s (Fold all may raise first for up to 2 s, then the 1 s
+check).
+
+| Name | Where from | State |
+|---|---|---|
+| `getFoldAnimTime()`, `spec_foldable.foldMoveDirection` (1 folded, 0 unfolded on the KDF; the KDD 0 working, 0.317 raised, 1 folded; direction -1 unfolding, 1 folding, 0 still) | Foldable.lua | seen live (spikes 0.0.5, 0.0.6) |
+| `getIsLowered`, `getIsTurnedOn` | AttacherJoints.lua, TurnOnVehicle.lua | verified (C2); the lag while rising seen live (spike 0.0.6) |
+| `LOWER_ALL_IMPLEMENTS`: one handler, the tractor's; the mod's press acts as Ctrl+V | InputBinding.lua | seen live (spikes 0.0.5, 0.0.6; DONE.md) |
+| `spec_attacherJoints.attacherJointCombos.isRunning`, `duration`: Lower all's combo, the rear tools moving when it ends | AttacherJoints.lua | seen live (spike 0.0.7, two tractors; DONE.md) |
+
+**Plan.**
+1. Mod (`Commands.lua`): each checked action's job knows the asked
+   state per tool; after its last press it waits (a new job phase) until
+   each has moved or `CHECK_MS` passed, then answers. Lower all: the
+   game's key once; with no live key, each tool's Lower (no key to press
+   isn't the same as a key that did nothing). Version 0.8.14.
+2. Backend and web: `CommandAck` takes `checked`, `unmoved`; the timeout
+   to 5 s; Fold all's label by the game's rule (above), in `allActions`
+   and the mod's asked state alike.
+3. `scripts/allrow_check.py`: drives a rig from the live backend, as the
+   dashboard does, and judges every answer against the cab's states: from
+   folded, raised and off, Unfold all, Lower all, Turn on all, Turn off
+   all, Raise all, Fold all, three times; then each card's Fold, Lower
+   and Turn on and back; then mixed rigs (one tool folded, one lowered,
+   one on), an All row button each, to learn the game's rule; then the
+   same with the engine off, where every
+   answer must be a failure with the game's words and nothing may move.
+   It prints one line per step (asked, answered, what the cab showed,
+   pass or fail) and a summary.
+4. Docs: the sections below take the revision; NEXT.md drops the Lower
+   all item.
+
+Risks: the 1 s check holds the command queue (no other command is read
+during a job, as today), so a Cruise hold right after an All row tap
+waits up to a second. A tool the game moves later than 1 s would read as
+"nothing moved": the live check says whether 1 s is enough.
+
+As built (mod 0.8.15): the check is a job phase after the last press
+(`checking`, `unmovedOf` in `Commands.lua`), ending once each tool moved,
+or `CHECK_MS` (1 s of `g_time`) after the press, **counted from the end
+of the tractor's attacher joint combo while it runs**: the game's Lower
+all moves the rear tools when the combo ends, `duration` after the press
+(2 s on the T7.300 and the Valtra S 286, spike 0.0.7), so a fixed window
+would fit one tractor only. At most `CHECK_CAP_MS` (8 s) in all, or
+`CHECK_MAX_FRAMES` (240) while game time stands still. The dashboard
+waits 10 s. A fold also counts as moved when `getIsUnfolded` turns
+the asked way. Turn on all is a job now (the game's key, else the
+setters), so it's checked too; the setter Fold all follows the game's
+rule. Names in the reason go in driving order (rear first). The mocks'
+keys act as the game's do (`SpikeRigs.act`; a `stuck` tool ignores them).
+
+**Acceptance, automated.**
+- [x] `mod/tests/run.lua` ("commands, checked"): a key that acts answers
+  ok, `checked`, in the frame of the press; one that doesn't move answers
+  "Nothing moved" after the wait; with `whyNot`, the game's words
+  ("commands, all": "Folding is not allowed while the tool is lowered.").
+- [x] Raise on a tool that lowers through its fold: its fold moving counts
+  while `getIsLowered` stays true.
+- [x] Turn on: ok once `getIsTurnedOn` flips; not ok when it doesn't.
+- [x] Fold all and Turn on all with two tools, one of which doesn't move:
+  not ok, `unmoved` names it.
+- [x] Lower all presses `LOWER_ALL_IMPLEMENTS` once (the mowers dump's
+  tractor key), no tool's own Lower; when it moves nothing, it fails, no
+  second press; with no live key, each tool's Lower.
+- [x] An unchecked action (Tip side) answers as today, no `checked`.
+- [x] `backend/tests`: an ack with `checked` and `unmoved` reaches the
+  viewer; an unchecked one carries neither.
+- [x] `web/test.html`: an implement command waits up to 5 s; a "Nothing
+  moved" answer shows on its card and the All row; with one tool folded
+  and one unfolded, the All row says "Fold all".
+- [x] `client/tests/test_allrow_check.py`: the asked states follow the
+  labels; a run that passes, an ok with nothing moved, a failure that
+  moved, the engine off.
+- [x] Checked in the browser pane at 1180×820, day and night: the notes
+  on a card and under the All row (the replay answers "no game (replay)").
+
+**Live check** (the T7.300 with the KDF 341 S and KDD 941 STH, or the
+XT 390; the client, `scripts/livewatch.py` and `allrow_check.py`):
+- [x] The script's sequence three times with the engine on: every step
+  passes, Lower all by the game's key every time.
+- [x] The engine off: every step answers with "Please start the engine
+  first!" and nothing moves. (Turn on all, the mowers folded, answered
+  with the game's "You first need to unfold the tool (mower)!" for each.)
+- [x] The mixed steps: what the game's Lower all and Turn on all do with
+  one tool lowered (or on) and one not; the labels follow. Lower all
+  lowers the rest, Turn on all turns on the rest, Fold all folds while
+  one is unfolded.
+- [x] Any "Nothing moved": what the game showed then (Vincent). On 0.8.14
+  every one was Lower all's rear mower moving 2 s late, which the game
+  did (Vincent saw it); 0.8.15 waits for the combo, and none came.
+  2026-10-30 (0.8.15, the T7.300 with the KDF 341 S and KDD 941 STH; 36
+  of 36; confirmed by Vincent: the game matched every step).
+
+**Decisions to confirm.**
+- Starting to move counts as moved, within 1 s, counted from the end of
+  the tractor's combo while it runs (live 0.8.14 and 0.8.15).
+- Lower all: the game's key and no hidden fallback when it moves nothing.
+- Tip, cover, pipe, tip side and rotate get the check after their rigs'
+  live checks, not now.
+- The All row's labels follow what the game's key does, starting with
+  Fold all.
 
 ## Behaviour
 
@@ -90,7 +260,10 @@ checks the rule, and real rigs dumped from the game are the tests.
   all", "Lower all" / "Raise all", "Turn on all" / "Turn off all", "Tip
   all" / "Stop all", "Uncover all" / "Cover all"). Turn on all is
   unavailable while one of them is folded, with "Unfold first" under it
-  (Vincent, 2026-10-26).
+  (Vincent, 2026-10-26). Revision 2: "Fold all" while any is unfolded, as
+  the game's key folds then (spike 0.0.5); Fold all, Lower all and Turn
+  on all answer ok only once the tools moved, a failure's reason on a
+  note under the row.
 - **Also attached:** each rig member with no card, one line ("3300 ·
   Fendt · Weights · Front · Raised": model, brand, shop category, side,
   state) with its buttons (Lower / Raise where it lowers, Detach).
@@ -255,17 +428,17 @@ New, each with the tool's id (without one: the selected tool's):
 - not built (open question 4): `implement.widthLeftIn`, `widthLeftOut`,
   `widthRightIn`, `widthRightOut`, the variable width keys.
 
-**All:** `implement.foldAll` and `implement.turnOnAll` press the game's
-own `FOLD_ALL_IMPLEMENTS` and `TURN_ON_ALL_IMPLEMENTS` once: one press
-acts on every tool (live 0.8.7). `implement.lowerAll` doesn't press the
-game's `LOWER_ALL_IMPLEMENTS`: pressed by the mod it did nothing every
-other time while Ctrl+V always worked (live 0.8.10). It runs each tool's
-Lower toward one state instead (lower every one while one is raised,
-else raise them all), in driving order, the selection put back; with
-no tool that has Lower (a combine's header), the game's key, else its
-combo, as before; when no tool's Lower can act, the combo. This is a
-workaround: the game's own key is what we want (Vincent), once the mod
-presses it as the keyboard does ([NEXT.md](../docs/NEXT.md)). Fold all, when folding, first raises each tool
+**All:** `implement.foldAll`, `implement.turnOnAll` and
+`implement.lowerAll` press the game's own `FOLD_ALL_IMPLEMENTS`,
+`TURN_ON_ALL_IMPLEMENTS` and `LOWER_ALL_IMPLEMENTS` once: one press acts
+on every tool (live 0.8.7; Lower all again since revision 2, after
+spikes 0.0.5 and 0.0.6 showed the mod's press acts as Ctrl+V). Each is
+checked (revision 2): ok once every tool that should move did, else the
+ones that didn't. Lower all lowers every tool while one is raised, else
+raises them all; with no live key, each tool's Lower toward that state,
+in driving order, the selection put back; when no tool's Lower can act,
+the combo; with no tool that has Lower (a combine's header), the key,
+else its combo, unchecked. Fold all, when folding, first raises each tool
 lowered on its joint that the game won't fold ("Folding is not allowed
 while the tool is lowered."; one that lowers through its fold the key
 raises itself), as its card's Lower does, then waits until the game lets
@@ -459,9 +632,13 @@ Live check (mod 0.8.8; the spike is done; the rigs above):
   engine on, Lower all lowered both (the folded XT 390 by unfolding down
   to work, the folded KDF 341 S in transport) and Raise all raised both.
   Every mower box above confirmed by Vincent the same day.
-- [ ] Lower all and Raise all (0.8.11, each tool's own Lower): one tap
+- [x] Lower all and Raise all (0.8.11, each tool's own Lower): one tap
   lowers or raises both, every time, also right after Unfold all and with
   the KDD in a work mode.
+  2026-10-30: replaced by revision 2 (the game's key again); 0.8.15's
+  live check: Lower all and Raise all one tap each, 8 of 8, right after
+  Unfold all each round (confirmed by Vincent). The KDD in a work mode:
+  spike 0.0.6, the mod's press of the key lowered both.
 
 ## Decisions
 
@@ -656,3 +833,48 @@ Live check (mod 0.8.8; the spike is done; the rigs above):
   ran. Next (Vincent, 2026-10-30): answers that check the tools moved,
   then Lower all back on the game's key (NEXT.md). The four dumps are in
   `mod/tests/fixtures/spike0003/keys-*.json`.
+- 2026-10-30: revision 2 drafted: an ok means the tools moved (fold,
+  lower, turn on, on the cards and the All row), Lower all back on the
+  game's key, Fold all's label by the game's rule (the dashboard said
+  "Unfold all" where the game folded), and a scripted live check.
+  Waiting for approval.
+- 2026-10-30: revision 2 approved by Vincent and built (mod 0.8.14). Mod:
+  a check phase in the jobs (`checking`, `unmovedOf`), `checked` and
+  `unmoved` on the ack; Lower all on the game's key, Turn on all a job;
+  Fold all (key and setter) folds while one is unfolded. Backend: the
+  viewer's ack carries `checked`, `unmoved`. Web: the wait 5 s, "Fold
+  all" by the game's rule, a failed answer's reason on the card and
+  under the All row. `scripts/allrow_check.py` for the live check. Tests:
+  a new Lua test, the mock rigs' keys act as the game's (older tests
+  updated to the new rules), a backend test, test.html, the script's
+  judging; 129 Python/Lua tests and test.html pass. Checked in the
+  browser pane at 1180×820, day and night.
+- 2026-10-30: live check (0.8.14), `allrow_check.py` on the T7.300 with
+  the KDF 341 S and KDD 941 STH. A first run pressed while the KDD still
+  moved (the script's wait was too short; fixed: nothing moving for 2 s,
+  at least 4 s a step). The second: 29 of 36 passed (the log is in
+  `fixtures/spike0003/allrow-run2-0.8.14.txt`): Unfold, Fold, Turn on and
+  Turn off all three times; all 12 card buttons; the mixed rigs (Lower
+  all lowers the rest, Turn on all turns on the rest, Fold all folds
+  while one is unfolded: the labels match); the engine off, each All
+  button failed with the game's words and nothing moved. The 7 failures
+  were all Lower all and Raise all: the KDD moved 2.0 s after the KDF,
+  after the 1 s check. Vincent saw the same. A card's own Lower moved the
+  KDD at once.
+- 2026-10-30: spike 0.0.7 (`csCombo`) on the T7.300 and a Valtra S 286
+  (Vincent: the same 2 s): the game's Lower all runs the tractor's
+  attacher joint combo (`attacherJointCombos`, `duration` 2000 ms), the
+  rear moving when `isRunning` turns false. Rather than a fixed delay
+  (Vincent: other tractors may differ), mod 0.8.15's check waits while
+  the combo runs, then 1 s; at most 8 s; the dashboard waits 10 s. The
+  Valtra's raise recording is `fixtures/spike0003/combo-valtra-raise.json`.
+- 2026-10-30: live check (0.8.15), `allrow_check.py` on the T7.300 with
+  the KDF 341 S and KDD 941 STH: **36 of 36 passed**
+  (`fixtures/spike0003/allrow-run3-0.8.15.txt`). The All row three times
+  from folded, raised and off, Lower all and Raise all included, each by
+  the game's key, ok once the KDD moved at the combo's end; the 12 card
+  buttons; the mixed rigs (the labels match the game); the engine off,
+  every All button a failure with the game's words, nothing moved.
+  Vincent: the game matched every step. Revision 2 live-checked on the
+  mowers; the other rigs' boxes (trailers, sprayer, plow, baler, weight,
+  truck, Attach) are still open.

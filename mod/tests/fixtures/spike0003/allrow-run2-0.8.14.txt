@@ -1,0 +1,75 @@
+rig: Samasz KDF 341 S (lower, fold, turnOn, detach) | Samasz KDD 941 STH (lower, fold, turnOn, detach)
+      before: Samasz KDF 341 S lowered=False unfolded=False on=False; Samasz KDD 941 STH lowered=False unfolded=False on=False
+PASS  round 1: Unfold all          Unfold all    ok                                               Samasz KDF 341 S there, Samasz KDD 941 STH there
+      before: Samasz KDF 341 S lowered=False unfolded=True on=False; Samasz KDD 941 STH lowered=False unfolded=True on=False
+FAIL  round 1: Lower all           Lower all     failed: Samasz KDD 941 STH: Nothing moved        failed (Samasz KDD 941 STH: Nothing moved), but Samasz KDF 341 S there, Samasz KDD 941 STH there
+      before: Samasz KDF 341 S lowered=True unfolded=True on=False; Samasz KDD 941 STH lowered=True unfolded=True on=False
+PASS  round 1: Turn on all         Turn on all   ok                                               Samasz KDF 341 S there, Samasz KDD 941 STH there
+      before: Samasz KDF 341 S lowered=True unfolded=True on=True; Samasz KDD 941 STH lowered=True unfolded=True on=True
+PASS  round 1: Turn off all        Turn off all  ok                                               Samasz KDF 341 S there, Samasz KDD 941 STH there
+      before: Samasz KDF 341 S lowered=True unfolded=True on=False; Samasz KDD 941 STH lowered=True unfolded=True on=False
+FAIL  round 1: Raise all           Raise all     failed: Samasz KDD 941 STH: Nothing moved        failed (Samasz KDD 941 STH: Nothing moved), but Samasz KDF 341 S there, Samasz KDD 941 STH there
+      before: Samasz KDF 341 S lowered=False unfolded=True on=False; Samasz KDD 941 STH lowered=False unfolded=True on=False
+PASS  round 1: Fold all            Fold all      ok                                               Samasz KDF 341 S there, Samasz KDD 941 STH there
+      before: Samasz KDF 341 S lowered=False unfolded=False on=False; Samasz KDD 941 STH lowered=False unfolded=False on=False
+PASS  round 2: Unfold all          Unfold all    ok                                               Samasz KDF 341 S there, Samasz KDD 941 STH there
+      before: Samasz KDF 341 S lowered=False unfolded=True on=False; Samasz KDD 941 STH lowered=False unfolded=True on=False
+FAIL  round 2: Lower all           Lower all     failed: Samasz KDD 941 STH: Nothing moved        failed (Samasz KDD 941 STH: Nothing moved), but Samasz KDF 341 S there, Samasz KDD 941 STH there
+      before: Samasz KDF 341 S lowered=True unfolded=True on=False; Samasz KDD 941 STH lowered=True unfolded=True on=False
+PASS  round 2: Turn on all         Turn on all   ok                                               Samasz KDF 341 S there, Samasz KDD 941 STH there
+      before: Samasz KDF 341 S lowered=True unfolded=True on=True; Samasz KDD 941 STH lowered=True unfolded=True on=True
+PASS  round 2: Turn off all        Turn off all  ok                                               Samasz KDF 341 S there, Samasz KDD 941 STH there
+      before: Samasz KDF 341 S lowered=True unfolded=True on=False; Samasz KDD 941 STH lowered=True unfolded=True on=False
+FAIL  round 2: Raise all           Raise all     failed: Samasz KDD 941 STH: Nothing moved        failed (Samasz KDD 941 STH: Nothing moved), but Samasz KDF 341 S there, Samasz KDD 941 STH there
+      before: Samasz KDF 341 S lowered=False unfolded=True on=False; Samasz KDD 941 STH lowered=False unfolded=True on=False
+PASS  round 2: Fold all            Fold all      ok                                               Samasz KDF 341 S there, Samasz KDD 941 STH there
+      before: Samasz KDF 341 S lowered=False unfolded=False on=False; Samasz KDD 941 STH lowered=False unfolded=False on=False
+PASS  round 3: Unfold all          Unfold all    ok                                               Samasz KDF 341 S there, Samasz KDD 941 STH there
+      before: Samasz KDF 341 S lowered=False unfolded=True on=False; Samasz KDD 941 STH lowered=False unfolded=True on=False
+FAIL  round 3: Lower all           Lower all     failed: Samasz KDD 941 STH: Nothing moved        failed (Samasz KDD 941 STH: Nothing moved), but Samasz KDF 341 S there, Samasz KDD 941 STH there
+      before: Samasz KDF 341 S lowered=True unfolded=True on=False; Samasz KDD 941 STH lowered=True unfolded=True on=False
+PASS  round 3: Turn on all         Turn on all   ok                                               Samasz KDF 341 S there, Samasz KDD 941 STH there
+      before: Samasz KDF 341 S lowered=True unfolded=True on=True; Samasz KDD 941 STH lowered=True unfolded=True on=True
+PASS  round 3: Turn off all        Turn off all  ok                                               Samasz KDF 341 S there, Samasz KDD 941 STH there
+      before: Samasz KDF 341 S lowered=True unfolded=True on=False; Samasz KDD 941 STH lowered=True unfolded=True on=False
+FAIL  round 3: Raise all           Raise all     failed: Samasz KDD 941 STH: Nothing moved        failed (Samasz KDD 941 STH: Nothing moved), but Samasz KDF 341 S there, Samasz KDD 941 STH there
+      before: Samasz KDF 341 S lowered=False unfolded=True on=False; Samasz KDD 941 STH lowered=False unfolded=True on=False
+PASS  round 3: Fold all            Fold all      ok                                               Samasz KDF 341 S there, Samasz KDD 941 STH there
+      before: Samasz KDF 341 S lowered=False unfolded=True on=False; Samasz KDD 941 STH lowered=False unfolded=True on=False
+PASS  Samasz KDF 341 S: lower      Lower         ok                                               Samasz KDF 341 S there
+      before: Samasz KDF 341 S lowered=True unfolded=True on=False; Samasz KDD 941 STH lowered=False unfolded=True on=False
+PASS  Samasz KDF 341 S: lower      Raise         ok                                               Samasz KDF 341 S there
+      before: Samasz KDF 341 S lowered=False unfolded=True on=False; Samasz KDD 941 STH lowered=False unfolded=True on=False
+PASS  Samasz KDF 341 S: turnOn     Turn on       ok                                               Samasz KDF 341 S there
+      before: Samasz KDF 341 S lowered=False unfolded=True on=True; Samasz KDD 941 STH lowered=False unfolded=True on=False
+PASS  Samasz KDF 341 S: turnOn     Turn off      ok                                               Samasz KDF 341 S there
+      before: Samasz KDF 341 S lowered=False unfolded=True on=False; Samasz KDD 941 STH lowered=False unfolded=True on=False
+PASS  Samasz KDF 341 S: fold       Unfold        ok                                               Samasz KDF 341 S there
+      before: Samasz KDF 341 S lowered=False unfolded=False on=False; Samasz KDD 941 STH lowered=False unfolded=True on=False
+PASS  Samasz KDF 341 S: fold       Fold          ok                                               Samasz KDF 341 S there
+      before: Samasz KDF 341 S lowered=False unfolded=True on=False; Samasz KDD 941 STH lowered=False unfolded=True on=False
+PASS  Samasz KDD 941 STH: lower    Lower         ok                                               Samasz KDD 941 STH there
+      before: Samasz KDF 341 S lowered=False unfolded=True on=False; Samasz KDD 941 STH lowered=True unfolded=True on=False
+PASS  Samasz KDD 941 STH: lower    Raise         ok                                               Samasz KDD 941 STH there
+      before: Samasz KDF 341 S lowered=False unfolded=True on=False; Samasz KDD 941 STH lowered=False unfolded=True on=False
+PASS  Samasz KDD 941 STH: turnOn   Turn on       ok                                               Samasz KDD 941 STH there
+      before: Samasz KDF 341 S lowered=False unfolded=True on=False; Samasz KDD 941 STH lowered=False unfolded=True on=True
+PASS  Samasz KDD 941 STH: turnOn   Turn off      ok                                               Samasz KDD 941 STH there
+      before: Samasz KDF 341 S lowered=False unfolded=True on=False; Samasz KDD 941 STH lowered=False unfolded=True on=False
+PASS  Samasz KDD 941 STH: fold     Unfold        ok                                               Samasz KDD 941 STH there
+      before: Samasz KDF 341 S lowered=False unfolded=True on=False; Samasz KDD 941 STH lowered=False unfolded=False on=False
+PASS  Samasz KDD 941 STH: fold     Fold          ok                                               Samasz KDD 941 STH there
+      before: Samasz KDF 341 S lowered=True unfolded=True on=False; Samasz KDD 941 STH lowered=False unfolded=True on=False
+FAIL  mixed: Samasz KDF 341 S lower, then all Lower all     failed: Nothing moved                            failed (Nothing moved), but Samasz KDD 941 STH there
+      before: Samasz KDF 341 S lowered=False unfolded=True on=True; Samasz KDD 941 STH lowered=False unfolded=True on=False
+PASS  mixed: Samasz KDF 341 S turnOn, then all Turn on all   ok                                               Samasz KDD 941 STH there
+      before: Samasz KDF 341 S lowered=False unfolded=False on=False; Samasz KDD 941 STH lowered=False unfolded=True on=False
+PASS  mixed: Samasz KDF 341 S fold, then all Fold all      ok                                               Samasz KDD 941 STH there
+      before: Samasz KDF 341 S lowered=False unfolded=False on=False; Samasz KDD 941 STH lowered=False unfolded=False on=False
+PASS  engine off: Fold all         Unfold all    failed: Please start the engine first!           nothing moved
+      before: Samasz KDF 341 S lowered=False unfolded=False on=False; Samasz KDD 941 STH lowered=False unfolded=False on=False
+PASS  engine off: Lower all        Lower all     failed: Please start the engine first!           nothing moved
+      before: Samasz KDF 341 S lowered=False unfolded=False on=False; Samasz KDD 941 STH lowered=False unfolded=False on=False
+PASS  engine off: Turn on all      Turn on all   failed: Samasz KDD 941 STH: You first need to unfold the tool (mower)!; Samasz KDF 341 S: You first need to unfold the tool (mower)! nothing moved
+
+29 of 36 passed: failed round 1: Lower all, round 1: Raise all, round 2: Lower all, round 2: Raise all, round 3: Lower all, round 3: Raise all, mixed: Samasz KDF 341 S lower, then all

@@ -504,7 +504,107 @@ local function newJob(vehicle, steps, refused)
         restore = restore, changed = false, refused = refused or {}, done = 0 }
 end
 
--- a one-tool command: its job, or why not
+-- presses an input action's events (defined with the actions below)
+local runInputAction
+
+-- Checked answers (specs/0003 revision 2) ------------------------------------
+-- A fold, lower or turn on answers ok only once each tool started moving
+-- the way the button asked, read every frame for up to CHECK_MS of game
+-- time after the last press; else it names what didn't move, with the
+-- game's words where it has them. Starting to move is enough: a fold
+-- takes seconds, and the cab topic shows the rest.
+Commands.CHECK_MS = 1000
+-- the longest a check waits in all, whatever the game is still doing
+Commands.CHECK_CAP_MS = 8000
+-- the most frames the check waits while game time stands still (a paused game)
+Commands.CHECK_MAX_FRAMES = 240
+
+-- the tractor's attacher joint combo is still running: the game's Lower
+-- all works through its joints one after another, the last when it ends,
+-- `duration` after the press (2000 ms on the T7.300 and the Valtra S 286;
+-- spike 0.0.7). Fields seen live in spike 0.0.7.
+local function comboRunning(root)
+    local spec = type(root) == "table" and root.spec_attacherJoints or nil
+    local combos = type(spec) == "table" and spec.attacherJointCombos or nil
+    return type(combos) == "table" and combos.isRunning == true
+end
+
+local CHECKED = { lower = true, fold = true, turnOn = true }
+
+-- what the check reads of a tool; the fold's time and direction seen live
+-- (spikes 0.0.5, 0.0.6: the time grows while folding, foldMoveDirection 1
+-- folding, -1 unfolding, 0 still)
+local function readings(object)
+    local fold = object.spec_foldable
+    return {
+        lowered = Api.tryCall(object, "getIsLowered", true) == true,
+        on = Api.tryCall(object, "getIsTurnedOn") == true,
+        unfolded = Api.tryCall(object, "getIsUnfolded"),
+        foldTime = Api.tryCall(object, "getFoldAnimTime") or (type(fold) == "table" and fold.foldAnimTime or nil),
+        foldDirection = type(fold) == "table" and fold.foldMoveDirection or nil,
+    }
+end
+
+-- the fold moves toward folded (sign 1) or unfolded (-1)
+local function foldMoves(before, now, sign)
+    if now.foldDirection == sign then
+        return true
+    end
+    return type(before.foldTime) == "number" and type(now.foldTime) == "number"
+        and (now.foldTime - before.foldTime) * sign > 0.001
+end
+
+local function moved(t, now)
+    if t.kind == "fold" then
+        if type(now.unfolded) == "boolean" and now.unfolded == not t.want then
+            return true
+        end
+        return foldMoves(t.before, now, t.want and 1 or -1)
+    elseif t.kind == "lower" then
+        if now.lowered == t.want then
+            return true
+        end
+        -- through its fold: lowering unfolds toward working, raising folds
+        -- up, and getIsLowered stays true while it rises (spike 0.0.6)
+        return VehicleState.foldLowers(t.object) and foldMoves(t.before, now, t.want and -1 or 1)
+    end
+    return now.on == t.want
+end
+
+-- what to check on a tool: kind (lower, fold, turnOn), want (lowered,
+-- folded, on), its readings now
+local function checkOf(object, depth, kind, want)
+    return { object = object, depth = depth, kind = kind, want = want, before = readings(object) }
+end
+
+-- the asked state of a tool's one button, from the state its label shows
+local function wantOf(e, kind)
+    if kind == "lower" then
+        return e.lowered ~= true
+    elseif kind == "fold" then
+        return e.unfolded ~= false
+    end
+    return e.turnedOn ~= true
+end
+
+-- whether a key has a live event on any object
+local function hasLive(name)
+    local binding = g_inputBinding
+    if type(binding) ~= "table" or type(binding.nameActions) ~= "table"
+        or type(binding.actionEvents) ~= "table" then
+        return false
+    end
+    local action = binding.nameActions[name]
+    local events = action ~= nil and binding.actionEvents[action] or nil
+    for _, event in pairs(type(events) == "table" and events or {}) do
+        if type(event) == "table" and event.isActive ~= false and type(event.callback) == "function" then
+            return true
+        end
+    end
+    return false
+end
+
+-- a one-tool command: its job, or why not; fold, lower and turn on checked
 local function aimed(vehicle, aim, id)
     local object, depth = memberById(vehicle, id)
     if object == nil then
@@ -514,7 +614,11 @@ local function aimed(vehicle, aim, id)
     if step == nil then
         return nil, reason
     end
-    return newJob(vehicle, { step })
+    local job = newJob(vehicle, { step })
+    if CHECKED[aim.cap] then
+        job.check = { checkOf(object, depth, aim.cap, wantOf(capsOf(object, depth), aim.cap)) }
+    end
+    return job
 end
 
 -- Tip all and Uncover all: the one-tool command on each that has the
@@ -539,16 +643,16 @@ local function eachTool(aim, isThere)
     end
 end
 
--- Fold all and Turn on all, when the game's key has no event: unfold every
--- tool while one is folded, else fold them; turn every one on, or off once
--- they all are
+-- Fold all and Turn on all, when the game's key has no event: as the
+-- game's key, fold every tool while one is unfolded (spike 0.0.5), else
+-- unfold them; turn every one on, or off once they all are
 local function foldAll(vehicle)
-    local tools, unfold = {}, false
+    local tools, unfold = {}, true
     for _, m in ipairs(drivingOrder(vehicle)) do
         local e = capsOf(m.object, m.depth)
         if hasCap(e, "fold") and type(m.object.setFoldState) == "function" then
             tools[#tools + 1] = { object = m.object, unfolded = e.unfolded == true }
-            unfold = unfold or e.unfolded == false
+            unfold = unfold and e.unfolded ~= true
         end
     end
     if #tools == 0 then
@@ -585,12 +689,29 @@ local function turnOnAll(vehicle)
     return true
 end
 
--- Lower all: each tool's Lower toward one state, as its card does (lower
--- every one while one is raised, else raise them all), in driving order,
--- the selection put back. Live (0.8.10) the game's LOWER_ALL_IMPLEMENTS,
--- pressed by the mod, did nothing every other time while Ctrl+V always
--- worked; each tool's Lower worked every time. Nil when no tool has Lower
--- (a combine's header): the game's key, else its combo, as before.
+-- a step that presses one of the game's all-tools keys, else a setter
+local function allKeyStep(name, setter)
+    return { run = function(job)
+        if runInputAction(name) > 0 then
+            return name
+        end
+        if setter ~= nil then
+            local done, why = setter(job.vehicle)
+            if done then
+                return "setter"
+            end
+            return nil, why
+        end
+        return nil, "not available now"
+    end }
+end
+
+-- Lower all: the game's own key once (specs/0003 revision 2; spikes 0.0.5
+-- and 0.0.6: the mod's press acts as Ctrl+V), lowering every tool while
+-- one is raised, else raising them all, checked. With no live key, each
+-- tool's Lower toward that state, in driving order, the selection put
+-- back; no tool's Lower could act: the game's combo. Nil when no tool has
+-- Lower (a combine's header): the key, else its combo, unchecked.
 local function lowerAllJob(vehicle)
     local tools, lower = {}, false
     for _, m in ipairs(drivingOrder(vehicle)) do
@@ -603,20 +724,57 @@ local function lowerAllJob(vehicle)
     if #tools == 0 then
         return nil
     end
-    local steps, refused = {}, {}
+    local check = {}
+    for _, t in ipairs(tools) do
+        if t.lowered ~= lower then
+            check[#check + 1] = checkOf(t.object, t.depth, "lower", lower)
+        end
+    end
+    if hasLive("LOWER_ALL_IMPLEMENTS") then
+        local job = newJob(vehicle, { allKeyStep("LOWER_ALL_IMPLEMENTS") })
+        job.check = check
+        return job
+    end
+    local steps, refused, checked = {}, {}, {}
     for _, t in ipairs(tools) do
         if t.lowered ~= lower then
             local step, reason = stepFor(t.object, t.depth, AIMED.LOWER_IMPLEMENT)
             if step ~= nil then
                 steps[#steps + 1] = step
+                checked[#checked + 1] = checkOf(t.object, t.depth, "lower", lower)
             else
                 refused[#refused + 1] = nameOf(t.object) .. ": " .. reason
             end
         end
     end
     local job = newJob(vehicle, steps, refused)
-    -- no tool's Lower could act: the game's combo, as Ctrl+V
+    job.check = checked
     job.lastResort = function(v) return lowerAll(v) end
+    return job
+end
+
+-- Turn on all: the game's key once, else every tool's setter; turning
+-- every one on while one is off, else all off; checked. Nil with no tool
+-- that turns on (the key, unchecked, as before).
+local function turnOnAllJob(vehicle)
+    local tools, on = {}, false
+    for _, m in ipairs(drivingOrder(vehicle)) do
+        local e = capsOf(m.object, m.depth)
+        if hasCap(e, "turnOn") then
+            tools[#tools + 1] = { object = m.object, depth = m.depth, on = e.turnedOn == true }
+            on = on or e.turnedOn ~= true
+        end
+    end
+    if #tools == 0 then
+        return nil
+    end
+    local job = newJob(vehicle, { allKeyStep("TURN_ON_ALL_IMPLEMENTS", turnOnAll) })
+    job.check = {}
+    for _, t in ipairs(tools) do
+        if t.on ~= on then
+            job.check[#job.check + 1] = checkOf(t.object, t.depth, "turnOn", on)
+        end
+    end
     return job
 end
 
@@ -631,12 +789,13 @@ local FOLD_ALL = { cap = "fold", inputs = { "FOLD_ALL_IMPLEMENTS" }, fallback = 
 
 local function foldAllJob(vehicle)
     local selected = Api.tryCall(VehicleState.rootOf(vehicle), "getSelectedVehicle")
-    local tools, folding, at = {}, true, nil
+    local tools, folding, at = {}, false, nil
     for _, m in ipairs(drivingOrder(vehicle)) do
         local e = capsOf(m.object, m.depth)
         if hasCap(e, "fold") then
             tools[#tools + 1] = { object = m.object, depth = m.depth, e = e }
-            folding = folding and e.unfolded ~= false
+            -- the game's key folds while one is unfolded (spike 0.0.5)
+            folding = folding or e.unfolded == true
             if m.object == selected or at == nil then
                 at = m.object
             end
@@ -670,7 +829,14 @@ local function foldAllJob(vehicle)
         end
         return true
     end }
-    return newJob(vehicle, steps)
+    local job = newJob(vehicle, steps)
+    job.check = {}
+    for _, t in ipairs(tools) do
+        if (folding and t.e.unfolded == true) or (not folding and t.e.unfolded == false) then
+            job.check[#job.check + 1] = checkOf(t.object, t.depth, "fold", folding)
+        end
+    end
+    return job
 end
 
 -- the selected tool's other key (VehicleState.extraKeys), by its number in
@@ -769,7 +935,7 @@ Commands.ACTIONS = {
     -- raises what's lowered first); tip and cover all act on each in turn
     -- (value 1: tip, open; 0: stop, close)
     FOLD_ALL_IMPLEMENTS = { job = foldAllJob },
-    TURN_ON_ALL_IMPLEMENTS = { inputs = { "TURN_ON_ALL_IMPLEMENTS" }, fallback = turnOnAll },
+    TURN_ON_ALL_IMPLEMENTS = { job = turnOnAllJob, inputs = { "TURN_ON_ALL_IMPLEMENTS" }, fallback = turnOnAll },
     TIP_ALL = { job = eachTool(AIMED.TOGGLE_DISCHARGE, function(e) return e.discharging == true end) },
     COVER_ALL = { job = eachTool(AIMED.TOGGLE_COVER, function(e) return e.cover ~= nil and e.cover.open == true end) },
     -- the Harvester screen: straw swath or chopper (the game's TOGGLE_CHOPPER)
@@ -831,7 +997,7 @@ end
 -- callback(target, actionName, inputValue, callbackState, isAnalog,
 -- isMouse, deviceCategory, binding); with target, only that object's.
 -- Returns how many ran.
-local function runInputAction(name, value, target)
+function runInputAction(name, value, target)
     local binding = g_inputBinding
     if type(binding) ~= "table" or type(binding.nameActions) ~= "table"
         or type(binding.actionEvents) ~= "table" then
@@ -985,29 +1151,109 @@ end
 -- one frame of a job: press the keys that are live, select the next tool
 -- and wait for its key; at the end put the selection back. Returns the
 -- ack's fields once done.
+-- the check's frame: true while a tool may still start moving. The 1 s
+-- counts from the press, or from the end of the tractor's combo while it
+-- runs; at most CHECK_CAP_MS in all, or CHECK_MAX_FRAMES while game time
+-- stands still
+local function checking(job)
+    local now = type(g_time) == "number" and g_time or nil
+    if job.checkFrames == nil then
+        job.checkStart, job.checkFrom, job.checkFrames, job.stalled = now, now, 0, 0
+    end
+    job.checkFrames = job.checkFrames + 1
+    if now == nil or now == job.lastNow then
+        job.stalled = job.stalled + 1
+    end
+    job.lastNow = now
+    local waiting = false
+    for _, t in ipairs(job.check) do
+        if not t.moved then
+            t.moved = moved(t, readings(t.object))
+            waiting = waiting or not t.moved
+        end
+    end
+    if not waiting then
+        return false
+    end
+    if comboRunning(job.root) then
+        job.checkFrom = now
+    end
+    local timeUp = (now ~= nil and job.checkFrom ~= nil and now - job.checkFrom >= Commands.CHECK_MS)
+        or (now ~= nil and job.checkStart ~= nil and now - job.checkStart >= Commands.CHECK_CAP_MS)
+        or job.stalled > Commands.CHECK_MAX_FRAMES
+    return not timeUp
+end
+
+-- the tools that didn't move, each with the game's words where it has
+-- them, and the reason the ack gives for them
+local function unmovedOf(job)
+    local out, reasons = {}, {}
+    for _, t in ipairs(job.check) do
+        if not t.moved then
+            local e = capsOf(t.object, t.depth)
+            local why = e.whyNot ~= nil and e.whyNot[t.kind] or "Nothing moved"
+            out[#out + 1] = { id = t.object.id, name = nameOf(t.object), why = why }
+            reasons[#reasons + 1] = #job.check > 1 and (nameOf(t.object) .. ": " .. why) or why
+        end
+    end
+    return out, reasons
+end
+
 local function stepJob(job)
     while true do
         local step = job.steps[job.i]
         if step == nil then
-            if job.changed and job.restore ~= nil then
+            if job.changed and job.restore ~= nil and not job.restored then
                 job.root:setSelectedObject(job.restore)
+                job.restored = true
             end
             -- none acted (no key, no setter): the job's last resort
             if job.done == 0 and #job.steps > 0 and job.lastResort ~= nil and job.lastResort(job.vehicle) then
                 job.done, job.via, job.refused = 1, "setter", {}
             end
+            -- something was pressed: wait until the tools moved, or the time is up
+            if job.check ~= nil and job.done > 0 and checking(job) then
+                return nil
+            end
+            local refused, unmoved = job.refused, nil
+            if job.check ~= nil then
+                local reasons
+                unmoved, reasons = unmovedOf(job)
+                if job.done > 0 then
+                    refused = {}
+                    for _, r in ipairs(job.refused) do
+                        refused[#refused + 1] = r
+                    end
+                    for _, r in ipairs(reasons) do
+                        refused[#refused + 1] = r
+                    end
+                else
+                    unmoved = {}
+                end
+            end
             return {
-                ok = job.done > 0 or (#job.steps == 0 and #job.refused == 0),
-                reason = #job.refused > 0 and table.concat(job.refused, "; ") or nil,
+                ok = (job.done > 0 or (#job.steps == 0 and #job.refused == 0)) and (unmoved == nil or #unmoved == 0),
+                reason = #refused > 0 and table.concat(refused, "; ") or nil,
                 via = job.via,
+                checked = job.check ~= nil or nil,
+                unmoved = unmoved,
             }
         end
         if step.ready ~= nil and not step.ready() and (step.waited or 0) < Commands.SETTLE_FRAMES then
             step.waited = (step.waited or 0) + 1
             return nil
         end
-        local name = press(step, job.root)
-        if name ~= nil then
+        -- a step that runs by itself (an all-tools key), else the tool's key
+        local name = step.run == nil and press(step, job.root) or nil
+        if step.run ~= nil then
+            local via, why = step.run(job)
+            if via ~= nil then
+                acted(job, step, via)
+            else
+                job.refused[#job.refused + 1] = why or "not available now"
+            end
+            job.i = job.i + 1
+        elseif name ~= nil then
             acted(job, step, name)
             job.i, job.phase = job.i + 1, "start"
         elseif job.phase == "start" then
@@ -1060,7 +1306,8 @@ function Commands:step()
     self.job = nil
     self:logVia(job.ack.action, result.via)
     return { id = job.ack.id, ref = job.ack.ref, action = job.ack.action, ok = result.ok,
-        reason = not result.ok and (result.reason or "failed") or result.reason, via = result.via }
+        reason = not result.ok and (result.reason or "failed") or result.reason, via = result.via,
+        checked = result.checked, unmoved = result.unmoved }
 end
 
 -- Called every frame. Returns the ack for a command run this frame, or nil.

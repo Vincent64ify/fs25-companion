@@ -1673,7 +1673,16 @@ test("commands, implement screen: lower all, pipe, unload, cover as their keys, 
     if TMP_DIR == nil then
         return
     end
-    local combine, _, trailer = harvestRig()
+    local combine, cutter, trailer = harvestRig()
+    -- Lower all is checked (spec 0003 revision 2): the combo lowers the
+    -- header, as Ctrl+V; a trailer doesn't lower
+    cutter.lowered = false
+    cutter.getIsLowered = function(self) return self.lowered end
+    combine.startAttacherJointCombo = function(self)
+        self.combo = self.combo + 1
+        cutter.lowered = not cutter.lowered
+    end
+    trailer.getAllowsLowering = function() return false end
     local dir = TMP_DIR .. "/impcmd_"
     local write = commandStubs(dir)
     local commands = Companion.Commands.new(dir, "S4", function() end)
@@ -1681,7 +1690,13 @@ test("commands, implement screen: lower all, pipe, unload, cover as their keys, 
     local function run(action)
         n = n + 1
         write(n, "S4", action)
-        return commands:poll()
+        for _ = 1, 300 do
+            local ack = commands:poll()
+            if ack ~= nil then
+                return ack
+            end
+        end
+        error(action .. ": no ack")
     end
     -- no key events: the setters
     g_inputBinding = nil
@@ -1706,10 +1721,15 @@ test("commands, implement screen: lower all, pipe, unload, cover as their keys, 
     eq(run("TOGGLE_DISCHARGE").via, "TOGGLE_TIPSTATE_GROUND")
     eq(run("TOGGLE_PIPE").via, "TOGGLE_PIPE")
     eq(run("TOGGLE_COVER").via, "TOGGLE_COVER")
-    -- lower all is each tool's own Lower now (live, 0.8.10), never the
-    -- game's Lower all key; with no Lower key here, the game's combo
-    eq(run("LOWER_ALL_IMPLEMENTS").via, "setter")
-    eq(#(calls.LOWER_ALL_IMPLEMENTS or {}), 0, "the game's Lower all key isn't pressed")
+    -- revision 2: the game's Lower all key again, once (here it moves
+    -- nothing, so the answer says so)
+    Companion.Commands.CHECK_MAX_FRAMES = 5
+    ack = run("LOWER_ALL_IMPLEMENTS")
+    Companion.Commands.CHECK_MAX_FRAMES = 240
+    eq(ack.via, "LOWER_ALL_IMPLEMENTS")
+    eq(#(calls.LOWER_ALL_IMPLEMENTS or {}), 1, "the game's Lower all key, once")
+    eq(ack.ok, false)
+    eq(ack.reason, "Nothing moved")
     eq(#calls.TOGGLE_TIPSTATE_GROUND, 1)
     g_inputBinding = nil
 end)
@@ -2130,7 +2150,8 @@ local function spikeCommands(name)
     local function run(action, value)
         n = n + 1
         write(n, "S7", action, nil, value)
-        for i = 1, 60 do
+        -- room for the check's wait (spec 0003 revision 2)
+        for i = 1, 300 do
             local ack = frame()
             if ack ~= nil then
                 return ack, i
@@ -2191,6 +2212,8 @@ test("commands, aimed: a tool's id selects it, presses its key, puts the selecti
     root.keysDue = false
     local frame = SpikeRigs.frame
     SpikeRigs.frame = function() end
+    -- the first Turn on's key turned it on (the mocks' keys act)
+    byId[994].on = false
     ack, frames = run("TURN_ON_IMPLEMENT", 994)
     SpikeRigs.frame = frame
     Companion.Commands.KEY_WAIT_FRAMES = 30
@@ -2282,53 +2305,57 @@ test("commands, all: fold all raises what's lowered first, then the game's key; 
     ack = run("FOLD_ALL_IMPLEMENTS")
     eq(pressed(), "996:FOLD_ALL_IMPLEMENTS")
     eq(unfolded(), "truetrue", "both unfolded")
-    -- live (0.8.10): the game's Lower all key, pressed by the mod, did
-    -- nothing every other time while the keyboard's always worked. Now
-    -- each tool's Lower toward one state, as Tip all: lower every one
-    -- while one is raised, else raise them all; the selection put back
+    -- revision 2: Lower all is the game's key again (spikes 0.0.5 and
+    -- 0.0.6: the mod's press acts as Ctrl+V); lower every one while one is
+    -- raised, else raise them all
+    local onKey = root.onKey
+    root.onKey = nil
     byId[994].lowered, byId[996].lowered = false, false
     ack = run("LOWER_ALL_IMPLEMENTS")
-    for _ = 1, 4 do
-        SpikeRigs.frame(root)
-    end
     eq(ack.ok, true)
-    eq(ack.via, "LOWER_IMPLEMENT", "each tool's Lower, not the game's Lower all")
-    eq(pressed(), "992:LOWER_IMPLEMENT,992:LOWER_IMPLEMENT")
+    eq(ack.via, "LOWER_ALL_IMPLEMENTS", "the game's key")
+    eq(pressed(), "992:LOWER_ALL_IMPLEMENTS")
     eq(tostring(byId[994].lowered) .. tostring(byId[996].lowered), "truetrue", "both lowered")
-    eq(root:getSelectedVehicle().id, 996, "the selection put back")
+    eq(root:getSelectedVehicle().id, 996, "the selection unchanged")
     byId[994].lowered = false
     run("LOWER_ALL_IMPLEMENTS")
-    for _ = 1, 4 do
-        SpikeRigs.frame(root)
-    end
-    eq(pressed(), "992:LOWER_IMPLEMENT", "one raised: only it is lowered")
+    eq(pressed(), "992:LOWER_ALL_IMPLEMENTS", "one raised: the key once")
     eq(tostring(byId[994].lowered) .. tostring(byId[996].lowered), "truetrue")
     run("LOWER_ALL_IMPLEMENTS")
-    for _ = 1, 4 do
-        SpikeRigs.frame(root)
-    end
     eq(tostring(byId[994].lowered) .. tostring(byId[996].lowered), "falsefalse", "all lowered: all raised")
+    root.onKey = onKey
     pressed()
     -- the raise never takes: fold all is still pressed, after a while
     Companion.Commands.SETTLE_FRAMES = 5
+    Companion.Commands.CHECK_MAX_FRAMES = 5
     byId[994].lowered = true
-    root.onKey = nil
+    -- the tractor's Lower key does nothing now
+    root.onKey = function() end
     ack = run("FOLD_ALL_IMPLEMENTS")
     Companion.Commands.SETTLE_FRAMES = 120
+    Companion.Commands.CHECK_MAX_FRAMES = 240
+    root.onKey = nil
     eq(pressed(), "992:LOWER_IMPLEMENT,994:FOLD_ALL_IMPLEMENTS")
     eq(unfolded(), "truefalse", "the rear one folded; the front one the game wouldn't")
+    -- checked (revision 2): not ok, with the game's words for the front one
+    eq(ack.ok, false)
+    eq(ack.reason, "Samasz KDF 341 S: Folding is not allowed while the tool is lowered.")
     byId[994].lowered = false
     SpikeRigs.frame = frame
     table.remove(root.dump.keys.attacherJoints)
     SpikeRigs.registerKeys(root)
-    -- no event: every mower's setter, unfolding while one is folded
+    -- no event: every mower's setter, as the game's key: folding while one
+    -- is unfolded (revision 2, spike 0.0.5), else unfolding them all
     SpikeRigs.unregister(byId[996])
     Companion.Commands.KEY_WAIT_FRAMES = 3
     ack = run("FOLD_ALL_IMPLEMENTS")
     Companion.Commands.KEY_WAIT_FRAMES = 30
     eq(ack.via, "setter")
-    eq(unfolded(), "truetrue", "both unfolded")
+    eq(ack.ok, true)
+    eq(unfolded(), "falsefalse", "the front one unfolded: both folded")
     Companion.Commands.KEY_WAIT_FRAMES = 3
+    run("FOLD_ALL_IMPLEMENTS")
+    eq(unfolded(), "truetrue", "all folded: both unfolded")
     run("FOLD_ALL_IMPLEMENTS")
     Companion.Commands.KEY_WAIT_FRAMES = 30
     eq(unfolded(), "falsefalse", "both folded")
@@ -2368,6 +2395,178 @@ test("commands, all: fold all raises what's lowered first, then the game's key; 
     eq(pressed(), "1003:TOGGLE_TIPSTATE", "the one already tipping is skipped")
     run("TIP_ALL", 0)
     eq(pressed(), "1004:TOGGLE_TIPSTATE", "stop: only the one tipping")
+    g_inputBinding = nil
+    localToLocal = nil
+end)
+
+-- spec 0003 revision 2: fold, lower and turn on answer ok only once the
+-- tools started moving the way the button asked; else what didn't move
+test("commands, checked: ok once the tools moved, else which didn't and why", function()
+    if TMP_DIR == nil then
+        return
+    end
+    local C = Companion.Commands
+    C.CHECK_MAX_FRAMES = 5
+    local run, root, byId, pressed = spikeCommands("mowers")
+    local front, rear = byId[994], byId[996]
+    -- the rear XT 390 is selected; its turn on key acts: ok, checked, at once
+    local ack, frames = run("TURN_ON_IMPLEMENT", 996)
+    eq(ack.ok, true)
+    eq(ack.checked, true)
+    eq(#ack.unmoved, 0)
+    eq(frames, 1, "it turned on in the frame of the press")
+    eq(rear.on, true)
+    -- a key that does nothing: "Nothing moved", after the check's wait
+    rear.stuck = true
+    ack, frames = run("TURN_ON_IMPLEMENT", 996)
+    rear.stuck = nil
+    eq(ack.ok, false)
+    eq(ack.reason, "Nothing moved")
+    eq(ack.unmoved[1].id, 996)
+    eq(ack.unmoved[1].name, "Samasz XT 390")
+    eq(frames > C.CHECK_MAX_FRAMES, true, "waited for it: " .. frames)
+    eq(rear.on, true, "still on")
+    run("TURN_ON_IMPLEMENT", 996)
+    -- fold and unfold: ok once getIsUnfolded follows
+    eq(run("FOLD_IMPLEMENT", 996).ok, true)
+    eq(rear:getIsUnfolded(), false)
+    eq(run("FOLD_IMPLEMENT", 996).ok, true)
+    -- raising a tool that lowers through its fold: getIsLowered stays true
+    -- while it rises (spike 0.0.6), its fold moving up counts
+    table.insert(root.dump.keys.attacherJoints, { action = "LOWER_IMPLEMENT", active = true, text = "Lower mower" })
+    SpikeRigs.registerKeys(root)
+    root.onKey = function(name)
+        if name == "LOWER_IMPLEMENT" then
+            rear.spec_foldable.foldMoveDirection = 1
+        end
+    end
+    eq(rear.lowered, true)
+    ack = run("LOWER_IMPLEMENT", 996)
+    eq(ack.ok, true, "rising: " .. tostring(ack.reason))
+    eq(rear.lowered, true, "still reads lowered")
+    rear.spec_foldable.foldMoveDirection = 0
+    root.onKey = nil
+    pressed()
+    -- Fold all: the front one is lowered on its joint, raised first, then
+    -- the game's key folds both
+    eq(front.lowered, true)
+    ack = run("FOLD_ALL_IMPLEMENTS")
+    eq(ack.ok, true, "fold all: " .. tostring(ack.reason))
+    eq(ack.checked, true)
+    eq(pressed(), "992:LOWER_IMPLEMENT,994:FOLD_ALL_IMPLEMENTS")
+    eq(front:getIsUnfolded() or rear:getIsUnfolded(), false, "both folded")
+    eq(run("FOLD_ALL_IMPLEMENTS").ok, true, "all folded: unfold all")
+    eq(front:getIsUnfolded() and rear:getIsUnfolded(), true)
+    -- one that doesn't move: not ok, named
+    front.stuck = true
+    ack = run("FOLD_ALL_IMPLEMENTS")
+    front.stuck = nil
+    eq(ack.ok, false)
+    eq(ack.reason, "Samasz KDF 341 S: Nothing moved")
+    eq(#ack.unmoved, 1)
+    eq(ack.unmoved[1].id, 994)
+    eq(rear:getIsUnfolded(), false, "the rear one folded")
+    -- mixed (the front unfolded, the rear folded): Fold all folds, as the
+    -- game's key did in spike 0.0.5
+    ack = run("FOLD_ALL_IMPLEMENTS")
+    eq(ack.ok, true)
+    eq(front:getIsUnfolded(), false, "folded the front one")
+    run("FOLD_ALL_IMPLEMENTS")
+    -- Turn on all: the game's key, checked; one that doesn't move is named
+    pressed()
+    ack = run("TURN_ON_ALL_IMPLEMENTS")
+    eq(ack.ok, true, "turn on all: " .. tostring(ack.reason))
+    eq(ack.checked, true)
+    eq(pressed(), "996:TURN_ON_ALL_IMPLEMENTS")
+    eq(tostring(front.on) .. tostring(rear.on), "truetrue")
+    front.stuck = true
+    ack = run("TURN_ON_ALL_IMPLEMENTS")
+    front.stuck = nil
+    eq(ack.reason, "Samasz KDF 341 S: Nothing moved")
+    eq(tostring(front.on) .. tostring(rear.on), "truefalse")
+    run("TURN_ON_ALL_IMPLEMENTS")
+    run("TURN_ON_ALL_IMPLEMENTS")
+    -- Lower all: the game's key once, not each tool's Lower
+    front.lowered, rear.lowered = false, true
+    pressed()
+    ack = run("LOWER_ALL_IMPLEMENTS")
+    eq(ack.ok, true, "lower all: " .. tostring(ack.reason))
+    eq(ack.checked, true)
+    eq(ack.via, "LOWER_ALL_IMPLEMENTS")
+    eq(pressed(), "992:LOWER_ALL_IMPLEMENTS", "once, the tractor's")
+    eq(tostring(front.lowered) .. tostring(rear.lowered), "truetrue")
+    eq(run("LOWER_ALL_IMPLEMENTS").ok, true, "all lowered: raise all")
+    eq(tostring(front.lowered) .. tostring(rear.lowered), "falsefalse")
+    -- it moves nothing: it fails and says so; no second press, no fallback
+    front.stuck, rear.stuck = true, true
+    pressed()
+    ack = run("LOWER_ALL_IMPLEMENTS")
+    front.stuck, rear.stuck = nil, nil
+    eq(ack.ok, false)
+    eq(ack.reason, "Samasz XT 390: Nothing moved; Samasz KDF 341 S: Nothing moved", "in driving order")
+    eq(pressed(), "992:LOWER_ALL_IMPLEMENTS", "pressed once")
+    -- no live Lower all key: each tool's Lower, still checked
+    for i = #root.dump.keys.attacherJoints, 1, -1 do
+        if root.dump.keys.attacherJoints[i].action == "LOWER_ALL_IMPLEMENTS" then
+            table.remove(root.dump.keys.attacherJoints, i)
+        end
+    end
+    SpikeRigs.registerKeys(root)
+    ack = run("LOWER_ALL_IMPLEMENTS")
+    eq(ack.ok, true, "each tool's Lower: " .. tostring(ack.reason))
+    eq(ack.via, "LOWER_IMPLEMENT")
+    eq(tostring(front.lowered) .. tostring(rear.lowered), "truetrue")
+    -- the game's Lower all runs the tractor's attacher joint combo: the
+    -- front at once, the rear when it ends, 2 s later on the T7.300 and the
+    -- Valtra S 286 (spike 0.0.7). The check waits while it runs, then 1 s
+    table.insert(root.dump.keys.attacherJoints, { action = "LOWER_ALL_IMPLEMENTS", active = true, text = "Lower all" })
+    SpikeRigs.registerKeys(root)
+    g_time = 100000
+    local combos = { isRunning = false, duration = 2000, currentTime = 0, direction = 1 }
+    root.spec_attacherJoints.attacherJointCombos = combos
+    local comboFrames = 0
+    root.onKey = function(name)
+        if name == "LOWER_ALL_IMPLEMENTS" then
+            combos.isRunning, comboFrames = true, 0
+            front.lowered = not front.lowered
+        end
+    end
+    local frame = SpikeRigs.frame
+    SpikeRigs.frame = function(r)
+        g_time = g_time + 16
+        if combos.isRunning then
+            comboFrames = comboFrames + 1
+            if comboFrames * 16 >= combos.duration then
+                combos.isRunning = false
+                if not rear.stuck then
+                    rear.lowered = front.lowered
+                end
+            end
+        end
+        frame(r)
+    end
+    front.lowered, rear.lowered = false, false
+    ack, frames = run("LOWER_ALL_IMPLEMENTS")
+    eq(ack.ok, true, "the rear one 2 s later: " .. tostring(ack.reason))
+    eq(frames > 2000 / 16, true, "waited for the combo: " .. frames)
+    eq(tostring(front.lowered) .. tostring(rear.lowered), "truetrue")
+    -- the rear one never moves: not ok, once the combo ended and 1 s more
+    rear.stuck = true
+    local t0 = g_time
+    ack = run("LOWER_ALL_IMPLEMENTS")
+    rear.stuck = nil
+    eq(ack.reason, "Samasz XT 390: Nothing moved")
+    eq(g_time - t0 >= 3000, true, "the combo's 2 s, then 1 s: " .. (g_time - t0))
+    SpikeRigs.frame = frame
+    root.onKey = nil
+    root.spec_attacherJoints.attacherJointCombos = nil
+    g_time = nil
+    -- an unchecked action answers as before
+    run, root, byId, pressed = spikeCommands("trailers")
+    ack = run("TOGGLE_TIPSIDE", 1003)
+    eq(ack.ok, true)
+    eq(ack.checked, nil)
+    C.CHECK_MAX_FRAMES = 240
     g_inputBinding = nil
     localToLocal = nil
 end)

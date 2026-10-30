@@ -34,7 +34,9 @@ The first message names the role.
                         on connect while there is one; null once the
                         client's envelopes are good again
     backend -> viewer:  {"type": "command_ack", "id": str, "ok": bool,
-                        "reason": str|null}
+                        "reason": str|null, "checked"?: true, "unmoved"?: [...]}
+                        checked: the mod waited for the tools to move;
+                        unmoved: those that didn't, {id, name, why}
                         to the viewer that sent the command, with its own
                         id: from the mod, or straight from the backend when
                         the action isn't allowed or no game client is
@@ -175,8 +177,12 @@ async def answer_command(session: Session, ack: dict) -> None:
     if pending is None:
         return
     viewer, viewer_id = pending
-    await safe_send(viewer, {"type": "command_ack", "id": viewer_id,
-                             "ok": ack.get("ok") is True, "reason": ack.get("reason")})
+    answer = {"type": "command_ack", "id": viewer_id, "ok": ack.get("ok") is True, "reason": ack.get("reason")}
+    # specs/0003 revision 2: whether the mod checked the tools moved, and which didn't
+    if ack.get("checked") is True:
+        answer["checked"] = True
+        answer["unmoved"] = ack.get("unmoved") if isinstance(ack.get("unmoved"), list) else []
+    await safe_send(viewer, answer)
 
 
 async def handle_command(ws: WebSocket, session: Session, msg: dict) -> None:

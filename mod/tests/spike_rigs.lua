@@ -166,6 +166,8 @@ function SpikeRigs.register(object, specName, key)
             b.pressed[#b.pressed + 1] = { id = target.id, action = name }
             if target.onKey ~= nil then
                 target.onKey(name)
+            else
+                SpikeRigs.act(target, name)
             end
         end,
     }
@@ -175,6 +177,86 @@ function SpikeRigs.register(object, specName, key)
     object["spec_" .. shortName(specName)] = spec
     spec.actionEvents = spec.actionEvents or {}
     spec.actionEvents[key.action] = { actionEventId = nextEventId }
+end
+
+-- What the game's keys do, as seen live (spec 0003 revision 2 answers ok
+-- only once the tools moved, so the mocks' keys must act). A test's
+-- onKey replaces this; a tool with `stuck` ignores every key; with the
+-- engine off nothing moves (the game only warns).
+local function rigTools(root)
+    local out = {}
+    for _, o in pairs(root.members or {}) do
+        if o ~= root and not o.stuck then
+            out[#out + 1] = o
+        end
+    end
+    table.sort(out, function(a, b) return a.id < b.id end)
+    return out
+end
+
+local function lowerable(o)
+    return o:getAllowsLowering() or (type(o.spec_foldable) == "table" and o.spec_foldable.foldMiddleAnimTime ~= nil)
+end
+
+function SpikeRigs.act(target, name)
+    local root = target.getRootVehicle ~= nil and target:getRootVehicle() or target
+    if root.engineOff or target.stuck then
+        return
+    end
+    if name == "LOWER_IMPLEMENT" then
+        -- the tractor's key acts on the selected tool (attacher joints)
+        local tool = target == root and root:getSelectedVehicle() or target
+        if tool ~= nil and tool ~= root and not tool.stuck then
+            tool.lowered = not tool.lowered
+        end
+    elseif name == "IMPLEMENT_EXTRA2" then
+        if target.setFoldState ~= nil and target:getIsFoldAllowed() ~= false then
+            target:setFoldState(target:getToggledFoldDirection())
+        end
+    elseif name == "IMPLEMENT_EXTRA" then
+        if target.setIsTurnedOn ~= nil and target:getCanBeTurnedOn() then
+            target.on = not target.on
+        end
+    elseif name == "FOLD_ALL_IMPLEMENTS" then
+        -- folds every one it may while one is unfolded, else unfolds all
+        -- (spike 0.0.5: the KDF folded and the KDD unfolded, the KDD folded)
+        local tools, fold = {}, false
+        for _, o in ipairs(rigTools(root)) do
+            if o.setFoldState ~= nil then
+                tools[#tools + 1] = o
+                fold = fold or o:getIsUnfolded()
+            end
+        end
+        for _, o in ipairs(tools) do
+            if o:getIsUnfolded() == fold and (not fold or o:getIsFoldAllowed() ~= false) then
+                o:setFoldState(o:getToggledFoldDirection())
+            end
+        end
+    elseif name == "TURN_ON_ALL_IMPLEMENTS" then
+        local tools, on = {}, false
+        for _, o in ipairs(rigTools(root)) do
+            if o.setIsTurnedOn ~= nil then
+                tools[#tools + 1] = o
+                on = on or not o.on
+            end
+        end
+        for _, o in ipairs(tools) do
+            if o.on ~= on and (not on or o:getCanBeTurnedOn()) then
+                o.on = on
+            end
+        end
+    elseif name == "LOWER_ALL_IMPLEMENTS" then
+        local tools, lower = {}, false
+        for _, o in ipairs(rigTools(root)) do
+            if lowerable(o) then
+                tools[#tools + 1] = o
+                lower = lower or not o.lowered
+            end
+        end
+        for _, o in ipairs(tools) do
+            o.lowered = lower
+        end
+    end
 end
 
 -- drop every key of an object (it's no longer selected)

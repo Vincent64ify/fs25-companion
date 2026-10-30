@@ -41,12 +41,13 @@ up to date until the live check.
   with mod 0.8.6. Revision 2 (dashboard only) is confirmed in game on
   2026-10-27: that page is now Loader, picked by itself, beside a plain
   Vehicle page; the tab names its page; a tap on a tile only selects.
-  Spec [0003](../specs/0003-implement-screen.md) is built (mod 0.8.11):
+  Spec [0003](../specs/0003-implement-screen.md) is built (mod 0.8.15):
   the Implement tab merges into the Vehicle page, a card per tool with
   the buttons the game's parts allow, checked against a census of every
-  vehicle type and real rig dumps. Its live check is under way: the
-  mowers were checked on 2026-10-30 (0.8.7) and fixed in 0.8.8; the
-  other rigs are next.
+  vehicle type and real rig dumps. Revision 2: fold, lower and turn on
+  answer ok only once the tools moved, Lower all is the game's key again,
+  and `scripts/allrow_check.py` judges the live check from the files; on
+  the mowers it passed 36 of 36 (2026-10-30). The other rigs are next.
   Canvases are built from the design system
   ([THEMES.md](THEMES.md#design-system-2026-10-25)).
 - The code review of 2026-10-30 ([REVIEW-2026-10-30.md](REVIEW-2026-10-30.md))

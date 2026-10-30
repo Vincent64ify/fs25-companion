@@ -268,6 +268,10 @@ class CommandAck(TopicModel):
     reason: Optional[str] = None
     # what ran: the input action's name, or "setter"
     via: Optional[str] = None
+    # specs/0003 revision 2: the mod waited for the tools to move, and
+    # those that didn't, {id, name, why}
+    checked: Optional[bool] = None
+    unmoved: Optional[List[Dict[str, Any]]] = None
 
 
 class Vehicles(TopicModel):

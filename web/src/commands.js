@@ -9,7 +9,10 @@
 /** @typedef {{ok: boolean, reason?: string}} CommandResult */
 /** @typedef {{count: number, last?: number, median?: number, max?: number}} RoundTrips ms, tap to the mod's answer */
 
-export const COMMAND_TIMEOUT_MS = 2000;
+// 10 s: a tool command waits until the tools moved (specs/0003 revision 2):
+// for Lower all, while the tractor's combo runs (2 s on the T7.300) and 1 s
+// more, at most 8 s in the mod
+export const COMMAND_TIMEOUT_MS = 10000;
 /** how many answered commands the round-trip readout keeps */
 export const ROUND_TRIPS_KEPT = 30;
 

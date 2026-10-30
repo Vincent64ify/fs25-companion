@@ -223,12 +223,19 @@ export function toolButtons(e) {
 /**
  * A row of buttons kept across renders, so a tap's pending state survives
  * the cab's next update. Each sends its command; pending until the ack,
- * then until its state changes (at most 1.5 s). A tap on an unavailable one
- * hands its reason to `onWhy` (a tablet has no hover for the title).
+ * then until its state changes (at most 1.5 s). A tap on an unavailable one,
+ * and a failed answer ("Nothing moved", the game's words: revision 2),
+ * hand their reason to `onWhy` (a tablet has no hover for the title).
  * @param {Send} send
  * @param {(why: string) => void} [onWhy]
  */
 function buttonRow(send, onWhy) {
+  const sent = send;
+  send = async (action, value) => {
+    const result = await sent(action, value);
+    if (!result.ok && result.reason) onWhy?.(result.reason);
+    return result;
+  };
   const el = h("div", { className: "tool-buttons" });
   /** @type {Map<string, {ui: ReturnType<typeof createControl>, b: ToolButton}>} */
   const shown = new Map();
@@ -349,6 +356,24 @@ function tankRow(/** @type {ReturnType<typeof tankRows>[number]} */ t) {
   return row;
 }
 
+/** A button's reason (faded, or a failed answer), for a few seconds after a tap. */
+function reasonNote() {
+  const el = h("p", { className: "tool-note" });
+  el.hidden = true;
+  el.setAttribute("role", "status");
+  /** @type {ReturnType<typeof setTimeout>|undefined} */
+  let timer;
+  return {
+    el,
+    show(/** @type {string} */ why) {
+      clearTimeout(timer);
+      el.textContent = why;
+      el.hidden = false;
+      timer = setTimeout(() => { el.hidden = true; }, NOTE_SHOWN_MS);
+    },
+  };
+}
+
 /**
  * One card, kept for its tool across renders.
  * @param {Send} send
@@ -360,20 +385,10 @@ function toolCard(send) {
   const chip = h("span", { className: "tool-chip", text: "Working" });
   let head = h("header", { className: "tool-head" }, badge, h("div", { className: "tool-text" }, name, sub), chip);
   const stats = h("div", { className: "tool-stats" });
-  // a faded button's reason, for a few seconds after a tap on it
-  const note = h("p", { className: "tool-note" });
-  note.hidden = true;
-  note.setAttribute("role", "status");
-  /** @type {ReturnType<typeof setTimeout>|undefined} */
-  let noteTimer;
-  const buttons = buttonRow(send, (why) => {
-    clearTimeout(noteTimer);
-    note.textContent = why;
-    note.hidden = false;
-    noteTimer = setTimeout(() => { note.hidden = true; }, NOTE_SHOWN_MS);
-  });
+  const note = reasonNote();
+  const buttons = buttonRow(send, note.show);
   const tanks = h("div", { className: "tool-tanks" });
-  const el = h("section", { className: "tool-card" }, head, stats, buttons.el, tanks, note);
+  const el = h("section", { className: "tool-card" }, head, stats, buttons.el, tanks, note.el);
   let lastHead = "";
   let lastKind = "";
   let lastStats = "";
@@ -477,8 +492,11 @@ export function toolCards(store, opts = {}) {
 export function toolsAll(store, opts = {}) {
   /** @type {Send} */
   const send = /** @type {any} */ (opts).send || sendCommand;
-  const buttons = buttonRow(send);
-  const root = h("section", { className: "tools-all" }, h("span", { className: "veh-cap", text: "All" }), buttons.el);
+  // a failed answer names the tools that didn't move (revision 2)
+  const note = reasonNote();
+  const buttons = buttonRow(send, note.show);
+  const root = h("section", { className: "tools-all" }, h("span", { className: "veh-cap", text: "All" }), buttons.el,
+    note.el);
   root.setAttribute("aria-label", "All tools");
   if (opts.id) root.id = opts.id;
   const render = () => {

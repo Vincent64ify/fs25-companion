@@ -226,6 +226,18 @@ These results override any API guesses later in this document.
     Companion does) acts the same.
   - `getIsLowered` stays true while a tool that lowers through its fold
     is still rising.
+- **Lower all's timing** (spike 0.0.7 and the 0.8.14 live check,
+  2026-10-30, the T7.300 with the KDF 341 S and KDD 941 STH, and a Valtra
+  S 286 with a front linkage and an Aerosem VT 5000 DD; spec 0003 revision
+  2): the game's `LOWER_ALL_IMPLEMENTS` runs the tractor's attacher joint
+  combo, `spec_attacherJoints.attacherJointCombos`: `isRunning`,
+  `direction` (-1 raising), `duration` (2000 ms on both tractors),
+  `currentTime`, and `joints[]` with `jointIndex`, `time`, `initialTime`;
+  each attacher joint has `comboTime` (0 or 1). The front moves at once,
+  the rear the frame `isRunning` turns false, `duration` after the press
+  (the KDD 2.00 to 2.03 s after the KDF, five times). A tool's own Lower
+  moves it in the frame of the press. `startAttacherJointCombo` is the
+  tractor's method.
 
 ---
 

@@ -371,7 +371,7 @@ check("controls: implement's name in the label, aria", [implGroup.querySelector(
   ["Implement · Seeder", "Lights, on", "true"]);
 
 // Controls C1: commands and the cab topic
-const { createCommander } = await import("./src/commands.js");
+const { createCommander, COMMAND_TIMEOUT_MS } = await import("./src/commands.js");
 const sent = [];
 const cmd = createCommander((m) => { sent.push(m); return true; }, { timeoutMs: 40, prefix: "t" });
 const okRun = cmd.send("lights.toggle");
@@ -1784,6 +1784,28 @@ const foldedTurnOn = vt.toolButtons({ id: 51, depth: 1, can: ["fold", "turnOn"],
 check("tools: a tap on a faded button shows the game's reason on the card; folded, Turn on says unfold first", [
   noteShown, [foldedTurnOn?.unavailable, foldedTurnOn?.why]],
   [["Lower the blade first", false, 0], [true, "Unfold first"]]);
+// revision 2: an ok means the tools moved; "Nothing moved" (or the game's
+// words) shows on the card, and on the All row, as a faded tap's reason
+// does; the dashboard waits 5 s (Fold all may raise first, then the check)
+const failPage = (() => {
+  const s = createStore();
+  const send = () => Promise.resolve({ ok: false, reason: "Nothing moved" });
+  const cardsEl = vt.toolCards(s, { send, rates: noRates });
+  const allEl = vt.toolsAll(s, { send });
+  s.set("vehicles", rigFix.mowers.vehicles);
+  s.set("cab", rigFix.mowers.cab);
+  return { cardsEl, allEl };
+})();
+tap(failPage.cardsEl.querySelector(".tool-card .control"));
+tap(failPage.allEl.querySelector(".control"));
+for (let i = 0; i < 4; i++) await Promise.resolve();
+const allNote = failPage.allEl.querySelector(".tool-note");
+// live (0.8.14): the game's Lower all ran the tractor's 2 s combo; the mod
+// waits for it, then 1 s, at most 8 s: the dashboard waits 10 s
+check("tools: a \"Nothing moved\" answer shows on its card and on the All row; the wait is 10 s", [
+  failPage.cardsEl.querySelector(".tool-note")?.textContent, failPage.cardsEl.querySelector(".tool-note")?.hidden,
+  allNote?.textContent, allNote?.hidden, COMMAND_TIMEOUT_MS],
+  ["Nothing moved", false, "Nothing moved", false, 10000]);
 // live (0.8.8): the engine off, the fold keys only got the game's warning;
 // Fold all is faded with it when no tool may fold, but not for a lowered
 // one (Fold all raises it first)
@@ -1862,7 +1884,8 @@ await Promise.resolve();
 check("tools: the All row: lit while all are on, labelled with what a tap does; Turn on all waits while one is folded", [
   ...allShown, allButtons[2].querySelector(".control-value")?.textContent, mixed.sent, allOn.sent.slice(3)],
   [["Fold all:on", "Raise all:on", "Turn off all:on", "Stop all:on", "Cover all:on"],
-    ["Unfold all:off", "Lower all:off", "Turn on all:unavailable", "Tip all:off", "Uncover all:off"], "Unfold first",
+    // one folded, one not: Fold all, as the game's key does (spike 0.0.5, revision 2)
+    ["Fold all:off", "Lower all:off", "Turn on all:unavailable", "Tip all:off", "Uncover all:off"], "Unfold first",
     [["implement.foldAll", undefined], ["implement.lowerAll", undefined], ["implement.tipAll", 1], ["implement.coverAll", 1]],
     [["implement.tipAll", 0], ["implement.coverAll", 0]]]);
 check("tools: one working thing: no All row; nothing attached; on foot", [

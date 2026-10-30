@@ -23,7 +23,7 @@
 CompanionSpike = {}
 local CS = CompanionSpike
 
-local SPIKE_VERSION = "0.0.6"
+local SPIKE_VERSION = "0.0.7"
 local MOD_DIR = g_currentModDirectory or ""
 
 local LIMITS = {
@@ -1474,7 +1474,7 @@ local function pressLikeTheMod(name)
     return called
 end
 
-local function writeKeys(out)
+local function writeJson(name, out)
     local dir = ctx.dir or settingsDir()
     ctx.dir = dir
     if dir == nil then
@@ -1483,17 +1483,121 @@ local function writeKeys(out)
     out.spikeVersion, out.gameTimeMs = SPIKE_VERSION, g_time
     local ok, text = pcall(Json.encode, out)
     if not ok then
-        log("keys encode failed: %s", tostring(text))
+        log("%s encode failed: %s", name, tostring(text))
         return false
     end
-    local f = io.open(dir .. "keys.json", "w")
+    local f = io.open(dir .. name, "w")
     if f == nil then
         return false
     end
     f:write(text)
     f:close()
-    log("keys written: %skeys.json (%d bytes)", dir, #text)
+    log("%s written: %s%s (%d bytes)", name:match("^[^.]+"), dir, name, #text)
     return true
+end
+
+local function writeKeys(out)
+    return writeJson("keys.json", out)
+end
+
+---------------------------------------------------------------------------
+-- Lower all's timing (spike 0.0.7, spec 0003 revision 2)
+---------------------------------------------------------------------------
+
+-- csCombo: live (2026-10-30) the game's Lower all lowered the T7.300's
+-- rear mower 2.0 s after the front one, every time. Where does that come
+-- from: the tractor's attacher joint combo (FS22's names, unverified)?
+-- It writes what the tractor's attacher joints hold (every field named
+-- combo, each joint's plain fields, the tractor's Combo methods), then
+-- presses Lower all as the mod does and records every change in those
+-- and in the tools' states, frame by frame, for COMBO_MS.
+local COMBO_MS = 8000
+local COMBO_MAX_CHANGES = 3000
+
+local function round3(v)
+    if type(v) == "number" and v % 1 ~= 0 then
+        return math.floor(v * 1000 + 0.5) / 1000
+    end
+    return v
+end
+
+-- path -> plain value, for every plain field down to `depth`
+local function flatten(t, prefix, depth, out, seen)
+    seen = seen or {}
+    if type(t) ~= "table" or depth < 0 or seen[t] then
+        return out
+    end
+    seen[t] = true
+    for k, v in pairs(t) do
+        local path = prefix .. "." .. tostring(k)
+        local tv = type(v)
+        if tv == "number" or tv == "boolean" or tv == "string" then
+            out[path] = round3(v)
+        elseif tv == "table" and classNameOf(v) == nil then
+            flatten(v, path, depth - 1, out, seen)
+        end
+    end
+    return out
+end
+
+-- what the combo probe follows: the attacher joints' combo fields and
+-- each joint's plain fields, and the tools' states
+local function comboState(root)
+    local out = {}
+    local spec = root.spec_attacherJoints
+    if type(spec) == "table" then
+        for k, v in pairs(spec) do
+            if type(k) == "string" and k:lower():find("combo", 1, true) then
+                if type(v) == "table" then
+                    flatten(v, k, 3, out)
+                else
+                    out[k] = round3(v)
+                end
+            end
+        end
+        for i, joint in ipairs(type(spec.attacherJoints) == "table" and spec.attacherJoints or {}) do
+            flatten(joint, "attacherJoints." .. i, 0, out)
+        end
+    end
+    for _, s in ipairs(rigStates() or {}) do
+        for k, v in pairs(s) do
+            out["tool." .. tostring(s.name) .. "." .. k] = round3(v)
+        end
+    end
+    return out
+end
+
+local function probeCombo(root)
+    local spec = root.spec_attacherJoints
+    local res = { tractor = objectLabel(root), methods = {}, fields = {}, state = comboState(root) }
+    for _, m in ipairs(methodsOf(root)) do
+        if m:lower():find("combo", 1, true) then
+            res.methods[#res.methods + 1] = m
+        end
+    end
+    table.sort(res.methods)
+    if type(spec) == "table" then
+        for k, v in pairs(spec) do
+            res.fields[tostring(k)] = type(v)
+        end
+    end
+    return res
+end
+
+local function comboFrame(run)
+    local now = comboState(run.root)
+    for path, v in pairs(now) do
+        if run.last[path] ~= v and #run.changes < COMBO_MAX_CHANGES then
+            run.changes[#run.changes + 1] = { t = g_time, ms = g_time - run.start, path = path, from = run.last[path], to = v }
+        end
+    end
+    for path, v in pairs(run.last) do
+        if now[path] == nil and #run.changes < COMBO_MAX_CHANGES then
+            run.changes[#run.changes + 1] = { t = g_time, ms = g_time - run.start, path = path, from = v }
+        end
+    end
+    run.last = now
+    return g_time - run.start >= COMBO_MS
 end
 
 local function vehicleDetail(v)
@@ -1735,6 +1839,8 @@ function CompanionSpike:loadMap(name)
             "consoleTrace", CompanionSpike)
         addConsoleCommand("csPress", "Press a key as FS25 Companion does (default LOWER_ALL_IMPLEMENTS)",
             "consolePress", CompanionSpike)
+        addConsoleCommand("csCombo", "Press Lower all and record the attacher joint combo to combo.json",
+            "consoleCombo", CompanionSpike)
     end
 end
 
@@ -1749,9 +1855,11 @@ function CompanionSpike:deleteMap()
         removeConsoleCommand("csKeys")
         removeConsoleCommand("csTrace")
         removeConsoleCommand("csPress")
+        removeConsoleCommand("csCombo")
     end
     ctx.selectRun = nil
     ctx.pressNext = nil
+    ctx.combo = nil
     if ctx.trace ~= nil then
         pcall(traceUnwrap, ctx.trace)
         ctx.trace = nil
@@ -1782,6 +1890,32 @@ function CompanionSpike:consolePress(name)
     end
     ctx.pressNext = name
     return "pressing " .. name .. " as the mod does, next frame"
+end
+
+function CompanionSpike:consoleCombo()
+    if ctx.combo ~= nil then
+        return "already recording"
+    end
+    local v = getControlledVehicle()
+    if v == nil then
+        return "get in a vehicle first"
+    end
+    local root = firstOf(v, "getRootVehicle") or v
+    local ok, res = pcall(probeCombo, root)
+    if not ok then
+        return "combo probe failed: " .. tostring(res)
+    end
+    -- pressed on the next frame, recorded from the frame before
+    ctx.combo = { root = root, probe = res, last = res.state, changes = {}, start = g_time, pressAt = nil }
+    ctx.status = "recording Lower all's combo"
+    local fields = 0
+    for k in pairs(res.state) do
+        if not k:find("^tool%.") then
+            fields = fields + 1
+        end
+    end
+    return string.format("pressing Lower all and recording %d s; %d joint field(s), methods: %s", COMBO_MS / 1000,
+        fields, table.concat(res.methods, ", "))
 end
 
 function CompanionSpike:consoleTrace()
@@ -1839,6 +1973,24 @@ end
 
 function CompanionSpike:update(dt)
     ctx.elapsed = ctx.elapsed + dt
+    local combo = ctx.combo
+    if combo ~= nil then
+        local ok, done = pcall(function()
+            if combo.pressAt == nil then
+                combo.start = g_time
+                combo.pressAt = g_time
+                combo.called = pressLikeTheMod("LOWER_ALL_IMPLEMENTS")
+            end
+            return comboFrame(combo)
+        end)
+        if not ok or done then
+            ctx.combo = nil
+            local out = { combo = { probe = combo.probe, pressedAt = combo.pressAt, handlersCalled = combo.called,
+                changes = combo.changes, error = not ok and tostring(done) or nil } }
+            ctx.status = writeJson("combo.json", out) and "combo written to combo.json" or "combo: write FAILED"
+            log("csCombo: %d change(s) recorded", #combo.changes)
+        end
+    end
     if ctx.pressNext ~= nil then
         local name = ctx.pressNext
         ctx.pressNext = nil
@@ -1930,6 +2082,7 @@ CS._toolsProbe = toolsProbe
 CS._selectStep = selectStep
 CS._probeKeys = probeKeys
 CS._ctx = ctx
+CS._probeCombo, CS._comboState = probeCombo, comboState
 CS._traceWrap, CS._traceUnwrap, CS._traceFrame, CS._newTrace = traceWrap, traceUnwrap, traceFrame, newTrace
 
 if addModEventListener ~= nil then

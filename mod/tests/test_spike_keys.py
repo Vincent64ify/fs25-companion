@@ -147,6 +147,50 @@ def test_trace_records_each_argument(lua):
     assert call["pressedBy"] is None
 
 
+def test_cscombo_presses_lower_all_and_records_the_combo(lua, tmp_path):
+    """spike 0.0.7: the tractor's combo fields, each joint's, the tools'
+    states, every change over 8 s after the press."""
+    (tmp_path / "FS25_CompanionSpike").mkdir()
+    lua.globals().g_modSettingsDirectory = tmp_path.as_posix() + "/"
+    lua.execute("""
+        tractor.spec_attacherJoints = {
+            attacherJointCombos = { isRunning = false, duration = 4000, currentTime = 0,
+                joints = { { jointIndex = 1, time = 0 }, { jointIndex = 2, time = 0.5 } } },
+            attacherJoints = { { moveDown = false, moveAlpha = 0 }, { moveDown = false, moveAlpha = 0 } },
+        }
+        function tractor:startAttacherJointCombo() end
+        -- the game's Lower all: the combo runs, the second joint half way
+        AttacherJoints.actionEventLowerAllImplements = function()
+            tractor.spec_attacherJoints.attacherJointCombos.isRunning = true
+        end
+        local e = g_inputBinding.actionEvents[g_inputBinding.nameActions.LOWER_ALL_IMPLEMENTS][1]
+        e.callback = AttacherJoints.actionEventLowerAllImplements
+        msg = CompanionSpike:consoleCombo()
+        for i = 1, 600 do
+            g_time = g_time + 16
+            local c = tractor.spec_attacherJoints.attacherJointCombos
+            if c.isRunning then
+                c.currentTime = math.min(c.currentTime + 16, c.duration)
+                tractor.spec_attacherJoints.attacherJoints[1].moveDown = true
+                if c.currentTime >= 2000 then tractor.spec_attacherJoints.attacherJoints[2].moveDown = true end
+                if c.currentTime >= c.duration then c.isRunning = false end
+            end
+            CompanionSpike:update(16)
+        end
+    """)
+    assert "startAttacherJointCombo" in lua.eval("msg")
+    import json
+    out = json.loads((tmp_path / "FS25_CompanionSpike" / "combo.json").read_text(encoding="utf-8"))["combo"]
+    assert out["handlersCalled"] == 2, "the stub's two Lower all handlers"
+    assert "startAttacherJointCombo" in out["probe"]["methods"]
+    assert out["probe"]["state"]["attacherJointCombos.duration"] == 4000
+    changes = {(c["path"], c.get("to")): c["ms"] for c in out["changes"]}
+    assert changes[("attacherJointCombos.isRunning", True)] == 0, "running from the press"
+    assert changes[("attacherJoints.2.moveDown", True)] >= 2000, "the second joint later"
+    assert changes[("attacherJointCombos.isRunning", False)] >= 4000
+    assert lua.eval("CompanionSpike._ctx.combo") is None
+
+
 def test_a_failing_log_never_stops_the_handler(lua):
     lua.execute("""
         tr = CompanionSpike._newTrace()

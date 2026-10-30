@@ -180,6 +180,29 @@ def test_command_goes_to_the_client_and_the_ack_to_its_viewer():
         assert recv(tablet)["envelope"]["topic"] == "player"
 
 
+def test_a_checked_ack_tells_the_viewer_what_didnt_move():
+    """specs/0003 revision 2: the mod's checked and unmoved reach the viewer."""
+    client = TestClient(create_app())
+    with client.websocket_connect("/ws?pair=chk") as game, \
+            client.websocket_connect("/ws?pair=chk") as viewer:
+        game.send_text(json.dumps({"type": "hello", "role": "client"}))
+        assert recv(game)["type"] == "welcome"
+        viewer_hello(viewer)
+        command(viewer, "f1", action="implement.foldAll")
+        ref = recv(game)["ref"]
+        unmoved = [{"id": 994, "name": "Samasz KDF 341 S", "why": "Nothing moved"}]
+        send_env(game, env("command_ack", {"id": 1, "ref": ref, "action": "FOLD_ALL_IMPLEMENTS", "ok": False,
+                                           "reason": "Samasz KDF 341 S: Nothing moved", "checked": True,
+                                           "unmoved": unmoved}, seq=5))
+        assert recv(viewer) == {"type": "command_ack", "id": "f1", "ok": False,
+                                "reason": "Samasz KDF 341 S: Nothing moved", "checked": True, "unmoved": unmoved}
+        # an unchecked ack carries neither
+        command(viewer, "l1")
+        ref = recv(game)["ref"]
+        send_env(game, ack_env(ref, seq=6))
+        assert recv(viewer) == {"type": "command_ack", "id": "l1", "ok": True, "reason": None}
+
+
 def test_commands_outside_the_allow_list_never_reach_the_client():
     client = TestClient(create_app())
     with client.websocket_connect("/ws?pair=deny") as game, \

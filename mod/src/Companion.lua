@@ -12,7 +12,7 @@
 
 Companion = Companion or {}
 
-Companion.VERSION = "0.8.13"
+Companion.VERSION = "0.8.15"
 Companion.DIR_NAME = "FS25_Companion"
 Companion.STREAM_FILE = "stream.ndjson"
 Companion.COMMAND_DIR = "cmd/"

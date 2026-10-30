@@ -468,7 +468,9 @@ export function allActions(cards) {
     // none the game lets fold (the engine off: live 0.8.8), with its words;
     // a lowered one doesn't count: Fold all raises it first
     const blocked = list.every((e) => e.canNow?.fold === false && e.lowered !== true);
-    return { action: "implement.foldAll", on, label: on ? "Fold all" : "Unfold all", moving: list.some((e) => e.foldMoving),
+    // the game's key folds while one is unfolded (spike 0.0.5, revision 2)
+    const folds = list.some((e) => e.unfolded === true);
+    return { action: "implement.foldAll", on, label: folds ? "Fold all" : "Unfold all", moving: list.some((e) => e.foldMoving),
       unavailable: blocked || undefined, note: blocked ? list[0].whyNot?.fold || "Not now" : undefined };
   });
   add("lower", (list) => {
