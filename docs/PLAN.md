@@ -41,10 +41,12 @@ up to date until the live check.
   with mod 0.8.6. Revision 2 (dashboard only) is confirmed in game on
   2026-10-27: that page is now Loader, picked by itself, beside a plain
   Vehicle page; the tab names its page; a tap on a tile only selects.
-  Spec [0003](../specs/0003-implement-screen.md) is a draft: the
-  Implement tab merges into the Vehicle page, a card per tool with the
-  buttons the game's parts allow, checked against a census of every
-  vehicle type and real rig dumps; approved, next: spike 0.0.4.
+  Spec [0003](../specs/0003-implement-screen.md) is built (mod 0.8.11):
+  the Implement tab merges into the Vehicle page, a card per tool with
+  the buttons the game's parts allow, checked against a census of every
+  vehicle type and real rig dumps. Its live check is under way: the
+  mowers were checked on 2026-10-30 (0.8.7) and fixed in 0.8.8; the
+  other rigs are next.
   Canvases are built from the design system
   ([THEMES.md](THEMES.md#design-system-2026-10-25)).
 - macOS is still to test, and a few things are still to confirm in game (see

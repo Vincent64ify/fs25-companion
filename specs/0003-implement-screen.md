@@ -1,7 +1,7 @@
 # 0003: Vehicle page with a card per tool (the Implement tab merges in)
 
 Status: built
-Mod: 0.8.7 · Started: 2026-10-26 · Design: canvas [FS25 Companion: Vehicle vs Implement](https://claude.ai/artifact/HvFL9rUTBC7cbDtnNH8WaT)
+Mod: 0.8.11 · Started: 2026-10-26 · Design: canvas [FS25 Companion: Vehicle vs Implement](https://claude.ai/artifact/HvFL9rUTBC7cbDtnNH8WaT)
 (option A), [THEMES.md, Implement screen](../docs/THEMES.md#implement-screen-design-2026-10-24) (replaced)
 
 ## Goal
@@ -122,9 +122,9 @@ capability needs the part **and what it holds**:
 
 | `can` | From the game | State sent with it |
 |---|---|---|
-| `lower` | the attacher joint lowers it: the input joint's `allowsLowering` (unverified), else `getAllowsLowering` as today | `lowered` |
-| `fold` | `spec_foldable.foldingParts` has at least one part | `unfolded`, `foldMoving` |
-| `turnOn` | TurnOnVehicle and `getCanBeTurnedOn()` | `turnedOn` |
+| `lower` | the attacher joint lowers it: the input joint's `allowsLowering` (unverified), else `getAllowsLowering` as today; or its fold has a middle position (`spec_foldable.foldMiddleAnimTime`: it lowers through its fold, live 0.8.7); lowering and raising not now without power (`getIsPowered()`: the engine off, live 0.8.9) | `lowered` |
+| `fold` | `spec_foldable.foldingParts` has at least one part; not now without power (`getIsPowered()`: the engine off, live 0.8.8) | `unfolded`, `foldMoving` |
+| `turnOn` | TurnOnVehicle and `getCanBeTurnedOn()`, which is also false while folded or with the engine off (live 0.8.7): folded, Turn on stays, unavailable | `turnedOn` |
 | `tip` | `spec_trailer.tipSideCount` ≥ 1 (a sprayer's Dischargeable "Dump on ground" is not tipping) | `discharging` |
 | `tipSide` | `spec_trailer.tipSideCount` ≥ 2 | `tipSide {index, count}` (`preferedTipSideIndex`), its name when known |
 | `cover` | `spec_cover.hasCovers` | `cover {open}` |
@@ -136,11 +136,15 @@ capability needs the part **and what it holds**:
 
 Where the game answers why not, the entry carries `canNow[cap] = false`
 and `whyNot[cap]` (its words, when it has some), so a button is
-unavailable with the game's own words in its title (spike 0.0.4:
+unavailable with the game's own words: in its title, and on the card for
+3 s after a tap on it, since a tablet has no hover (live 0.8.7; a folded
+tool's Turn on without words of the game's: "Unfold first") (spike 0.0.4:
 `getIsFoldAllowed` → "Folding is not allowed while the tool is lowered.",
 `isDetachAllowed` → "You first need to fold up the tool (mower)!";
 `getAllowsLowering` only while the tool is raised: raising stays
-allowed; `getCanToggleTurnedOn` with `getTurnedOnNotAllowedWarning`;
+allowed, and through the fold `getIsFoldMiddleAllowed`;
+`getCanToggleTurnedOn` with `getTurnedOnNotAllowedWarning`, which also
+gives a folded tool's Turn on its words;
 `getIsPlowRotationAllowed`). The page reads nothing else to decide a
 button: a type it has never seen gets whatever its parts allow. Against
 the census, with every part holding something, the rule gives one
@@ -200,7 +204,14 @@ check.
 | each spec's `actionEvents` (keyed by input action) and the input binding's `events[id]`: `isActive`, `contextDisplayText` (the game's own label: "Fold mower", "Rotate plow", "Tip side (Left)") | InputBinding.lua | seen in spike 0.0.4; a tool's keys are registered only while it is selected |
 | `getIsFoldAllowed(direction, false)` → allowed, reason; `isDetachAllowed()` → allowed, reason | Foldable.lua, Attachable.lua | seen in spike 0.0.4 |
 | turn on's "can't now": `getIsTurnedOnAllowed` isn't there in FS25; `getCanToggleTurnedOn`, `getTurnedOnNotAllowedWarning` are | TurnOnVehicle.lua | seen in spike 0.0.4 (the names; what they answer is unverified) |
-| `FOLD_ALL_IMPLEMENTS` ("Fold all tools"), `TURN_ON_ALL_IMPLEMENTS` ("Turn on/off all tools"), registered on each foldable / turn-on tool | inputBinding.xml | seen in spike 0.0.4 |
+| `FOLD_ALL_IMPLEMENTS` ("Fold all tools"), `TURN_ON_ALL_IMPLEMENTS` ("Turn on/off all tools"), registered on each foldable / turn-on tool | inputBinding.xml | seen in spike 0.0.4; live (0.8.7): one press folds, unfolds or turns on every tool, but won't fold one lowered on its joint |
+| `getCanBeTurnedOn()` false while folded or with the engine off | TurnOnVehicle.lua, Foldable.lua | seen live (0.8.7) |
+| `spec_foldable.foldMiddleAnimTime`: a tool that lowers through its fold (the rear Samasz XT 390: 0.2) | Foldable.lua | seen in spike 0.0.4; that it means "lowers" seen live (0.8.7: Lower offered in game, none on the card) |
+| `getIsFoldMiddleAllowed()`: such a tool may lower now; its Lower key is the tool's own or the tractor's while it's selected | Foldable.lua, AttacherJoints.lua | unverified (mod 0.8.8) |
+| `getTurnedOnNotAllowedWarning()` on a folded tool: the game's words for it | Foldable.lua | seen live (0.8.8): the KDF 341 S "You first need to unfold the tool (mower)!", the XT 390 "You first need to fold up the tool (mower)!", as the game's own warning says |
+| the fold keys need power: with the engine off they only get the game's "Please start the engine first", while `getIsFoldAllowed` says yes | Foldable.lua | seen live (0.8.8) |
+| `getIsPowered()` → false, "Please start the engine first!" while the engine is off (Motorized's; a tool asks its vehicle) | Vehicle.lua, Motorized.lua | seen live (0.8.9): on both mowers, true again once the engine ran |
+| lowering and raising need power: with the engine off the Lower key only gets the game's warning | AttacherJoints.lua | seen live (0.8.9; raising: Vincent) |
 | a trailer's tip sides: `spec_trailer.tipSideCount`, `preferedTipSideIndex`, key `TOGGLE_TIPSIDE` ("Tip side (Grain door)"); `TOGGLE_TIPSTATE` "Dump", `TOGGLE_TIPSTATE_GROUND` "Unload here" | Trailer.lua, Dischargeable.lua | seen in spike 0.0.4; a side's name inside `tipSides[i]` unverified (the key's label has it while selected) |
 | `spec_cover.hasCovers` | Cover.lua | seen in spike 0.0.4 (false on the tippers and the baler) |
 | `spec_plow.rotationMax`, `rotationPart.turnAnimation`, `limitToField`; keys `IMPLEMENT_EXTRA` "Rotate plow", `IMPLEMENT_EXTRA3` "Allow create fields"; `getIsPlowRotationAllowed`, `getCanTogglePlowRotation` | Plow.lua | seen in spike 0.0.4 (the getters' answers unverified) |
@@ -224,8 +235,9 @@ and puts the selection back if the tap wasn't on the selected tool. So
 every game rule (unfold first, weight limits, multiplayer) applies, and
 a refusal comes back in the ack with the game's reason.
 
-As built (mod 0.8.7): the mod presses the tool's key at once when the
-tool already has it live (the selected one); otherwise it selects the
+As built (mod 0.8.8): the mod presses the tool's key at once when the
+tool already has it live (the selected one; Lower: also the key of what
+it hangs on while it's selected); otherwise it selects the
 tool, waits for its key (up to 30 frames), presses only that tool's
 event, and puts the selection back, all as a job over those frames (the
 ack comes at the end; no other command is read meanwhile). A key that
@@ -244,11 +256,27 @@ New, each with the tool's id (without one: the selected tool's):
   `widthRightIn`, `widthRightOut`, the variable width keys.
 
 **All:** `implement.foldAll` and `implement.turnOnAll` press the game's
-own `FOLD_ALL_IMPLEMENTS` and `TURN_ON_ALL_IMPLEMENTS`, as
-`implement.lowerAll` presses `LOWER_ALL_IMPLEMENTS`; with no live event
-(the game may register them only on the selected tool), every tool's
-setter: unfold all while one is folded, else fold them; turn all on,
-or off once they all are. `implement.tipAll` and `implement.coverAll`
+own `FOLD_ALL_IMPLEMENTS` and `TURN_ON_ALL_IMPLEMENTS` once: one press
+acts on every tool (live 0.8.7). `implement.lowerAll` doesn't press the
+game's `LOWER_ALL_IMPLEMENTS`: pressed by the mod it did nothing every
+other time while Ctrl+V always worked (live 0.8.10). It runs each tool's
+Lower toward one state instead (lower every one while one is raised,
+else raise them all), in driving order, the selection put back; with
+no tool that has Lower (a combine's header), the game's key, else its
+combo, as before; when no tool's Lower can act, the combo. This is a
+workaround: the game's own key is what we want (Vincent), once the mod
+presses it as the keyboard does ([NEXT.md](../docs/NEXT.md)). Fold all, when folding, first raises each tool
+lowered on its joint that the game won't fold ("Folding is not allowed
+while the tool is lowered."; one that lowers through its fold the key
+raises itself), as its card's Lower does, then waits until the game lets
+it fold (at most 120 frames) and presses the key; the ack names Fold
+all's key. When the game lets none fold (the engine off), it presses
+nothing and answers with the game's words; the All row's button is then
+faded with them (a lowered tool doesn't count: it gets raised, unless
+the game won't raise it now). Lower all, without power, presses nothing
+and answers with the game's words, its button faded with them. With no live event, every tool's setter: unfold all while one
+is folded, else fold them; turn all on (not one the game won't turn on
+now), or off once they all are. `implement.tipAll` and `implement.coverAll`
 (value 1 = open / tip, 0 = close / stop; no game key) run the one-tool
 command on each that has the capability and isn't there yet, in driving
 order, then put the selection back; the ack names any the game refused
@@ -337,11 +365,48 @@ Automated (each one a test that exists before the work is called built):
   overflows, no scrolling, every button 48 px or more.
 - [x] Replay in the browser pane at 1180×820, day and night: the
   fixtures as screenshots for the Log.
+- [x] After the 2026-10-30 live check (mod 0.8.8): `run.lua`
+  "capabilities": the XT 390 lowers through its fold; folded, Turn on
+  stays, unavailable with the game's warning; its turn on key is never an
+  other key (folded or engine off). "aimed commands": Lower through the
+  tractor's key. "all commands": the front mower lowered, Fold all raises
+  it, waits until the game lets it fold, then presses the key once; the
+  raise never taking, the key still comes; folded, Turn on all's setter
+  turns nothing on. Each failed on 0.8.7. The mock rigs now start
+  unfolded, as the dumps were (direction 1 offers "Fold mower").
+- [x] `web/test.html` "a tap on a faded button": the game's reason on the
+  card, nothing sent; a folded tool's Turn on says "Unfold first".
+- [x] After the 0.8.8 live check (mod 0.8.9): `run.lua` "capabilities":
+  no power, fold not now with the game's words; "all commands": the
+  engine off, Fold all and Fold press nothing and answer with them.
+  `web/test.html`: Unfold all faded with them; a lowered tool doesn't
+  fade Fold all. Each failed on 0.8.8.
+- [x] After the 0.8.10 live check (mod 0.8.11): `run.lua` "all
+  commands": Lower all lowers each raised tool by its own Lower (the
+  tractor's key while each is selected), raises them all once all are
+  lowered, never presses the game's Lower all key; "implement screen":
+  a rig with no Lower key still gets the game's combo. Failed on 0.8.10.
+- [x] After the 0.8.9 live check (mod 0.8.10): `run.lua`
+  "capabilities": no power, the lowered XT 390 can't raise, with the
+  game's words; "all commands": Lower and Lower all press nothing and
+  answer with them. `web/test.html`: Lower all faded with them. The Lua
+  ones failed on 0.8.9.
+  Checked in the browser pane at 1180×820, day and night.
 
-Live check (mod 0.8.7; the spike is done; the rigs above):
-- [ ] Front and rear mowers: both cards; each card's Fold, Lower and Turn
+Live check (mod 0.8.8; the spike is done; the rigs above):
+- [x] Front and rear mowers: both cards; each card's Fold, Lower and Turn
   on act on its own mower; Unfold all, Lower all and Turn on all work
   both, one tap each.
+  2026-10-30 (0.8.7, New Holland T7.300, Samasz KDF 341 S front, XT 390
+  rear; confirmed by Vincent): both cards; the front card's Lower,
+  Raise, Fold, Unfold and the rear card's Turn on / off, Fold, Unfold act
+  on their own mower only, the selection back on the XT 390 each time;
+  Unfold all, Turn on all and Fold all (both raised) move both, one tap
+  each. Failed: no Lower on the XT 390's card (it lowers through its
+  fold), so no Lower all; Fold all with the front lowered folded only the
+  rear: the game's `FOLD_ALL_IMPLEMENTS` acts on every tool but won't
+  fold one lowered on its joint ("Folding is not allowed while the tool
+  is lowered."), and the XT 390 raises by folding.
 - [ ] Two trailers: Tip and Uncover per trailer; the three-way tipper's
   Tip side steps as the game's key does.
 - [ ] A sprayer with sections: the width and sections match the HUD; Left
@@ -354,7 +419,7 @@ Live check (mod 0.8.7; the spike is done; the rigs above):
 - [ ] After any card button, the game's selected tool is the one it was.
 - [ ] Attach is faded until you back up to a tool, lights up with the
   game's prompt, and attaches it.
-- [ ] A button on a tool that isn't selected acts within half a second
+- [x] A button on a tool that isn't selected acts within half a second
   (select, its key, back), and the game's own refusals come back in its
   words (fold a lowered mower).
 - [ ] The selected tool's other keys: the plow's "Allow create fields",
@@ -362,10 +427,41 @@ Live check (mod 0.8.7; the spike is done; the rigs above):
   keys do.
 - [ ] The baler's count matches the game's bale counter; Reset count
   resets it.
-- [ ] The rear mower folded for transport still shows Raise / Lower
+- [x] The rear mower folded for transport still shows Raise / Lower
   (its joint lowers it), unavailable only while the game says so.
 - [ ] mod log: which way each command went ("FOLD_IMPLEMENT via
   IMPLEMENT_EXTRA2" or "via setter") for the unverified names above.
+- [x] The rear XT 390's card has Lower; it lowers and raises the mower
+  (log: "LOWER_IMPLEMENT via LOWER_IMPLEMENT", not "via setter").
+- [x] Both mowers lowered and on: one Fold all raises the front one, then
+  folds both.
+- [x] A folded mower: Turn on faded, Turn on all faded "Unfold first",
+  no "Turn on mower" button; a tap on a faded button shows the game's
+  words on its card.
+  2026-10-30 (0.8.8, confirmed by Vincent): XT 390 Lower and Raise by
+  the game's key, Lower all, Fold all from both lowered and on (the
+  front raised first, both off and folded, the selection back), the
+  folded mowers' faded Turn on with the game's words. Failed: with the
+  engine off, Unfold all and Unfold pressed the key and answered ok,
+  while the game said "Please start the engine first" and nothing moved.
+- [x] The engine off: Fold / Unfold and Unfold all faded with "Please
+  start the engine first"; with it on, they work.
+  2026-10-30 (0.8.9): Unfold, Unfold all faded with "Please start the
+  engine first!", a tap shows it on the card; with the engine on both
+  work again and Unfold all unfolded both. Failed: Lower, engine off,
+  pressed the key and answered ok while nothing moved; the folded front
+  mower lowered at once with the engine on. Raising needs power too
+  (Vincent).
+- [x] The engine off: Lower / Raise and Lower all faded with the same
+  words; with it on, they work.
+  2026-10-30 (0.8.10, confirmed by Vincent): Lower, Lower all, Unfold
+  and Unfold all faded with "Please start the engine first!"; with the
+  engine on, Lower all lowered both (the folded XT 390 by unfolding down
+  to work, the folded KDF 341 S in transport) and Raise all raised both.
+  Every mower box above confirmed by Vincent the same day.
+- [ ] Lower all and Raise all (0.8.11, each tool's own Lower): one tap
+  lowers or raises both, every time, also right after Unfold all and with
+  the KDD in a work mode.
 
 ## Decisions
 
@@ -485,3 +581,55 @@ Live check (mod 0.8.7; the spike is done; the rigs above):
   pickup is one of its other keys, not Lower (its `getAllowsLowering` is
   false); the vehicle's attacher-joint keys and Detach are never other
   keys.
+- 2026-10-30: live check (0.8.7), mowers, driven from the dashboard in
+  the browser pane with `scripts/livewatch.py` reading log.txt and the
+  stream, Vincent confirming in game (the 0.8.8 to 0.8.10 branch of
+  2026-10-29 dropped). Each card button works on its own mower; Fold
+  all, Unfold all and Turn on all work on both from raised. Fold all's
+  failure has a new cause: the game's own key folds every tool but
+  refuses one lowered on its joint, so the fix is to raise first, not
+  to select each tool. Also seen: a faded button's reason is only in its
+  hover title, out of reach on a tablet; Turn on all is hidden, not
+  faded, while a tool is folded; the folded XT 390 shows its "Turn on
+  mower" key as an other key, which only gets the game's warning; no
+  Lower on the XT 390 (as on 2026-10-29).
+- 2026-10-30: fixes after the mowers' live check (mod 0.8.8): Lower for a
+  tool that lowers through its fold, pressed with the tractor's key when
+  the tool has none (from the dropped 0.8.8 branch); Fold all raises what
+  the game won't fold while lowered, then presses its key once; a folded
+  tool keeps Turn on, faded with the game's warning, and its turn on key
+  is never an other key; a tap on a faded button shows the reason on the
+  card for 3 s. The mock rigs' fold direction was backwards (they started
+  folded); the web's rig fixtures now show the dumps' working rigs.
+- 2026-10-30: live check (0.8.8), mowers, by Vincent: the XT 390's Lower,
+  Lower all, and Fold all from both lowered and on work; the folded
+  mowers' Turn on is faded with the game's words (the XT 390's "fold up"
+  is the game's own). New: with the engine off the fold keys only get
+  "Please start the engine first". Fixed in 0.8.9: fold is not now
+  without power (`getIsPowered`, unverified), so Fold / Unfold and the
+  All row's are faded with those words, and Fold all presses nothing.
+- 2026-10-30: live check (0.8.9), mowers: with the engine off, the fold
+  buttons and Unfold all are faded with the game's "Please start the
+  engine first!" (`getIsPowered` answers it); Lower still pressed the key
+  for nothing, and raising needs power too (Vincent). Fixed in 0.8.10:
+  lowering and raising are not now without power, on the cards and Lower
+  all.
+- 2026-10-30: live check (0.8.10), the rear mower swapped for a Samasz
+  KDD 941 STH (a butterfly mower that lowers through its fold, like the
+  XT 390): engine off, everything but Detach faded with the game's
+  words; with it on, the KDD card's Unfold, Lower, Turn on / off, Raise
+  and Fold by the game's keys, and its other keys once unfolded ("Toggle
+  work mode", "Work mode left / middle / right"; Work mode left pressed
+  `WORKMODE_LEFT`). Unfold all, Turn on all and Fold all from both
+  lowered and on (the front raised first, the selection back) worked. To
+  look at: the first Lower all after Unfold all answered ok and nothing
+  lowered, the second lowered both (the KDD was in work mode left; in
+  game nothing moved and no warning showed, Vincent); the other keys'
+  labels are cut off four to a row ("Toggle work …"). Next: the same with
+  the game's own Lower all key, to tell the game's behaviour from the
+  mod's. Vincent: twice through the dashboard, the same (the first did
+  nothing, the second lowered both); with Ctrl+V, the first press
+  lowered both. So the mod's press differs from the keyboard's (it calls
+  every handler registered for the key; which ones are there is
+  unknown). Fixed in 0.8.11: Lower all is each tool's own Lower, which
+  worked every time on all three mowers.

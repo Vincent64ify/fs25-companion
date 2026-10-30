@@ -37,6 +37,8 @@ const CALL_TRAILER_PCT = 80;
 const CALL_TRAILER_MIN = 3;
 // this many cards or more: the compact form (head, buttons, main meter)
 const COMPACT_FROM = 3;
+// how long a faded button's reason stays on its card after a tap
+const NOTE_SHOWN_MS = 3000;
 
 /** The vehicles topic's side of an entry: its implement, or the vehicle itself. */
 export const detailOf = (/** @type {RigEntry} */ e, /** @type {Vehicle|undefined} */ v) =>
@@ -156,9 +158,10 @@ export function pickable(el, e, name, send) {
  *   unavailable?: boolean, why?: string, moving?: boolean, progressive?: boolean, line?: string}} ToolButton
  */
 
-/** Unavailable while the game says not now, with its words (or ours). */
+/** Unavailable while the game says not now, with its words (or the button's own, or ours). */
 const notNow = (/** @type {RigEntry} */ e, /** @type {string} */ cap) => e.canNow?.[cap] === false;
-const whyNot = (/** @type {RigEntry} */ e, /** @type {string} */ cap) => e.whyNot?.[cap] || "Not now";
+const whyNot = (/** @type {RigEntry} */ e, /** @type {string} */ cap, /** @type {string|undefined} */ own) =>
+  e.whyNot?.[cap] || own || "Not now";
 
 /**
  * A card's buttons: one for each capability in `can`, in the mod's order,
@@ -204,7 +207,7 @@ export function toolButtons(e) {
     const b = make[cap]?.();
     if (!b) continue;
     const button = { key: cap, ...b, value: id };
-    if (notNow(e, cap)) Object.assign(button, { unavailable: true, why: whyNot(e, cap) });
+    if (notNow(e, cap)) Object.assign(button, { unavailable: true, why: whyNot(e, cap, button.why) });
     out.push(button);
   }
   if (e.selected) {
@@ -220,10 +223,12 @@ export function toolButtons(e) {
 /**
  * A row of buttons kept across renders, so a tap's pending state survives
  * the cab's next update. Each sends its command; pending until the ack,
- * then until its state changes (at most 1.5 s).
+ * then until its state changes (at most 1.5 s). A tap on an unavailable one
+ * hands its reason to `onWhy` (a tablet has no hover for the title).
  * @param {Send} send
+ * @param {(why: string) => void} [onWhy]
  */
-function buttonRow(send) {
+function buttonRow(send, onWhy) {
   const el = h("div", { className: "tool-buttons" });
   /** @type {Map<string, {ui: ReturnType<typeof createControl>, b: ToolButton}>} */
   const shown = new Map();
@@ -242,6 +247,9 @@ function buttonRow(send) {
             () => send(item.b.action, item.b.value),
             { ms: 1500, key: () => `${item.b.on}:${item.b.label}:${item.b.line ?? ""}` });
           item.ui.el.dataset.control = b.key;
+          item.ui.el.addEventListener("pointerdown", (ev) => {
+            if (ev.button === 0 && item.b.unavailable && item.b.why) onWhy?.(item.b.why);
+          });
           shown.set(b.key, item);
         }
         for (const key of [...shown.keys()]) if (!buttons.some((b) => b.key === key)) shown.delete(key);
@@ -352,9 +360,20 @@ function toolCard(send) {
   const chip = h("span", { className: "tool-chip", text: "Working" });
   let head = h("header", { className: "tool-head" }, badge, h("div", { className: "tool-text" }, name, sub), chip);
   const stats = h("div", { className: "tool-stats" });
-  const buttons = buttonRow(send);
+  // a faded button's reason, for a few seconds after a tap on it
+  const note = h("p", { className: "tool-note" });
+  note.hidden = true;
+  note.setAttribute("role", "status");
+  /** @type {ReturnType<typeof setTimeout>|undefined} */
+  let noteTimer;
+  const buttons = buttonRow(send, (why) => {
+    clearTimeout(noteTimer);
+    note.textContent = why;
+    note.hidden = false;
+    noteTimer = setTimeout(() => { note.hidden = true; }, NOTE_SHOWN_MS);
+  });
   const tanks = h("div", { className: "tool-tanks" });
-  const el = h("section", { className: "tool-card" }, head, stats, buttons.el, tanks);
+  const el = h("section", { className: "tool-card" }, head, stats, buttons.el, tanks, note);
   let lastHead = "";
   let lastKind = "";
   let lastStats = "";

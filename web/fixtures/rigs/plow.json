@@ -14,7 +14,7 @@
    "lowered": false,
    "name": "PÖTTINGER SERVO T 6000 P",
    "turnedOn": false,
-   "unfolded": false
+   "unfolded": true
   },
   "implements": [
    {
@@ -75,7 +75,7 @@
     "selected": true,
     "side": "rear",
     "turnedOn": false,
-    "unfolded": false
+    "unfolded": true
    }
   ],
   "vehicleId": 1035
@@ -117,7 +117,7 @@
  },
  "expect": {
   "cards": [
-   "SERVO T 6000 P: Lower:off, Unfold:off, Rotate:off, Detach:off, Allow create fields:off"
+   "SERVO T 6000 P: Lower:off, Fold:on, Rotate:off, Detach:off, Allow create fields:off"
   ],
   "selected": "SERVO T 6000 P",
   "also": [],

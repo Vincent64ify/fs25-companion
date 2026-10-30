@@ -14,7 +14,7 @@
    "lowered": true,
    "name": "Samasz XT 390",
    "turnedOn": false,
-   "unfolded": false
+   "unfolded": true
   },
   "implements": [
    {
@@ -72,7 +72,7 @@
     "selected": false,
     "side": "front",
     "turnedOn": false,
-    "unfolded": false,
+    "unfolded": true,
     "whyNot": {
      "fold": "Folding is not allowed while the tool is lowered."
     }
@@ -100,7 +100,7 @@
     "selected": true,
     "side": "rear",
     "turnedOn": false,
-    "unfolded": false,
+    "unfolded": true,
     "whyNot": {
      "detach": "You first need to fold up the tool (mower)!"
     }
@@ -158,15 +158,15 @@
  },
  "expect": {
   "cards": [
-   "XT 390: Raise:on, Unfold:off, Turn on:unavailable, Detach:unavailable",
-   "KDF 341 S: Raise:on, Unfold:unavailable, Turn on:unavailable, Detach:off"
+   "XT 390: Raise:on, Fold:on, Turn on:off, Detach:unavailable",
+   "KDF 341 S: Raise:on, Fold:unavailable, Turn on:off, Detach:off"
   ],
   "selected": "XT 390",
   "also": [],
   "all": [
-   "Unfold all:off",
+   "Fold all:on",
    "Raise all:on",
-   "Turn on all:unavailable"
+   "Turn on all:off"
   ]
  }
 }

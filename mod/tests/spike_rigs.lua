@@ -9,6 +9,11 @@
 
 SpikeRigs = {}
 
+-- the game's reason a tool lowered on its joint can't fold (spike 0.0.4)
+SpikeRigs.FOLD_WHILE_LOWERED = "Folding is not allowed while the tool is lowered."
+-- the game's warning on a fold key with the engine off (live, 0.8.8)
+SpikeRigs.START_ENGINE = "Please start the engine first"
+
 -- JSON -----------------------------------------------------------------------
 
 local function utf8(code)
@@ -198,6 +203,14 @@ function SpikeRigs.member(m)
         o["spec_" .. shortName(s)] = {}
     end
     o.getFullName = function() return m.name end
+    -- the vehicle answers for its tools: no power with the engine off
+    o.getIsPowered = function(self)
+        local root = self.getRootVehicle ~= nil and self:getRootVehicle() or self
+        if root.engineOff then
+            return false, SpikeRigs.START_ENGINE
+        end
+        return true
+    end
     if m.fold ~= nil then
         local parts = {}
         for i = 1, m.fold.parts or 0 do
@@ -205,12 +218,19 @@ function SpikeRigs.member(m)
         end
         o.spec_foldable = o.spec_foldable or {}
         o.spec_foldable.foldingParts = parts
+        -- a mower that lowers through its own fold (the rear XT 390)
+        o.spec_foldable.foldMiddleAnimTime = m.fold.middle
         o.foldDirection = m.fold.toggledDirection
         o.getToggledFoldDirection = function(self) return self.foldDirection end
-        -- the direction F goes next: 1 unfolds, so it's folded now
-        o.getIsUnfolded = function(self) return self.foldDirection == -1 end
-        o.getIsFoldAllowed = function()
+        -- the direction F goes next: 1 folds (every dump with 1 offers
+        -- "Fold mower", "Fold plow"), so it's unfolded now
+        o.getIsUnfolded = function(self) return self.foldDirection == 1 end
+        -- the game's "while lowered" holds only while it is (live, 0.8.7)
+        o.getIsFoldAllowed = function(self)
             local a = m.fold.allowed or {}
+            if a[1] == false and a[2] == SpikeRigs.FOLD_WHILE_LOWERED and not self.lowered then
+                return true
+            end
             return a[1], a[2]
         end
         o.setFoldState = function(self, direction) self.foldDirection = -direction end
@@ -218,17 +238,23 @@ function SpikeRigs.member(m)
     if m.turnOn ~= nil then
         o.spec_turnOnVehicle = o.spec_turnOnVehicle or {}
         o.on = false
-        o.getCanBeTurnedOn = function() return m.turnOn.canBeTurnedOn end
+        -- false while folded or with the engine off (live, 0.8.7)
+        o.getCanBeTurnedOn = function(self)
+            return m.turnOn.canBeTurnedOn == true and (self.getIsUnfolded == nil or self:getIsUnfolded())
+                and not self.engineOff
+        end
         o.getIsTurnedOn = function(self) return self.on end
         o.setIsTurnedOn = function(self, on) self.on = on end
     end
     -- the spike kept lower only when it read something (getAllowsLowering,
-    -- getIsLowered); a joint that lowers it is one it read
+    -- getIsLowered); the joint lowers it where getAllowsLowering said so.
+    -- Live (0.8.7): the rear mower lowers through its fold's middle
+    -- position, not its joint
     local lower = m.lower
     o.lowered = lower ~= nil and lower.lowered == true
     o.getAllowsLowering = function() return lower ~= nil and lower.allows == true end
     o.getIsLowered = function(self) return self.lowered end
-    o.getActiveInputAttacherJoint = function() return { allowsLowering = lower ~= nil } end
+    o.getActiveInputAttacherJoint = function() return { allowsLowering = lower ~= nil and lower.allows == true } end
     if m.detach ~= nil then
         o.isDetachAllowed = function() return m.detach[1], m.detach[2] end
     end

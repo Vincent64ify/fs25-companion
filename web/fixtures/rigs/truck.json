@@ -46,7 +46,7 @@
     "name": "Mercedes-Benz Trucks Arocs 4133 + TECTRUM RS26",
     "selectable": true,
     "selected": false,
-    "unfolded": false
+    "unfolded": true
    },
    {
     "can": [
@@ -125,7 +125,7 @@
  "expect": {
   "cards": [
    "Push-Off Container: Lower:off, Tip:off, Tip side:off, Detach:unavailable",
-   "Arocs 4133 + TECTRUM RS26: Unfold:off"
+   "Arocs 4133 + TECTRUM RS26: Fold:on"
   ],
   "selected": "Push-Off Container",
   "also": [],

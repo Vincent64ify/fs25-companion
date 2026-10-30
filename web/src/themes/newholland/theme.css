@@ -1197,6 +1197,7 @@ button { font: inherit; color: inherit; }
 .tool-none[hidden] { display: none; }
 
 .tool-card {
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: 10px;
@@ -1212,6 +1213,23 @@ button { font: inherit; color: inherit; }
 /* the game's selected tool */
 .tool-card[data-selected="true"] { border-color: var(--select); box-shadow: 0 0 0 2px var(--select), var(--lift); }
 .tool-head { display: flex; flex: none; align-items: center; gap: 12px; min-width: 0; min-height: 48px; border-radius: 12px; }
+/* a faded button's reason after a tap: over the card's foot, so nothing moves */
+.tool-note {
+  position: absolute;
+  right: 12px;
+  bottom: 12px;
+  left: 12px;
+  margin: 0;
+  padding: 10px 14px;
+  border-radius: 12px;
+  background: var(--text);
+  color: var(--surface);
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.3;
+  box-shadow: var(--lift);
+}
+.tool-note[hidden] { display: none; }
 .tool-head[data-pick="true"] { cursor: pointer; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
 .tool-head[data-pick="true"]:active { background: var(--chip-off-bg); }
 .tool-head[data-pending="true"] { animation: control-pulse 1.1s ease-in-out infinite; }

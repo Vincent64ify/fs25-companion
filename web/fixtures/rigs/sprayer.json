@@ -14,7 +14,7 @@
    "lowered": false,
    "name": "Berthoud Vantage 4300",
    "turnedOn": false,
-   "unfolded": false
+   "unfolded": true
   },
   "implements": [
    {
@@ -80,7 +80,7 @@
     "selected": true,
     "side": "rear",
     "turnedOn": false,
-    "unfolded": false
+    "unfolded": true
    }
   ],
   "vehicleId": 1033
@@ -130,7 +130,7 @@
  },
  "expect": {
   "cards": [
-   "Vantage 4300: Unfold:off, Turn on:unavailable, Detach:off, Dump:off, Dump on ground:off, Unload:off"
+   "Vantage 4300: Fold:on, Turn on:off, Detach:off, Dump:off, Dump on ground:off, Unload:off"
   ],
   "selected": "Vantage 4300",
   "also": [],

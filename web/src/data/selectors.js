@@ -465,11 +465,18 @@ export function allActions(cards) {
   };
   add("fold", (list) => {
     const on = list.every((e) => e.unfolded === true);
-    return { action: "implement.foldAll", on, label: on ? "Fold all" : "Unfold all", moving: list.some((e) => e.foldMoving) };
+    // none the game lets fold (the engine off: live 0.8.8), with its words;
+    // a lowered one doesn't count: Fold all raises it first
+    const blocked = list.every((e) => e.canNow?.fold === false && e.lowered !== true);
+    return { action: "implement.foldAll", on, label: on ? "Fold all" : "Unfold all", moving: list.some((e) => e.foldMoving),
+      unavailable: blocked || undefined, note: blocked ? list[0].whyNot?.fold || "Not now" : undefined };
   });
   add("lower", (list) => {
     const on = list.every((e) => e.lowered === true);
-    return { action: "implement.lowerAll", on, label: on ? "Raise all" : "Lower all" };
+    // none the game lets lower or raise (the engine off: live 0.8.9)
+    const blocked = list.every((e) => e.canNow?.lower === false);
+    return { action: "implement.lowerAll", on, label: on ? "Raise all" : "Lower all",
+      unavailable: blocked || undefined, note: blocked ? list[0].whyNot?.lower || "Not now" : undefined };
   });
   add("turnOn", (list) => {
     const on = list.every((e) => e.turnedOn === true);

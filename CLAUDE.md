@@ -42,6 +42,11 @@ python -m pytest mod/tests client/tests backend/tests
   and night.
 - Live checks need the game: list them in the spec's Live check section
   for Vincent to run; never tick them yourself.
+- During a live check the game runs on this PC: run
+  `python scripts/livewatch.py` in the background (the mod's log lines,
+  acks and cab changes) and the `live` launch config (port 8125) to press
+  the dashboard's buttons; Vincent sets up each rig and says what the game
+  showed. Read the files, never guess.
 
 ## When it's done
 

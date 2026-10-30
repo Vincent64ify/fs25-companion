@@ -436,10 +436,29 @@ local function allowed(object, name, ...)
     return can, type(why) == "string" and why or nil
 end
 
+-- whether it has power for its keys, and the game's words when it hasn't:
+-- with the engine off, folding, lowering and raising only got "Please start
+-- the engine first" (live, 0.8.8 and 0.8.9). getIsPowered (Motorized's; a
+-- tool asks its vehicle) is unverified
+function VehicleState.powered(object)
+    return allowed(object, "getIsPowered")
+end
+
+-- a tool that lowers through its own fold: Foldable's middle position
+-- (foldMiddleAnimTime, seen in spike 0.0.4 on the rear Samasz XT 390; live
+-- in 0.8.7 its joint said it doesn't lower while the game offered Lower)
+function VehicleState.foldLowers(object)
+    local spec = object.spec_foldable
+    return type(spec) == "table" and type(spec.foldMiddleAnimTime) == "number"
+end
+
 -- the attacher joint lowers it: the input joint's allowsLowering
 -- (unverified), else getAllowsLowering as today, which also says "not now"
--- (a mower folded for transport: false, while it still lowers)
+-- (a mower folded for transport: false, while it still lowers); or its fold
 local function lowers(object, out)
+    if VehicleState.foldLowers(object) then
+        return true
+    end
     local joint = Api.tryCall(object, "getActiveInputAttacherJoint")
     if type(joint) == "table" and type(joint.allowsLowering) == "boolean" then
         return joint.allowsLowering
@@ -479,9 +498,16 @@ function VehicleState.capabilities(object, out, depth)
         out.lowered = Api.tryCall(object, "getIsLowered", true) == true
         if lowers(object, out) then
             has.lower = true
-            -- it says whether it may lower: raising stays allowed
+            -- it says whether it may lower: raising stays allowed. Through
+            -- the fold, getAllowsLowering is always false: Foldable's own
+            -- getIsFoldMiddleAllowed (unverified) says
             if not out.lowered then
-                refuse("lower", allowed(object, "getAllowsLowering"))
+                refuse("lower", allowed(object, VehicleState.foldLowers(object) and "getIsFoldMiddleAllowed"
+                    or "getAllowsLowering"))
+            end
+            -- either way, it needs power
+            if canNow.lower == nil then
+                refuse("lower", VehicleState.powered(object))
             end
         end
         has.detach = true
@@ -490,8 +516,21 @@ function VehicleState.capabilities(object, out, depth)
     if VehicleState.fold(object, out) then
         has.fold = true
         refuse("fold", allowed(object, "getIsFoldAllowed", Api.tryCall(object, "getToggledFoldDirection") or 1, false))
+        -- it needs power too, while getIsFoldAllowed says yes (live, 0.8.8)
+        if canNow.fold == nil then
+            refuse("fold", VehicleState.powered(object))
+        end
     end
-    if object.spec_turnOnVehicle ~= nil and Api.tryCall(object, "getCanBeTurnedOn") ~= false then
+    -- getCanBeTurnedOn is also false while folded or with the engine off
+    -- (live, 0.8.7); folded, Turn on stays, unavailable, with the game's
+    -- warning (Foldable's, unverified)
+    local canTurnOn = object.spec_turnOnVehicle ~= nil and Api.tryCall(object, "getCanBeTurnedOn")
+    if canTurnOn == false and out.unfolded == false then
+        has.turnOn = true
+        out.turnedOn = Api.tryCall(object, "getIsTurnedOn") == true
+        local why = Api.tryCall(object, "getTurnedOnNotAllowedWarning")
+        refuse("turnOn", false, type(why) == "string" and why or nil)
+    elseif object.spec_turnOnVehicle ~= nil and canTurnOn ~= false then
         has.turnOn = true
         out.turnedOn = Api.tryCall(object, "getIsTurnedOn") == true
         -- getIsTurnedOnAllowed isn't in FS25; what these answer is unverified
@@ -577,7 +616,9 @@ local NOT_A_TOOL_KEY = { FOLD_ALL_IMPLEMENTS = true, TURN_ON_ALL_IMPLEMENTS = tr
 
 -- the selected tool's live keys that no capability in `can` covers, each
 -- once, by input action: {action, text} ("Allow create fields", "Turn on
--- automatic drop", a modded tool's own)
+-- automatic drop", a modded tool's own). The turn on key never is: Turn on
+-- comes and goes with the fold and the engine (live, 0.8.7: "Turn on
+-- mower" on a folded mower, which only got the game's warning)
 function VehicleState.extraKeys(object, can)
     local events = type(g_inputBinding) == "table" and g_inputBinding.events or nil
     if type(events) ~= "table" then
@@ -599,7 +640,8 @@ function VehicleState.extraKeys(object, can)
                 end
                 if type(action) == "string" and type(e) == "table" and e.isActive ~= false
                     and type(e.contextDisplayText) == "string" and e.contextDisplayText ~= ""
-                    and not NOT_A_TOOL_KEY[action] and not (cap ~= nil and covered[cap]) and not seen[action] then
+                    and not NOT_A_TOOL_KEY[action] and not (cap ~= nil and (covered[cap] or cap == "turnOn"))
+                    and not seen[action] then
                     seen[action] = true
                     out[#out + 1] = { action = action, text = e.contextDisplayText }
                 end

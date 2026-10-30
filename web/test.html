@@ -1763,6 +1763,39 @@ await Promise.resolve();
 check("tools: buttons from can: an unknown part adds nothing; the game's \"not now\" with its words; each aims at its tool", [
   vt.toolButtons(madeUp).map((b) => b.label), madeStates, madeButtons[0].title, madePage.sent],
   [["Fold", "Turn on"], ["Fold:unavailable", "Turn on:off"], "Lower the blade first", [["implement.turnOn", 50]]]);
+// live (0.8.7): the reason was only the hover title, out of reach on a
+// tablet; a tap on the faded button shows it on the card, sending nothing
+const madeNote = () => madePage.cardsEl.querySelector(".tool-note");
+const sentBefore = madePage.sent.length;
+tap(madeButtons[0]);
+await Promise.resolve();
+const noteShown = [madeNote()?.textContent, madeNote()?.hidden, madePage.sent.length - sentBefore];
+const foldedTurnOn = vt.toolButtons({ id: 51, depth: 1, can: ["fold", "turnOn"], unfolded: false, turnedOn: false,
+  canNow: { turnOn: false } }).find((b) => b.key === "turnOn");
+check("tools: a tap on a faded button shows the game's reason on the card; folded, Turn on says unfold first", [
+  noteShown, [foldedTurnOn?.unavailable, foldedTurnOn?.why]],
+  [["Lower the blade first", false, 0], [true, "Unfold first"]]);
+// live (0.8.8): the engine off, the fold keys only got the game's warning;
+// Fold all is faded with it when no tool may fold, but not for a lowered
+// one (Fold all raises it first)
+const engineOff = { fold: false };
+const engineWhy = { fold: "Please start the engine first" };
+const foldAllOf = (cards) => sel.allActions(cards).find((a) => a.cap === "fold");
+const offAll = foldAllOf([
+  { id: 1, depth: 1, can: ["fold"], unfolded: false, canNow: engineOff, whyNot: engineWhy },
+  { id: 2, depth: 1, can: ["fold"], unfolded: false, canNow: engineOff, whyNot: engineWhy }]);
+const loweredAll = foldAllOf([
+  { id: 1, depth: 1, can: ["lower", "fold"], unfolded: true, lowered: true, canNow: engineOff,
+    whyNot: { fold: "Folding is not allowed while the tool is lowered." } },
+  { id: 2, depth: 1, can: ["lower", "fold"], unfolded: true, lowered: true }]);
+const lowerOff = sel.allActions([
+  { id: 1, depth: 1, can: ["lower"], lowered: false, canNow: { lower: false }, whyNot: { lower: "Please start the engine first" } },
+  { id: 2, depth: 1, can: ["lower"], lowered: false, canNow: { lower: false }, whyNot: { lower: "Please start the engine first" } }])
+  .find((a) => a.cap === "lower");
+check("tools: the engine off, Unfold all and Lower all are faded with the game's words; a lowered tool doesn't fade Fold all", [
+  [offAll?.label, offAll?.unavailable, offAll?.note], [loweredAll?.label, loweredAll?.unavailable === true],
+  [lowerOff?.label, lowerOff?.unavailable, lowerOff?.note]],
+  [["Unfold all", true, "Please start the engine first"], ["Fold all", false], ["Lower all", true, "Please start the engine first"]]);
 check("tools: every capability's button, labelled with what a tap does", vt.toolButtons({ id: 9, depth: 1, selected: true,
   can: ["lower", "fold", "turnOn", "tip", "tipSide", "cover", "pipe", "rotate", "bales", "detach"], lowered: true, unfolded: false,
   turnedOn: false, discharging: true, tipSide: { index: 2, count: 3, name: "Left" }, cover: { open: false },

@@ -437,8 +437,10 @@ local function rotatePlow(_, object)
 end
 
 -- each one-tool action: the capability it needs, its keys, its setter
+-- (lower: the key is the tool's own, or the one it hangs on acts on it
+-- while it's selected, as the game's attacher joints do)
 local AIMED = {
-    LOWER_IMPLEMENT = { cap = "lower", inputs = { "LOWER_IMPLEMENT" }, fallback = toggleLower },
+    LOWER_IMPLEMENT = { cap = "lower", inputs = { "LOWER_IMPLEMENT" }, fallback = toggleLower, attacherKey = true },
     FOLD_IMPLEMENT = { cap = "fold", inputs = { "IMPLEMENT_EXTRA2" }, fallback = toggleFold },
     TURN_ON_IMPLEMENT = { cap = "turnOn", inputs = { "IMPLEMENT_EXTRA" }, fallback = toggleTurnOn },
     TOGGLE_DISCHARGE = { cap = "tip", inputs = { "TOGGLE_TIPSTATE", "TOGGLE_TIPSTATE_GROUND" } },
@@ -565,7 +567,9 @@ local function turnOnAll(vehicle)
     local tools, on = {}, false
     for _, m in ipairs(drivingOrder(vehicle)) do
         local e = capsOf(m.object, m.depth)
-        if hasCap(e, "turnOn") and type(m.object.setIsTurnedOn) == "function" then
+        -- not one the game won't turn on now (folded)
+        if hasCap(e, "turnOn") and type(m.object.setIsTurnedOn) == "function"
+            and not (e.canNow ~= nil and e.canNow.turnOn == false) then
             tools[#tools + 1] = { object = m.object, on = e.turnedOn == true }
             on = on or e.turnedOn ~= true
         end
@@ -579,6 +583,94 @@ local function turnOnAll(vehicle)
         end
     end
     return true
+end
+
+-- Lower all: each tool's Lower toward one state, as its card does (lower
+-- every one while one is raised, else raise them all), in driving order,
+-- the selection put back. Live (0.8.10) the game's LOWER_ALL_IMPLEMENTS,
+-- pressed by the mod, did nothing every other time while Ctrl+V always
+-- worked; each tool's Lower worked every time. Nil when no tool has Lower
+-- (a combine's header): the game's key, else its combo, as before.
+local function lowerAllJob(vehicle)
+    local tools, lower = {}, false
+    for _, m in ipairs(drivingOrder(vehicle)) do
+        local e = capsOf(m.object, m.depth)
+        if hasCap(e, "lower") then
+            tools[#tools + 1] = { object = m.object, depth = m.depth, lowered = e.lowered == true }
+            lower = lower or e.lowered ~= true
+        end
+    end
+    if #tools == 0 then
+        return nil
+    end
+    local steps, refused = {}, {}
+    for _, t in ipairs(tools) do
+        if t.lowered ~= lower then
+            local step, reason = stepFor(t.object, t.depth, AIMED.LOWER_IMPLEMENT)
+            if step ~= nil then
+                steps[#steps + 1] = step
+            else
+                refused[#refused + 1] = nameOf(t.object) .. ": " .. reason
+            end
+        end
+    end
+    local job = newJob(vehicle, steps, refused)
+    -- no tool's Lower could act: the game's combo, as Ctrl+V
+    job.lastResort = function(v) return lowerAll(v) end
+    return job
+end
+
+-- Fold all: the game's own key, once. Live (0.8.7) it folds every tool, but
+-- not one lowered on its joint ("Folding is not allowed while the tool is
+-- lowered."); one that lowers through its fold it raises itself. So, when
+-- folding, those are raised first (each one's Lower, as its card does) and
+-- the key waits until the game lets them fold (at most SETTLE_FRAMES).
+-- Pressed on the last one raised (it's selected then), else the selected
+-- tool if it folds, else the first; no key: every tool's setter.
+local FOLD_ALL = { cap = "fold", inputs = { "FOLD_ALL_IMPLEMENTS" }, fallback = function(vehicle) return foldAll(vehicle) end }
+
+local function foldAllJob(vehicle)
+    local selected = Api.tryCall(VehicleState.rootOf(vehicle), "getSelectedVehicle")
+    local tools, folding, at = {}, true, nil
+    for _, m in ipairs(drivingOrder(vehicle)) do
+        local e = capsOf(m.object, m.depth)
+        if hasCap(e, "fold") then
+            tools[#tools + 1] = { object = m.object, depth = m.depth, e = e }
+            folding = folding and e.unfolded ~= false
+            if m.object == selected or at == nil then
+                at = m.object
+            end
+        end
+    end
+    if #tools == 0 then
+        return newJob(vehicle, {}, { "nothing folds" })
+    end
+    local steps, raised, blocked = {}, {}, {}
+    for _, t in ipairs(tools) do
+        local e = t.e
+        if folding and e.lowered == true and hasCap(e, "lower") and e.canNow ~= nil and e.canNow.fold == false
+            and e.canNow.lower ~= false and not VehicleState.foldLowers(t.object) then
+            steps[#steps + 1] = { object = t.object, aim = AIMED.LOWER_IMPLEMENT, quiet = true }
+            raised[#raised + 1] = t
+            at = t.object
+        elseif e.canNow ~= nil and e.canNow.fold == false then
+            blocked[#blocked + 1] = e.whyNot ~= nil and e.whyNot.fold or "not allowed now"
+        end
+    end
+    -- none the game lets fold (the engine off): its words, nothing pressed
+    if #blocked == #tools then
+        return newJob(vehicle, {}, { blocked[1] })
+    end
+    steps[#steps + 1] = { object = at, aim = FOLD_ALL, ready = function()
+        for _, t in ipairs(raised) do
+            local e = capsOf(t.object, t.depth)
+            if e.canNow ~= nil and e.canNow.fold == false then
+                return false
+            end
+        end
+        return true
+    end }
+    return newJob(vehicle, steps)
 end
 
 -- the selected tool's other key (VehicleState.extraKeys), by its number in
@@ -604,6 +696,16 @@ local function attachInReach(vehicle)
         return true
     end
     return false, "nothing in reach"
+end
+
+-- Lower all needs power: with the engine off lowering only got the game's
+-- "Please start the engine first" (live, 0.8.9); one answer for all
+local function powered(vehicle)
+    local can, why = VehicleState.powered(VehicleState.rootOf(vehicle))
+    if can == false then
+        return false, why or "not allowed now"
+    end
+    return true
 end
 
 -- Actions ------------------------------------------------------------------
@@ -653,7 +755,7 @@ Commands.ACTIONS = {
     SELECT_PREVIOUS_IMPLEMENT = { inputs = { "SWITCH_IMPLEMENT_BACK" }, fallback = selectStep(-1) },
     DETACH_IMPLEMENT = { direct = detachTarget },
     -- the Implement screen: Ctrl+V, O, I (else Ctrl+I, to the ground) and N
-    LOWER_ALL_IMPLEMENTS = { inputs = { "LOWER_ALL_IMPLEMENTS" }, fallback = lowerAll },
+    LOWER_ALL_IMPLEMENTS = { when = powered, job = lowerAllJob, inputs = { "LOWER_ALL_IMPLEMENTS" }, fallback = lowerAll },
     TOGGLE_PIPE = { inputs = { "TOGGLE_PIPE" }, fallback = togglePipe, aim = AIMED.TOGGLE_PIPE },
     TOGGLE_DISCHARGE = { inputs = { "TOGGLE_TIPSTATE", "TOGGLE_TIPSTATE_GROUND" }, aim = AIMED.TOGGLE_DISCHARGE },
     TOGGLE_COVER = { inputs = { "TOGGLE_COVER" }, fallback = toggleCover, aim = AIMED.TOGGLE_COVER },
@@ -663,9 +765,10 @@ Commands.ACTIONS = {
     ROTATE_PLOW = { aim = AIMED.ROTATE_PLOW, aimOnly = true },
     RESET_BALE_COUNTER = { aim = AIMED.RESET_BALE_COUNTER, aimOnly = true },
     PRESS_TOOL_KEY = { key = true },
-    -- the All row: the game's own keys, else every tool's setter; tip and
-    -- cover all act on each in turn (value 1: tip, open; 0: stop, close)
-    FOLD_ALL_IMPLEMENTS = { inputs = { "FOLD_ALL_IMPLEMENTS" }, fallback = foldAll },
+    -- the All row: the game's own keys, else every tool's setter (fold all
+    -- raises what's lowered first); tip and cover all act on each in turn
+    -- (value 1: tip, open; 0: stop, close)
+    FOLD_ALL_IMPLEMENTS = { job = foldAllJob },
     TURN_ON_ALL_IMPLEMENTS = { inputs = { "TURN_ON_ALL_IMPLEMENTS" }, fallback = turnOnAll },
     TIP_ALL = { job = eachTool(AIMED.TOGGLE_DISCHARGE, function(e) return e.discharging == true end) },
     COVER_ALL = { job = eachTool(AIMED.TOGGLE_COVER, function(e) return e.cover ~= nil and e.cover.open == true end) },
@@ -781,8 +884,10 @@ local function run(actionName, value)
         end
         return nil, nil, nil, job
     end
-    if spec.job ~= nil then
-        return nil, nil, nil, spec.job(vehicle, value)
+    -- a job, unless it has none for this rig (then as below)
+    local job = spec.job ~= nil and spec.job(vehicle, value) or nil
+    if job ~= nil then
+        return nil, nil, nil, job
     end
     if spec.key then
         local object, action = selectedKey(vehicle, value)
@@ -835,13 +940,33 @@ local function selectableFor(root, object)
     return nil
 end
 
--- the step's key on its own tool, if the tool has it live: its name
-local function press(step)
-    local name = liveInputFor(step.object, step.aim.inputs)
-    if name ~= nil and runInputAction(name, 1, step.object) > 0 then
-        return name
+-- the step's key on its own tool, if the tool has it live, else (lower)
+-- the key of what it hangs on while the tool is selected: its name
+local function press(step, root)
+    local targets = { step.object }
+    if step.aim.attacherKey and Api.tryCall(root, "getSelectedVehicle") == step.object then
+        targets[#targets + 1] = Api.tryCall(step.object, "getAttacherVehicle")
+    end
+    for _, target in ipairs(targets) do
+        local name = type(target) == "table" and liveInputFor(target, step.aim.inputs) or nil
+        if name ~= nil and runInputAction(name, 1, target) > 0 then
+            return name
+        end
     end
     return nil
+end
+
+-- frames a step with `ready` waits for it before its key (fold all, for
+-- what it raised first: lowering takes about a second)
+Commands.SETTLE_FRAMES = 120
+
+-- a step's key or setter acted: the ack names it, unless the step only
+-- prepares the next (`quiet`: fold all's raising)
+local function acted(job, step, via)
+    job.done = job.done + 1
+    if job.via == nil or (job.viaQuiet and not step.quiet) then
+        job.via, job.viaQuiet = via, step.quiet == true
+    end
 end
 
 -- a step that can't press its key: the setter, else refused
@@ -849,8 +974,7 @@ local function giveUp(job, step, why)
     if step.aim.fallback ~= nil then
         local done, reason = step.aim.fallback(job.vehicle, step.object)
         if done then
-            job.done = job.done + 1
-            job.via = job.via or "setter"
+            acted(job, step, "setter")
             return
         end
         why = reason or why
@@ -868,16 +992,23 @@ local function stepJob(job)
             if job.changed and job.restore ~= nil then
                 job.root:setSelectedObject(job.restore)
             end
+            -- none acted (no key, no setter): the job's last resort
+            if job.done == 0 and #job.steps > 0 and job.lastResort ~= nil and job.lastResort(job.vehicle) then
+                job.done, job.via, job.refused = 1, "setter", {}
+            end
             return {
                 ok = job.done > 0 or (#job.steps == 0 and #job.refused == 0),
                 reason = #job.refused > 0 and table.concat(job.refused, "; ") or nil,
                 via = job.via,
             }
         end
-        local name = press(step)
+        if step.ready ~= nil and not step.ready() and (step.waited or 0) < Commands.SETTLE_FRAMES then
+            step.waited = (step.waited or 0) + 1
+            return nil
+        end
+        local name = press(step, job.root)
         if name ~= nil then
-            job.done = job.done + 1
-            job.via = job.via or name
+            acted(job, step, name)
             job.i, job.phase = job.i + 1, "start"
         elseif job.phase == "start" then
             local entry = selectableFor(job.root, step.object)

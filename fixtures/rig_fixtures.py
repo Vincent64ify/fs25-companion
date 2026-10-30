@@ -48,11 +48,11 @@ SHOP = {
 # Attach
 EXPECT = {
     "mowers": {
-        "cards": ["XT 390: Raise:on, Unfold:off, Turn on:unavailable, Detach:unavailable",
-                  "KDF 341 S: Raise:on, Unfold:unavailable, Turn on:unavailable, Detach:off"],
+        "cards": ["XT 390: Raise:on, Fold:on, Turn on:off, Detach:unavailable",
+                  "KDF 341 S: Raise:on, Fold:unavailable, Turn on:off, Detach:off"],
         "selected": "XT 390",
         "also": [],
-        "all": ["Unfold all:off", "Raise all:on", "Turn on all:unavailable"],
+        "all": ["Fold all:on", "Raise all:on", "Turn on all:off"],
     },
     "trailers": {
         "cards": ["EDK 650: Tip:off, Tip side:off, Detach:off", "EDK 650: Tip:off, Tip side:off, Detach:off"],
@@ -61,13 +61,13 @@ EXPECT = {
         "all": ["Tip all:off"],
     },
     "sprayer": {
-        "cards": ["Vantage 4300: Unfold:off, Turn on:unavailable, Detach:off, Dump:off, Dump on ground:off, Unload:off"],
+        "cards": ["Vantage 4300: Fold:on, Turn on:off, Detach:off, Dump:off, Dump on ground:off, Unload:off"],
         "selected": "Vantage 4300",
         "also": [],
         "all": [],
     },
     "plow": {
-        "cards": ["SERVO T 6000 P: Lower:off, Unfold:off, Rotate:off, Detach:off, Allow create fields:off"],
+        "cards": ["SERVO T 6000 P: Lower:off, Fold:on, Rotate:off, Detach:off, Allow create fields:off"],
         "selected": "SERVO T 6000 P",
         "also": [],
         "all": [],
@@ -86,7 +86,7 @@ EXPECT = {
     },
     "truck": {
         "cards": ["Push-Off Container: Lower:off, Tip:off, Tip side:off, Detach:unavailable",
-                  "Arocs 4133 + TECTRUM RS26: Unfold:off"],
+                  "Arocs 4133 + TECTRUM RS26: Fold:on"],
         "selected": "Push-Off Container",
         "also": [],
         "all": [],

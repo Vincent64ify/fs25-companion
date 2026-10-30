@@ -1686,7 +1686,10 @@ test("commands, implement screen: lower all, pipe, unload, cover as their keys, 
     eq(run("TOGGLE_DISCHARGE").via, "TOGGLE_TIPSTATE_GROUND")
     eq(run("TOGGLE_PIPE").via, "TOGGLE_PIPE")
     eq(run("TOGGLE_COVER").via, "TOGGLE_COVER")
-    eq(run("LOWER_ALL_IMPLEMENTS").via, "LOWER_ALL_IMPLEMENTS")
+    -- lower all is each tool's own Lower now (live, 0.8.10), never the
+    -- game's Lower all key; with no Lower key here, the game's combo
+    eq(run("LOWER_ALL_IMPLEMENTS").via, "setter")
+    eq(#(calls.LOWER_ALL_IMPLEMENTS or {}), 0, "the game's Lower all key isn't pressed")
     eq(#calls.TOGGLE_TIPSTATE_GROUND, 1)
     g_inputBinding = nil
 end)
@@ -2006,7 +2009,8 @@ test("capabilities: spike 0.0.4's rigs give each member its buttons, can't-now r
     eq(mowers[996].whyNot.detach, "You first need to fold up the tool (mower)!")
     eq(mowers[996].canNow.fold, nil, "the rear one may fold")
     eq(mowers[994].side, "front")
-    eq(mowers[996].canLower, true, "a joint that lowers it")
+    eq(mowers[996].canLower, true, "it lowers through its fold (live, 0.8.7)")
+    eq(mowers[996].canNow.lower, nil, "lowered: raising is allowed")
     eq(rigs.truck[1051].canNow.detach, false, "the container: no reason given")
     eq(rigs.truck[1051].whyNot, nil)
     local t = rigs.trailers[1004].tipSide
@@ -2025,6 +2029,48 @@ test("capabilities: spike 0.0.4's rigs give each member its buttons, can't-now r
     eq(rigs.mowers[996].extraKeys, nil, "all covered")
     eq(rigs.mowers[994].extraKeys, nil, "not selected")
     eq(rigs.attach[514].extraKeys, nil, "the tractor's own: Detach and Attach aren't")
+    -- live (0.8.7): folded, getCanBeTurnedOn is false and Turn on went,
+    -- while its key came back as an other key ("Turn on mower"). Folded,
+    -- Turn on stays, unavailable; the turn on key is never an other key
+    local root, byId = SpikeRigs.rig(spikeDump("mowers"), SIDES)
+    byId[996]:setFoldState(1)
+    byId[996].getTurnedOnNotAllowedWarning = function() return "First unfold the tool" end
+    local rear
+    for _, e in ipairs(VS.rig(root)) do
+        if e.id == 996 then
+            rear = e
+        end
+    end
+    eq(rear.unfolded, false)
+    eq(joined(rear.can), "lower,fold,turnOn,detach", "folded: Turn on stays")
+    eq(rear.canNow.turnOn, false)
+    eq(rear.whyNot.turnOn, "First unfold the tool", "the game's warning")
+    eq(rear.extraKeys, nil, "its turn on key isn't an other key")
+    -- the engine off: no Turn on (nothing to say why), and still no key
+    byId[996]:setFoldState(-1)
+    byId[996].engineOff = true
+    for _, e in ipairs(VS.rig(root)) do
+        if e.id == 996 then
+            rear = e
+        end
+    end
+    eq(joined(rear.can), "lower,fold,detach", "engine off")
+    eq(rear.extraKeys, nil, "its turn on key isn't an other key")
+    -- live (0.8.8): the engine off, the fold keys only got the game's
+    -- warning, while getIsFoldAllowed said yes
+    byId[996].engineOff = nil
+    root.engineOff = true
+    for _, e in ipairs(VS.rig(root)) do
+        if e.id == 996 then
+            rear = e
+        end
+    end
+    eq(rear.canNow.fold, false, "no power: no folding")
+    eq(rear.whyNot.fold, "Please start the engine first")
+    -- live (0.8.9): nor lowering, nor raising (Vincent)
+    eq(rear.lowered, true, "the XT 390 is lowered (the dump)")
+    eq(rear.canNow.lower, false, "no power: no raising")
+    eq(rear.whyNot.lower, "Please start the engine first")
     g_inputBinding = nil
     localToLocal = nil
 end)
@@ -2110,6 +2156,16 @@ test("commands, aimed: a tool's id selects it, presses its key, puts the selecti
     -- what it can't do at all, and an id not in the rig
     eq(run("ROTATE_PLOW", 994).reason, "can't rotate")
     eq(run("LOWER_IMPLEMENT", 4242).reason, "not attached")
+    -- lower: the tractor's key acts on the selected mower (attacher joints)
+    table.insert(root.dump.keys.attacherJoints, { action = "LOWER_IMPLEMENT", active = true, text = "Lower mower" })
+    SpikeRigs.registerKeys(root)
+    ack, frames = run("LOWER_IMPLEMENT", 994)
+    eq(ack.via, "LOWER_IMPLEMENT", "the tractor's key, not the setter")
+    eq(frames, 2)
+    eq(pressed(), "992:LOWER_IMPLEMENT")
+    eq(root:getSelectedVehicle().id, 996, "put back")
+    table.remove(root.dump.keys.attacherJoints)
+    SpikeRigs.registerKeys(root)
     -- the key never comes: the setter, and the selection still put back
     Companion.Commands.KEY_WAIT_FRAMES = 3
     root.keysDue = false
@@ -2146,21 +2202,124 @@ test("commands, aimed: a tool's id selects it, presses its key, puts the selecti
     localToLocal = nil
 end)
 
-test("commands, all: the game's own keys, else setters; tip all in driving order, skipping what's there", function()
+test("commands, all: fold all raises what's lowered first, then the game's key; else setters; tip all in driving order", function()
     if TMP_DIR == nil then
         return
     end
     local run, root, byId, pressed = spikeCommands("mowers")
+    local function unfolded()
+        return tostring(byId[994]:getIsUnfolded()) .. tostring(byId[996]:getIsUnfolded())
+    end
+    -- the game's keys as seen live (0.8.7): the tractor's Lower acts on the
+    -- selected tool, a few frames later; fold all folds every tool the game
+    -- lets fold, unfolds every one while one is folded
+    table.insert(root.dump.keys.attacherJoints, { action = "LOWER_IMPLEMENT", active = true, text = "Lower mower" })
+    SpikeRigs.registerKeys(root)
+    local moving = {}
+    root.onKey = function(name)
+        if name == "LOWER_IMPLEMENT" then
+            moving[#moving + 1] = { tool = root:getSelectedVehicle(), due = 3 }
+        end
+    end
+    local function foldAllKey(name)
+        if name ~= "FOLD_ALL_IMPLEMENTS" then
+            return
+        end
+        local unfold = not (byId[994]:getIsUnfolded() and byId[996]:getIsUnfolded())
+        for _, id in ipairs({ 994, 996 }) do
+            local m = byId[id]
+            if m:getIsUnfolded() ~= unfold and (unfold or m:getIsFoldAllowed() ~= false) then
+                m:setFoldState(m:getToggledFoldDirection())
+            end
+        end
+    end
+    byId[994].onKey, byId[996].onKey = foldAllKey, foldAllKey
+    local frame = SpikeRigs.frame
+    SpikeRigs.frame = function(r)
+        for i = #moving, 1, -1 do
+            local m = moving[i]
+            m.due = m.due - 1
+            if m.due == 0 then
+                m.tool.lowered = not m.tool.lowered
+                table.remove(moving, i)
+            end
+        end
+        frame(r)
+    end
+    -- live (0.8.7): the front mower lowered, the game's key once folded the
+    -- rear one alone ("Folding is not allowed while the tool is lowered.").
+    -- Now the front one is raised first, by its Lower, and the key waits
+    -- until the game lets it fold
+    eq(byId[994].lowered, true, "the front mower is lowered (the dump)")
     local ack = run("FOLD_ALL_IMPLEMENTS")
+    eq(ack.ok, true)
     eq(ack.via, "FOLD_ALL_IMPLEMENTS", "the game's key")
+    eq(pressed(), "992:LOWER_IMPLEMENT,994:FOLD_ALL_IMPLEMENTS", "raised, then fold all")
+    eq(byId[994].lowered, false)
+    eq(unfolded(), "falsefalse", "both folded")
+    eq(root:getSelectedVehicle().id, 996, "the selection put back")
+    -- both folded: nothing to raise, the key at once
+    ack = run("FOLD_ALL_IMPLEMENTS")
     eq(pressed(), "996:FOLD_ALL_IMPLEMENTS")
+    eq(unfolded(), "truetrue", "both unfolded")
+    -- live (0.8.10): the game's Lower all key, pressed by the mod, did
+    -- nothing every other time while the keyboard's always worked. Now
+    -- each tool's Lower toward one state, as Tip all: lower every one
+    -- while one is raised, else raise them all; the selection put back
+    byId[994].lowered, byId[996].lowered = false, false
+    ack = run("LOWER_ALL_IMPLEMENTS")
+    for _ = 1, 4 do
+        SpikeRigs.frame(root)
+    end
+    eq(ack.ok, true)
+    eq(ack.via, "LOWER_IMPLEMENT", "each tool's Lower, not the game's Lower all")
+    eq(pressed(), "992:LOWER_IMPLEMENT,992:LOWER_IMPLEMENT")
+    eq(tostring(byId[994].lowered) .. tostring(byId[996].lowered), "truetrue", "both lowered")
+    eq(root:getSelectedVehicle().id, 996, "the selection put back")
+    byId[994].lowered = false
+    run("LOWER_ALL_IMPLEMENTS")
+    for _ = 1, 4 do
+        SpikeRigs.frame(root)
+    end
+    eq(pressed(), "992:LOWER_IMPLEMENT", "one raised: only it is lowered")
+    eq(tostring(byId[994].lowered) .. tostring(byId[996].lowered), "truetrue")
+    run("LOWER_ALL_IMPLEMENTS")
+    for _ = 1, 4 do
+        SpikeRigs.frame(root)
+    end
+    eq(tostring(byId[994].lowered) .. tostring(byId[996].lowered), "falsefalse", "all lowered: all raised")
+    pressed()
+    -- the raise never takes: fold all is still pressed, after a while
+    Companion.Commands.SETTLE_FRAMES = 5
+    byId[994].lowered = true
+    root.onKey = nil
+    ack = run("FOLD_ALL_IMPLEMENTS")
+    Companion.Commands.SETTLE_FRAMES = 120
+    eq(pressed(), "992:LOWER_IMPLEMENT,994:FOLD_ALL_IMPLEMENTS")
+    eq(unfolded(), "truefalse", "the rear one folded; the front one the game wouldn't")
+    byId[994].lowered = false
+    SpikeRigs.frame = frame
+    table.remove(root.dump.keys.attacherJoints)
+    SpikeRigs.registerKeys(root)
     -- no event: every mower's setter, unfolding while one is folded
     SpikeRigs.unregister(byId[996])
+    Companion.Commands.KEY_WAIT_FRAMES = 3
     ack = run("FOLD_ALL_IMPLEMENTS")
+    Companion.Commands.KEY_WAIT_FRAMES = 30
     eq(ack.via, "setter")
-    eq(tostring(byId[994]:getIsUnfolded()) .. tostring(byId[996]:getIsUnfolded()), "truetrue", "both unfolded")
+    eq(unfolded(), "truetrue", "both unfolded")
+    Companion.Commands.KEY_WAIT_FRAMES = 3
     run("FOLD_ALL_IMPLEMENTS")
-    eq(tostring(byId[994]:getIsUnfolded()) .. tostring(byId[996]:getIsUnfolded()), "falsefalse", "both folded")
+    Companion.Commands.KEY_WAIT_FRAMES = 30
+    eq(unfolded(), "falsefalse", "both folded")
+    byId[994].onKey, byId[996].onKey = nil, nil
+    pressed()
+    -- folded, neither may turn on: the setter leaves them
+    eq(run("TURN_ON_ALL_IMPLEMENTS").ok, false, "folded: nothing turns on")
+    eq(tostring(byId[994].on) .. tostring(byId[996].on), "falsefalse")
+    Companion.Commands.KEY_WAIT_FRAMES = 3
+    run("FOLD_ALL_IMPLEMENTS")
+    Companion.Commands.KEY_WAIT_FRAMES = 30
     byId[996].on = true
     eq(run("TURN_ON_ALL_IMPLEMENTS").via, "setter")
     eq(tostring(byId[994].on) .. tostring(byId[996].on), "truetrue", "the one that was off turned on")
@@ -2168,6 +2327,16 @@ test("commands, all: the game's own keys, else setters; tip all in driving order
     eq(tostring(byId[994].on) .. tostring(byId[996].on), "falsefalse", "all on: all off")
     eq(run("COVER_ALL", 1).ok, true, "nothing has a cover: nothing to do")
     eq(pressed(), "")
+    -- the engine off: the game's warning, nothing pressed (live, 0.8.8)
+    root.engineOff = true
+    ack = run("FOLD_ALL_IMPLEMENTS")
+    eq(ack.ok, false)
+    eq(ack.reason, "Please start the engine first")
+    eq(run("FOLD_IMPLEMENT", 994).reason, "Please start the engine first")
+    eq(run("LOWER_IMPLEMENT", 994).reason, "Please start the engine first", "live (0.8.9): lowering too")
+    eq(run("LOWER_ALL_IMPLEMENTS").reason, "Please start the engine first")
+    eq(pressed(), "")
+    root.engineOff = nil
 
     run, root, byId, pressed = spikeCommands("trailers")
     ack = run("TIP_ALL", 1)

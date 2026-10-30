@@ -179,6 +179,35 @@ These results override any API guesses later in this document.
   - `spec_motorized.motorTemperature` has value, valueMin 20 and valueMax
     120, no warning level; the motor fan switches on at 95 °C and off at
     85.
+- **Tools on the Vehicle page** (confirmed by Vincent, 2026-10-30, a New
+  Holland T7.300 with a Samasz KDF 341 S front and XT 390 rear mower,
+  mod 0.8.7; spec 0003):
+  - Selecting a tool (`setSelectedObject`), pressing its key and putting
+    the selection back acts on that tool alone, in the same frame once
+    its key is live: `LOWER_IMPLEMENT`, `IMPLEMENT_EXTRA2` (fold),
+    `IMPLEMENT_EXTRA` (turn on).
+  - `FOLD_ALL_IMPLEMENTS` and `TURN_ON_ALL_IMPLEMENTS`, pressed once on
+    the selected tool, act on every tool; fold all won't fold one lowered
+    on its joint (the front mower stayed lowered and on), and turns off
+    and folds one that lowers through its fold.
+  - `getIsFoldAllowed` → false, "Folding is not allowed while the tool
+    is lowered." while lowered on its joint, true once raised;
+    `isDetachAllowed` → false, "You first need to fold up the tool
+    (mower)!" on the unfolded XT 390; "Detach while folding is not
+    allowed!" while a fold moves.
+  - `getCanBeTurnedOn()` is false while the tool is folded or the engine
+    is off. `getTurnedOnNotAllowedWarning()` on a folded mower gives the
+    game's own warning: "You first need to unfold the tool (mower)!" on
+    the KDF 341 S, "You first need to fold up the tool (mower)!" on the
+    XT 390 (the game shows that too).
+  - With the engine off, the fold, Lower and Fold all keys only get the
+    game's "Please start the engine first", raising too, while
+    `getIsFoldAllowed` says yes; `getIsPowered()` answers false with
+    "Please start the engine first!" then, true once the engine runs
+    (mod 0.8.9).
+  - The XT 390 lowers through its fold (`foldMiddleAnimTime`): its own
+    `LOWER_IMPLEMENT` lowers and raises it, and `LOWER_ALL_IMPLEMENTS`
+    lowers both mowers (mod 0.8.8).
 
 ---
 
