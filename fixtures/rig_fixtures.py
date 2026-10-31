@@ -156,8 +156,8 @@ def vehicles_of(dump):
 def lua_runtime():
     from lupa import LuaRuntime  # pip install lupa
     lua = LuaRuntime()
-    for rel in ("src/Json.lua", "src/Geo.lua", "src/Api.lua", "src/VehicleState.lua", "src/collectors/Cab.lua",
-                "tests/spike_rigs.lua"):
+    for rel in ("src/Json.lua", "src/Geo.lua", "src/Api.lua", "src/state/Lights.lua", "src/state/Motor.lua",
+                "src/state/Tools.lua", "src/state/Rig.lua", "src/collectors/Cab.lua", "tests/spike_rigs.lua"):
         lua.execute((ROOT / "mod" / rel).read_text(encoding="utf-8"))
     return lua
 

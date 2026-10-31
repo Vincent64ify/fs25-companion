@@ -47,3 +47,4 @@ behaviour, in Behaviour too: the spec always says what the code does now.
 | [0006](0006-one-local-process.md) | One local process (SIMPLIFY S1) | live-checked | no change |
 | [0007](0007-protocol-in-one-place.md) | The protocol in one place (SIMPLIFY S2) | live-checked | 0.9.0 |
 | [0008](0008-commands-say-the-state.md) | Commands say the state they want (SIMPLIFY S3) | live-checked (AI worker left out: NEXT.md) | 0.10.0 |
+| [0009](0009-one-way-to-run-each-action.md) | One way to run each action (SIMPLIFY S4) | live-checked (the All row's keys fixed on the way) | 0.11.2 |

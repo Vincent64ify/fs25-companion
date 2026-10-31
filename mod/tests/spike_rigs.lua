@@ -220,32 +220,29 @@ function SpikeRigs.act(target, name)
             target.on = not target.on
         end
     elseif name == "FOLD_ALL_IMPLEMENTS" then
-        -- folds every one it may while one is unfolded, else unfolds all
-        -- (spike 0.0.5: the KDF folded and the KDD unfolded, the KDD folded)
-        local tools, fold = {}, false
+        -- as Foldable.actionEventFoldAll: the way the tool it's pressed on
+        -- folds next, for it and every tool whose next fold goes the same
+        -- way and may (spike 0.0.5: pressed on the unfolded KDD, the KDD
+        -- folded; live 0.11.1: on the folded KDF, the KDF unfolded)
+        local way = target.getToggledFoldDirection ~= nil and target:getToggledFoldDirection() or nil
         for _, o in ipairs(rigTools(root)) do
-            if o.setFoldState ~= nil then
-                tools[#tools + 1] = o
-                fold = fold or o:getIsUnfolded()
-            end
-        end
-        for _, o in ipairs(tools) do
-            if o:getIsUnfolded() == fold and (not fold or o:getIsFoldAllowed() ~= false) then
-                o:setFoldState(o:getToggledFoldDirection())
+            if way ~= nil and o.setFoldState ~= nil and o:getToggledFoldDirection() == way
+                and o:getIsFoldAllowed() ~= false then
+                o:setFoldState(way)
             end
         end
     elseif name == "TURN_ON_ALL_IMPLEMENTS" then
-        local tools, on = {}, false
+        -- as TurnOnVehicle.actionEventTurnOnAll: while they may, every tool
+        -- flips (setIsTurnedOn(not getIsTurnedOn())), whatever the others
+        local tools, can = {}, true
         for _, o in ipairs(rigTools(root)) do
             if o.setIsTurnedOn ~= nil then
                 tools[#tools + 1] = o
-                on = on or not o.on
+                can = can and (o.on or o:getCanBeTurnedOn())
             end
         end
-        for _, o in ipairs(tools) do
-            if o.on ~= on and (not on or o:getCanBeTurnedOn()) then
-                o.on = on
-            end
+        for _, o in ipairs(can and tools or {}) do
+            o.on = not o.on
         end
     elseif name == "TOGGLE_TIPSTATE" or name == "TOGGLE_TIPSTATE_GROUND" then
         -- I tips into what takes the load, Ctrl+I on the ground; the one the
@@ -257,12 +254,20 @@ function SpikeRigs.act(target, name)
             spec.currentDischargeState = (spec.currentDischargeState or 0) ~= 0 and 0 or (to == "object" and 1 or 2)
         end
     elseif name == "LOWER_ALL_IMPLEMENTS" then
+        -- with the tractor's combo: the game's key goes the opposite way of
+        -- its own last press, whatever the tools do (live, 0.11.0: -1
+        -- raising); without one, lower every tool while one is raised
         local tools, lower = {}, false
+        local combos = type(root.spec_attacherJoints) == "table" and root.spec_attacherJoints.attacherJointCombos or nil
         for _, o in ipairs(rigTools(root)) do
             if lowerable(o) then
                 tools[#tools + 1] = o
                 lower = lower or not o.lowered
             end
+        end
+        if type(combos) == "table" then
+            combos.direction = -combos.direction
+            lower = combos.direction == 1
         end
         for _, o in ipairs(tools) do
             o.lowered = lower

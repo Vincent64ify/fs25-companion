@@ -2,7 +2,7 @@
 <modDesc descVersion="105">
     <author>fs25-companion</author>
     <authorContact>https://github.com/Vincent64ify/fs25-companion</authorContact>
-    <version>0.10.0</version>
+    <version>0.11.2</version>
     <title>
         <en>FS25 Companion</en>
     </title>
@@ -17,11 +17,18 @@
         <sourceFile filename="src/Api.lua"/>
         <sourceFile filename="src/Transport.lua"/>
         <sourceFile filename="src/Scheduler.lua"/>
-        <sourceFile filename="src/VehicleState.lua"/>
+        <sourceFile filename="src/state/Lights.lua"/>
+        <sourceFile filename="src/state/Motor.lua"/>
+        <sourceFile filename="src/state/Tools.lua"/>
+        <sourceFile filename="src/state/Rig.lua"/>
         <sourceFile filename="src/Commands.lua"/>
         <sourceFile filename="src/collectors/Hello.lua"/>
         <sourceFile filename="src/collectors/Env.lua"/>
         <sourceFile filename="src/collectors/Player.lua"/>
+        <sourceFile filename="src/collectors/vehicles/Fill.lua"/>
+        <sourceFile filename="src/collectors/vehicles/Motor.lua"/>
+        <sourceFile filename="src/collectors/vehicles/Tools.lua"/>
+        <sourceFile filename="src/collectors/vehicles/Loader.lua"/>
         <sourceFile filename="src/collectors/Vehicles.lua"/>
         <sourceFile filename="src/collectors/Hotspots.lua"/>
         <sourceFile filename="src/collectors/Farmlands.lua"/>

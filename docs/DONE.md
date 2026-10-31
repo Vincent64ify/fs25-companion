@@ -280,6 +280,23 @@ These results override any API guesses later in this document.
   - `TOGGLE_TIPSIDE` steps `spec_trailer.preferedTipSideIndex` through
     `tipSideCount` sides (four on the EDK 650: Back, Grain door, Left,
     Right); `spec_cover.hasCovers` is false on it.
+- **The setters with no key, and the All row's keys** (spec 0009's live
+  check, mods 0.11.0 to 0.11.2, 2026-10-31, the T7.300 with the KDF 341 S
+  and KDD 941 STH; the game's own scripts in `debugger/gameSource.zip`):
+  - `setCruiseControlMaxSpeed(speed, speedReverse)` sets the cruise
+    control's speed (held Cruise − / +); `detachImplementByObject` on what
+    a tool hangs on detaches it (the Vestrum's EDK 650); with
+    `setSelectedObject`, the only setters the mod runs.
+  - Lower all (`AttacherJoints:startAttacherJointCombo`) reverses
+    `attacherJointCombos.direction` on every press, whatever the tools
+    did since: after each card's Raise, a press that last lowered
+    raises (nothing moved).
+  - Fold all (`Foldable.actionEventFoldAll`) goes the way the tool it's
+    pressed on folds next (`getToggledFoldDirection`), for it and every
+    tool whose next fold goes the same way: pressed on a folded mower in
+    a mixed rig, it unfolded that one.
+  - Turn on all (`TurnOnVehicle.actionEventTurnOnAll`) flips every tool
+    (`setIsTurnedOn(not getIsTurnedOn())`), so a mixed rig swaps.
 
 ---
 
@@ -644,3 +661,11 @@ Changes since Phase 4 (2026-10-21 to 2026-10-22):
   it wants; the mod presses the key only when the game isn't there and
   answers `already` otherwise; the companion writes every command as it
   comes.
+- **One way to run each action** (spec
+  [0009](../specs/0009-one-way-to-run-each-action.md), mod 0.11.2,
+  SIMPLIFY S4, live-checked 2026-10-31): every action presses the game's
+  key, or answers "not available now"; setters only for the cruise set
+  speed, select and detach. The All row's keys follow the game's own
+  rules (Lower all's stored direction, Fold all's pressed tool, Turn on
+  all's flip). `VehicleState.lua` and `collectors/Vehicles.lua` split by
+  part.

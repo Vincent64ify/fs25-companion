@@ -76,8 +76,11 @@ up to date until the live check.
   `python -m companion`). S2 is done and live-checked
   ([spec 0007](../specs/0007-protocol-in-one-place.md), mod 0.9.0). S3 is
   done and live-checked ([spec 0008](../specs/0008-commands-say-the-state.md),
-  mod 0.10.0: commands say the state they want); S4 is next. The
-  rigs spec 0003 moved out come after it.
+  mod 0.10.0: commands say the state they want). S4 is done and
+  live-checked ([spec 0009](../specs/0009-one-way-to-run-each-action.md),
+  mod 0.11.2: one way to run each action, and the All row's keys fixed
+  to the game's own rules); S5 is next. The rigs spec 0003 moved out
+  come after it.
 
 ## Ground rules
 

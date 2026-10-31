@@ -32,11 +32,14 @@ src/
   Api.lua         guarded calls for API names not verified in Phase 0
   Transport.lua   file open / write / flush / rotate at 2 MB, seq counter
   Scheduler.lua   runs each collector at its interval, under pcall
-  VehicleState.lua  lights, engine and cruise readers shared by vehicles and cab
+  state/          VehicleState, the readers vehicles, cab and commands share:
+                  Lights, Motor (engine, cruise, AI), Tools, Rig
   Commands.lua    reads cmd/<n>.xml every frame, runs allowed input actions
+                  (their keys; setters only where the game has none)
   collectors/     one file per topic (Hello, Env, Player, Vehicles,
                   Hotspots, Farmlands, FarmlandGrid, CropTypes,
                   FieldOutlines, Fields, Cab)
+  collectors/vehicles/  the vehicles topic's parts: Fill, Motor, Tools, Loader
   Companion.lua   bootstrap (loaded last)
 tests/run.lua     offline tests with a stubbed game
 ```

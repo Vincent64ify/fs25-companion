@@ -15,13 +15,24 @@ local function load(rel)
     dofile(MOD_ROOT .. rel)
 end
 
+-- the vehicles collector and its parts (specs/0009), in modDesc.xml's order
+local function loadVehicles()
+    for _, part in ipairs({ "Fill", "Motor", "Tools", "Loader" }) do
+        load("src/collectors/vehicles/" .. part .. ".lua")
+    end
+    load("src/collectors/Vehicles.lua")
+end
+
 Companion = nil
 load("src/Json.lua")
 load("src/Geo.lua")
 load("src/Api.lua")
 load("src/Transport.lua")
 load("src/Scheduler.lua")
-load("src/VehicleState.lua")
+load("src/state/Lights.lua")
+load("src/state/Motor.lua")
+load("src/state/Tools.lua")
+load("src/state/Rig.lua")
 load("src/Commands.lua")
 
 local Json, Geo, Transport, Scheduler =
@@ -381,7 +392,7 @@ test("hotspots: PDA points only, named, sorted", function()
 end)
 
 test("vehicles: T6 values from spec fields, missing ones left out", function()
-    load("src/collectors/Vehicles.lua")
+    loadVehicles()
     getWorldTranslation = function() return 0, 0, 0 end
     localDirectionToWorld = function() return 0, 0, -1 end
     FillType = { UNKNOWN = 0, DIESEL = 1, DEF = 2 }
@@ -743,13 +754,16 @@ test("commands: next file in order, session and allow-list checked, input event 
     eq(ack.ok, false)
     eq(ack.reason, "action not allowed")
 
-    -- in a vehicle with no active input event: the setter
+    -- in a vehicle with no active input event: refused, as the key would
+    -- do nothing (specs/0009: no setter)
     player.vehicle = vehicle
     write(3, "S1", "highBeam.set", nil, 1)
     ack = commands:poll()
-    eq(ack.ok, true, "fallback ran")
-    eq(ack.reason, nil)
-    eq(vehicle.spec_lights.lightsTypesMask, 8, "high beam on")
+    eq(ack.ok, false, "no key, no setter")
+    eq(ack.reason, "not available now")
+    eq(ack.via, nil)
+    eq(vehicle.spec_lights.lightsTypesMask, 0, "nothing changed")
+    vehicle.spec_lights.lightsTypesMask = 8
 
     -- the input event's callback, as a key press calls it
     local calls = {}
@@ -773,17 +787,16 @@ test("commands: next file in order, session and allow-list checked, input event 
     eq(calls[1].value, 1)
     eq(calls[1].state, 4)
     eq(calls[1].analog, false)
-    eq(vehicle.spec_lights.lightsTypesMask, 8, "no fallback when the event ran")
+    eq(vehicle.spec_lights.lightsTypesMask, 8, "only the key ran")
 
-    -- the action and its fallback both fail: reported, and the queue goes on
-    g_inputBinding.actionEvents[action] = { { isActive = true, callback = function() error("boom") end } }
-    vehicle.setLightsTypesMask = function() error("boom") end
+    -- the action fails in the game: reported, and the queue goes on
+    g_inputBinding.nameActions = setmetatable({}, { __index = function() error("boom") end })
     write(5, "S1", "highBeam.set", nil, 0)
     ack = commands:poll()
     eq(ack.ok, false)
     eq(ack.reason, "failed in game")
-    eq(#logged, 3, "the setter and the input path logged once each, then the failure")
-    eq(logged[3]:find("failed", 1, true) ~= nil, true)
+    eq(#logged, 2, "the input path logged once, then the failure")
+    eq(logged[2]:find("failed", 1, true) ~= nil, true)
     eq(commands:info().next, 6)
     g_inputBinding = nil
 end)
@@ -903,7 +916,8 @@ test("commands: a file the game can't open now is read again next frame, then gi
         end
         return load(name, path)
     end
-    write(1, "S8", "highBeam.set", "r1", 1)
+    -- cruise.set: a direct setter, it runs with no key bound
+    write(1, "S8", "cruise.set", "r1", 20)
     eq(commands:poll(), nil, "busy: no ack yet")
     eq(commands:poll(), nil, "still busy")
     local ack = commands:poll()
@@ -912,7 +926,7 @@ test("commands: a file the game can't open now is read again next frame, then gi
     eq(commands:info().next, 2)
     -- never readable: given up after READ_TRIES frames, the queue goes on
     busy = 1000
-    write(2, "S8", "highBeam.set", "r2", 1)
+    write(2, "S8", "cruise.set", "r2", 20)
     for _ = 1, Companion.Commands.READ_TRIES - 1 do
         eq(commands:poll(), nil, "retrying")
     end
@@ -948,6 +962,7 @@ test("commands: keyed by the dashboard's name, each checks its value (specs/0007
         "implement.turnOn", "implement.pipe", "implement.unload", "implement.straw" }) do
         eq(Companion.Commands.ACTIONS[old], nil, old .. " is gone")
     end
+    bindInputs({ "TOGGLE_BEACON_LIGHTS" }, vehicle)
     eq(send("beacon.set", 1).ok, true)
     eq(send("beacon.set", 1).action, "beacon.set", "the ack names the dashboard's action")
     -- a value where none is taken, a missing one, one out of range
@@ -976,6 +991,7 @@ test("commands: keyed by the dashboard's name, each checks its value (specs/0007
         assert(spec.values == nil or (type(spec.values[1]) == "number" and type(spec.values[2]) == "number"),
             name .. ": values is {min, max}")
     end
+    g_inputBinding = nil
     g_localPlayer = nil
 end)
 
@@ -1035,71 +1051,62 @@ test("commands C2: each set action runs its input event once when the state diff
     g_inputBinding = nil
 end)
 
-test("commands C2: setters when no key event is active, single cruise steps", function()
+-- specs/0009: one way to run each action. A key with no live event answers
+-- "not available now" and nothing changes; setters run only where the game
+-- has no key (direct)
+test("commands: no live key, no setter; direct setters only where the game has no key", function()
     if TMP_DIR == nil then
         return
     end
-    local vehicle, _, player = c2Tractor()
+    local vehicle, implement, player = c2Tractor()
     local run, logged = c2Commands()
     g_inputBinding = nil
-    local function setter(action, value)
-        local ack = run(action, value)
-        eq(ack.ok, true, action .. " ok (" .. tostring(ack.reason) .. ")")
-        eq(ack.via, "setter", action .. " via")
+    for _, s in ipairs(SETS) do
+        local ack = run(s[1], s[2])
+        eq(ack.ok, false, s[1] .. " refused")
+        eq(ack.reason, "not available now", s[1])
+        eq(ack.via, nil, s[1] .. ": nothing ran")
     end
-    setter("highBeam.set", 1)
-    eq(vehicle.spec_lights.lightsTypesMask, 9, "high beam bit set, front lights kept")
-    setter("beacon.set", 1)
-    eq(vehicle.spec_lights.beaconLightsActive, true)
-    setter("turnLeft.set", 1)
-    eq(vehicle.spec_lights.turnLightState, 1)
-    setter("hazard.set", 1)
-    eq(vehicle.spec_lights.turnLightState, 3, "left to hazard")
-    eq(run("turnLeft.set", 0).already, true, "hazard: left isn't on")
-    setter("hazard.set", 0)
-    eq(vehicle.spec_lights.turnLightState, 0, "hazard off")
-    setter("engine.set", 0)
-    eq(vehicle.started, false, "engine stopped")
-    setter("cruiseOn.set", 1)
-    eq(vehicle.spec_drivable.cruiseControl.state, 1, "cruise on")
-    setter("cruise.up")
-    eq(vehicle.spec_drivable.cruiseControl.speed, 13, "one km/h up")
-    eq(vehicle.reverseSet, 9, "the reverse speed kept")
-    setter("cruise.down")
-    setter("cruise.down")
-    eq(vehicle.spec_drivable.cruiseControl.speed, 11, "two down")
-    -- in reverse: still the one set speed, the game's reverse value untouched
-    vehicle.movingDirection = -1
-    setter("cruise.up")
-    eq(vehicle.spec_drivable.cruiseControl.speed, 12, "the main speed, also in reverse")
-    eq(vehicle.reverseSet, 9, "the reverse value passed through")
-    vehicle.movingDirection = 1
-    vehicle.spec_drivable.cruiseControl.speed = 40
-    setter("cruise.up")
-    eq(vehicle.spec_drivable.cruiseControl.speed, 40, "not past the top speed")
-    local ack = run("ai.set", 1)
-    eq(ack.ok, false, "AI: only through its key")
-    eq(ack.reason, "not available now")
+    eq(run("straw.set", 1).reason, "not available now", "straw: its key only")
+    eq(vehicle.spec_lights.lightsTypesMask, 1, "lights untouched")
+    eq(vehicle.spec_lights.beaconLightsActive, false)
+    eq(vehicle.spec_lights.turnLightState, 0)
+    eq(vehicle.started, true, "engine untouched")
+    eq(vehicle.spec_drivable.cruiseControl.state, 0, "cruise untouched")
+    eq(run("implement.next").reason, "not available now", "G: its key only")
+    eq(run("implement.previous").reason, "not available now")
+    -- the old single cruise steps are gone (the web sends cruise.set)
+    eq(Companion.Commands.ACTIONS["cruise.up"], nil)
+    eq(Companion.Commands.ACTIONS["cruise.down"], nil)
+    eq(run("cruise.up").reason, "action not allowed")
+    -- no action keeps a fallback; direct only where the game has no key
+    local direct = {}
+    for name, spec in pairs(Companion.Commands.ACTIONS) do
+        eq(spec.fallback, nil, name .. " has no fallback")
+        eq(spec.aim ~= nil and spec.aim.fallback or nil, nil, name .. "'s aim has no fallback")
+        if spec.direct ~= nil then
+            direct[#direct + 1] = name
+        end
+    end
+    table.sort(direct)
+    eq(table.concat(direct, " "), "cruise.set implement.detach implement.select")
+    local ack = run("cruise.set", 25)
+    eq(ack.via, "setter", "the cruise set speed: direct")
+    eq(vehicle.spec_drivable.cruiseControl.speed, 25)
     -- Attach only attaches, and only while the game has something in reach
-    -- (specs/0003): no key, no detach fallback
+    -- (specs/0003): no key, no detach
     ack = run("hitch.toggle")
     eq(ack.ok, false, "nothing to attach in reach")
     eq(ack.reason, "nothing in reach")
     eq(#vehicle.attached, 1, "Attach never detaches")
-    -- the cruise step goes through the axis when there's no setter
-    vehicle.setCruiseControlMaxSpeed = nil
-    local calls = bindInputs({ "AXIS_CRUISE_CONTROL" }, vehicle)
-    ack = run("cruise.down")
-    eq(ack.via, "AXIS_CRUISE_CONTROL")
-    eq(calls.AXIS_CRUISE_CONTROL[1], -1, "the axis, down")
-    g_inputBinding = nil
+    eq(implement.foldedTo, nil, "no tool setter ran")
     -- each path is logged once
     local seen = {}
     for _, line in ipairs(logged) do
         assert(not seen[line], "logged twice: " .. line)
         seen[line] = true
     end
-    assert(seen["command cruise.up via setter"], "the path is logged")
+    assert(seen["command cruise.set via setter"], "the path is logged")
     player.vehicle = nil
     eq(run("engine.set", 1).reason, "not in a vehicle")
 end)
@@ -1147,21 +1154,25 @@ test("commands: lights.set steps to the asked stage, one press a frame", functio
     eq(ack.ok, false)
     eq(ack.reason, "lights didn't reach stage 1")
     eq(calls.n, 4, "stages + 1 presses")
-    -- no key: the stage's mask by the setter (the stage read from the mask)
-    g_inputBinding = nil
-    vehicle.spec_lights.currentLightState = nil
-    ack = run("lights.set", 2)
-    eq(ack.ok, true, tostring(ack.reason))
-    eq(ack.via, "setter")
-    eq(vehicle.spec_lights.lightsTypesMask, 3, "the front and work lights")
-    run("lights.set", 0)
-    eq(vehicle.spec_lights.lightsTypesMask, 0, "off")
-    -- without stages: 0 or 1, the front lights
+    -- without stages: 0 or 1, one press
+    works = true
     vehicle.spec_lights.lightStates = nil
+    vehicle.spec_lights.currentLightState = nil
+    g_inputBinding.actionEvents[g_inputBinding.nameActions.TOGGLE_LIGHTS][1].callback = function()
+        local spec = vehicle.spec_lights
+        spec.lightsTypesMask = spec.lightsTypesMask == 0 and 1 or 0
+    end
     ack = run("lights.set", 1)
-    eq(ack.ok, true)
+    eq(ack.ok, true, tostring(ack.reason))
     eq(vehicle.spec_lights.lightsTypesMask, 1)
     eq(run("lights.set", 1).already, true)
+    -- no key: refused, the mask untouched (specs/0009: no setter)
+    g_inputBinding = nil
+    ack = run("lights.set", 0)
+    eq(ack.ok, false)
+    eq(ack.reason, "not available now")
+    eq(ack.via, nil)
+    eq(vehicle.spec_lights.lightsTypesMask, 1, "untouched")
 end)
 
 test("vehicle state C2: motor state, driving direction, both cruise speeds", function()
@@ -1348,13 +1359,9 @@ test("commands C3: select a tool by id, next and previous, detach a chosen one",
     ack = run("implement.select", 42)
     eq(ack.ok, false)
     eq(ack.reason, "not selectable")
-    -- G's events missing: one step in the game's order, round the end
-    eq(run("implement.next").ok, true)
-    eq(vehicle.selection, 4)
-    eq(run("implement.next").ok, true)
-    eq(vehicle.selection, 1, "round the end")
-    eq(run("implement.previous").ok, true)
-    eq(vehicle.selection, 4)
+    -- G's events missing: refused, the selection stays (specs/0009)
+    eq(run("implement.next").reason, "not available now")
+    eq(vehicle.selection, 3)
     -- with G's event: the key runs
     local calls = bindInputs({ "SWITCH_IMPLEMENT", "SWITCH_IMPLEMENT_BACK" }, vehicle)
     eq(run("implement.next").via, "SWITCH_IMPLEMENT")
@@ -1467,7 +1474,7 @@ test("implement screen: pipe, discharge, trailer, cover and the new keys in the 
 end)
 
 test("implement screen: speed limit, working width and crop in the vehicles topic", function()
-    load("src/collectors/Vehicles.lua")
+    loadVehicles()
     getWorldTranslation = function() return 0, 0, 0 end
     localDirectionToWorld = function() return 0, 0, -1 end
     FillType = { UNKNOWN = 0 }
@@ -1510,7 +1517,7 @@ test("harvester screen: straw, its key, worked area and Precision Farming's yiel
     eq(Cab.collect({}).rig[1].straw, nil, "no choice: no straw")
     combine.spec_combine.chopper.isAvailable = true
 
-    load("src/collectors/Vehicles.lua")
+    loadVehicles()
     getWorldTranslation = function() return 0, 0, 0 end
     localDirectionToWorld = function() return 0, 0, -1 end
     FillType = { UNKNOWN = 0 }
@@ -1532,7 +1539,7 @@ test("harvester screen: straw, its key, worked area and Precision Farming's yiel
 end)
 
 test("trailer fill limit: maxReached and the litres a unit stops at", function()
-    load("src/collectors/Vehicles.lua")
+    loadVehicles()
     getWorldTranslation = function() return 0, 0, 0 end
     localDirectionToWorld = function() return 0, 0, -1 end
     FillType = { UNKNOWN = 0 }
@@ -1579,7 +1586,7 @@ test("trailer fill limit: maxReached and the litres a unit stops at", function()
 end)
 
 test("harvester screen: fills carry massPerLiter when the fill type has one", function()
-    load("src/collectors/Vehicles.lua")
+    loadVehicles()
     getWorldTranslation = function() return 0, 0, 0 end
     localDirectionToWorld = function() return 0, 0, -1 end
     FillType = { UNKNOWN = 0 }
@@ -1630,7 +1637,7 @@ end)
 -- a tractor at the origin with a front loader and pallet forks on it, and
 -- the vehicles around it; positions by node (x, z)
 local function loaderYard()
-    load("src/collectors/Vehicles.lua")
+    loadVehicles()
     Companion.Collectors.Vehicles.reset()
     local at = {}
     getWorldTranslation = function(node) local p = at[node] or { 0, 0 }; return p[1], 0, p[2] end
@@ -1818,7 +1825,7 @@ test("vehicle screen: a bucket's load picks the target, under the weight limit",
 end)
 
 test("vehicle screen: the engine's temperature only, the game has no warning level", function()
-    load("src/collectors/Vehicles.lua")
+    loadVehicles()
     getWorldTranslation = function() return 0, 0, 0 end
     localDirectionToWorld = function() return 0, 0, -1 end
     FillType = { UNKNOWN = 0 }
@@ -1833,7 +1840,7 @@ test("vehicle screen: the engine's temperature only, the game has no warning lev
     g_localPlayer = nil
 end)
 
-test("commands, implement screen: lower all, pipe, unload, cover as their keys, else setters", function()
+test("commands, implement screen: lower all, pipe, unload, cover as their keys, else not available", function()
     if TMP_DIR == nil then
         return
     end
@@ -1862,29 +1869,26 @@ test("commands, implement screen: lower all, pipe, unload, cover as their keys, 
         end
         error(action .. ": no ack")
     end
-    -- no key events: the setters
+    -- no key events: each refused, nothing moved (specs/0009: no setters)
     g_inputBinding = nil
+    local pipeBefore, coverBefore = combine.spec_pipe.targetState, trailer.spec_cover.state
     local ack = run("implement.lowerAll", 1)
-    eq(ack.ok, true)
-    eq(ack.via, "setter")
-    eq(combine.combo, 1, "the attacher joint combo, as Ctrl+V")
-    -- the pipe and the trailer's tip by their tool's id (specs/0008)
-    eq(run("tool.pipe", 1, 20).ok, true)
-    eq(combine.spec_pipe.targetState, 2, "pipe out")
-    eq(run("tool.pipe", 1, 20).already, true, "on its way out: already")
-    combine.spec_pipe.currentState = 2
-    eq(run("tool.pipe", 0, 20).ok, true)
-    eq(combine.spec_pipe.targetState, 1, "pipe in, round the end")
-    eq(run("implement.cover").ok, true)
-    eq(trailer.spec_cover.state, 1)
-    trailer.spec_cover.state = 2
-    eq(run("implement.cover").ok, true)
-    eq(trailer.spec_cover.state, 0, "closed after the last cover")
+    eq(ack.ok, false)
+    eq(ack.reason, "not available now")
+    eq(combine.combo, 0, "no attacher joint combo")
+    eq(run("tool.pipe", 1, 20).reason, "not available now")
+    eq(combine.spec_pipe.targetState, pipeBefore, "pipe untouched")
+    eq(run("implement.cover").reason, "not available now")
+    eq(trailer.spec_cover.state, coverBefore, "cover untouched")
     trailer.spec_trailer.tipSideCount = 1
     ack = run("tool.tip", 1, 22)
     eq(ack.ok, false, "unloading needs the key")
+    -- the pipe by its tool's id (specs/0008)
     local calls = bindInputs({ "TOGGLE_PIPE" }, combine)
     eq(run("tool.pipe", 1, 20).via, "TOGGLE_PIPE")
+    combine.spec_pipe.targetState = 2
+    eq(run("tool.pipe", 1, 20).already, true, "on its way out: already")
+    eq(#calls.TOGGLE_PIPE, 1)
     -- with the keys: I first, Ctrl+I when only that one is live
     calls = bindInputs({ "TOGGLE_TIPSTATE_GROUND", "TOGGLE_COVER", "LOWER_ALL_IMPLEMENTS" }, trailer)
     Companion.Commands.CHECK_MAX_FRAMES = 5
@@ -1915,12 +1919,12 @@ test("commands: straw.set, swath or chopper as the game's key", function()
     local run = c2Commands()
     g_inputBinding = nil
     local ack = run("straw.set", 1)
-    eq(ack.ok, true, tostring(ack.reason))
-    eq(ack.via, "setter")
-    eq(combine.spec_combine.isSwathActive, true, "swath")
-    eq(run("straw.set", 1).already, true)
+    eq(ack.ok, false, "no key, no setter (specs/0009)")
+    eq(ack.reason, "not available now")
+    eq(combine.spec_combine.isSwathActive, false, "untouched")
+    eq(run("straw.set", 0).already, true, "chopping already")
     local calls = bindInputs({ "TOGGLE_CHOPPER" }, combine)
-    eq(run("straw.set", 0).via, "TOGGLE_CHOPPER")
+    eq(run("straw.set", 1).via, "TOGGLE_CHOPPER")
     eq(#calls.TOGGLE_CHOPPER, 1)
     g_inputBinding = nil
 end)
@@ -2401,7 +2405,8 @@ test("commands, aimed: a tool's id selects it, presses its key, puts the selecti
     eq(root:getSelectedVehicle().id, 996, "put back")
     table.remove(root.dump.keys.attacherJoints)
     SpikeRigs.registerKeys(root)
-    -- the key never comes: the setter, and the selection still put back
+    -- the key never comes: not available now, nothing changed, the
+    -- selection still put back (specs/0009: no setter)
     Companion.Commands.KEY_WAIT_FRAMES = 3
     root.keysDue = false
     local frame = SpikeRigs.frame
@@ -2411,13 +2416,16 @@ test("commands, aimed: a tool's id selects it, presses its key, puts the selecti
     ack, frames = run("tool.turnOn", 1, 994)
     SpikeRigs.frame = frame
     Companion.Commands.KEY_WAIT_FRAMES = 30
-    eq(ack.ok, true, "setter")
-    eq(ack.via, "setter")
+    eq(ack.ok, false)
+    eq(ack.reason, "not available now")
+    eq(ack.via, nil)
+    eq(ack.unmoved ~= nil and #ack.unmoved or 0, 0, "nothing pressed: no unmoved")
     eq(frames, 4, "selected, waited three frames")
-    eq(byId[994].on, true, "turned on by its setter")
+    eq(byId[994].on, false, "untouched")
     eq(pressed(), "")
     eq(root:getSelectedVehicle().id, 996, "put back")
     -- already there (specs/0008): answered at once, nothing selected or pressed
+    byId[994].on = true
     ack, frames = run("tool.turnOn", 1, 994)
     eq(ack.ok, true)
     eq(ack.already, true)
@@ -2464,19 +2472,6 @@ test("commands, all: fold all raises what's lowered first, then the game's key; 
             moving[#moving + 1] = { tool = root:getSelectedVehicle(), due = 3 }
         end
     end
-    local function foldAllKey(name)
-        if name ~= "FOLD_ALL_IMPLEMENTS" then
-            return
-        end
-        local unfold = not (byId[994]:getIsUnfolded() and byId[996]:getIsUnfolded())
-        for _, id in ipairs({ 994, 996 }) do
-            local m = byId[id]
-            if m:getIsUnfolded() ~= unfold and (unfold or m:getIsFoldAllowed() ~= false) then
-                m:setFoldState(m:getToggledFoldDirection())
-            end
-        end
-    end
-    byId[994].onKey, byId[996].onKey = foldAllKey, foldAllKey
     local frame = SpikeRigs.frame
     SpikeRigs.frame = function(r)
         for i = #moving, 1, -1 do
@@ -2553,34 +2548,28 @@ test("commands, all: fold all raises what's lowered first, then the game's key; 
     SpikeRigs.frame = frame
     table.remove(root.dump.keys.attacherJoints)
     SpikeRigs.registerKeys(root)
-    -- no event: every mower's setter, as the game's key: folding while one
-    -- is unfolded (revision 2, spike 0.0.5), else unfolding them all
-    SpikeRigs.unregister(byId[996])
+    -- no live key on the tool it's pressed on (the front one, not folded
+    -- yet), and it never comes: not available now, nothing folded
+    -- (specs/0009: no setters)
+    SpikeRigs.unregister(byId[994])
     Companion.Commands.KEY_WAIT_FRAMES = 3
+    SpikeRigs.frame = function() end
     ack = run("implement.foldAll", 1)
+    SpikeRigs.frame = frame
     Companion.Commands.KEY_WAIT_FRAMES = 30
-    eq(ack.via, "setter")
-    eq(ack.ok, true)
-    eq(unfolded(), "falsefalse", "the front one unfolded: both folded")
-    Companion.Commands.KEY_WAIT_FRAMES = 3
-    run("implement.foldAll", 0)
-    eq(unfolded(), "truetrue", "all folded: both unfolded")
-    run("implement.foldAll", 1)
-    Companion.Commands.KEY_WAIT_FRAMES = 30
-    eq(unfolded(), "falsefalse", "both folded")
-    byId[994].onKey, byId[996].onKey = nil, nil
+    eq(ack.ok, false)
+    eq(ack.reason, "not available now")
+    eq(ack.via, nil)
+    eq(unfolded(), "truefalse", "nothing folded")
     pressed()
-    -- folded, neither may turn on: the setter leaves them
-    eq(run("implement.turnOnAll", 1).ok, false, "folded: nothing turns on")
+    -- no Turn on all key on either: not available now, nothing turned on
+    root.keysDue = false
+    SpikeRigs.unregister(byId[994])
+    SpikeRigs.unregister(byId[996])
+    ack = run("implement.turnOnAll", 1)
+    eq(ack.ok, false)
+    eq(ack.reason, "not available now")
     eq(tostring(byId[994].on) .. tostring(byId[996].on), "falsefalse")
-    Companion.Commands.KEY_WAIT_FRAMES = 3
-    run("implement.foldAll", 0)
-    Companion.Commands.KEY_WAIT_FRAMES = 30
-    byId[996].on = true
-    eq(run("implement.turnOnAll", 1).via, "setter")
-    eq(tostring(byId[994].on) .. tostring(byId[996].on), "truetrue", "the one that was off turned on")
-    run("implement.turnOnAll", 0)
-    eq(tostring(byId[994].on) .. tostring(byId[996].on), "falsefalse", "all on: all off")
     eq(run("implement.coverAll", 1).ok, true, "nothing has a cover: nothing to do")
     eq(pressed(), "")
     -- the engine off: the game's warning, nothing pressed (live, 0.8.8)
@@ -2684,12 +2673,25 @@ test("commands, checked: ok once the tools moved, else which didn't and why", fu
     eq(#ack.unmoved, 1)
     eq(ack.unmoved[1].id, 994)
     eq(rear:getIsUnfolded(), false, "the rear one folded")
-    -- mixed (the front unfolded, the rear folded): Fold all folds, as the
-    -- game's key did in spike 0.0.5
+    -- mixed (the front unfolded, the rear folded and selected): the game's
+    -- key goes the way of the tool it's pressed on (Foldable.actionEventFoldAll;
+    -- live 0.11.1: pressed on the folded one, it unfolded), so it's
+    -- pressed on the front one, which isn't folded yet (specs/0009)
+    eq(root:getSelectedVehicle().id, 996, "the folded rear one selected")
+    pressed()
     ack = run("implement.foldAll", 1)
-    eq(ack.ok, true)
-    eq(front:getIsUnfolded(), false, "folded the front one")
-    run("implement.foldAll", 0)
+    eq(ack.ok, true, "mixed fold all: " .. tostring(ack.reason))
+    eq(pressed(), "994:FOLD_ALL_IMPLEMENTS", "on the unfolded front one")
+    eq(front:getIsUnfolded() or rear:getIsUnfolded(), false, "both folded")
+    eq(root:getSelectedVehicle().id, 996, "the selection put back")
+    -- mixed the other way, asked unfolded: pressed on a folded one
+    front:setFoldState(front:getToggledFoldDirection())
+    eq(front:getIsUnfolded(), true)
+    pressed()
+    ack = run("implement.foldAll", 0)
+    eq(ack.ok, true, "mixed unfold all: " .. tostring(ack.reason))
+    eq(pressed(), "996:FOLD_ALL_IMPLEMENTS", "on the folded rear one")
+    eq(front:getIsUnfolded() and rear:getIsUnfolded(), true, "both unfolded")
     -- Turn on all: the game's key, checked; one that doesn't move is named
     pressed()
     ack = run("implement.turnOnAll", 1)
@@ -2708,6 +2710,17 @@ test("commands, checked: ok once the tools moved, else which didn't and why", fu
     eq(ack.ok, true, tostring(ack.reason))
     eq(pressed(), "994:IMPLEMENT_EXTRA", "the front one's turn on key, not the all key")
     eq(tostring(front.on) .. tostring(rear.on), "falsefalse")
+    -- mixed, asked on: the game's key flips every tool
+    -- (TurnOnVehicle.actionEventTurnOnAll), so it would turn the front one
+    -- off; the rear one's own turn on instead (specs/0009)
+    front.on = true
+    pressed()
+    ack = run("implement.turnOnAll", 1)
+    eq(ack.ok, true, "mixed turn on all: " .. tostring(ack.reason))
+    eq(pressed(), "996:IMPLEMENT_EXTRA", "the rear one's turn on key, not the all key")
+    eq(tostring(front.on) .. tostring(rear.on), "truetrue")
+    run("implement.turnOnAll", 0)
+    eq(tostring(front.on) .. tostring(rear.on), "falsefalse", "all on: the key turns all off")
     -- Lower all: the game's key once, not each tool's Lower
     front.lowered, rear.lowered = false, true
     pressed()
@@ -2744,13 +2757,15 @@ test("commands, checked: ok once the tools moved, else which didn't and why", fu
     table.insert(root.dump.keys.attacherJoints, { action = "LOWER_ALL_IMPLEMENTS", active = true, text = "Lower all" })
     SpikeRigs.registerKeys(root)
     g_time = 100000
-    local combos = { isRunning = false, duration = 2000, currentTime = 0, direction = 1 }
+    -- its last press raised (-1), so the next lowers
+    local combos = { isRunning = false, duration = 2000, currentTime = 0, direction = -1 }
     root.spec_attacherJoints.attacherJointCombos = combos
     local comboFrames = 0
     root.onKey = function(name)
         if name == "LOWER_ALL_IMPLEMENTS" then
+            combos.direction = -combos.direction
             combos.isRunning, comboFrames = true, 0
-            front.lowered = not front.lowered
+            front.lowered = combos.direction == 1
         end
     end
     local frame = SpikeRigs.frame
@@ -2781,6 +2796,28 @@ test("commands, checked: ok once the tools moved, else which didn't and why", fu
     eq(g_time - t0 >= 3000, true, "the combo's 2 s, then 1 s: " .. (g_time - t0))
     SpikeRigs.frame = frame
     root.onKey = nil
+    -- live (0.11.0): Lower all, each card's Raise, Lower all again: the
+    -- game's key would raise (its last press lowered), so each tool's own
+    -- Lower instead, and both go down
+    combos.isRunning, combos.direction = false, -1
+    front.lowered, rear.lowered = false, false
+    pressed()
+    ack = run("implement.lowerAll", 1)
+    eq(ack.via, "LOWER_ALL_IMPLEMENTS", "its next press lowers: the key")
+    eq(tostring(front.lowered) .. tostring(rear.lowered), "truetrue")
+    eq(combos.direction, 1, "the game's combo now lowering")
+    front.lowered, rear.lowered = false, false
+    pressed()
+    ack = run("implement.lowerAll", 1)
+    eq(ack.ok, true, "each tool's Lower: " .. tostring(ack.reason))
+    eq(pressed(), "992:LOWER_IMPLEMENT,992:LOWER_IMPLEMENT", "each tool's Lower, not the key")
+    eq(tostring(front.lowered) .. tostring(rear.lowered), "truetrue")
+    eq(combos.direction, 1, "the key wasn't pressed")
+    -- asked raised now: the key's next press raises, so the key
+    pressed()
+    ack = run("implement.lowerAll", 0)
+    eq(ack.via, "LOWER_ALL_IMPLEMENTS")
+    eq(tostring(front.lowered) .. tostring(rear.lowered), "falsefalse")
     root.spec_attacherJoints.attacherJointCombos = nil
     g_time = nil
     -- an unchecked action answers as before
@@ -2913,7 +2950,7 @@ test("whole mod streams every topic", function()
     load("src/collectors/Hello.lua")
     load("src/collectors/Env.lua")
     load("src/collectors/Player.lua")
-    load("src/collectors/Vehicles.lua")
+    loadVehicles()
     load("src/collectors/Hotspots.lua")
     load("src/collectors/Farmlands.lua")
     load("src/collectors/FarmlandGrid.lua")
@@ -2927,8 +2964,11 @@ test("whole mod streams every topic", function()
 
     local writeCommand = commandStubs(TMP_DIR .. "/FS25_Companion/cmd/")
     vehicle.spec_lights = { lightsTypesMask = 0, beaconLightsActive = false }
-    vehicle.setLightsTypesMask = function(self, mask) self.spec_lights.lightsTypesMask = mask end
-    vehicle.setBeaconLightsVisibility = function(self, on) self.spec_lights.beaconLightsActive = on end
+    -- the beacon's key, live (specs/0009: the key, no setter)
+    bindInputs({ "TOGGLE_BEACON_LIGHTS" }, vehicle)
+    g_inputBinding.actionEvents[g_inputBinding.nameActions.TOGGLE_BEACON_LIGHTS][1].callback = function()
+        vehicle.spec_lights.beaconLightsActive = not vehicle.spec_lights.beaconLightsActive
+    end
 
     mod:loadMap("map")
     mod:update(16)
@@ -2944,7 +2984,7 @@ test("whole mod streams every topic", function()
     mod:update(16)
     local frame = lines(readFile(TMP_DIR .. "/FS25_Companion/stream.ndjson"))
     assert(frame[before + 1]:find('"topic":"command_ack"', 1, true), "ack first: " .. tostring(frame[before + 1]))
-    assert(frame[before + 1]:find('"data":{"action":"beacon.set","id":1,"ok":true,"ref":"b7","via":"setter"}', 1, true),
+    assert(frame[before + 1]:find('"data":{"action":"beacon.set","id":1,"ok":true,"ref":"b7","via":"TOGGLE_BEACON_LIGHTS"}', 1, true),
         frame[before + 1])
     assert(frame[before + 2]:find('"topic":"cab"', 1, true), "then the cab: " .. tostring(frame[before + 2]))
     assert(frame[before + 2]:find('"beacon":true', 1, true), "the beacon on in the cab")
@@ -3045,8 +3085,11 @@ test("acks survive a rotation", function()
     local stream = TMP_DIR .. "/FS25_Companion/stream.ndjson"
     local writeCommand = commandStubs(TMP_DIR .. "/FS25_Companion/cmd/")
     vehicle.spec_lights = { lightsTypesMask = 0, beaconLightsActive = false }
-    vehicle.setLightsTypesMask = function(self, mask) self.spec_lights.lightsTypesMask = mask end
-    vehicle.setBeaconLightsVisibility = function(self, on) self.spec_lights.beaconLightsActive = on end
+    -- the beacon's key, live (specs/0009: the key, no setter)
+    bindInputs({ "TOGGLE_BEACON_LIGHTS" }, vehicle)
+    g_inputBinding.actionEvents[g_inputBinding.nameActions.TOGGLE_BEACON_LIGHTS][1].callback = function()
+        vehicle.spec_lights.beaconLightsActive = not vehicle.spec_lights.beaconLightsActive
+    end
     local realNew, transport = Companion.Transport.new, nil
     Companion.Transport.new = function(...)
         transport = realNew(...)
@@ -3082,7 +3125,7 @@ test("acks survive a rotation", function()
     assert(ls[1]:find('"topic":"hello"', 1, true), "hello first: " .. tostring(ls[1]))
     assert(ls[1]:find('"next":2', 1, true), "the mod read 1: " .. ls[1])
     -- then the resend topics (the cab among them), then the ack again
-    assert(ls[#ls]:find('"data":{"action":"beacon.set","id":1,"ok":true,"ref":"b7","via":"setter"}', 1, true),
+    assert(ls[#ls]:find('"data":{"action":"beacon.set","id":1,"ok":true,"ref":"b7","via":"TOGGLE_BEACON_LIGHTS"}', 1, true),
         "the ack last: " .. tostring(ls[#ls]))
     eq(acksIn(ls), "1")
     assert(table.concat(ls, "\n"):find('"topic":"cab"', 1, true), "the cab resent")

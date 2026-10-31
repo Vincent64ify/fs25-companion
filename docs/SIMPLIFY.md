@@ -236,6 +236,20 @@ Target: `Commands.lua` (1,382 lines) to about 900.
 
 Live check: the same button round as S2.
 
+Built (2026-10-31, spec 0009, mod 0.11.0): the saved live-check logs
+showed no `fallback` ever ran, so all of them went (and `cruise.up` /
+`down`, which the web stopped sending in S3); a key with no live event
+answers "not available now". Only `cruise.set`, select and detach keep a
+setter (`direct`). `Commands.lua` 1,614 → 1,264 (1,280 with the All row fixes): the ~900 target assumed
+more of it was fallbacks; the job runner and the checked answers stay
+(decided in the spec). The split: `state/` (Lights, Motor, Tools, Rig)
+and `collectors/vehicles/` (Fill, Motor, Tools, Loader), nothing sent
+changes (the golden file is unchanged). `mod/src` 5,030 → 4,789.
+Live-checked (2026-10-31, mod 0.11.2). The check found the All row's
+keys don't follow the tools (Lower all reverses its own last press, Fold
+all goes the way of the tool it's pressed on, Turn on all flips every
+tool: the game's scripts say so); fixed in 0.11.1 and 0.11.2.
+
 ### S5: Research code apart
 
 - `spike/`, `fixtures/convert_spike.py`, `fixtures/extract_spike_report.py`
