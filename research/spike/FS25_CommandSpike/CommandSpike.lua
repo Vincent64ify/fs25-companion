@@ -11,10 +11,10 @@
 --     through the vehicle's own setters ("direct" mode)
 --   * can it delete the file afterwards (deleteFile)
 --   * how long a command takes from the client writing it to the client
---     seeing the ack and the changed vehicle state (spike/command_spike.py)
+--     seeing the ack and the changed vehicle state (research/spike/command_spike.py)
 --
 -- Files, in <profile>/modSettings/FS25_CommandSpike/:
---   cmd/<n>.xml      commands, written by spike/command_spike.py:
+--   cmd/<n>.xml      commands, written by research/spike/command_spike.py:
 --                    <command session="..." id="n" action="TOGGLE_BEACON_LIGHTS" mode="input"/>
 --   probe.xml        rewritten by the driver to test re-reading (action REREAD)
 --   results.ndjson   everything the mod reports, one JSON object per line:

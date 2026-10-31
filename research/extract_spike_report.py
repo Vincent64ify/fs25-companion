@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Keep the PDA parts of a Phase 0 spike report as a small fixture.
 
-    python fixtures/extract_spike_report.py <modSettings>/FS25_CompanionSpike/report.json \\
-        fixtures/spike_solek_pda.json
+    python research/extract_spike_report.py <modSettings>/FS25_CompanionSpike/report.json \\
+        research/spike_solek_pda.json
 
 The report (about 100 KB) holds the whole API dump. This keeps only what
 the Phase 3 fixture is built from, as the game reported it:

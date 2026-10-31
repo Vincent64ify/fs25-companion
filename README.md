@@ -81,7 +81,7 @@ docs/PLAN.md   What's next: roadmap, open checks, ground rules
 docs/DONE.md   What's built: architecture, phases, verified FS25 API facts
 docs/THEMES.md Themes and layouts plan
 docs/NEXT.md   Small fixes to do next
-spike/         Phase 0 API probe mod (development only)
+research/      the spike mods and Phase 0 data (development only)
 fixtures/      Recorded mod output used by tests and replay
 mod/           Companion mod (Lua)
 companion/     The companion: tailer, state, commands and server (Python)
@@ -132,7 +132,7 @@ python -m pytest mod/tests companion/tests tests
 The game and the companion can start in any order. Details:
 [mod](mod/README.md), [companion](companion/README.md).
 
-**Probe the game API (Phase 0 spike).** See [spike/README.md](spike/README.md).
+**Probe the game API (Phase 0 spike).** See [research/spike/README.md](research/spike/README.md).
 
 FS25 mod folders:
 

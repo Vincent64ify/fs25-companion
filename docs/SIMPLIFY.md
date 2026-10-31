@@ -261,6 +261,25 @@ tool: the game's scripts say so); fixed in 0.11.1 and 0.11.2.
 - The census fixture and `mod/tests/spike_rigs.lua` stay where they are:
   `run.lua`'s capability tests read them.
 
+Built (2026-10-31): `research/` holds `spike/` (both spike mods, their
+README and `command_spike.py`), `convert_spike.py`,
+`extract_spike_report.py` and the two Phase 0 data files, with a README
+that points at DONE.md. Every path that named them is updated (READMEs,
+PLAN, DONE, specs 0002 and 0003, `.gitignore`,
+`mod/tests/test_spike_keys.py`); `command_spike.py` imports
+`companion.paths` again (it still named `client/` since S1). The
+converter rebuilds `fixtures/solek_v1.ndjson` byte for byte from its new
+place.
+
+After S0 to S5 (lines, tests and fixtures not counted; against the
+baseline above):
+
+| Area | Before | After |
+|---|---|---|
+| `mod/src` | 4,773 | 4,805 (S3's state readers, S4's split and the All row's rules; `Commands.lua` 1,280) |
+| `client` + `backend/app` | 3,375 | `companion/` 1,343 |
+| `spike` + `scripts` | 4,333 | `scripts/` 1,004; `research/` 3,801, apart |
+
 ## Hosted later
 
 When the hosted relay comes back, it's a separate small service plus a

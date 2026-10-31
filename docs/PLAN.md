@@ -79,8 +79,10 @@ up to date until the live check.
   mod 0.10.0: commands say the state they want). S4 is done and
   live-checked ([spec 0009](../specs/0009-one-way-to-run-each-action.md),
   mod 0.11.2: one way to run each action, and the All row's keys fixed
-  to the game's own rules); S5 is next. The rigs spec 0003 moved out
-  come after it.
+  to the game's own rules). S5 is done: the spikes and the Phase 0 data
+  are in `research/`. The Simplify plan is complete; the rigs spec 0003
+  moved out (sprayer, plow, baler, cover, Attach) come next, each with
+  its own spec.
 
 ## Ground rules
 
@@ -196,7 +198,7 @@ and the mod each accept only actions from the known list.
 
 | Phase | What | Status |
 |---|---|---|
-| C0 | Spike: can the mod see and read a client-written file every frame, fresh and cheaply; can it run an action by name; round-trip time ([spike/README.md](../spike/README.md#command-spike-c0)) | done on Windows 2026-10-24 (results below); macOS to run |
+| C0 | Spike: can the mod see and read a client-written file every frame, fresh and cheaply; can it run an action by name; round-trip time ([spike/README.md](../research/spike/README.md#command-spike-c0)) | done on Windows 2026-10-24 (results below); macOS to run |
 | C1 | One control (lights) end to end: protocol, backend relay, client file writer, mod reader, ack, `cab` topic | done 2026-10-24: works live on Windows (mod 0.5.0); light stages as dots (0.5.1) and the reverse-light fix (0.5.2) confirmed live |
 | C2 | The first control set in both themes, held controls with auto-release | done 2026-10-24 (`112c665`): works live on Windows (mod 0.6.3, after three live rounds); reverse cruise dropped; held controls (press / release) moved to C3 |
 | C3 | Pick one implement precisely: the whole rig as a tree, Select (tap a tile selects that tool in game), actions aimed at a chosen tool (detach it, fold it); cruise to a set speed; round-trip readout in Settings. No front loader or crane control | done 2026-10-24: confirmed live by Vincent (mod 0.7.1, polish up to `6fe5b93`): `cab.rig` and `cab.keys`, Select / Prev tool / Next tool / Detach, Attached rows pick a tool, buttons name their tool, round trip in Settings |

@@ -602,9 +602,9 @@ the game's reason ("You first need to fold up the tool (mower)!").
 
 ## Plan
 
-1. **Spike 0.0.4** (`spike/FS25_CompanionSpike`; written 2026-10-27,
+1. **Spike 0.0.4** (`research/spike/FS25_CompanionSpike`; written 2026-10-27,
    not run yet; how to run it in
-   [spike/README.md](../spike/README.md#a-card-per-tool-spike-spec-0003)):
+   [research/spike/README.md](../research/spike/README.md#a-card-per-tool-spike-spec-0003)):
    Vincent runs it once per rig and the census once on any save.
    - **Census:** every vehicle type the game has loaded (base game, DLCs
      and mods): its name and specialization names, and what the

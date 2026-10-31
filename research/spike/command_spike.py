@@ -6,13 +6,13 @@ frame for the next command file, runs it, and reports to results.ndjson.
 This script writes those files and times the round trip: from writing a
 command to seeing the mod's ack, and the changed vehicle state ("cab").
 
-    python spike/command_spike.py install            # zip the mod into FS25's mods/
-    python spike/command_spike.py ping -n 50         # channel only, no game action
-    python spike/command_spike.py reread -n 10       # is a rewritten file read fresh?
-    python spike/command_spike.py send TOGGLE_BEACON_LIGHTS
-    python spike/command_spike.py send BEACON --mode direct
-    python spike/command_spike.py bench TOGGLE_BEACON_LIGHTS -n 20
-    python spike/command_spike.py watch              # print what the mod reports
+    python research/spike/command_spike.py install            # zip the mod into FS25's mods/
+    python research/spike/command_spike.py ping -n 50         # channel only, no game action
+    python research/spike/command_spike.py reread -n 10       # is a rewritten file read fresh?
+    python research/spike/command_spike.py send TOGGLE_BEACON_LIGHTS
+    python research/spike/command_spike.py send BEACON --mode direct
+    python research/spike/command_spike.py bench TOGGLE_BEACON_LIGHTS -n 20
+    python research/spike/command_spike.py watch              # print what the mod reports
 
 Every run appends its summary to modSettings/FS25_CommandSpike/driver.ndjson,
 next to the mod's results.ndjson: those two files are the spike's result.
@@ -28,9 +28,9 @@ import zipfile
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-REPO = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(REPO / "client"))
-import paths  # noqa: E402
+REPO = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(REPO))
+from companion import paths  # noqa: E402
 
 MOD_NAME = "FS25_CommandSpike"
 MOD_SRC = Path(__file__).resolve().parent / MOD_NAME

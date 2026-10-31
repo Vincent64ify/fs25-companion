@@ -8,7 +8,7 @@ import pytest
 
 lupa = pytest.importorskip("lupa")
 
-SPIKE = Path(__file__).resolve().parents[2] / "spike" / "FS25_CompanionSpike" / "CompanionSpike.lua"
+SPIKE = Path(__file__).resolve().parents[2] / "research" / "spike" / "FS25_CompanionSpike" / "CompanionSpike.lua"
 
 STUB = r"""
 g_time = 1000

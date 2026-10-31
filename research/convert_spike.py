@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Convert the Phase 0 recordings into a protocol v1 fixture.
 
-    python fixtures/convert_spike.py fixtures/spike_solek_pose.ndjson \\
-        fixtures/spike_solek_pda.json fixtures/solek_farmlands.json \\
+    python research/convert_spike.py research/spike_solek_pose.ndjson \\
+        research/spike_solek_pda.json fixtures/solek_farmlands.json \\
         fixtures/solek_v1.ndjson
 
 The spike recorded real positions on Solek at 5 Hz (on foot and in a

@@ -245,9 +245,9 @@ tally) is local to the page.
 
 ## Plan
 
-1. **Spike** (`spike/FS25_CompanionSpike`, `controlledDetail.vehicleScreen`;
+1. **Spike** (`research/spike/FS25_CompanionSpike`, `controlledDetail.vehicleScreen`;
    written 2026-10-26, not run yet; how to run it in
-   [spike/README.md](../spike/README.md#vehicle-screen-spike-spec-0002)): per rig
+   [research/spike/README.md](../research/spike/README.md#vehicle-screen-spike-spec-0002)): per rig
    member, the joint type number and its name; `dynamicMountedObjects`
    with each object's typeName, `isPallet`, specs and fills; a bigbag on
    a lifter (what holds it); for the 5 nearest vehicles, their fill units

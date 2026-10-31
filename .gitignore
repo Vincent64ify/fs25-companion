@@ -18,7 +18,7 @@ web/maps/
 .DS_Store
 Thumbs.db
 mod/FS25_CompanionTelemetry.zip
-spike/*.zip
+research/spike/*.zip
 
 # local Claude Code files: launch configs (absolute python path) and scratch
 .claude/launch.json
