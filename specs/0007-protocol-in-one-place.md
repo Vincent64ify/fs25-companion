@@ -171,4 +171,11 @@ Live check (in game, Vincent; mod 0.9.0):
   xml file", right after an `implement.unload`. The mod then skips that
   number and answers without a ref, so that press is lost and its button
   times out. Not from this spec (the writer's file handling didn't
-  change); in NEXT.md.
+  change).
+- 2026-10-31: the lost file fixed (mod 0.9.1): `Commands:poll` reads a
+  file it can't open again on the next frames, `Commands.READ_TRIES` (10)
+  in all, before it answers "unreadable command file"; and the companion's
+  writer remembers each number's ref, so an answer by number only still
+  reaches its viewer. Tests in `run.lua` and `test_commands.py`. Not seen
+  in game yet: the sharing violation can't be made on purpose; watch
+  livewatch for it in the next live checks.

@@ -1355,6 +1355,9 @@ function Commands:step()
         checked = result.checked, unmoved = result.unmoved }
 end
 
+-- frames a command file the game can't open is tried before it's given up
+Commands.READ_TRIES = 10
+
 -- Called every frame. Returns the ack for a command run this frame, or nil.
 -- Reads at most one command per frame, and none while a job runs.
 function Commands:poll()
@@ -1368,10 +1371,18 @@ function Commands:poll()
     local id = self.nextId
     local ok, cmd, err = pcall(readCommand, path)
     if not ok or cmd == nil then
-        -- a bad file must not stop the queue
+        -- live (0.9.0): "Sharing violation" while something else had the
+        -- file open; read it again next frame, and only after READ_TRIES
+        -- frames move on (a bad file must not stop the queue)
+        self.readTries = (self.readTries or 0) + 1
+        if self.readTries < Commands.READ_TRIES then
+            return nil
+        end
+        self.readTries = 0
         self.nextId = id + 1
         return { id = id, ok = false, reason = tostring(err or cmd) }
     end
+    self.readTries = 0
     if cmd.session ~= self.sessionId then
         -- left over from an earlier game session: not this session's
         -- command <id>, which the companion will still write

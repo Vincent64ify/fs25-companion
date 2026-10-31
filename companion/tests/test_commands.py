@@ -71,6 +71,20 @@ def test_ack_deletes_the_file(tmp_path):
     writer.on_ack({"ref": "x", "ok": False})  # a client-made ack has no id
 
 
+def test_an_ack_without_its_ref_gets_it_from_the_number(tmp_path):
+    """The mod couldn't read file 1 (live: a sharing violation) and answers
+    by number only; the writer knows whose command 1 was."""
+    writer, _, _ = make(tmp_path)
+    writer.submit("r7", "lights.toggle")
+    ack = {"id": 1, "ok": False, "reason": "unreadable command file"}
+    writer.on_ack(ack)
+    assert ack["ref"] == "r7"
+    # one the writer never wrote keeps no ref
+    other = {"id": 9, "ok": False, "reason": "unreadable command file"}
+    writer.on_ack(other)
+    assert "ref" not in other
+
+
 def test_numbering_restarts_and_old_files_go_with_a_new_session(tmp_path):
     writer, _, _ = make(tmp_path)
     writer.submit("1", "lights.toggle")

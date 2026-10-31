@@ -875,6 +875,48 @@ local function c2Commands()
     return run, logged
 end
 
+test("commands: a file the game can't open now is read again next frame, then given up", function()
+    if TMP_DIR == nil then
+        return
+    end
+    local dir = TMP_DIR .. "/cmdshare_"
+    local write = commandStubs(dir)
+    local commands = Companion.Commands.new(dir, "S8", function() end)
+    c2Tractor()
+    g_inputBinding = nil
+    -- live (mod 0.9.0): "Sharing violation on file .../cmd/37.xml", then
+    -- XMLFile.load returns nil; something else had it open that moment
+    local load = XMLFile.load
+    local busy = 2
+    XMLFile.load = function(name, path)
+        if busy > 0 then
+            busy = busy - 1
+            return nil
+        end
+        return load(name, path)
+    end
+    write(1, "S8", "lights.toggle", "r1")
+    eq(commands:poll(), nil, "busy: no ack yet")
+    eq(commands:poll(), nil, "still busy")
+    local ack = commands:poll()
+    eq(ack.ok, true, "read on the third frame and run")
+    eq(ack.ref, "r1", "with its ref")
+    eq(commands:info().next, 2)
+    -- never readable: given up after READ_TRIES frames, the queue goes on
+    busy = 1000
+    write(2, "S8", "lights.toggle", "r2")
+    for _ = 1, Companion.Commands.READ_TRIES - 1 do
+        eq(commands:poll(), nil, "retrying")
+    end
+    ack = commands:poll()
+    eq(ack.id, 2)
+    eq(ack.ok, false)
+    eq(ack.reason, "unreadable command file")
+    eq(commands:info().next, 3)
+    XMLFile.load = load
+    g_localPlayer = nil
+end)
+
 test("commands: keyed by the dashboard's name, each checks its value (specs/0007)", function()
     if TMP_DIR == nil then
         return

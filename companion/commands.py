@@ -76,6 +76,10 @@ class CommandWriter:
         # action -> (ref, value) waiting
         self._in_game: Dict[str, Tuple[int, float]] = {}
         self._waiting: Dict[str, Any] = {}
+        # id -> ref of the files written this session and not answered yet:
+        # an ack the mod sends by number only (it couldn't read the file)
+        # still reaches its viewer
+        self._refs: Dict[int, str] = {}
 
     def on_hello(self, hello: Dict[str, Any]) -> None:
         session = hello.get("sessionId")
@@ -88,6 +92,7 @@ class CommandWriter:
             self.next_id = mod_next
             self._in_game.clear()
             self._waiting.clear()
+            self._refs.clear()
             if mod_next == 1:
                 # a new game session: what's left in cmd/ belongs to an older one
                 self._clear()
@@ -97,10 +102,14 @@ class CommandWriter:
             self._free(lambda cid: cid < mod_next)
 
     def on_ack(self, ack: Dict[str, Any]) -> None:
-        """The mod answered command <id>: delete its file."""
+        """The mod answered command <id>: delete its file. An ack without
+        its ref gets the one written with that number."""
         cid = ack.get("id")
         if not isinstance(cid, int) or self.cmd_dir is None:
             return
+        ref = self._refs.pop(cid, None)
+        if ref is not None and ack.get("ref") is None:
+            ack["ref"] = ref
         self.next_id = max(self.next_id, cid + 1)
         try:
             (self.cmd_dir / f"{cid}.xml").unlink()
@@ -153,6 +162,7 @@ class CommandWriter:
             self.put(ack_envelope(ref, "cannot write the command file"))
             return
         self.next_id = cid + 1
+        self._refs[cid] = ref
         if action in COALESCE:
             self._in_game[action] = (cid, self.clock())
         self.fast_until = self.clock() + FAST_POLL_S

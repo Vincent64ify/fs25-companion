@@ -18,15 +18,6 @@ Things to fix next, in no particular order. Longer-term ideas are under
   client only, live-checked); F3 and F4 matter before a hosted relay. F1 is fixed
   ([spec 0004](../specs/0004-acks-survive-rotation.md), mod 0.8.13,
   live-checked); F5 (mod 0.8.12), F6 and F7 are fixed (2026-10-30).
-- **A command file the game can't open is lost:** live (2026-10-31, mod
-  0.9.0, spec 0007's check) log.txt has "Sharing violation on file
-  .../cmd/37.xml" then "Failed to open xml file". `Commands:poll` then
-  moves past that number and answers `unreadable command file` without a
-  `ref`, so the companion can't route it: the press is lost and the
-  button times out. Something else had the file open the moment the mod
-  read it (the companion's rename, or a virus scanner). Fix: retry the
-  same number for a few frames before giving up, and keep the ref when
-  the file can be read later.
 - **Vehicle screen console error:** `vehicleTools.js` render (the "also
   attached" rows) throws "Cannot read properties of undefined (reading
   'badge')" on every vehicles update in the Solek replay: `rows.get(e.id)`
