@@ -71,7 +71,9 @@ up to date until the live check.
 - Planned (2026-10-31): [SIMPLIFY.md](SIMPLIFY.md), making the code
   smaller in phases S0 to S5, local first (one process, the protocol in
   one place, commands that say the state they want). S0 is done: the
-  golden replay test (`tests/test_golden.py`). The
+  golden replay test (`tests/test_golden.py`). S1 is built
+  ([spec 0006](../specs/0006-one-local-process.md), `python -m companion`),
+  its live check open. The
   rigs spec 0003 moved out come after it.
 
 ## Ground rules
@@ -95,8 +97,10 @@ These decisions hold for all the work below:
   game.
 - **Protocol v1.** Topics may gain fields freely, and the web ignores unknown
   ones. `v` changes only for breaking changes.
-- **Local or hosted.** The backend runs inside the client, or as a hosted
-  relay with pairing codes. Uploads need the client's token.
+- **Local first; hosted later as an add-on.** One local process
+  (`python -m companion`) tails the game and serves the dashboard. A hosted
+  relay, if it comes back, is a separate service the local app forwards
+  to (docs/SIMPLIFY.md, Hosted later).
 - **Game files stay the user's.** Images and textures are read from the
   user's own install at runtime and never committed. Encrypted archives
   (`.dlc`, `dataS.gar`) stay closed.

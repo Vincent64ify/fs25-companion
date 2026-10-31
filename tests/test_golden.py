@@ -1,7 +1,7 @@
 """Golden replay test (docs/SIMPLIFY.md, S0): what a viewer receives.
 
-Runs `companion_client.py --local --replay fixtures/solek_v1.ndjson` in
-this process, the client and the backend as they are, with two changes:
+Runs `python -m companion --replay fixtures/solek_v1.ndjson` in this
+process, as it is, with two changes:
 the replay feeds one envelope at a time and waits until the viewer has it
 (so nothing is coalesced and the order is fixed), and the commands go to a
 temp cmd/ folder where a fake mod answers them. Every message the viewers
@@ -26,21 +26,19 @@ import json
 import os
 import socket
 import struct
-import sys
 import urllib.request
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
 import pytest
 
-REPO = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(REPO / "client"))
-
-import companion_client  # noqa: E402
-from commands import CommandWriter  # noqa: E402
-from transport.file_tail import parse_line  # noqa: E402
+from companion import main as companion_main
+from companion.commands import CommandWriter
+from companion.tail import parse_line
 
 websockets = pytest.importorskip("websockets")
+
+REPO = Path(__file__).resolve().parents[1]
 
 FIXTURE = REPO / "fixtures" / "solek_v1.ndjson"
 GOLDEN = REPO / "fixtures" / "golden_viewer.ndjson"
@@ -52,7 +50,7 @@ REMOVED_ON_PURPOSE = {}
 
 
 class Finished(Exception):
-    """The driver is done: ends companion_client.run()."""
+    """The driver is done: ends companion.main.run()."""
 
 
 def free_port() -> int:
@@ -96,12 +94,12 @@ def canonical(envelope) -> str:
 
 
 class Driver:
-    """Stands in for transport.replay: feeds the fixture and the steps below
-    to the client's put(), and records what the viewers get."""
+    """Stands in for tail.replay: feeds the fixture and the steps below
+    to the companion's sink, and records what the viewers get."""
 
     def __init__(self, port: int, cmd_dir: Path, envelopes):
         self.base = f"http://127.0.0.1:{port}"
-        self.ws_url = f"ws://127.0.0.1:{port}/ws?pair=LOCAL"
+        self.ws_url = f"ws://127.0.0.1:{port}/ws"
         self.cmd_dir = cmd_dir
         self.envelopes = envelopes
         self.lines = {canonical(e): n for n, e in enumerate(envelopes, 1)}
@@ -176,30 +174,22 @@ class Driver:
     # the run
 
     async def connect(self, name):
-        ws = await websockets.connect(self.ws_url)
-        await ws.send(json.dumps({"type": "hello", "role": "viewer"}))
-        self.viewers[name] = ws
-
-    async def wait_for_client(self):
-        """Until the client's relay is in its pairing session: then a viewer
-        sees client_status connected at once."""
+        """Connect a viewer, waiting for the server to be up."""
         for _ in range(TIMEOUT_S * 20):
             try:
-                if (await asyncio.to_thread(get, self.base + "/api/info"))["activeSessions"] == 1:
-                    return
+                self.viewers[name] = await websockets.connect(self.ws_url)
+                return
             except OSError:
-                pass
-            await asyncio.sleep(0.05)
-        raise AssertionError("the client never connected to the backend")
+                await asyncio.sleep(0.05)
+        raise AssertionError("the server never came up")
 
     async def feed(self, envelope, *names, also=()):
-        self.put(envelope)
+        await self.put([envelope])
         for name in names or ("A",):
             await self.expect(name, self.carries(envelope), *also)
 
     async def run(self, put):
         self.put = put
-        await self.wait_for_client()
         self.step("viewer A connects")
         await self.connect("A")
         await self.expect("A", self.of_type("snapshot"), self.of_type("client_status"))
@@ -250,7 +240,7 @@ class Driver:
         await self.feed_ack(last, "c8")
 
         self.step("the mod sends the last ack again (after a rotation): nobody gets it")
-        self.put(self.ack(last))
+        await self.put([self.ack(last)])
         await self.feed(self.marker(1), "A", "B")
 
         self.step("the same session's hello again (a rotation)")
@@ -266,7 +256,7 @@ class Driver:
         await self.send("B", {"id": "c3", "action": "lights.toggle"})
         attrib = await self.command_file(1)
         self.out.append({"step": "command file 1", "session": attrib.get("session")})
-        self.put(self.ack(attrib))
+        await self.put([self.ack(attrib)])
         await self.expect("B", self.of_type("command_ack", id="c3"))
         await self.feed(self.marker(2), "A", "B")
 
@@ -275,7 +265,7 @@ class Driver:
         raise Finished()
 
     async def feed_ack(self, attrib, viewer_id, ok=True, **extra):
-        self.put(self.ack(attrib, ok, **extra))
+        await self.put([self.ack(attrib, ok, **extra)])
         await self.expect("A", self.of_type("command_ack", id=viewer_id))
 
     def marker(self, n):
@@ -316,16 +306,16 @@ def test_viewer_messages_match_the_golden_file(tmp_path, monkeypatch):
     async def replay(path, put, speed=1.0, loop=False):
         await driver.run(put)
 
-    monkeypatch.setattr(companion_client, "replay", replay)
-    monkeypatch.setattr(companion_client.paths, "cache_dir", lambda: tmp_path / "cache")
+    monkeypatch.setattr(companion_main, "replay", replay)
+    monkeypatch.setattr(companion_main.paths, "cache_dir", lambda: tmp_path / "cache")
     # a replay has no game, so no cmd/ folder: give it one the fake mod reads
-    monkeypatch.setattr(companion_client, "CommandWriter",
+    monkeypatch.setattr(companion_main, "CommandWriter",
                         lambda _cmd_dir, put: CommandWriter(cmd_dir, put))
-    args = companion_client.parse_args([
-        "--local", "--port", str(port), "--replay", str(FIXTURE),
+    args = companion_main.parse_args([
+        "--port", str(port), "--replay", str(FIXTURE),
         "--profile-dir", str(fake_profile(tmp_path))])
     with pytest.raises(Finished):
-        asyncio.run(companion_client.run(args))
+        asyncio.run(companion_main.run(args))
 
     if os.environ.get("GOLDEN_UPDATE"):
         with open(GOLDEN, "w", encoding="utf-8", newline="\n") as f:

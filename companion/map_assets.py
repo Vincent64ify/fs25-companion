@@ -1,6 +1,6 @@
 """Map assets: the overview image of the map being played, for the dashboard.
 
-When the mod's ``hello`` names a map, the client:
+When the mod's ``hello`` names a map, the companion:
 
 1. finds the map XML from ``hello.mapDir`` + ``hello.mapXmlFilename`` (paths
    the game itself reports), falling back to a lookup by map id in the
@@ -9,10 +9,9 @@ When the mod's ``hello`` names a map, the client:
    (DDS first: the game ships .dds even when the XML says .png);
 3. converts it to PNG, plus a 2048 px variant for phones, and writes
    ``meta.json`` with the world rectangle the image covers;
-4. uploads the three files to the backend under
-   ``/api/maps/<mapId>/<hash>/<name>`` (content-addressed: an upload the
-   backend already has is skipped), then tells the backend which hash
-   belongs to the session.
+4. keeps them in the cache under ``<mapId>/<hash>/``, where the server
+   serves them as ``/api/maps/<mapId>/<hash>/<name>``, and tells the
+   viewers which hash is the map's (``map_assets``).
 
 Mod maps can be zipped: GIANTS reports a zipped mod's folder as if it were
 unpacked (``.../mods/FS25_Solek/``), so every read also looks inside
@@ -38,7 +37,7 @@ twice the terrain and the playable area is its central half.
 
 Debug from the command line:
 
-    python client/map_assets.py --map-id FS25_Solek.SampleModMap
+    python -m companion.map_assets --map-id FS25_Solek.SampleModMap
 """
 
 import asyncio
@@ -46,15 +45,12 @@ import hashlib
 import io
 import json
 import logging
-import sys
-import urllib.error
-import urllib.request
+import re
 import xml.etree.ElementTree as ET
 import zipfile
 from dataclasses import dataclass, field
 from pathlib import Path, PurePosixPath
-from typing import Any, Dict, Iterable, List, Optional, Tuple
-from urllib.parse import quote, urlsplit, urlunsplit
+from typing import Any, Awaitable, Callable, Dict, Iterable, List, Optional, Tuple
 
 log = logging.getLogger("companion.map_assets")
 
@@ -330,70 +326,42 @@ def safe_segment(text: str) -> str:
     return "".join(c if c.isalnum() or c in "._-" else "_" for c in text).lstrip(".") or "_"
 
 
-# --- upload ------------------------------------------------------------------
+# --- serving ---------------------------------------------------------------
 
-def http_base(backend: str) -> str:
-    """http(s)://host[:port][/prefix] for a ws(s):// backend URL."""
-    parts = urlsplit(backend)
-    scheme = {"ws": "http", "wss": "https"}.get(parts.scheme, parts.scheme)
-    path = parts.path.rstrip("/")
-    if path.endswith("/ws"):
-        path = path[:-3]
-    return urlunsplit((scheme, parts.netloc, path, "", ""))
+MAP_ID_RE = re.compile(r"^[A-Za-z0-9_][A-Za-z0-9_.\-]{0,127}$")
+HASH_RE = re.compile(r"^[0-9a-f]{16,64}$")
+FILE_TYPES = {OVERVIEW: "image/png", OVERVIEW_SMALL: "image/png", META: "application/json"}
 
 
-def asset_url(base: str, map_id: str, digest: str, name: str) -> str:
-    return f"{base}/api/maps/{quote(map_id, safe='')}/{digest}/{name}"
-
-
-def upload(prepared: PreparedMap, base: str, token: str, timeout: float = 60) -> bool:
-    """Upload the files the backend doesn't have yet. meta.json goes last, so
-    its presence means the set is complete. Returns True when anything was
-    uploaded."""
-    meta_url = asset_url(base, prepared.map_id, prepared.digest, META)
-    try:
-        urllib.request.urlopen(urllib.request.Request(meta_url, method="HEAD"),
-                               timeout=timeout).close()
-        return False
-    except urllib.error.HTTPError as e:
-        if e.code != 404:
-            raise
-    for name in (OVERVIEW, OVERVIEW_SMALL, META):
-        data = prepared.files[name].read_bytes()
-        req = urllib.request.Request(
-            asset_url(base, prepared.map_id, prepared.digest, name), data=data, method="PUT",
-            headers={"Authorization": f"Bearer {token}",
-                     "Content-Type": "application/json" if name == META else "image/png"})
-        urllib.request.urlopen(req, timeout=timeout).close()
-    return True
+def cached_file(cache_dir: Path, map_id: str, digest: str, name: str) -> Optional[Path]:
+    """The cached file the dashboard asks for at
+    /api/maps/<mapId>/<hash>/<name>, or None."""
+    if not (MAP_ID_RE.match(map_id) and HASH_RE.match(digest)) or name not in FILE_TYPES:
+        return None
+    path = Path(cache_dir) / safe_segment(map_id) / digest / name
+    return path if path.is_file() else None
 
 
 class MapPublisher:
-    """Prepares the assets of each map named by a hello, uploads them and
-    announces them, again after every reconnect (the backend may be new)."""
+    """Prepares the assets of each map named by a hello and announces them:
+    ``announce(map_id, digest)`` (async) once the files are in the cache."""
 
-    def __init__(self, relay, cache_dir: Path, profile_dir: Optional[Path] = None):
-        self.relay = relay
+    def __init__(self, announce: Callable[[str, str], Awaitable[None]], cache_dir: Path,
+                 profile_dir: Optional[Path] = None):
+        self.announce = announce
         self.cache_dir = Path(cache_dir)
         self.profile_dir = profile_dir
-        self.current: Optional[PreparedMap] = None
         self._map_id: Optional[str] = None
-        self._lock = asyncio.Lock()
         self._tasks: set = set()
-        relay.on_connect = self.on_connect
-
-    def _spawn(self, coro) -> None:
-        task = asyncio.get_running_loop().create_task(coro)
-        self._tasks.add(task)
-        task.add_done_callback(self._tasks.discard)
 
     def on_hello(self, hello: Dict[str, Any]) -> None:
         map_id = hello.get("mapId")
         if not map_id or map_id == self._map_id:
             return
         self._map_id = map_id
-        self.current = None
-        self._spawn(self._prepare(dict(hello)))
+        task = asyncio.get_running_loop().create_task(self._prepare(dict(hello)))
+        self._tasks.add(task)
+        task.add_done_callback(self._tasks.discard)
 
     async def _prepare(self, hello: Dict[str, Any]) -> None:
         try:
@@ -406,36 +374,13 @@ class MapPublisher:
             return
         if prepared.map_id != self._map_id:
             return  # another map loaded meanwhile
-        self.current = prepared
-        await self.publish()
-
-    async def on_connect(self) -> None:
-        if self.current is not None:
-            await self.publish()
-
-    async def publish(self) -> None:
-        prepared = self.current
-        token = self.relay.token
-        if prepared is None or token is None:
-            return
-        async with self._lock:
-            try:
-                sent = await asyncio.to_thread(upload, prepared, http_base(self.relay.backend), token)
-            except (OSError, urllib.error.URLError) as e:
-                log.warning("map %s: upload failed (%s); retrying after the next reconnect",
-                            prepared.map_id, e)
-                return
-            if sent:
-                log.info("map %s: uploaded %s", prepared.map_id, prepared.digest)
-            await self.relay.send_control(
-                {"type": "map_assets", "mapId": prepared.map_id, "hash": prepared.digest})
+        await self.announce(prepared.map_id, prepared.digest)
 
 
 def _main(argv: Optional[Iterable[str]] = None) -> None:
     import argparse
 
-    sys.path.insert(0, str(Path(__file__).resolve().parent))
-    import paths
+    from . import paths
 
     p = argparse.ArgumentParser(description="convert one map's overview image (debugging)")
     p.add_argument("--map-id", required=True)
@@ -443,7 +388,7 @@ def _main(argv: Optional[Iterable[str]] = None) -> None:
     p.add_argument("--map-xml", default=None)
     p.add_argument("--game-dir", default=None)
     p.add_argument("--profile-dir", type=Path, default=None)
-    p.add_argument("--out", type=Path, default=None, help="cache folder (default: the client's)")
+    p.add_argument("--out", type=Path, default=None, help="cache folder (default: the companion's)")
     args = p.parse_args(argv)
     logging.basicConfig(level=logging.INFO)
     hello = {"mapId": args.map_id, "mapDir": args.map_dir,

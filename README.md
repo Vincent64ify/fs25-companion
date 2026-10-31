@@ -31,11 +31,9 @@ FS25 + companion mod (Lua)
 <profile>/modSettings/FS25_Companion/stream.ndjson
    │  tailed by
    ▼
-Companion client (Python, runs next to the game)
-   │  WebSocket + HTTP (map assets)
-   ▼
-Backend (FastAPI): local, or a hosted relay with pairing codes
-   │  WebSocket
+Companion (Python, runs next to the game): tails it, keeps the state,
+   │  writes commands, serves the dashboard
+   │  WebSocket + HTTP (map images)
    ▼
 Browser dashboard: Leaflet map in world coordinates, one layer per feature
 ```
@@ -47,14 +45,14 @@ Browser dashboard: Leaflet map in world coordinates, one layer per feature
   plain file. Plain file I/O works the same on Windows and macOS, never blocks
   the game, and doesn't care about start order. Every collector is isolated, so
   a failing API call drops one topic, never the game.
-- **Client (Python).** Finds the FS25 profile folder on Windows or macOS, tails
-  the stream file, and forwards everything to the backend. It reads the map's
-  overview image from the paths the mod reports (zipped mods included),
-  converts it (DDS → PNG, plus a 2048 px copy for phones) and uploads it. It can record and replay sessions, so the
-  dashboard can be developed without the game running.
-- **Backend (FastAPI).** Validates messages, keeps the latest state per topic,
-  gives new viewers a full snapshot, and stores the uploaded map images. It runs locally in one command or as a
-  hosted relay where a pairing code links the game and the browser.
+- **Companion (Python, FastAPI).** One program. Finds the FS25 profile folder
+  on Windows or macOS, tails the stream file, validates messages, keeps the
+  latest state per topic, gives new viewers a full snapshot, and writes the
+  dashboard's commands where the mod reads them. It reads the map's overview
+  image from the paths the mod reports (zipped mods included), converts it
+  (DDS → PNG, plus a 2048 px copy for phones) and serves it. It can record
+  and replay sessions, so the dashboard can be developed without the game
+  running. A hosted relay may come back later as an add-on.
 - **Dashboard (vanilla JS ES modules, no build step).** A Leaflet map in
   world meters (`lng = x`, `lat = -z`), with the overview image placed using
   the game's own map-extension values, so there's nothing to calibrate.
@@ -86,8 +84,8 @@ docs/NEXT.md   Small fixes to do next
 spike/         Phase 0 API probe mod (development only)
 fixtures/      Recorded mod output used by tests and replay
 mod/           Companion mod (Lua)
-client/        Local client (Python)
-backend/       FastAPI backend
+companion/     The companion: tailer, state, commands and server (Python)
+tests/         The golden replay test
 web/           Browser dashboard (src/ modules, vendor/leaflet, vendor/fonts)
 ```
 
@@ -119,20 +117,20 @@ pip install -r requirements-dev.txt
 # install the mod into FS25's mods/ folder
 python scripts/build_mod.py --install
 
-# start the client with a built-in backend, then open http://localhost:8123
-python client/companion_client.py --local
+# start the companion, then open http://localhost:8123
+python -m companion
 
 # no game? replay a recording instead
-python client/companion_client.py --local --replay fixtures/solek_v1.ndjson --loop
+python -m companion --replay fixtures/solek_v1.ndjson --loop
 
-# all tests: mod (through lupa), client, backend, the golden replay
-python -m pytest mod/tests client/tests backend/tests tests
+# all tests: mod (through lupa), the companion, the golden replay
+python -m pytest mod/tests companion/tests tests
 
 # map transform tests: open http://localhost:8123/test.html (all green)
 ```
 
-The game and the client can start in any order. Details:
-[mod](mod/README.md), [client](client/README.md), [backend](backend/README.md).
+The game and the companion can start in any order. Details:
+[mod](mod/README.md), [companion](companion/README.md).
 
 **Probe the game API (Phase 0 spike).** See [spike/README.md](spike/README.md).
 

@@ -3,8 +3,8 @@ from pathlib import Path
 
 import pytest
 
-from backend.app.protocol import (ProtocolVersionError, ValidationError,
-                                  parse_envelope)
+from companion.protocol import (ProtocolVersionError, ValidationError,
+                                parse_envelope)
 
 FIXTURES = Path(__file__).resolve().parents[2] / "fixtures"
 # golden_*: what viewers received (tests/test_golden.py), not envelopes
@@ -127,7 +127,7 @@ def test_field_topics():
 
 
 def test_cab_and_command_ack():
-    from backend.app.protocol import COMMAND_ACTIONS, EVENT_TOPICS
+    from companion.protocol import COMMAND_ACTIONS, EVENT_TOPICS
     cab = {"v": 1, "seq": 1, "t": 0, "topic": "cab",
            "data": {"inVehicle": True, "vehicleId": 7, "engineOn": True,
                     "lights": {"on": True, "high": False, "beacon": True},
@@ -156,7 +156,7 @@ def test_cab_and_command_ack():
 def test_vehicle_page_commands_and_their_values():
     """specs/0003: a tool's id on the one-tool commands (or none), the new
     commands, the All row's; others carry none."""
-    from backend.app.protocol import COMMAND_ACTIONS, command_value_ok
+    from companion.protocol import COMMAND_ACTIONS, command_value_ok
     for action in ("implement.lower", "implement.fold", "implement.turnOn", "implement.unload",
                    "implement.cover", "implement.pipe", "implement.tipSide", "implement.rotate",
                    "implement.baleReset"):

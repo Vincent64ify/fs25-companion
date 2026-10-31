@@ -17,8 +17,8 @@ and Night, and the sizes that matter (1180×820 is the reference tablet).
 What changes between the layers. Topics may gain fields freely (Protocol
 v1); say so if `v` must change.
 
-- **Mod → backend** (topic, field, type, unit, when it's absent):
-- **Backend** (`backend/app/protocol.py`): new models or fields, if any.
+- **Mod → companion** (topic, field, type, unit, when it's absent):
+- **Companion** (`companion/protocol.py`): new models or fields, if any.
 - **Web** (selectors, widgets): what reads it.
 
 Game API names used, each one **verified** (with its place in
@@ -31,7 +31,7 @@ Game API names used, each one **verified** (with its place in
 
 ## Commands
 
-Web → game actions (`client/commands.py`, `mod/src/Commands.lua`): the
+Web → game actions (`companion/commands.py`, `mod/src/Commands.lua`): the
 action name, the game input it presses, its fallback, and what the
 dashboard shows the same frame.
 
@@ -44,7 +44,7 @@ checklist for the build, not a design document.
 
 Automated (each one a test that exists before the work is called built):
 - [ ] `mod/tests/run.lua`: ...
-- [ ] `client/tests/...` or `backend/tests/...`: ...
+- [ ] `companion/tests/...`: ...
 - [ ] `web/test.html`: ...
 - [ ] Replay in the browser pane (`replay-solek`): ...
 

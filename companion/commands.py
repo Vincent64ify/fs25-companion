@@ -1,14 +1,14 @@
 """Write the dashboard's commands where the mod reads them.
 
-The backend forwards a viewer's command as {"type": "command", "ref",
-"action"}. This module maps the dashboard's action to the game's input
+The server hands a viewer's command over as (ref, action, value). This
+module maps the dashboard's action to the game's input
 action and writes
 
     <profile>/modSettings/FS25_Companion/cmd/<n>.xml
     <command session="<sessionId>" id="<n>" action="TOGGLE_LIGHTS" ref="<ref>"/>
 
 numbered from 1 per game session (the hello's sessionId), continuing from
-hello.commands.next when the client starts mid-session. Each file is
+hello.commands.next when the companion starts mid-session. Each file is
 written as <n>.xml.tmp, read back once, then renamed: the rename makes it
 appear whole, and the read-back takes the ~4 ms first-open cost off the
 game's frame (C0, docs/PLAN.md). The mod answers with a command_ack in the
@@ -36,7 +36,7 @@ from xml.sax.saxutils import quoteattr
 
 log = logging.getLogger("companion.commands")
 
-# dashboard action -> the game's input action. The client's own allow-list:
+# dashboard action -> the game's input action. The writer's own allow-list:
 # anything else is refused before a file is written.
 ACTIONS = {
     "lights.toggle": "TOGGLE_LIGHTS",
@@ -87,7 +87,7 @@ ACTIONS = {
     "implement.coverAll": "COVER_ALL",
 }
 
-# actions that carry a value, and its range; the backend checks the same
+# actions that carry a value, and its range; the server checks the same
 VALUES = {
     "cruise.set": (1.0, 250.0),
     "implement.select": (0, 2**31),
@@ -118,7 +118,7 @@ Envelope = Dict[str, Any]
 
 
 def ack_envelope(ref: str, reason: str, ok: bool = False) -> Envelope:
-    """A command_ack from the client itself (seq 0: not the mod's)."""
+    """A command_ack of our own (seq 0: not the mod's)."""
     return {"v": 1, "seq": 0, "t": 0, "topic": "command_ack",
             "data": {"ref": ref, "ok": ok, "reason": reason}}
 
@@ -136,7 +136,7 @@ def value_ok(action: str, value: Any) -> bool:
 
 class CommandWriter:
     """cmd_dir: the folder the mod reads, or None (replay: no game).
-    put: where client-made acks go (the outbox)."""
+    put: where our own acks go (the server's Hub.put_ack)."""
 
     def __init__(self, cmd_dir: Optional[Path], put: Callable[[Envelope], None],
                  clock: Callable[[], float] = time.monotonic):

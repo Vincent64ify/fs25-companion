@@ -33,7 +33,7 @@ export function saveChoice(key, value) {
 }
 
 /**
- * location.search without some parameters, the others kept (?pair=, ?backend=).
+ * location.search without some parameters, the others kept.
  * @param {string} search
  * @param {string[]} names
  */

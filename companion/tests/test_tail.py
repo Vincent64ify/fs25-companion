@@ -1,11 +1,9 @@
 import asyncio
 import json
+from pathlib import Path
 
-import companion_client
-from commands import CommandWriter
-from companion_client import forwarder
-from relay import Outbox
-from transport.file_tail import FileTail, parse_line
+from companion.commands import CommandWriter
+from companion.tail import FileTail, parse_line, replay, tail
 
 
 def append(path, text):
@@ -111,14 +109,19 @@ def test_skip_to_end_still_knows_a_new_file(tmp_path):
     assert tail.rotations == 1
 
 
-def test_client_passes_the_new_hello_on_after_a_same_size_replacement(tmp_path):
+def test_tail_passes_the_new_hello_on_after_a_same_size_replacement(tmp_path):
     path = tmp_path / "stream.ndjson"
     writer = CommandWriter(tmp_path / "cmd", lambda _: None)
-    put = forwarder(Outbox(), [writer.on_hello], writer.on_ack)
+
+    async def sink(envelopes):
+        for e in envelopes:
+            if e["topic"] == "hello":
+                writer.on_hello(e["data"])
+
     append(path, hello_line("A", 1))
 
     async def run():
-        task = asyncio.create_task(companion_client.tail(path, put, None))
+        task = asyncio.create_task(tail(path, sink, None))
         for _ in range(100):
             await asyncio.sleep(0.01)
             if writer.session == "A":
@@ -158,3 +161,40 @@ def test_parse_line():
     assert parse_line("[]") is None
     assert parse_line('{"topic":"env"}') is None, "no data"
     assert parse_line("not json") is None
+
+
+def test_tail_hands_on_one_read_at_a_time_and_records_it(tmp_path):
+    path = tmp_path / "stream.ndjson"
+    append(path, '{"v":1,"seq":1,"t":0,"topic":"a","data":{}}\nnot json\n'
+                 '{"v":1,"seq":2,"t":0,"topic":"b","data":{}}\n')
+    reads = []
+
+    async def sink(batch):
+        reads.append(batch)
+
+    async def run():
+        with open(tmp_path / "rec.ndjson", "w", encoding="utf-8", newline="\n") as record:
+            task = asyncio.create_task(tail(path, sink, record))
+            for _ in range(100):
+                await asyncio.sleep(0.01)
+                if reads:
+                    break
+            task.cancel()
+
+    asyncio.run(run())
+    assert [[e["seq"] for e in batch] for batch in reads] == [[1, 2]]
+    # the recording keeps every line, the ones that aren't envelopes too
+    assert (tmp_path / "rec.ndjson").read_text(encoding="utf-8").splitlines()[1] == "not json"
+
+
+def test_replay_feeds_the_fixture_one_envelope_at_a_time():
+    fixture = Path(__file__).resolve().parents[2] / "fixtures" / "solek_v1.ndjson"
+    reads = []
+
+    async def sink(batch):
+        reads.append(batch)
+
+    asyncio.run(replay(fixture, sink, speed=1e9))
+    assert all(len(batch) == 1 for batch in reads)
+    assert reads[0][0]["topic"] == "hello"
+    assert len(reads) == sum(1 for _ in open(fixture, encoding="utf-8"))

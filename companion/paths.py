@@ -8,7 +8,7 @@ path is needed: the mod reports map paths itself in its hello message.
 * macOS: ~/Library/Application Support/FarmingSimulator2025, or the Mac App
   Store container ~/Library/Containers/*/Data/Library/Application Support/...
 
-Pass --profile-dir (or --stream) to the client to skip discovery.
+Pass --profile-dir (or --stream) to skip discovery.
 """
 
 import sys
@@ -75,7 +75,7 @@ def stream_path(profile_dir: Path) -> Path:
 
 
 def cache_dir(platform: str = sys.platform, home: Optional[Path] = None) -> Path:
-    """Where the client keeps converted map images between runs."""
+    """Where the companion keeps converted map images between runs."""
     import os
 
     home = home or Path.home()

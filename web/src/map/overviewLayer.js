@@ -1,13 +1,12 @@
 // @ts-check
-// The map background: the PDA overview image the client uploaded, placed
-// with meta.json's world bounds. Without an image (not uploaded yet, or the
+// The map background: the PDA overview image the companion converted, placed
+// with meta.json's world bounds. Without an image (not converted yet, or the
 // map's files couldn't be read) a plain terrain rectangle with a faint grid
 // stands in, so the vector layers still have a frame. Paid DLC maps never
 // get an image (their files are encrypted), so they also get a note saying
 // so. Only the playable area ever shows: the view is kept inside it and the
 // image is clipped to it.
 
-import { HTTP_BASE } from "../connection.js";
 import { constrainTo, terrainBounds, worldBoundsToLatLngBounds, worldToLatLng } from "./mapView.js";
 
 /** @typedef {import("../types.js").MapMeta} MapMeta */
@@ -111,7 +110,7 @@ export function createOverviewLayer(map, store, hooks = {}) {
     const key = `${mapId}/${hash}`;
     if (shown === key) return;
     const gen = ++generation;
-    const base = `${HTTP_BASE}/api/maps/${encodeURIComponent(mapId)}/${hash}`;
+    const base = `/api/maps/${encodeURIComponent(mapId)}/${hash}`;
     /** @type {MapMeta} */
     let meta;
     try {

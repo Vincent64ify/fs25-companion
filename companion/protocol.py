@@ -4,7 +4,7 @@ Every line of the mod's stream file is one envelope:
 
     {"v": 1, "seq": 1234, "t": 5123456, "topic": "player", "data": {...}}
 
-The client forwards envelopes unchanged; the backend validates them here.
+The tailer passes envelopes on unchanged; the server validates them here.
 Topic models allow extra fields: topics may gain fields without a version
 bump, and a topic this file doesn't know yet (a new collector) passes
 through with only the envelope checked. Breaking changes bump ``v``.
@@ -26,7 +26,7 @@ TOPIC_PATTERN = r"^[a-z][a-z0-9_]{0,31}$"
 class ProtocolVersionError(ValueError):
     def __init__(self, got: Any):
         super().__init__(
-            f"mod speaks protocol v{got}, this backend speaks v{PROTOCOL_VERSION}: "
+            f"mod speaks protocol v{got}, the companion speaks v{PROTOCOL_VERSION}: "
             "update the mod and the companion so they match")
         self.got = got
 
@@ -56,7 +56,7 @@ class IngameMap(TopicModel):
 
 
 class CommandDir(TopicModel):
-    """Where the client writes commands, and the number the mod reads next."""
+    """Where the companion writes commands, and the number the mod reads next."""
     dir: Optional[str] = None
     next: int = Field(default=1, ge=1)
 
@@ -260,7 +260,7 @@ class Cab(TopicModel):
 
 class CommandAck(TopicModel):
     """The mod's answer to one command: id is the command file's number,
-    ref the backend's reference for it."""
+    ref the server's reference for it."""
     id: Optional[int] = None
     ref: Optional[str] = None
     action: Optional[str] = None
@@ -423,7 +423,7 @@ TOPIC_MODELS = {
 EVENT_TOPICS = {"command_ack"}
 
 # The commands a dashboard may send ({"type": "command", "id", "action"}).
-# The only list on the backend; the client and the mod keep their own.
+# The server's list; the command writer and the mod keep their own.
 COMMAND_ACTIONS = frozenset({
     "lights.toggle", "highBeam.toggle", "beacon.toggle", "hazard.toggle",
     "turnLeft.toggle", "turnRight.toggle",

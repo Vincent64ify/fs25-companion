@@ -316,16 +316,16 @@ As built (mod 0.4.0). A `prices` topic is still to come (see [PLAN.md](PLAN.md#l
 
 The `hello` message is re-emitted after every rotation, so a reader that starts late always gets the context it needs. Since mod 0.8.13 ([spec 0004](../specs/0004-acks-survive-rotation.md)) the `command_ack`s of the last 5 s (16 at most) follow it again, after the resend topics: the frames just before a rotation may be gone before the reader got them.
 
-**Client side** (`client/transport/file_tail.py`):
+**Client side** (`client/transport/file_tail.py`, now `companion/tail.py`):
 - Poll the file every 50 ms. Track the read offset, buffer partial lines, and drop lines that aren't valid JSON (for example a line cut off during rotation). If the file is smaller than the offset, reset to 0. Since [spec 0005](../specs/0005-tailer-sees-every-new-file.md) also when its first line (a `hello`, unique to each file) isn't the one read before: a new file can outgrow the old offset between two polls.
 - Pure Python, no OS-specific code. `watchdog` is not needed.
-- Profile directory discovery (`client/paths.py`), with `--profile-dir` to override:
+- Profile directory discovery (`client/paths.py`, now `companion/paths.py`), with `--profile-dir` to override:
   - **Windows:** `Documents/My Games/FarmingSimulator2025`, with the OneDrive variant. Resolve Documents through `SHGetKnownFolderPath` rather than guessing.
   - **macOS:** `~/Library/Application Support/FarmingSimulator2025` and the Mac App Store container `~/Library/Containers/*/Data/Library/Application Support/FarmingSimulator2025`.
   - **Steam vs Epic vs Giants installs:** no install path is needed, because the mod reports file paths in `hello`.
 - **Delete:** `pipe_server.py`, `diagnose_pipe.py`, `pipe_probe.py`, `pipe_connect_test.py`, `pipe_thread_test.py`, the old `protocol.py` FrameParser, and `tests/test_pipe_roundtrip.py`.
 
-**Recording and replay** (`client/companion_client.py --replay file.ndjson`, `--record`): the stream file is already a recording. Replay lets you develop the whole web side without the game running, and feeds the tests.
+**Recording and replay** (`client/companion_client.py --replay file.ndjson`, `--record`; now `python -m companion --replay`): the stream file is already a recording. Replay lets you develop the whole web side without the game running, and feeds the tests.
 
 ### 2. Mod structure: one collector per topic
 
@@ -371,6 +371,11 @@ Every coordinate stays in **world meters (x, z)**, from the mod to the screen. O
 - The field state (fruit, growth) is read with FieldState sampling at the field's center and sent per field. As built: the mod sends each field's `fieldState` values (Phase 4).
 
 ### 4. Backend (FastAPI): keep it, add structure
+
+Since [spec 0006](../specs/0006-one-local-process.md) (2026-10-31) the
+client and the backend are one package, `companion/`: no pairing, relay,
+roles or uploads; the map images are served from the client's cache. The
+layout below is how it was built first.
 
 ```
 backend/app/

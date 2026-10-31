@@ -18,8 +18,8 @@ MOD_DIR = REPO / "mod"
 DIST = REPO / "dist"
 ZIP_NAME = "FS25_Companion.zip"
 
-sys.path.insert(0, str(REPO / "client"))
-import paths  # noqa: E402
+sys.path.insert(0, str(REPO))
+from companion import paths  # noqa: E402
 
 
 def mod_files():

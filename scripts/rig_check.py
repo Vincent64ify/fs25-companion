@@ -2,10 +2,10 @@
 """Spec 0003's live check on any rig: press every button its cards offer, as
 the dashboard does, and judge each answer against what the cab shows after.
 
-    python scripts/rig_check.py                        # the client's backend, 8123
-    python scripts/rig_check.py --backend http://localhost:8125 --attach
+    python scripts/rig_check.py                        # the companion, 8123
+    python scripts/rig_check.py --server http://localhost:8125 --attach
 
-With the game, the client and a rig (trailers, a sprayer, a plow, a baler, a
+With the game, the companion and a rig (trailers, a sprayer, a plow, a baler, a
 weight, a truck...): it connects as a viewer, prints what the dashboard
 reads of each tool (to hold against the game's HUD), then for each tool and
 each button of its card presses it there and back:
@@ -36,7 +36,6 @@ import json
 import re
 import sys
 import time
-import urllib.request
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -395,14 +394,8 @@ class Viewer(Rig):
 async def main_async(args) -> int:
     import websockets
 
-    info = json.load(urllib.request.urlopen(f"{args.backend}/api/info"))
-    pairing = info.get("localPairing")
-    if not pairing:
-        print("the backend has no local pairing code: run the client with --local", file=sys.stderr)
-        return 2
-    url = args.backend.replace("http", "ws", 1) + f"/ws?pair={pairing}"
+    url = args.server.replace("http", "ws", 1).rstrip("/") + "/ws"
     async with websockets.connect(url) as ws:
-        await ws.send(json.dumps({"type": "hello", "role": "viewer"}))
         trace = open(args.trace, "w", encoding="utf-8") if args.trace else None
         rig = Viewer(ws, trace)
         listener = asyncio.create_task(rig.listen())
@@ -437,7 +430,7 @@ async def main_async(args) -> int:
 
 def main() -> None:
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    p.add_argument("--backend", default="http://localhost:8123", help="the client's local backend")
+    p.add_argument("--server", default="http://localhost:8123", help="the companion (python -m companion)")
     p.add_argument("--keys", choices=("safe", "all", "none"), default="safe",
                    help="the tools' other keys: all but those that empty a tool (safe), all, or none")
     p.add_argument("--only", help="only the tools whose name has this, or this id")

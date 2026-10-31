@@ -673,16 +673,14 @@ export const farmMoney = (store) => money(store.get("env"), myFarmId(store));
 
 /**
  * The connection pill: text and kind (the CSS class).
- * @param {{pairing?: string, backend?: boolean, client?: boolean}|undefined} conn
+ * @param {{backend?: boolean}|undefined} conn
  * @param {number} sinceLastTopic ms since the last topic data
  * @param {number} staleMs
  * @returns {{text: string, kind: "connected"|"waiting"|"disconnected"}}
  */
 export function connectionStatus(conn, sinceLastTopic, staleMs) {
   const c = conn || {};
-  if (!c.pairing) return { text: "no pairing code (?pair=…)", kind: "disconnected" };
   if (!c.backend) return { text: "backend offline", kind: "disconnected" };
-  if (!c.client) return { text: "companion offline", kind: "disconnected" };
   if (sinceLastTopic > staleMs) return { text: "waiting for game", kind: "waiting" };
   return { text: "live", kind: "connected" };
 }

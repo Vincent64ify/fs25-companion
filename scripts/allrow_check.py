@@ -2,10 +2,10 @@
 """Spec 0003 revision 2's live check: drive a rig as the dashboard does and
 judge every answer against what the cab shows after.
 
-    python scripts/allrow_check.py                     # the client's backend, 8123
-    python scripts/allrow_check.py --backend http://localhost:8125 --rounds 3
+    python scripts/allrow_check.py                     # the companion, 8123
+    python scripts/allrow_check.py --server http://localhost:8125 --rounds 3
 
-With the game, the client and a rig of two or more working tools (front and
+With the game, the companion and a rig of two or more working tools (front and
 rear mowers): it connects as a viewer, presses the All row's and the cards'
 buttons, waits for each answer, then until the tools stand still, and
 prints one line per step: what it asked, the answer, what the cab showed,
@@ -29,7 +29,6 @@ import itertools
 import json
 import sys
 import time
-import urllib.request
 from typing import Any, Dict, List, Optional, Tuple
 
 ACK_TIMEOUT_S = 8.0
@@ -111,7 +110,7 @@ def judge(kind: str, want: Dict[int, bool], ack: Optional[Dict[str, Any]], after
 
 
 class Rig:
-    """A viewer on the backend: the latest cab, and the answers."""
+    """A viewer on the companion: the latest cab, and the answers."""
 
     def __init__(self, ws):
         self.ws = ws
@@ -197,14 +196,8 @@ class Run:
 async def main_async(args) -> int:
     import websockets
 
-    info = json.load(urllib.request.urlopen(f"{args.backend}/api/info"))
-    pairing = info.get("localPairing")
-    if not pairing:
-        print("the backend has no local pairing code: run the client with --local", file=sys.stderr)
-        return 2
-    url = args.backend.replace("http", "ws", 1) + f"/ws?pair={pairing}"
+    url = args.server.replace("http", "ws", 1).rstrip("/") + "/ws"
     async with websockets.connect(url) as ws:
-        await ws.send(json.dumps({"type": "hello", "role": "viewer"}))
         rig = Rig(ws)
         listener = asyncio.create_task(rig.listen())
         await asyncio.sleep(1.0)
@@ -256,7 +249,7 @@ async def main_async(args) -> int:
 
 def main() -> None:
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    p.add_argument("--backend", default="http://localhost:8123", help="the client's local backend")
+    p.add_argument("--server", default="http://localhost:8123", help="the companion (python -m companion)")
     p.add_argument("--rounds", type=int, default=3)
     sys.exit(asyncio.run(main_async(p.parse_args())))
 

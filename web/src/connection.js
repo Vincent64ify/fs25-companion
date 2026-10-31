@@ -1,25 +1,12 @@
 // @ts-check
-// WebSocket to the backend: /ws?pair=<code>, reconnecting.
-//
-// URL parameters:
-//   ?pair=123456   pairing code (optional with a local backend, which
-//                  advertises its code at /api/info)
-//   ?backend=...   backend WebSocket URL (default: this page's origin; the
-//                  backend serves the dashboard)
+// WebSocket to the companion that serves this page: /ws on the same
+// origin, reconnecting.
 
 import { createCommander } from "./commands.js";
 
 /** @typedef {import("./store.js").Store} Store */
 
-const params = new URLSearchParams(location.search);
-
-export const BACKEND = params.get("backend") ||
-  `${location.protocol === "https:" ? "wss" : "ws"}://${location.host}`;
-
-/** HTTP base of the backend, for /api/... (same origin unless ?backend=) */
-export const HTTP_BASE = params.get("backend")
-  ? BACKEND.replace(/^ws/, "http").replace(/\/ws\/?$/, "").replace(/\/$/, "")
-  : "";
+const SOCKET_URL = `${location.protocol === "https:" ? "wss" : "ws"}://${location.host}/ws`;
 
 /** @type {WebSocket|null} */
 let socket = null;
@@ -42,42 +29,24 @@ export const sendCommand = (action, value) => commander.send(action, value);
 /** the last commands' round trips, tap to the mod's answer (Settings) */
 export const roundTrips = () => commander.roundTrips();
 
-async function resolvePairing() {
-  const pair = (params.get("pair") || "").trim();
-  if (pair) return pair;
-  try {
-    const res = await fetch(`${HTTP_BASE}/api/info`, { cache: "no-store" });
-    return (await res.json()).localPairing || "";
-  } catch {
-    return "";
-  }
-}
-
 /**
  * Connect and keep the store up to date. Store keys set here:
- *   connection    {backend: boolean, client: boolean, pairing: string}
- *   mapAssets     {mapId, hash} of the uploaded overview images
+ *   connection    {backend: boolean}: whether the socket is open
+ *   mapAssets     {mapId, hash} of the map's overview images
  *   protocolError string|null
  * @param {Store} store
  */
-export async function connect(store) {
-  const pairing = await resolvePairing();
+export function connect(store) {
   /** @type {string[]} */
   let topicKeys = [];
-  const status = { backend: false, client: false, pairing };
-  const setStatus = (/** @type {Partial<typeof status>} */ patch) => {
-    Object.assign(status, patch);
-    store.set("connection", { ...status });
-  };
-  setStatus({});
-  if (!pairing) return;
+  const setStatus = (/** @type {boolean} */ backend) => store.set("connection", { backend });
+  setStatus(false);
 
   const open = () => {
-    const ws = new WebSocket(`${BACKEND}/ws?pair=${encodeURIComponent(pairing)}`);
+    const ws = new WebSocket(SOCKET_URL);
     socket = ws;
     ws.onopen = () => {
-      ws.send(JSON.stringify({ type: "hello", role: "viewer" }));
-      setStatus({ backend: true });
+      setStatus(true);
       // the backend says it again on connect if it still holds one
       store.set("protocolError", null);
     };
@@ -98,9 +67,6 @@ export async function connect(store) {
         case "map_assets":
           store.set("mapAssets", { mapId: msg.mapId, hash: msg.hash });
           break;
-        case "client_status":
-          setStatus({ client: !!msg.connected });
-          break;
         case "protocol_error": // message null: cleared
           store.set("protocolError", msg.message || null);
           break;
@@ -111,7 +77,7 @@ export async function connect(store) {
     };
     ws.onclose = () => {
       if (socket === ws) socket = null;
-      setStatus({ backend: false, client: false });
+      setStatus(false);
       setTimeout(open, 2000);
     };
     ws.onerror = () => ws.close();

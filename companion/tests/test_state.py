@@ -1,4 +1,4 @@
-from backend.app.state_store import StateStore
+from companion.state import StateStore
 
 
 def env(topic, data, seq=1):

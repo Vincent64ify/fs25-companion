@@ -1,7 +1,7 @@
 # Fixtures
 
 Recorded mod output, used by the tests and for replay
-(`python client/companion_client.py --local --replay <file>`).
+(`python -m companion --replay <file>`).
 
 | file | protocol | what |
 |---|---|---|

@@ -10,8 +10,8 @@ dist/
 build/
 *.spec
 
-# old prototype's generated map images (the client now caches them in
-# its own folder and uploads them to the backend)
+# old prototype's generated map images (the companion now caches them in
+# its own folder)
 web/maps/
 
 # OS

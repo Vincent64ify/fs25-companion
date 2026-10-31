@@ -4,10 +4,9 @@ from pathlib import Path
 
 import pytest
 
-import commands as commands_mod
-from commands import FAST_POLL_S, CommandWriter
-from companion_client import forwarder
-from relay import Outbox, WebSocketRelay
+from companion import commands as commands_mod
+from companion.commands import FAST_POLL_S, CommandWriter
+from companion.protocol import COMMAND_ACTIONS
 
 
 class Clock:
@@ -131,28 +130,6 @@ def test_fast_polling_for_two_seconds_after_a_command(tmp_path):
     assert not writer.fast()
 
 
-def test_forwarder_passes_hellos_and_acks_on():
-    outbox = Outbox()
-    hellos, acks = [], []
-    put = forwarder(outbox, [hellos.append], acks.append)
-    put({"v": 1, "seq": 1, "t": 0, "topic": "hello", "data": {"sessionId": "S"}})
-    put({"v": 1, "seq": 2, "t": 0, "topic": "command_ack", "data": {"id": 1, "ok": True}})
-    put({"v": 1, "seq": 3, "t": 0, "topic": "player", "data": {}})
-    assert hellos == [{"sessionId": "S"}]
-    assert acks == [{"id": 1, "ok": True}]
-
-
-def test_relay_hands_commands_to_on_command():
-    relay = WebSocketRelay("ws://h", "1", Outbox())
-    got = []
-    relay.on_command = lambda ref, action, value=None: got.append((ref, action))
-    relay.handle_message('{"type": "command", "ref": "4", "action": "lights.toggle"}')
-    relay.handle_message('{"type": "replaced"}')
-    relay.handle_message('{"type": "command", "ref": 4}')
-    relay.handle_message("not json")
-    assert got == [("4", "lights.toggle")]
-
-
 @pytest.mark.parametrize("ref", ['a"b', "<x>&"])
 def test_refs_are_escaped(tmp_path, ref):
     writer, _, _ = make(tmp_path)
@@ -162,14 +139,11 @@ def test_refs_are_escaped(tmp_path, ref):
     assert ET.fromstring(text.split("?>", 1)[1]).get("ref") == ref
 
 
-def test_every_backend_action_maps_to_a_mod_action(tmp_path):
-    import sys
-    sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
-    from backend.app.protocol import COMMAND_ACTIONS
+def test_every_server_action_maps_to_a_mod_action(tmp_path):
     assert set(commands_mod.ACTIONS) == set(COMMAND_ACTIONS)
     lua = (Path(__file__).resolve().parents[2] / "mod" / "src" / "Commands.lua").read_text(encoding="utf-8")
     allowed = set(re.findall(r"^    ([A-Z_]+) = \{", lua, re.M))
-    assert set(commands_mod.ACTIONS.values()) == allowed, "the mod allows exactly what the client sends"
+    assert set(commands_mod.ACTIONS.values()) == allowed, "the mod allows exactly what the writer sends"
     writer, acks, _ = make(tmp_path)
     writer.submit("9", "implement.fold")
     assert attrs(tmp_path / "cmd" / "1.xml")["action"] == "FOLD_IMPLEMENT"
@@ -262,15 +236,6 @@ def test_a_replayed_ack_changes_nothing(tmp_path):
     writer.on_ack({"id": 1, "ok": True})  # 1 again, after a rotation
     assert sorted(p.name for p in (tmp_path / "cmd").iterdir()) == ["2.xml"]
     assert acks == []
-
-
-def test_relay_passes_the_value_on():
-    relay = WebSocketRelay("ws://h", "1", Outbox())
-    got = []
-    relay.on_command = lambda ref, action, value: got.append((ref, action, value))
-    relay.handle_message('{"type": "command", "ref": "4", "action": "cruise.set", "value": 21}')
-    relay.handle_message('{"type": "command", "ref": "5", "action": "lights.toggle"}')
-    assert got == [("4", "cruise.set", 21), ("5", "lights.toggle", None)]
 
 
 def test_implement_screen_actions_are_the_games_keys(tmp_path):

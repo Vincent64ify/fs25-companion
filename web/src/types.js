@@ -1,5 +1,5 @@
 // @ts-check
-// JSDoc types mirroring backend/app/protocol.py. Topics may gain fields at
+// JSDoc types mirroring companion/protocol.py. Topics may gain fields at
 // any time: code must ignore what it doesn't know.
 
 /**
@@ -213,7 +213,7 @@
  */
 
 /**
- * meta.json written by client/map_assets.py.
+ * meta.json written by companion/map_assets.py.
  * @typedef {Object} MapMeta
  * @property {string} mapId
  * @property {string} [title]

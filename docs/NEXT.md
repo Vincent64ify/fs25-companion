@@ -18,6 +18,11 @@ Things to fix next, in no particular order. Longer-term ideas are under
   client only, live-checked); F3 and F4 matter before a hosted relay. F1 is fixed
   ([spec 0004](../specs/0004-acks-survive-rotation.md), mod 0.8.13,
   live-checked); F5 (mod 0.8.12), F6 and F7 are fixed (2026-10-30).
+- **Vehicle screen console error:** `vehicleTools.js` render (the "also
+  attached" rows) throws "Cannot read properties of undefined (reading
+  'badge')" on every vehicles update in the Solek replay: `rows.get(e.id)`
+  misses for a row the order check skipped. Seen 2026-10-31 on the
+  committed code (5d2d36c) as well as after spec 0006, so it predates S1.
 - **The other keys' labels are cut off** four to a row on a card ("Toggle
   work …", "Work mode ri…" on the Samasz KDD 941 STH): let them wrap onto
   two lines. Live (2026-10-30): with all four the same at a glance,

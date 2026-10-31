@@ -1,6 +1,6 @@
 from pathlib import Path
 
-import paths
+from companion import paths
 
 
 def make(p: Path) -> Path:

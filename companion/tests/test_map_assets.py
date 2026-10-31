@@ -1,12 +1,13 @@
+import asyncio
 import json
 import struct
 import zipfile
 
 import pytest
 
-import map_assets
-from map_assets import (MapAssetError, PreparedMap, http_base, locate_map, placement,
-                        prepare, read_file)
+from companion import map_assets
+from companion.map_assets import (MapAssetError, MapPublisher, cached_file, locate_map, placement,
+                                  prepare, read_file)
 
 PIL = pytest.importorskip("PIL")
 
@@ -146,38 +147,32 @@ def test_prepare_converts_and_caches(zipped_mod, tmp_path, monkeypatch):
     assert prepare(moved, cache, profile_dir=zipped_mod).digest != prepared.digest
 
 
-def test_http_base():
-    assert http_base("ws://127.0.0.1:8123") == "http://127.0.0.1:8123"
-    assert http_base("wss://relay.example.com/") == "https://relay.example.com"
-    assert http_base("wss://relay.example.com/fs/ws?pair=1") == "https://relay.example.com/fs"
-
-
-def test_upload_skips_what_the_backend_has(tmp_path, monkeypatch):
-    files = {}
+def test_cached_file_serves_only_prepared_files(zipped_mod, tmp_path):
+    cache = tmp_path / "cache"
+    prepared = prepare(hello_for(zipped_mod), cache, profile_dir=zipped_mod)
     for name in ("overview.png", "overview_2048.png", "meta.json"):
-        files[name] = tmp_path / name
-        files[name].write_bytes(b"{}")
-    prepared = PreparedMap("FS25_Test.TestMap", "0123456789abcdef0123", files)
-    calls = []
+        assert cached_file(cache, prepared.map_id, prepared.digest, name) == prepared.files[name]
+    assert cached_file(cache, prepared.map_id, prepared.digest, "map.xml") is None
+    assert cached_file(cache, prepared.map_id, "0" * 20, "meta.json") is None
+    assert cached_file(cache, "../x", prepared.digest, "meta.json") is None
+    assert cached_file(cache, prepared.map_id, "../../etc", "meta.json") is None
 
-    class Response:
-        def close(self):
-            pass
 
-    def urlopen(req, timeout):
-        calls.append((req.get_method(), req.full_url, req.get_header("Authorization")))
-        if req.get_method() == "HEAD" and not have_meta:
-            raise map_assets.urllib.error.HTTPError(req.full_url, 404, "", {}, None)
-        return Response()
+def test_publisher_announces_each_new_map_once(zipped_mod, tmp_path):
+    announced = []
 
-    monkeypatch.setattr(map_assets.urllib.request, "urlopen", urlopen)
-    have_meta = False
-    assert map_assets.upload(prepared, "http://h", "tok") is True
-    assert [c[0] for c in calls] == ["HEAD", "PUT", "PUT", "PUT"]
-    assert calls[-1][1] == "http://h/api/maps/FS25_Test.TestMap/0123456789abcdef0123/meta.json"
-    assert calls[1][2] == "Bearer tok"
+    async def announce(map_id, digest):
+        announced.append(map_id)
 
-    calls.clear()
-    have_meta = True
-    assert map_assets.upload(prepared, "http://h", "tok") is False
-    assert [c[0] for c in calls] == ["HEAD"]
+    async def run(*hellos):
+        publisher = MapPublisher(announce, tmp_path / "cache", zipped_mod)
+        for hello in hellos:
+            publisher.on_hello(hello)
+        await asyncio.gather(*publisher._tasks)
+
+    # the same map again (a rotation's hello) prepares nothing new
+    asyncio.run(run(hello_for(zipped_mod), hello_for(zipped_mod)))
+    assert announced == ["FS25_Test.TestMap"]
+    # a map without an image is never announced
+    asyncio.run(run({"mapId": "FS25_Missing.Map"}))
+    assert announced == ["FS25_Test.TestMap"]

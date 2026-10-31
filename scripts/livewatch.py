@@ -22,16 +22,16 @@ import time
 from pathlib import Path
 from typing import Dict, Optional
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "client"))
-import paths  # noqa: E402
-from transport.file_tail import FileTail  # noqa: E402
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from companion import paths  # noqa: E402
+from companion.tail import FileTail  # noqa: E402
 
 LOG_MARKS = ("[FS25_Companion]", "Error:", "Error (", "LUA call stack")
 
 
 class Tail:
     """Lines added to a file since the last read; starts over with a new
-    file, as the client does (FileTail, specs/0005)."""
+    file, as the companion does (FileTail, specs/0005)."""
 
     def __init__(self, path: Path, from_start: bool):
         self.path = path

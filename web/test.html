@@ -265,11 +265,10 @@ check("money per farm", [sel.money({ money: { "1": 100000, "2": 5 } }, 2), sel.m
 check("farm money uses the viewer's farm", sel.farmMoney(storeOf({ env: { money: { "3": 42 } }, hello: { farmId: 3 } })), 42);
 check("connection status", [
   sel.connectionStatus(undefined, 0, 5000).text,
-  sel.connectionStatus({ pairing: "1", backend: false }, 0, 5000).text,
-  sel.connectionStatus({ pairing: "1", backend: true, client: false }, 0, 5000).text,
-  sel.connectionStatus({ pairing: "1", backend: true, client: true }, 6000, 5000).kind,
-  sel.connectionStatus({ pairing: "1", backend: true, client: true }, 100, 5000).kind,
-], ["no pairing code (?pair=…)", "backend offline", "companion offline", "waiting", "connected"]);
+  sel.connectionStatus({ backend: false }, 0, 5000).text,
+  sel.connectionStatus({ backend: true }, 6000, 5000).kind,
+  sel.connectionStatus({ backend: true }, 100, 5000).kind,
+], ["backend offline", "backend offline", "waiting", "connected"]);
 
 // --- widgets (widgets/) -------------------------------------------------------
 
@@ -304,7 +303,7 @@ const pick = (search, saved = {}) => (({ theme, palette }) => [theme.id, palette
 check("theme: the first when nothing is chosen", pick(""), ["plain", undefined]);
 check("theme: the device's choice", pick("", { theme: "nh", palette: "night" }), ["nh", "night"]);
 check("theme: the URL wins", pick("?theme=nh&palette=day", { theme: "plain" }), ["nh", "day"]);
-check("theme: with ?pair= and ?backend=", pick("?pair=123456&theme=nh&backend=ws://x"), ["nh", "day"]);
+check("theme: with other parameters", pick("?a=1&theme=nh&b=x"), ["nh", "day"]);
 check("theme: unknown theme or palette falls back", [pick("?theme=nope"), pick("?theme=nh&palette=pink")],
       [["plain", undefined], ["nh", "day"]]);
 check("theme: palette only for themes that have them", pick("?palette=night"), ["plain", undefined]);
@@ -762,8 +761,8 @@ check("status bar: the full-screen button, offered as the browser allows",
   [fsWidget.tagName, fsWidget.getAttribute("aria-label"), fsWidget.hidden], ["BUTTON", "Full screen", !screenMode.fullscreenOffered()]);
 
 const { withoutParams } = await import("./src/themes/registry.js");
-check("URL without theme, pairing kept", withoutParams("?pair=123&theme=nh&palette=night", ["theme", "palette"]),
-      "?pair=123");
+check("URL without theme, the others kept", withoutParams("?a=123&theme=nh&palette=night", ["theme", "palette"]),
+      "?a=123");
 
 // slot zoom (mapView.js defaultZoom): span across the short side, in meters
 const { defaultZoom } = await import("./src/map/mapView.js");

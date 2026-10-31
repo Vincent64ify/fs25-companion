@@ -1,10 +1,10 @@
 # FS25 Companion
 
 A live dashboard for Farming Simulator 25 on a tablet or second monitor.
-The mod (`mod/`, Lua) writes an NDJSON file; the client (`client/`, Python)
-tails it and runs or feeds the backend (`backend/`, FastAPI); the web
-dashboard (`web/`, vanilla ES modules + Leaflet) shows it and sends
-commands back.
+The mod (`mod/`, Lua) writes an NDJSON file; the companion (`companion/`,
+Python + FastAPI, `python -m companion`) tails it, keeps the state, writes
+commands and serves the web dashboard (`web/`, vanilla ES modules +
+Leaflet), which shows it and sends commands back.
 
 ## Before you code
 
@@ -33,7 +33,7 @@ commands back.
 ## Checking
 
 ```bash
-python -m pytest mod/tests client/tests backend/tests tests
+python -m pytest mod/tests companion/tests tests
 ```
 
 - `tests/test_golden.py` pins every message a viewer gets from the Solek

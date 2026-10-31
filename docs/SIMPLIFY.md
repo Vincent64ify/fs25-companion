@@ -140,6 +140,11 @@ serves the map overview from its own cache.
 Tests: the golden test from S0, today's client and backend tests moved
 and trimmed (relay and pairing tests go), `web/test.html` green.
 
+Built (2026-10-31, spec 0006): `companion/` is 1,876 lines (from 3,375).
+It keeps `map_assets {mapId, hash}` and the same map URLs, served from
+the cache, and `client_status` is always connected; so the golden file
+passed unchanged. Live check open.
+
 Live check: Solek and Kinlaig (the DLC map's overview), every screen
 fills, a light and a tool button work, a reload and a rotation.
 
@@ -241,7 +246,5 @@ local depends on it.
 - 2026-10-31: the theme engine stays; it's not part of this plan.
 - 2026-10-31: spec 0003 is closed with what's confirmed; its open rigs
   become their own specs after the S phases.
-
-## Open questions
-
-- `companion/` as the new package name, or keep `client/`?
+- 2026-10-31: the new package is `companion/`; S1 keeps `map_assets
+  {mapId, hash}` and today's map URLs, served from the cache (spec 0006).
