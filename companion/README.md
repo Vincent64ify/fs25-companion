@@ -34,7 +34,7 @@ tail.py        polls the stream file (or replays a recording)
 server.py      the Hub (viewers, latest state, commands waiting for an
                answer) and the FastAPI app: web/, /ws, the map images
 state.py       latest envelope per topic; a new sessionId resets it
-protocol.py    pydantic models: the envelope and each known topic
+protocol.py    the envelope check and a command's shape (plain Python)
 commands.py    writes the dashboard's commands to cmd/<n>.xml
 map_assets.py  finds and converts the map's overview image
 paths.py       finds the FS25 profile folder and the cache folder
@@ -48,7 +48,13 @@ paths.py       finds the FS25 profile folder and the cache folder
   keeps an offset, buffers partial lines, and starts again from 0 when the
   file is new (the mod rotated it). Lines that aren't JSON envelopes are
   dropped. Each poll's lines go to the hub together.
-- `server.py`: the hub validates each envelope (`protocol.py`) and sends
+- `protocol.py` checks the envelope only; what a topic's data holds is
+  described once, in `web/src/types.js` (specs/0007). A command is checked
+  for its shape; the mod's `Commands.ACTIONS` is the one list of actions
+  and their values. `commands.py` writes the dashboard's action name as it
+  is, and answers "update the mod" while the mod's hello lacks
+  `commands.actions: 2` (a mod before 0.9.0).
+- `server.py`: the hub checks each envelope (`protocol.py`) and sends
   one read out as the latest envelope per topic, `hello` first, then the
   command acks in order: the cab state an ack's command changed is on the
   dashboard when its answer comes. A viewer gets a `snapshot` on connect

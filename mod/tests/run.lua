@@ -723,12 +723,12 @@ test("commands: next file in order, session and allow-list checked, input event 
     g_inputBinding = nil
 
     -- a file left from an earlier session is removed, and 1 stays next
-    write(1, "OLD", "TOGGLE_LIGHTS")
+    write(1, "OLD", "lights.toggle")
     eq(commands:poll(), nil, "stale session: no ack")
     eq(fileExists(dir .. "1.xml"), false, "stale file deleted")
     eq(commands:info().next, 1, "still waiting for this session's 1")
 
-    write(1, "S1", "TOGGLE_LIGHTS", "abc")
+    write(1, "S1", "lights.toggle", "abc")
     local ack = commands:poll()
     eq(ack.id, 1)
     eq(ack.ref, "abc")
@@ -737,14 +737,14 @@ test("commands: next file in order, session and allow-list checked, input event 
     eq(commands:info().next, 2)
     eq(commands:poll(), nil, "1 is done: waits for 2")
 
-    write(2, "S1", "TOGGLE_ENGINE_EVERYTHING")
+    write(2, "S1", "engine.explode")
     ack = commands:poll()
     eq(ack.ok, false)
     eq(ack.reason, "action not allowed")
 
     -- in a vehicle with no active input event: the setter
     player.vehicle = vehicle
-    write(3, "S1", "TOGGLE_LIGHTS")
+    write(3, "S1", "lights.toggle")
     ack = commands:poll()
     eq(ack.ok, true, "fallback ran")
     eq(ack.reason, nil)
@@ -763,7 +763,7 @@ test("commands: next file in order, session and allow-list checked, input event 
               end },
         } },
     }
-    write(4, "S1", "TOGGLE_LIGHTS")
+    write(4, "S1", "lights.toggle")
     ack = commands:poll()
     eq(ack.ok, true)
     eq(#calls, 1, "only the active event")
@@ -777,7 +777,7 @@ test("commands: next file in order, session and allow-list checked, input event 
     -- the action and its fallback both fail: reported, and the queue goes on
     g_inputBinding.actionEvents[action] = { { isActive = true, callback = function() error("boom") end } }
     vehicle.setLightsTypesMask = function() error("boom") end
-    write(5, "S1", "TOGGLE_LIGHTS")
+    write(5, "S1", "lights.toggle")
     ack = commands:poll()
     eq(ack.ok, false)
     eq(ack.reason, "failed in game")
@@ -875,6 +875,49 @@ local function c2Commands()
     return run, logged
 end
 
+test("commands: keyed by the dashboard's name, each checks its value (specs/0007)", function()
+    if TMP_DIR == nil then
+        return
+    end
+    local dir = TMP_DIR .. "/cmdvalue_"
+    local write = commandStubs(dir)
+    local commands = Companion.Commands.new(dir, "S9", function() end)
+    eq(commands:info().actions, 2, "hello says the files name the dashboard's actions")
+    local vehicle = c2Tractor()
+    g_inputBinding = nil
+    local n = 0
+    local function send(action, value)
+        n = n + 1
+        write(n, "S9", action, nil, value)
+        return commands:poll()
+    end
+    -- the old game names are not actions any more
+    eq(send("TOGGLE_LIGHTS").reason, "action not allowed")
+    eq(send("lights.toggle").ok, true)
+    eq(send("lights.toggle").action, "lights.toggle", "the ack names the dashboard's action")
+    -- a value where none is taken, a missing one, one out of range
+    eq(send("lights.toggle", 1).reason, "value not allowed")
+    eq(send("cruise.set").reason, "value not allowed")
+    eq(send("cruise.set", 0.5).reason, "value not allowed")
+    eq(send("cruise.set", 251).reason, "value not allowed")
+    eq(send("cruise.set", 30).ok, true)
+    eq(vehicle.spec_drivable.cruiseControl.speed, 30)
+    eq(send("implement.key", 0).reason, "value not allowed")
+    eq(send("implement.key", 65).reason, "value not allowed")
+    eq(send("implement.tipAll", 2).reason, "value not allowed")
+    eq(send("implement.select", -1).reason, "value not allowed")
+    -- a tool's id may be left out where the key's own tool is meant
+    eq(send("implement.turnOn").ok, true, "the selected tool")
+    eq(send("implement.detach").reason, "value not allowed", "detach needs its tool")
+    -- every action has a value rule
+    for name, spec in pairs(Companion.Commands.ACTIONS) do
+        assert(name:match("^[a-zA-Z.]+$"), "a dashboard name: " .. name)
+        assert(spec.values == nil or (type(spec.values[1]) == "number" and type(spec.values[2]) == "number"),
+            name .. ": values is {min, max}")
+    end
+    g_localPlayer = nil
+end)
+
 test("commands C2: each action runs its input event, as the key does", function()
     if TMP_DIR == nil then
         print("skip commands C2 test (no TMP_DIR)")
@@ -885,18 +928,18 @@ test("commands C2: each action runs its input event, as the key does", function(
     -- Attach: something in reach (specs/0003)
     vehicle.spec_attacherJoints = { attachableInfo = { attachable = {} } }
     local expected = {
-        TOGGLE_HIGH_BEAM_LIGHT = "TOGGLE_HIGH_BEAM_LIGHT",
-        TOGGLE_BEACON_LIGHTS = "TOGGLE_BEACON_LIGHTS",
-        TOGGLE_TURNLIGHT_HAZARD = "TOGGLE_TURNLIGHT_HAZARD",
-        TOGGLE_TURNLIGHT_LEFT = "TOGGLE_TURNLIGHT_LEFT",
-        TOGGLE_TURNLIGHT_RIGHT = "TOGGLE_TURNLIGHT_RIGHT",
-        TOGGLE_MOTOR_STATE = "TOGGLE_MOTOR_STATE",
-        TOGGLE_CRUISE_CONTROL = "TOGGLE_CRUISE_CONTROL",
-        TOGGLE_AI = "TOGGLE_AI",
-        LOWER_IMPLEMENT = "LOWER_IMPLEMENT",
-        FOLD_IMPLEMENT = "IMPLEMENT_EXTRA2",
-        TURN_ON_IMPLEMENT = "IMPLEMENT_EXTRA",
-        HITCH = "ATTACH",
+        ["highBeam.toggle"] = "TOGGLE_HIGH_BEAM_LIGHT",
+        ["beacon.toggle"] = "TOGGLE_BEACON_LIGHTS",
+        ["hazard.toggle"] = "TOGGLE_TURNLIGHT_HAZARD",
+        ["turnLeft.toggle"] = "TOGGLE_TURNLIGHT_LEFT",
+        ["turnRight.toggle"] = "TOGGLE_TURNLIGHT_RIGHT",
+        ["engine.toggle"] = "TOGGLE_MOTOR_STATE",
+        ["cruise.toggle"] = "TOGGLE_CRUISE_CONTROL",
+        ["ai.toggle"] = "TOGGLE_AI",
+        ["implement.lower"] = "LOWER_IMPLEMENT",
+        ["implement.fold"] = "IMPLEMENT_EXTRA2",
+        ["implement.turnOn"] = "IMPLEMENT_EXTRA",
+        ["hitch.toggle"] = "ATTACH",
     }
     local names = {}
     for _, input in pairs(expected) do
@@ -913,7 +956,7 @@ test("commands C2: each action runs its input event, as the key does", function(
     eq(calls.DETACH, nil, "Hitch is the attach key (Q), never DETACH")
     -- nothing attached: still the attach key
     vehicle.attached = {}
-    eq(run("HITCH").via, "ATTACH", "nothing attached: ATTACH")
+    eq(run("hitch.toggle").via, "ATTACH", "nothing attached: ATTACH")
     g_inputBinding = nil
 end)
 
@@ -929,64 +972,64 @@ test("commands C2: setters when no key event is active, single cruise steps", fu
         eq(ack.ok, true, action .. " ok (" .. tostring(ack.reason) .. ")")
         eq(ack.via, "setter", action .. " via")
     end
-    setter("TOGGLE_HIGH_BEAM_LIGHT")
+    setter("highBeam.toggle")
     eq(vehicle.spec_lights.lightsTypesMask, 9, "high beam bit set, front lights kept")
-    setter("TOGGLE_BEACON_LIGHTS")
+    setter("beacon.toggle")
     eq(vehicle.spec_lights.beaconLightsActive, true)
-    setter("TOGGLE_TURNLIGHT_LEFT")
+    setter("turnLeft.toggle")
     eq(vehicle.spec_lights.turnLightState, 1)
-    setter("TOGGLE_TURNLIGHT_HAZARD")
+    setter("hazard.toggle")
     eq(vehicle.spec_lights.turnLightState, 3, "left to hazard")
-    setter("TOGGLE_TURNLIGHT_HAZARD")
+    setter("hazard.toggle")
     eq(vehicle.spec_lights.turnLightState, 0, "hazard off")
-    setter("TOGGLE_MOTOR_STATE")
+    setter("engine.toggle")
     eq(vehicle.started, false, "engine stopped")
-    setter("TOGGLE_CRUISE_CONTROL")
+    setter("cruise.toggle")
     eq(vehicle.spec_drivable.cruiseControl.state, 1, "cruise on")
-    setter("CRUISE_SPEED_UP")
+    setter("cruise.up")
     eq(vehicle.spec_drivable.cruiseControl.speed, 13, "one km/h up")
     eq(vehicle.reverseSet, 9, "the reverse speed kept")
-    setter("CRUISE_SPEED_DOWN")
-    setter("CRUISE_SPEED_DOWN")
+    setter("cruise.down")
+    setter("cruise.down")
     eq(vehicle.spec_drivable.cruiseControl.speed, 11, "two down")
     -- in reverse: still the one set speed, the game's reverse value untouched
     vehicle.movingDirection = -1
-    setter("CRUISE_SPEED_UP")
+    setter("cruise.up")
     eq(vehicle.spec_drivable.cruiseControl.speed, 12, "the main speed, also in reverse")
     eq(vehicle.reverseSet, 9, "the reverse value passed through")
     vehicle.movingDirection = 1
     vehicle.spec_drivable.cruiseControl.speed = 40
-    setter("CRUISE_SPEED_UP")
+    setter("cruise.up")
     eq(vehicle.spec_drivable.cruiseControl.speed, 40, "not past the top speed")
-    setter("LOWER_IMPLEMENT")
+    setter("implement.lower")
     eq(implement.lowered, true)
-    setter("FOLD_IMPLEMENT")
+    setter("implement.fold")
     eq(implement.foldedTo, 1, "folds the way the game says")
-    setter("TURN_ON_IMPLEMENT")
+    setter("implement.turnOn")
     eq(implement.on, true)
-    local ack = run("TOGGLE_AI")
+    local ack = run("ai.toggle")
     eq(ack.ok, false, "AI: only through its key")
     eq(ack.reason, "not available now")
     -- Attach only attaches, and only while the game has something in reach
     -- (specs/0003): no key, no detach fallback
-    ack = run("HITCH")
+    ack = run("hitch.toggle")
     eq(ack.ok, false, "nothing to attach in reach")
     eq(ack.reason, "nothing in reach")
     eq(#vehicle.attached, 1, "Attach never detaches")
     vehicle.attached = {}
-    ack = run("FOLD_IMPLEMENT")
+    ack = run("implement.fold")
     eq(ack.reason, "can't fold", "no implement, and the vehicle doesn't fold")
     vehicle.spec_foldable = {}
     vehicle.getToggledFoldDirection = function() return -1 end
     vehicle.setFoldState = function(self, direction) self.foldedTo = direction end
-    setter("FOLD_IMPLEMENT")
+    setter("implement.fold")
     eq(vehicle.foldedTo, -1, "no implement: the vehicle folds itself (a combine)")
     vehicle.spec_foldable, vehicle.getToggledFoldDirection, vehicle.setFoldState = nil, nil, nil
-    eq(run("LOWER_IMPLEMENT").reason, "no implement", "implement actions need one")
+    eq(run("implement.lower").reason, "no implement", "implement actions need one")
     -- the cruise step goes through the axis when there's no setter
     vehicle.setCruiseControlMaxSpeed = nil
     local calls = bindInputs({ "AXIS_CRUISE_CONTROL" }, vehicle)
-    ack = run("CRUISE_SPEED_DOWN")
+    ack = run("cruise.down")
     eq(ack.via, "AXIS_CRUISE_CONTROL")
     eq(calls.AXIS_CRUISE_CONTROL[1], -1, "the axis, down")
     g_inputBinding = nil
@@ -996,9 +1039,9 @@ test("commands C2: setters when no key event is active, single cruise steps", fu
         assert(not seen[line], "logged twice: " .. line)
         seen[line] = true
     end
-    assert(seen["command CRUISE_SPEED_UP via setter"], "the path is logged")
+    assert(seen["command cruise.up via setter"], "the path is logged")
     player.vehicle = nil
-    eq(run("TOGGLE_MOTOR_STATE").reason, "not in a vehicle")
+    eq(run("engine.toggle").reason, "not in a vehicle")
 end)
 
 test("vehicle state C2: motor state, driving direction, both cruise speeds", function()
@@ -1055,7 +1098,7 @@ test("commands C2: an absolute cruise speed, clamped, for the current direction"
     local function set(value)
         n = n + 1
         local f = assert(io.open(string.format("%s%d.xml", dir, n), "w"))
-        f:write(string.format('<command session="S3" id="%d" action="CRUISE_SET_SPEED" ref="r%d"%s/>',
+        f:write(string.format('<command session="S3" id="%d" action="cruise.set" ref="r%d"%s/>',
             n, n, value and (' value="' .. value .. '"') or ""))
         f:close()
         return commands:poll()
@@ -1068,15 +1111,16 @@ test("commands C2: an absolute cruise speed, clamped, for the current direction"
     eq(vehicle.reverseSet, 9, "the reverse one kept")
     set("99")
     eq(cc.speed, 40, "clamped to the top speed")
-    set("0.2")
-    eq(cc.speed, 1, "at least 1")
+    -- below 1 km/h isn't a set speed (specs/0007: the range is 1 to 250)
+    eq(set("0.2").reason, "value not allowed")
+    eq(cc.speed, 40, "unchanged")
     vehicle.movingDirection = -1
     set("12")
     eq(cc.speed, 12, "in reverse: still the main set speed")
     eq(vehicle.reverseSet, 9, "the reverse value passed through")
     ack = set(nil)
     eq(ack.ok, false, "no value")
-    eq(ack.reason, "no speed")
+    eq(ack.reason, "value not allowed")
 end)
 
 -- Controls C3: the rig, the implement keys' tools, selecting and detaching -
@@ -1175,37 +1219,37 @@ test("commands C3: select a tool by id, next and previous, detach a chosen one",
         write(n, "S3", action, nil, value)
         return commands:poll()
     end
-    local ack = run("SELECT_IMPLEMENT", 5)
+    local ack = run("implement.select", 5)
     eq(ack.ok, true, "select the loader")
     eq(ack.via, "setter")
     eq(vehicle.selection, 2)
-    eq(run("SELECT_IMPLEMENT", 6).ok, true, "the bucket on its own")
+    eq(run("implement.select", 6).ok, true, "the bucket on its own")
     eq(vehicle.selection, 3)
-    ack = run("SELECT_IMPLEMENT", 42)
+    ack = run("implement.select", 42)
     eq(ack.ok, false)
     eq(ack.reason, "not selectable")
     -- G's events missing: one step in the game's order, round the end
-    eq(run("SELECT_NEXT_IMPLEMENT").ok, true)
+    eq(run("implement.next").ok, true)
     eq(vehicle.selection, 4)
-    eq(run("SELECT_NEXT_IMPLEMENT").ok, true)
+    eq(run("implement.next").ok, true)
     eq(vehicle.selection, 1, "round the end")
-    eq(run("SELECT_PREVIOUS_IMPLEMENT").ok, true)
+    eq(run("implement.previous").ok, true)
     eq(vehicle.selection, 4)
     -- with G's event: the key runs
     local calls = bindInputs({ "SWITCH_IMPLEMENT", "SWITCH_IMPLEMENT_BACK" }, vehicle)
-    eq(run("SELECT_NEXT_IMPLEMENT").via, "SWITCH_IMPLEMENT")
-    eq(run("SELECT_PREVIOUS_IMPLEMENT").via, "SWITCH_IMPLEMENT_BACK")
+    eq(run("implement.next").via, "SWITCH_IMPLEMENT")
+    eq(run("implement.previous").via, "SWITCH_IMPLEMENT_BACK")
     eq(#calls.SWITCH_IMPLEMENT, 1)
     g_inputBinding = nil
     -- detach the bucket from the loader, whatever is selected
     bucket.isDetachAllowed = function() return false, "lower it first" end
-    ack = run("DETACH_IMPLEMENT", 6)
+    ack = run("implement.detach", 6)
     eq(ack.ok, false)
     eq(ack.reason, "lower it first", "the game's reason (specs/0003)")
     bucket.isDetachAllowed = function() return true end
-    eq(run("DETACH_IMPLEMENT", 6).ok, true, "detached")
+    eq(run("implement.detach", 6).ok, true, "detached")
     eq(#loader.attached, 0)
-    eq(run("DETACH_IMPLEMENT", 6).reason, "not attached")
+    eq(run("implement.detach", 6).reason, "not attached")
 end)
 
 -- Implement screen: pipe, discharge, cover, speed limit, width, crop --------
@@ -1700,31 +1744,31 @@ test("commands, implement screen: lower all, pipe, unload, cover as their keys, 
     end
     -- no key events: the setters
     g_inputBinding = nil
-    local ack = run("LOWER_ALL_IMPLEMENTS")
+    local ack = run("implement.lowerAll")
     eq(ack.ok, true)
     eq(ack.via, "setter")
     eq(combine.combo, 1, "the attacher joint combo, as Ctrl+V")
-    eq(run("TOGGLE_PIPE").ok, true)
+    eq(run("implement.pipe").ok, true)
     eq(combine.spec_pipe.targetState, 2, "pipe out")
     combine.spec_pipe.currentState = 2
-    eq(run("TOGGLE_PIPE").ok, true)
+    eq(run("implement.pipe").ok, true)
     eq(combine.spec_pipe.targetState, 1, "pipe in, round the end")
-    eq(run("TOGGLE_COVER").ok, true)
+    eq(run("implement.cover").ok, true)
     eq(trailer.spec_cover.state, 1)
     trailer.spec_cover.state = 2
-    eq(run("TOGGLE_COVER").ok, true)
+    eq(run("implement.cover").ok, true)
     eq(trailer.spec_cover.state, 0, "closed after the last cover")
-    ack = run("TOGGLE_DISCHARGE")
+    ack = run("implement.unload")
     eq(ack.ok, false, "unloading needs the key")
     -- with the keys: I first, Ctrl+I when only that one is live
     local calls = bindInputs({ "TOGGLE_TIPSTATE_GROUND", "TOGGLE_PIPE", "TOGGLE_COVER", "LOWER_ALL_IMPLEMENTS" }, trailer)
-    eq(run("TOGGLE_DISCHARGE").via, "TOGGLE_TIPSTATE_GROUND")
-    eq(run("TOGGLE_PIPE").via, "TOGGLE_PIPE")
-    eq(run("TOGGLE_COVER").via, "TOGGLE_COVER")
+    eq(run("implement.unload").via, "TOGGLE_TIPSTATE_GROUND")
+    eq(run("implement.pipe").via, "TOGGLE_PIPE")
+    eq(run("implement.cover").via, "TOGGLE_COVER")
     -- revision 2: the game's Lower all key again, once (here it moves
     -- nothing, so the answer says so)
     Companion.Commands.CHECK_MAX_FRAMES = 5
-    ack = run("LOWER_ALL_IMPLEMENTS")
+    ack = run("implement.lowerAll")
     Companion.Commands.CHECK_MAX_FRAMES = 240
     eq(ack.via, "LOWER_ALL_IMPLEMENTS")
     eq(#(calls.LOWER_ALL_IMPLEMENTS or {}), 1, "the game's Lower all key, once")
@@ -2179,31 +2223,31 @@ test("commands, aimed: a tool's id selects it, presses its key, puts the selecti
     end
     local run, root, byId, pressed = spikeCommands("mowers")
     eq(root:getSelectedVehicle().id, 996, "the rear mower is selected")
-    local ack, frames = run("TURN_ON_IMPLEMENT", 994)
+    local ack, frames = run("implement.turnOn", 994)
     eq(ack.ok, true, "turn on the front mower")
     eq(ack.via, "IMPLEMENT_EXTRA")
     eq(pressed(), "994:IMPLEMENT_EXTRA", "its key, on it alone")
     eq(frames, 2, "selected, then its key a frame later")
     eq(root:getSelectedVehicle().id, 996, "the selection put back")
     -- the selected one's key is live: pressed at once
-    ack, frames = run("FOLD_IMPLEMENT", 996)
+    ack, frames = run("implement.fold", 996)
     eq(ack.ok, true)
     eq(frames, 1, "no selecting")
     eq(pressed(), "996:IMPLEMENT_EXTRA2")
     -- the game refuses: its words, nothing pressed, nothing selected
-    ack = run("FOLD_IMPLEMENT", 994)
+    ack = run("implement.fold", 994)
     eq(ack.ok, false)
     eq(ack.reason, "Folding is not allowed while the tool is lowered.")
     eq(pressed(), "")
-    ack = run("DETACH_IMPLEMENT", 996)
+    ack = run("implement.detach", 996)
     eq(ack.reason, "You first need to fold up the tool (mower)!")
     -- what it can't do at all, and an id not in the rig
-    eq(run("ROTATE_PLOW", 994).reason, "can't rotate")
-    eq(run("LOWER_IMPLEMENT", 4242).reason, "not attached")
+    eq(run("implement.rotate", 994).reason, "can't rotate")
+    eq(run("implement.lower", 4242).reason, "not attached")
     -- lower: the tractor's key acts on the selected mower (attacher joints)
     table.insert(root.dump.keys.attacherJoints, { action = "LOWER_IMPLEMENT", active = true, text = "Lower mower" })
     SpikeRigs.registerKeys(root)
-    ack, frames = run("LOWER_IMPLEMENT", 994)
+    ack, frames = run("implement.lower", 994)
     eq(ack.via, "LOWER_IMPLEMENT", "the tractor's key, not the setter")
     eq(frames, 2)
     eq(pressed(), "992:LOWER_IMPLEMENT")
@@ -2217,7 +2261,7 @@ test("commands, aimed: a tool's id selects it, presses its key, puts the selecti
     SpikeRigs.frame = function() end
     -- the first Turn on's key turned it on (the mocks' keys act)
     byId[994].on = false
-    ack, frames = run("TURN_ON_IMPLEMENT", 994)
+    ack, frames = run("implement.turnOn", 994)
     SpikeRigs.frame = frame
     Companion.Commands.KEY_WAIT_FRAMES = 30
     eq(ack.ok, true, "setter")
@@ -2227,24 +2271,24 @@ test("commands, aimed: a tool's id selects it, presses its key, puts the selecti
     eq(pressed(), "")
     eq(root:getSelectedVehicle().id, 996, "put back")
     -- without an id: as before, the key the game has live
-    ack = run("FOLD_IMPLEMENT")
+    ack = run("implement.fold")
     eq(ack.via, "IMPLEMENT_EXTRA2")
     eq(pressed(), "996:IMPLEMENT_EXTRA2")
     -- the selected tool's other keys, by number: Rotate plow, then Allow
     -- create fields (rotate has no button yet: spec 0003's close)
     run, root, byId, pressed = spikeCommands("plow")
-    ack = run("PRESS_TOOL_KEY", 1)
+    ack = run("implement.key", 1)
     eq(ack.via, "IMPLEMENT_EXTRA", "Rotate plow")
     eq(pressed(), "1037:IMPLEMENT_EXTRA")
-    ack = run("PRESS_TOOL_KEY", 2)
+    ack = run("implement.key", 2)
     eq(ack.via, "IMPLEMENT_EXTRA3", "Allow create fields")
     eq(pressed(), "1037:IMPLEMENT_EXTRA3")
-    eq(run("PRESS_TOOL_KEY", 3).reason, "no such key")
-    ack = run("ROTATE_PLOW")
+    eq(run("implement.key", 3).reason, "no such key")
+    ack = run("implement.rotate")
     eq(ack.via, "IMPLEMENT_EXTRA", "rotate: the selected plow")
     eq(pressed(), "1037:IMPLEMENT_EXTRA")
     run, root, byId, pressed = spikeCommands("trailers")
-    ack = run("TOGGLE_TIPSIDE", 1003)
+    ack = run("implement.tipSide", 1003)
     eq(ack.via, "TOGGLE_TIPSIDE")
     eq(pressed(), "1003:TOGGLE_TIPSIDE")
     eq(root:getSelectedVehicle().id, 1004)
@@ -2301,7 +2345,7 @@ test("commands, all: fold all raises what's lowered first, then the game's key; 
     -- Now the front one is raised first, by its Lower, and the key waits
     -- until the game lets it fold
     eq(byId[994].lowered, true, "the front mower is lowered (the dump)")
-    local ack = run("FOLD_ALL_IMPLEMENTS")
+    local ack = run("implement.foldAll")
     eq(ack.ok, true)
     eq(ack.via, "FOLD_ALL_IMPLEMENTS", "the game's key")
     eq(pressed(), "992:LOWER_IMPLEMENT,994:FOLD_ALL_IMPLEMENTS", "raised, then fold all")
@@ -2309,7 +2353,7 @@ test("commands, all: fold all raises what's lowered first, then the game's key; 
     eq(unfolded(), "falsefalse", "both folded")
     eq(root:getSelectedVehicle().id, 996, "the selection put back")
     -- both folded: nothing to raise, the key at once
-    ack = run("FOLD_ALL_IMPLEMENTS")
+    ack = run("implement.foldAll")
     eq(pressed(), "996:FOLD_ALL_IMPLEMENTS")
     eq(unfolded(), "truetrue", "both unfolded")
     -- revision 2: Lower all is the game's key again (spikes 0.0.5 and
@@ -2318,17 +2362,17 @@ test("commands, all: fold all raises what's lowered first, then the game's key; 
     local onKey = root.onKey
     root.onKey = nil
     byId[994].lowered, byId[996].lowered = false, false
-    ack = run("LOWER_ALL_IMPLEMENTS")
+    ack = run("implement.lowerAll")
     eq(ack.ok, true)
     eq(ack.via, "LOWER_ALL_IMPLEMENTS", "the game's key")
     eq(pressed(), "992:LOWER_ALL_IMPLEMENTS")
     eq(tostring(byId[994].lowered) .. tostring(byId[996].lowered), "truetrue", "both lowered")
     eq(root:getSelectedVehicle().id, 996, "the selection unchanged")
     byId[994].lowered = false
-    run("LOWER_ALL_IMPLEMENTS")
+    run("implement.lowerAll")
     eq(pressed(), "992:LOWER_ALL_IMPLEMENTS", "one raised: the key once")
     eq(tostring(byId[994].lowered) .. tostring(byId[996].lowered), "truetrue")
-    run("LOWER_ALL_IMPLEMENTS")
+    run("implement.lowerAll")
     eq(tostring(byId[994].lowered) .. tostring(byId[996].lowered), "falsefalse", "all lowered: all raised")
     root.onKey = onKey
     pressed()
@@ -2338,7 +2382,7 @@ test("commands, all: fold all raises what's lowered first, then the game's key; 
     byId[994].lowered = true
     -- the tractor's Lower key does nothing now
     root.onKey = function() end
-    ack = run("FOLD_ALL_IMPLEMENTS")
+    ack = run("implement.foldAll")
     Companion.Commands.SETTLE_FRAMES = 120
     Companion.Commands.CHECK_MAX_FRAMES = 240
     root.onKey = nil
@@ -2355,53 +2399,53 @@ test("commands, all: fold all raises what's lowered first, then the game's key; 
     -- is unfolded (revision 2, spike 0.0.5), else unfolding them all
     SpikeRigs.unregister(byId[996])
     Companion.Commands.KEY_WAIT_FRAMES = 3
-    ack = run("FOLD_ALL_IMPLEMENTS")
+    ack = run("implement.foldAll")
     Companion.Commands.KEY_WAIT_FRAMES = 30
     eq(ack.via, "setter")
     eq(ack.ok, true)
     eq(unfolded(), "falsefalse", "the front one unfolded: both folded")
     Companion.Commands.KEY_WAIT_FRAMES = 3
-    run("FOLD_ALL_IMPLEMENTS")
+    run("implement.foldAll")
     eq(unfolded(), "truetrue", "all folded: both unfolded")
-    run("FOLD_ALL_IMPLEMENTS")
+    run("implement.foldAll")
     Companion.Commands.KEY_WAIT_FRAMES = 30
     eq(unfolded(), "falsefalse", "both folded")
     byId[994].onKey, byId[996].onKey = nil, nil
     pressed()
     -- folded, neither may turn on: the setter leaves them
-    eq(run("TURN_ON_ALL_IMPLEMENTS").ok, false, "folded: nothing turns on")
+    eq(run("implement.turnOnAll").ok, false, "folded: nothing turns on")
     eq(tostring(byId[994].on) .. tostring(byId[996].on), "falsefalse")
     Companion.Commands.KEY_WAIT_FRAMES = 3
-    run("FOLD_ALL_IMPLEMENTS")
+    run("implement.foldAll")
     Companion.Commands.KEY_WAIT_FRAMES = 30
     byId[996].on = true
-    eq(run("TURN_ON_ALL_IMPLEMENTS").via, "setter")
+    eq(run("implement.turnOnAll").via, "setter")
     eq(tostring(byId[994].on) .. tostring(byId[996].on), "truetrue", "the one that was off turned on")
-    run("TURN_ON_ALL_IMPLEMENTS")
+    run("implement.turnOnAll")
     eq(tostring(byId[994].on) .. tostring(byId[996].on), "falsefalse", "all on: all off")
-    eq(run("COVER_ALL", 1).ok, true, "nothing has a cover: nothing to do")
+    eq(run("implement.coverAll", 1).ok, true, "nothing has a cover: nothing to do")
     eq(pressed(), "")
     -- the engine off: the game's warning, nothing pressed (live, 0.8.8)
     root.engineOff = true
-    ack = run("FOLD_ALL_IMPLEMENTS")
+    ack = run("implement.foldAll")
     eq(ack.ok, false)
     eq(ack.reason, "Please start the engine first")
-    eq(run("FOLD_IMPLEMENT", 994).reason, "Please start the engine first")
-    eq(run("LOWER_IMPLEMENT", 994).reason, "Please start the engine first", "live (0.8.9): lowering too")
-    eq(run("LOWER_ALL_IMPLEMENTS").reason, "Please start the engine first")
+    eq(run("implement.fold", 994).reason, "Please start the engine first")
+    eq(run("implement.lower", 994).reason, "Please start the engine first", "live (0.8.9): lowering too")
+    eq(run("implement.lowerAll").reason, "Please start the engine first")
     eq(pressed(), "")
     root.engineOff = nil
 
     run, root, byId, pressed = spikeCommands("trailers")
-    ack = run("TIP_ALL", 1)
+    ack = run("implement.tipAll", 1)
     eq(ack.ok, true)
     eq(pressed(), "1004:TOGGLE_TIPSTATE,1003:TOGGLE_TIPSTATE", "the last trailer first, as they're driven")
     eq(root:getSelectedVehicle().id, 1004, "the selection put back")
     byId[1003].spec_dischargeable.currentDischargeState = 0
-    run("TIP_ALL", 1)
+    run("implement.tipAll", 1)
     eq(pressed(), "1003:TOGGLE_TIPSTATE", "the one already tipping is skipped")
     byId[1003].spec_dischargeable.currentDischargeState = 0
-    run("TIP_ALL", 0)
+    run("implement.tipAll", 0)
     eq(pressed(), "1004:TOGGLE_TIPSTATE", "stop: only the one tipping")
     g_inputBinding = nil
     localToLocal = nil
@@ -2418,7 +2462,7 @@ test("commands, checked: ok once the tools moved, else which didn't and why", fu
     local run, root, byId, pressed = spikeCommands("mowers")
     local front, rear = byId[994], byId[996]
     -- the rear XT 390 is selected; its turn on key acts: ok, checked, at once
-    local ack, frames = run("TURN_ON_IMPLEMENT", 996)
+    local ack, frames = run("implement.turnOn", 996)
     eq(ack.ok, true)
     eq(ack.checked, true)
     eq(#ack.unmoved, 0)
@@ -2426,7 +2470,7 @@ test("commands, checked: ok once the tools moved, else which didn't and why", fu
     eq(rear.on, true)
     -- a key that does nothing: "Nothing moved", after the check's wait
     rear.stuck = true
-    ack, frames = run("TURN_ON_IMPLEMENT", 996)
+    ack, frames = run("implement.turnOn", 996)
     rear.stuck = nil
     eq(ack.ok, false)
     eq(ack.reason, "Nothing moved")
@@ -2434,11 +2478,11 @@ test("commands, checked: ok once the tools moved, else which didn't and why", fu
     eq(ack.unmoved[1].name, "Samasz XT 390")
     eq(frames > C.CHECK_MAX_FRAMES, true, "waited for it: " .. frames)
     eq(rear.on, true, "still on")
-    run("TURN_ON_IMPLEMENT", 996)
+    run("implement.turnOn", 996)
     -- fold and unfold: ok once getIsUnfolded follows
-    eq(run("FOLD_IMPLEMENT", 996).ok, true)
+    eq(run("implement.fold", 996).ok, true)
     eq(rear:getIsUnfolded(), false)
-    eq(run("FOLD_IMPLEMENT", 996).ok, true)
+    eq(run("implement.fold", 996).ok, true)
     -- raising a tool that lowers through its fold: getIsLowered stays true
     -- while it rises (spike 0.0.6), its fold moving up counts
     table.insert(root.dump.keys.attacherJoints, { action = "LOWER_IMPLEMENT", active = true, text = "Lower mower" })
@@ -2449,7 +2493,7 @@ test("commands, checked: ok once the tools moved, else which didn't and why", fu
         end
     end
     eq(rear.lowered, true)
-    ack = run("LOWER_IMPLEMENT", 996)
+    ack = run("implement.lower", 996)
     eq(ack.ok, true, "rising: " .. tostring(ack.reason))
     eq(rear.lowered, true, "still reads lowered")
     rear.spec_foldable.foldMoveDirection = 0
@@ -2458,16 +2502,16 @@ test("commands, checked: ok once the tools moved, else which didn't and why", fu
     -- Fold all: the front one is lowered on its joint, raised first, then
     -- the game's key folds both
     eq(front.lowered, true)
-    ack = run("FOLD_ALL_IMPLEMENTS")
+    ack = run("implement.foldAll")
     eq(ack.ok, true, "fold all: " .. tostring(ack.reason))
     eq(ack.checked, true)
     eq(pressed(), "992:LOWER_IMPLEMENT,994:FOLD_ALL_IMPLEMENTS")
     eq(front:getIsUnfolded() or rear:getIsUnfolded(), false, "both folded")
-    eq(run("FOLD_ALL_IMPLEMENTS").ok, true, "all folded: unfold all")
+    eq(run("implement.foldAll").ok, true, "all folded: unfold all")
     eq(front:getIsUnfolded() and rear:getIsUnfolded(), true)
     -- one that doesn't move: not ok, named
     front.stuck = true
-    ack = run("FOLD_ALL_IMPLEMENTS")
+    ack = run("implement.foldAll")
     front.stuck = nil
     eq(ack.ok, false)
     eq(ack.reason, "Samasz KDF 341 S: Nothing moved")
@@ -2476,39 +2520,39 @@ test("commands, checked: ok once the tools moved, else which didn't and why", fu
     eq(rear:getIsUnfolded(), false, "the rear one folded")
     -- mixed (the front unfolded, the rear folded): Fold all folds, as the
     -- game's key did in spike 0.0.5
-    ack = run("FOLD_ALL_IMPLEMENTS")
+    ack = run("implement.foldAll")
     eq(ack.ok, true)
     eq(front:getIsUnfolded(), false, "folded the front one")
-    run("FOLD_ALL_IMPLEMENTS")
+    run("implement.foldAll")
     -- Turn on all: the game's key, checked; one that doesn't move is named
     pressed()
-    ack = run("TURN_ON_ALL_IMPLEMENTS")
+    ack = run("implement.turnOnAll")
     eq(ack.ok, true, "turn on all: " .. tostring(ack.reason))
     eq(ack.checked, true)
     eq(pressed(), "996:TURN_ON_ALL_IMPLEMENTS")
     eq(tostring(front.on) .. tostring(rear.on), "truetrue")
     front.stuck = true
-    ack = run("TURN_ON_ALL_IMPLEMENTS")
+    ack = run("implement.turnOnAll")
     front.stuck = nil
     eq(ack.reason, "Samasz KDF 341 S: Nothing moved")
     eq(tostring(front.on) .. tostring(rear.on), "truefalse")
-    run("TURN_ON_ALL_IMPLEMENTS")
-    run("TURN_ON_ALL_IMPLEMENTS")
+    run("implement.turnOnAll")
+    run("implement.turnOnAll")
     -- Lower all: the game's key once, not each tool's Lower
     front.lowered, rear.lowered = false, true
     pressed()
-    ack = run("LOWER_ALL_IMPLEMENTS")
+    ack = run("implement.lowerAll")
     eq(ack.ok, true, "lower all: " .. tostring(ack.reason))
     eq(ack.checked, true)
     eq(ack.via, "LOWER_ALL_IMPLEMENTS")
     eq(pressed(), "992:LOWER_ALL_IMPLEMENTS", "once, the tractor's")
     eq(tostring(front.lowered) .. tostring(rear.lowered), "truetrue")
-    eq(run("LOWER_ALL_IMPLEMENTS").ok, true, "all lowered: raise all")
+    eq(run("implement.lowerAll").ok, true, "all lowered: raise all")
     eq(tostring(front.lowered) .. tostring(rear.lowered), "falsefalse")
     -- it moves nothing: it fails and says so; no second press, no fallback
     front.stuck, rear.stuck = true, true
     pressed()
-    ack = run("LOWER_ALL_IMPLEMENTS")
+    ack = run("implement.lowerAll")
     front.stuck, rear.stuck = nil, nil
     eq(ack.ok, false)
     eq(ack.reason, "Samasz XT 390: Nothing moved; Samasz KDF 341 S: Nothing moved", "in driving order")
@@ -2520,7 +2564,7 @@ test("commands, checked: ok once the tools moved, else which didn't and why", fu
         end
     end
     SpikeRigs.registerKeys(root)
-    ack = run("LOWER_ALL_IMPLEMENTS")
+    ack = run("implement.lowerAll")
     eq(ack.ok, true, "each tool's Lower: " .. tostring(ack.reason))
     eq(ack.via, "LOWER_IMPLEMENT")
     eq(tostring(front.lowered) .. tostring(rear.lowered), "truetrue")
@@ -2554,14 +2598,14 @@ test("commands, checked: ok once the tools moved, else which didn't and why", fu
         frame(r)
     end
     front.lowered, rear.lowered = false, false
-    ack, frames = run("LOWER_ALL_IMPLEMENTS")
+    ack, frames = run("implement.lowerAll")
     eq(ack.ok, true, "the rear one 2 s later: " .. tostring(ack.reason))
     eq(frames > 2000 / 16, true, "waited for the combo: " .. frames)
     eq(tostring(front.lowered) .. tostring(rear.lowered), "truetrue")
     -- the rear one never moves: not ok, once the combo ended and 1 s more
     rear.stuck = true
     local t0 = g_time
-    ack = run("LOWER_ALL_IMPLEMENTS")
+    ack = run("implement.lowerAll")
     rear.stuck = nil
     eq(ack.reason, "Samasz XT 390: Nothing moved")
     eq(g_time - t0 >= 3000, true, "the combo's 2 s, then 1 s: " .. (g_time - t0))
@@ -2571,7 +2615,7 @@ test("commands, checked: ok once the tools moved, else which didn't and why", fu
     g_time = nil
     -- an unchecked action answers as before
     run, root, byId, pressed = spikeCommands("trailers")
-    ack = run("TOGGLE_TIPSIDE", 1003)
+    ack = run("implement.tipSide", 1003)
     eq(ack.ok, true)
     eq(ack.checked, nil)
     C.CHECK_MAX_FRAMES = 240
@@ -2601,27 +2645,27 @@ test("commands, tip: the key the game shows, ok once it tips, else which didn't"
     showTip(rear, "TOGGLE_TIPSTATE_GROUND")
     SpikeRigs.registerKeys(root)
     pressed()
-    local ack = run("TOGGLE_DISCHARGE", 1004)
+    local ack = run("implement.unload", 1004)
     eq(ack.ok, true, "unload here: " .. tostring(ack.reason))
     eq(ack.checked, true)
     eq(ack.via, "TOGGLE_TIPSTATE_GROUND")
     eq(pressed(), "1004:TOGGLE_TIPSTATE_GROUND", "not the hidden I")
     eq(rear:getDischargeState() ~= 0, true, "tipping")
-    eq(run("TOGGLE_DISCHARGE", 1004).ok, true, "stop")
+    eq(run("implement.unload", 1004).ok, true, "stop")
     eq(rear:getDischargeState(), 0)
     -- over a sale point that takes the load: I
     showTip(rear, "TOGGLE_TIPSTATE")
     SpikeRigs.registerKeys(root)
     pressed()
-    ack = run("TOGGLE_DISCHARGE", 1004)
+    ack = run("implement.unload", 1004)
     eq(ack.ok, true)
     eq(pressed(), "1004:TOGGLE_TIPSTATE")
-    run("TOGGLE_DISCHARGE", 1004)
+    run("implement.unload", 1004)
     -- the game refuses (land not ours, live 2026-10-31): nothing tips
     showTip(rear, "TOGGLE_TIPSTATE_GROUND")
     SpikeRigs.registerKeys(root)
     rear.stuck = true
-    ack = run("TOGGLE_DISCHARGE", 1004)
+    ack = run("implement.unload", 1004)
     rear.stuck = nil
     eq(ack.ok, false)
     eq(ack.reason, "Nothing moved")
@@ -2633,27 +2677,27 @@ test("commands, tip: the key the game shows, ok once it tips, else which didn't"
     rear.dischargeTo = nil
     SpikeRigs.registerKeys(root)
     pressed()
-    eq(run("TOGGLE_DISCHARGE", 1004).via, "TOGGLE_TIPSTATE")
-    run("TOGGLE_DISCHARGE", 1004)
+    eq(run("implement.unload", 1004).via, "TOGGLE_TIPSTATE")
+    run("implement.unload", 1004)
     -- Tip all: each trailer by its shown key, checked; one that doesn't tip is named
     showTip(front, "TOGGLE_TIPSTATE_GROUND")
     showTip(rear, "TOGGLE_TIPSTATE_GROUND")
     SpikeRigs.registerKeys(root)
     pressed()
-    ack = run("TIP_ALL", 1)
+    ack = run("implement.tipAll", 1)
     eq(ack.ok, true, "tip all: " .. tostring(ack.reason))
     eq(ack.checked, true)
     eq(pressed(), "1004:TOGGLE_TIPSTATE_GROUND,1003:TOGGLE_TIPSTATE_GROUND")
     eq(front:getDischargeState() ~= 0 and rear:getDischargeState() ~= 0, true, "both tipping")
-    eq(run("TIP_ALL", 0).ok, true, "stop all")
+    eq(run("implement.tipAll", 0).ok, true, "stop all")
     front.stuck = true
-    ack = run("TIP_ALL", 1)
+    ack = run("implement.tipAll", 1)
     front.stuck = nil
     eq(ack.ok, false)
     eq(ack.reason, "Farmtech EDK 650: Nothing moved")
     eq(#ack.unmoved, 1)
     eq(ack.unmoved[1].id, 1003)
-    run("TIP_ALL", 0)
+    run("implement.tipAll", 0)
     C.CHECK_MAX_FRAMES = 240
     g_inputBinding = nil
     localToLocal = nil
@@ -2724,11 +2768,11 @@ test("whole mod streams every topic", function()
     -- a dashboard command: its ack, then the new cab, in the same frame
     local session = readFile(TMP_DIR .. "/FS25_Companion/stream.ndjson"):match('"sessionId":"([^"]+)"')
     local before = #lines(readFile(TMP_DIR .. "/FS25_Companion/stream.ndjson"))
-    writeCommand(1, session, "TOGGLE_LIGHTS", "b7")
+    writeCommand(1, session, "lights.toggle", "b7")
     mod:update(16)
     local frame = lines(readFile(TMP_DIR .. "/FS25_Companion/stream.ndjson"))
     assert(frame[before + 1]:find('"topic":"command_ack"', 1, true), "ack first: " .. tostring(frame[before + 1]))
-    assert(frame[before + 1]:find('"data":{"action":"TOGGLE_LIGHTS","id":1,"ok":true,"ref":"b7","via":"setter"}', 1, true),
+    assert(frame[before + 1]:find('"data":{"action":"lights.toggle","id":1,"ok":true,"ref":"b7","via":"setter"}', 1, true),
         frame[before + 1])
     assert(frame[before + 2]:find('"topic":"cab"', 1, true), "then the cab: " .. tostring(frame[before + 2]))
     assert(frame[before + 2]:find('"on":true', 1, true), "lights on in the cab")
@@ -2745,7 +2789,9 @@ test("whole mod streams every topic", function()
     assert(ls[1]:find('"mapId":"FS25_Test.TestMap"', 1, true), ls[1])
     assert(ls[1]:find('"mapExtensionScaleFactor":0.5', 1, true), ls[1])
     assert(ls[1]:find('"gameDir":"C:/Games/FS25/"', 1, true), ls[1])
-    assert(ls[1]:find('"commands":{"dir":"' .. TMP_DIR .. '/FS25_Companion/cmd/","next":1}', 1, true), ls[1])
+    -- actions 2: the command file names the dashboard's action (specs/0007)
+    assert(ls[1]:find('"commands":{"actions":2,"dir":"' .. TMP_DIR .. '/FS25_Companion/cmd/","next":1}', 1, true),
+        ls[1])
     local text = table.concat(ls, "\n")
     -- on foot: heading from the facing direction (east)
     assert(text:find('"heading":90,"inVehicle":false', 1, true), "on-foot player pose")
@@ -2854,7 +2900,7 @@ test("acks survive a rotation", function()
     end
 
     -- the command runs in the frame that crosses maxBytes
-    writeCommand(1, session, "TOGGLE_LIGHTS", "b7")
+    writeCommand(1, session, "lights.toggle", "b7")
     rotateNextFrame()
     mod:update(16)
     transport.maxBytes = Companion.Transport.DEFAULT_MAX_BYTES
@@ -2863,7 +2909,7 @@ test("acks survive a rotation", function()
     assert(ls[1]:find('"topic":"hello"', 1, true), "hello first: " .. tostring(ls[1]))
     assert(ls[1]:find('"next":2', 1, true), "the mod read 1: " .. ls[1])
     -- then the resend topics (the cab among them), then the ack again
-    assert(ls[#ls]:find('"data":{"action":"TOGGLE_LIGHTS","id":1,"ok":true,"ref":"b7","via":"setter"}', 1, true),
+    assert(ls[#ls]:find('"data":{"action":"lights.toggle","id":1,"ok":true,"ref":"b7","via":"setter"}', 1, true),
         "the ack last: " .. tostring(ls[#ls]))
     eq(acksIn(ls), "1")
     assert(table.concat(ls, "\n"):find('"topic":"cab"', 1, true), "the cab resent")
@@ -2873,7 +2919,7 @@ test("acks survive a rotation", function()
 
     -- at most 16, the newest
     for id = 2, 18 do
-        writeCommand(id, session, "TOGGLE_LIGHTS", "r" .. id)
+        writeCommand(id, session, "lights.toggle", "r" .. id)
         mod:update(16)
     end
     rotateNextFrame()
@@ -2882,7 +2928,7 @@ test("acks survive a rotation", function()
 
     -- older than 5 s of game time: not again
     g_time = g_time + 5001
-    writeCommand(19, session, "TOGGLE_LIGHTS", "r19")
+    writeCommand(19, session, "lights.toggle", "r19")
     rotateNextFrame()
     mod:update(16)
     eq(transport.rotations, 3)

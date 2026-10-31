@@ -49,6 +49,11 @@ TIMEOUT_S = 10
 REMOVED_ON_PURPOSE = {}
 
 
+# the fake mod's actions and the key each runs (mod/src/Commands.lua)
+FAKE_MOD = {"lights.toggle": "TOGGLE_LIGHTS", "implement.lower": "LOWER_IMPLEMENT",
+            "engine.toggle": "TOGGLE_MOTOR_STATE", "cruise.set": "CRUISE_SET_SPEED"}
+
+
 class Finished(Exception):
     """The driver is done: ends companion.main.run()."""
 
@@ -161,10 +166,16 @@ class Driver:
         raise AssertionError(f"command file {cid}.xml never came")
 
     def ack(self, attrib, ok=True, **extra):
-        """The command_ack the mod sends for a command file."""
+        """The command_ack the mod sends for a command file: it knows its
+        actions and their values (specs/0007), and names the key it ran."""
         data = {"id": int(attrib["id"]), "ref": attrib["ref"], "action": attrib["action"], "ok": ok}
-        if ok:
-            data["via"] = attrib["action"]
+        value = float(attrib["value"]) if "value" in attrib else None
+        if attrib["action"] not in FAKE_MOD:
+            data.update(ok=False, reason="action not allowed")
+        elif attrib["action"] == "cruise.set" and not 1 <= value <= 250:
+            data.update(ok=False, reason="value not allowed")
+        elif ok:
+            data["via"] = FAKE_MOD[attrib["action"]]
         data.update(extra)
         return {"v": 1, "seq": 900000 + int(attrib["id"]), "t": 0, "topic": "command_ack", "data": data}
 
@@ -206,37 +217,37 @@ class Driver:
         await self.expect("B", self.of_type("snapshot"), self.of_type("map_assets"),
                           self.of_type("client_status"))
 
-        self.step("A: an action the backend doesn't know")
+        self.step("A: an action the mod doesn't know")
         await self.send("A", {"id": "c1", "action": "nope.toggle"})
-        await self.expect("A", self.of_type("command_ack", id="c1"))
+        await self.feed_ack(await self.command_file(1), "c1")
 
         self.step("A: a value out of range")
         await self.send("A", {"id": "c2", "action": "cruise.set", "value": 999})
-        await self.expect("A", self.of_type("command_ack", id="c2"))
+        await self.feed_ack(await self.command_file(2), "c2")
 
         self.step("A: lights.toggle, the mod runs it")
         await self.send("A", {"id": "c3", "action": "lights.toggle"})
-        await self.feed_ack(await self.command_file(1), "c3")
+        await self.feed_ack(await self.command_file(3), "c3")
 
         self.step("A: implement.lower 7, the mod checks the tools and one didn't move")
         await self.send("A", {"id": "c4", "action": "implement.lower", "value": 7})
-        await self.feed_ack(await self.command_file(2), "c4", checked=True,
+        await self.feed_ack(await self.command_file(4), "c4", checked=True,
                             unmoved=[{"id": 7, "name": "Plough", "why": "did not lower"}])
 
         self.step("A: engine.toggle, the mod refuses")
         await self.send("A", {"id": "c5", "action": "engine.toggle"})
-        await self.feed_ack(await self.command_file(3), "c5", ok=False, reason="not in a vehicle")
+        await self.feed_ack(await self.command_file(5), "c5", ok=False, reason="not in a vehicle")
 
         self.step("A: cruise.set 20, 21, 22 while the first is in the game")
         await self.send("A", {"id": "c6", "action": "cruise.set", "value": 20})
-        first = await self.command_file(4)
+        first = await self.command_file(6)
         await self.send("A", {"id": "c7", "action": "cruise.set", "value": 21})
         await self.send("A", {"id": "c8", "action": "cruise.set", "value": 22})
         await self.expect("A", self.of_type("command_ack", id="c7"))
         self.step("the mod answers 20; 22 goes in")
         await self.feed_ack(first, "c6")
-        last = await self.command_file(5)
-        self.out.append({"step": "command file 5", "value": last.get("value")})
+        last = await self.command_file(7)
+        self.out.append({"step": "command file 7", "value": last.get("value")})
         await self.feed_ack(last, "c8")
 
         self.step("the mod sends the last ack again (after a rotation): nobody gets it")

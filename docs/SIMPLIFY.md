@@ -175,6 +175,10 @@ Live check: every button on the Vehicle, Harvester and Loader pages once.
 
 Target: `protocol.py` (about 500 lines) to under 80.
 
+Built (2026-10-31, spec 0007, mod 0.9.0): `protocol.py` is 76 lines,
+`companion/` 1,376. The gate is `hello.commands.actions = 2` rather than a
+`modVersion` compare. Live-checked (2026-10-31).
+
 ### S3: Commands say the state they want (spec 0008)
 
 The dashboard sends the state it wants instead of "toggle":

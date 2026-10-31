@@ -18,7 +18,7 @@ What changes between the layers. Topics may gain fields freely (Protocol
 v1); say so if `v` must change.
 
 - **Mod → companion** (topic, field, type, unit, when it's absent):
-- **Companion** (`companion/protocol.py`): new models or fields, if any.
+- **Web** (`web/src/types.js`, the one description of each topic): new fields.
 - **Web** (selectors, widgets): what reads it.
 
 Game API names used, each one **verified** (with its place in
@@ -31,7 +31,7 @@ Game API names used, each one **verified** (with its place in
 
 ## Commands
 
-Web → game actions (`companion/commands.py`, `mod/src/Commands.lua`): the
+Web → game actions (`mod/src/Commands.lua`, keyed by the dashboard's name): the
 action name, the game input it presses, its fallback, and what the
 dashboard shows the same frame.
 

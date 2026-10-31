@@ -45,3 +45,4 @@ behaviour, in Behaviour too: the spec always says what the code does now.
 | [0004](0004-acks-survive-rotation.md) | Command answers survive a stream rotation (review F1) | live-checked | 0.8.13 |
 | [0005](0005-tailer-sees-every-new-file.md) | The client notices every new stream file (review F2) | live-checked | no change |
 | [0006](0006-one-local-process.md) | One local process (SIMPLIFY S1) | live-checked | no change |
+| [0007](0007-protocol-in-one-place.md) | The protocol in one place (SIMPLIFY S2) | live-checked | 0.9.0 |

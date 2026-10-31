@@ -374,8 +374,11 @@ Every coordinate stays in **world meters (x, z)**, from the mod to the screen. O
 
 Since [spec 0006](../specs/0006-one-local-process.md) (2026-10-31) the
 client and the backend are one package, `companion/`: no pairing, relay,
-roles or uploads; the map images are served from the client's cache. The
-layout below is how it was built first.
+roles or uploads; the map images are served from the client's cache. Since
+[spec 0007](../specs/0007-protocol-in-one-place.md) (mod 0.9.0) it checks
+the envelope only, in plain Python: `web/src/types.js` is the one
+description of each topic, and the mod's `Commands.ACTIONS` the one list of
+commands. The layout below is how it was built first.
 
 ```
 backend/app/

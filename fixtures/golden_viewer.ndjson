@@ -3096,7 +3096,7 @@
 {"to":"B","msg":{"type":"snapshot","topics":{"crop_types":{"fixtureLine":3},"env":{"fixtureLine":3088},"farmland_grid":{"fixtureLine":2},"farmlands":{"fixtureLine":2999},"field_outlines":{"fixtureLine":4},"fields":{"fixtureLine":3000},"hello":{"fixtureLine":1},"hotspots":{"fixtureLine":2998},"player":{"fixtureLine":3089},"vehicles":{"fixtureLine":3087}}}}
 {"to":"B","msg":{"type":"map_assets","mapId":"FS25_Solek.SampleModMap","hash":"b12ba88fd2820fa6cc04"}}
 {"to":"B","msg":{"type":"client_status","connected":true}}
-{"step":"A: an action the backend doesn't know"}
+{"step":"A: an action the mod doesn't know"}
 {"to":"A","msg":{"type":"command_ack","id":"c1","ok":false,"reason":"action not allowed"}}
 {"step":"A: a value out of range"}
 {"to":"A","msg":{"type":"command_ack","id":"c2","ok":false,"reason":"value not allowed"}}
@@ -3110,7 +3110,7 @@
 {"to":"A","msg":{"type":"command_ack","id":"c7","ok":true,"reason":"superseded"}}
 {"step":"the mod answers 20; 22 goes in"}
 {"to":"A","msg":{"type":"command_ack","id":"c6","ok":true,"reason":null,"via":"CRUISE_SET_SPEED"}}
-{"step":"command file 5","value":"22.000"}
+{"step":"command file 7","value":"22.000"}
 {"to":"A","msg":{"type":"command_ack","id":"c8","ok":true,"reason":null,"via":"CRUISE_SET_SPEED"}}
 {"step":"the mod sends the last ack again (after a rotation): nobody gets it"}
 {"to":"A","msg":{"type":"update","envelope":{"v":1,"seq":800001,"t":0,"topic":"player","data":{"x":1.0,"z":0.0,"marker":1}}}}

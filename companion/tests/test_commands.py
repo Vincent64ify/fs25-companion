@@ -6,7 +6,6 @@ import pytest
 
 from companion import commands as commands_mod
 from companion.commands import FAST_POLL_S, CommandWriter
-from companion.protocol import COMMAND_ACTIONS
 
 
 class Clock:
@@ -21,9 +20,7 @@ def make(tmp_path, session="S1", next_id=None):
     acks = []
     clock = Clock()
     writer = CommandWriter(tmp_path / "cmd", acks.append, clock=clock)
-    hello = {"sessionId": session}
-    if next_id is not None:
-        hello["commands"] = {"dir": "x", "next": next_id}
+    hello = {"sessionId": session, "commands": {"dir": "x", "next": next_id or 1, "actions": 2}}
     writer.on_hello(hello)
     return writer, acks, clock
 
@@ -40,7 +37,7 @@ def test_writes_numbered_files_for_the_session(tmp_path):
     assert sorted(p.name for p in (tmp_path / "cmd").iterdir()) == ["1.xml", "2.xml"]
     assert attrs(tmp_path / "cmd" / "1.xml") == {
         "version": "1.0", "encoding": "utf-8", "standalone": "no",
-        "session": "S1", "id": "1", "action": "TOGGLE_LIGHTS", "ref": "7"}
+        "session": "S1", "id": "1", "action": "lights.toggle", "ref": "7"}
     assert attrs(tmp_path / "cmd" / "2.xml")["ref"] == "8"
 
 
@@ -79,11 +76,11 @@ def test_numbering_restarts_and_old_files_go_with_a_new_session(tmp_path):
     writer.submit("1", "lights.toggle")
     writer.submit("2", "lights.toggle")
     # the same session again (hello re-sent after a rotation): keep counting
-    writer.on_hello({"sessionId": "S1", "commands": {"next": 2}})
+    writer.on_hello({"sessionId": "S1", "commands": {"next": 2, "actions": 2}})
     writer.submit("3", "lights.toggle")
     assert attrs(tmp_path / "cmd" / "3.xml")["id"] == "3"
     (tmp_path / "cmd" / "9.xml.tmp").write_text("half", encoding="utf-8")
-    writer.on_hello({"sessionId": "S2", "commands": {"next": 1}})
+    writer.on_hello({"sessionId": "S2", "commands": {"next": 1, "actions": 2}})
     assert list((tmp_path / "cmd").iterdir()) == []
     writer.submit("4", "lights.toggle")
     assert attrs(tmp_path / "cmd" / "1.xml")["session"] == "S2"
@@ -104,14 +101,16 @@ def test_a_client_started_mid_session_continues_from_the_mods_next(tmp_path):
 
 def test_refusals_answer_at_once_and_write_nothing(tmp_path):
     writer, acks, _ = make(tmp_path)
-    writer.submit("1", "engine.explode")
+    # a mod before 0.9.0 reads the game's names: nothing it could misread
+    writer.on_hello({"sessionId": "OLD", "commands": {"dir": "x", "next": 1}})
+    writer.submit("1", "lights.toggle")
     replay = CommandWriter(None, acks.append)
     replay.on_hello({"sessionId": "S1"})
     replay.submit("2", "lights.toggle")
     early = CommandWriter(tmp_path / "early", acks.append)
     early.submit("3", "lights.toggle")
     assert [(a["topic"], a["data"]["ref"], a["data"]["ok"], a["data"]["reason"]) for a in acks] == [
-        ("command_ack", "1", False, "action not allowed"),
+        ("command_ack", "1", False, "update the mod"),
         ("command_ack", "2", False, "no game (replay)"),
         ("command_ack", "3", False, "game not running"),
     ]
@@ -139,41 +138,29 @@ def test_refs_are_escaped(tmp_path, ref):
     assert ET.fromstring(text.split("?>", 1)[1]).get("ref") == ref
 
 
-def test_every_server_action_maps_to_a_mod_action(tmp_path):
-    assert set(commands_mod.ACTIONS) == set(COMMAND_ACTIONS)
-    lua = (Path(__file__).resolve().parents[2] / "mod" / "src" / "Commands.lua").read_text(encoding="utf-8")
-    allowed = set(re.findall(r"^    ([A-Z_]+) = \{", lua, re.M))
-    assert set(commands_mod.ACTIONS.values()) == allowed, "the mod allows exactly what the writer sends"
+def test_the_file_carries_the_dashboards_action_and_value(tmp_path):
+    """specs/0007: no list here; the mod checks the action and its value."""
     writer, acks, _ = make(tmp_path)
-    writer.submit("9", "implement.fold")
-    assert attrs(tmp_path / "cmd" / "1.xml")["action"] == "FOLD_IMPLEMENT"
+    sent = [("cruise.set", 23.5), ("implement.select", 5), ("implement.next", None),
+            ("implement.key", 2), ("implement.tipAll", 1), ("someday.newButton", None)]
+    for n, (action, value) in enumerate(sent, start=1):
+        writer.submit(str(n), action, value)
+        a = attrs(tmp_path / "cmd" / f"{n}.xml")
+        assert a["action"] == action
+        assert a.get("value") == (None if value is None else f"{value:.3f}")
     assert acks == []
 
 
-def test_cruise_set_writes_its_value_and_checks_the_range(tmp_path):
-    writer, acks, _ = make(tmp_path)
-    writer.submit("1", "cruise.set", 23.5)
-    assert attrs(tmp_path / "cmd" / "1.xml")["value"] == "23.500"
-    assert attrs(tmp_path / "cmd" / "1.xml")["action"] == "CRUISE_SET_SPEED"
-    writer.submit("2", "cruise.set", 999)
-    writer.submit("3", "cruise.set", "fast")
-    writer.submit("4", "lights.toggle", 5)
-    assert [a["data"]["reason"] for a in acks] == ["value not allowed"] * 3
-
-
-def test_implement_select_and_detach_carry_the_tools_id(tmp_path):
-    writer, acks, _ = make(tmp_path)
-    writer.submit("1", "implement.select", 5)
-    assert attrs(tmp_path / "cmd" / "1.xml")["action"] == "SELECT_IMPLEMENT"
-    assert attrs(tmp_path / "cmd" / "1.xml")["value"] == "5.000"
-    writer.submit("2", "implement.next")
-    assert attrs(tmp_path / "cmd" / "2.xml")["action"] == "SELECT_NEXT_IMPLEMENT"
-    assert "value" not in attrs(tmp_path / "cmd" / "2.xml")
-    writer.submit("3", "implement.detach", 9)
-    assert attrs(tmp_path / "cmd" / "3.xml")["action"] == "DETACH_IMPLEMENT"
-    writer.submit("4", "implement.select")
-    writer.submit("5", "implement.next", 3)
-    assert [a["data"]["reason"] for a in acks] == ["value not allowed"] * 2
+def test_every_action_the_dashboard_sends_is_one_the_mod_runs():
+    repo = Path(__file__).resolve().parents[2]
+    lua = (repo / "mod" / "src" / "Commands.lua").read_text(encoding="utf-8")
+    mod = set(re.findall(r'^    \["([a-zA-Z.]+)"\] = \{', lua, re.M))
+    web = set()
+    for js in (repo / "web" / "src").rglob("*.js"):
+        text = js.read_text(encoding="utf-8")
+        web |= set(re.findall(r'(?:action: |send\(|sendCommand\()"([a-z][a-zA-Z]*\.[a-z][a-zA-Z]*)"', text))
+    assert len(web) > 20 and len(mod) > 20
+    assert web <= mod, f"the mod doesn't run {sorted(web - mod)}"
 
 
 def test_cruise_set_one_in_the_game_the_latest_waits(tmp_path):
@@ -184,7 +171,7 @@ def test_cruise_set_one_in_the_game_the_latest_waits(tmp_path):
     writer.submit("d", "lights.toggle")   # other actions go straight in
     files = sorted(p.name for p in (tmp_path / "cmd").iterdir())
     assert files == ["1.xml", "2.xml"]
-    assert attrs(tmp_path / "cmd" / "2.xml")["action"] == "TOGGLE_LIGHTS"
+    assert attrs(tmp_path / "cmd" / "2.xml")["action"] == "lights.toggle"
     assert [(a["data"]["ref"], a["data"]["ok"], a["data"]["reason"]) for a in acks] == [("b", True, "superseded")]
     # the mod answers 1: the waiting one (12) goes in
     writer.on_ack({"id": 1, "ok": True})
@@ -202,9 +189,9 @@ def test_cruise_slot_freed_by_a_hello_past_it(tmp_path):
     writer, _, _ = make(tmp_path)
     writer.submit("a", "cruise.set", 10)
     writer.submit("b", "cruise.set", 11)  # waits
-    writer.on_hello({"sessionId": "S1", "commands": {"dir": "x", "next": 1}})
+    writer.on_hello({"sessionId": "S1", "commands": {"dir": "x", "next": 1, "actions": 2}})
     assert not (tmp_path / "cmd" / "2.xml").exists(), "1 not read yet: still waiting"
-    writer.on_hello({"sessionId": "S1", "commands": {"dir": "x", "next": 2}})
+    writer.on_hello({"sessionId": "S1", "commands": {"dir": "x", "next": 2, "actions": 2}})
     assert attrs(tmp_path / "cmd" / "2.xml")["value"] == "11.000"
     assert attrs(tmp_path / "cmd" / "2.xml")["ref"] == "b"
 
@@ -236,42 +223,3 @@ def test_a_replayed_ack_changes_nothing(tmp_path):
     writer.on_ack({"id": 1, "ok": True})  # 1 again, after a rotation
     assert sorted(p.name for p in (tmp_path / "cmd").iterdir()) == ["2.xml"]
     assert acks == []
-
-
-def test_implement_screen_actions_are_the_games_keys(tmp_path):
-    writer, acks, _ = make(tmp_path)
-    for n, (action, game) in enumerate([("implement.lowerAll", "LOWER_ALL_IMPLEMENTS"),
-                                        ("implement.pipe", "TOGGLE_PIPE"),
-                                        ("implement.unload", "TOGGLE_DISCHARGE"),
-                                        ("implement.cover", "TOGGLE_COVER"),
-                                        ("implement.straw", "TOGGLE_STRAW")], start=1):
-        writer.submit(str(n), action)
-        assert attrs(tmp_path / "cmd" / f"{n}.xml")["action"] == game
-        assert "value" not in attrs(tmp_path / "cmd" / f"{n}.xml")
-    writer.submit("6", "implement.lowerAll", 1)
-    assert [a["data"]["reason"] for a in acks] == ["value not allowed"]
-
-
-def test_vehicle_page_cards_aim_at_one_tool_and_act_on_all(tmp_path):
-    """specs/0003: one-tool commands take the tool's id (or none: the key's
-    tool, as before); the new ones; the All row's; others still refuse one."""
-    writer, acks, _ = make(tmp_path)
-    sent = [("implement.lower", 994), ("implement.fold", None), ("implement.turnOn", 7),
-            ("implement.unload", 1003), ("implement.cover", 1003), ("implement.pipe", 20),
-            ("implement.tipSide", 1003), ("implement.rotate", 1037), ("implement.baleReset", 1041),
-            ("implement.key", 2), ("implement.foldAll", None), ("implement.turnOnAll", None),
-            ("implement.tipAll", 1), ("implement.coverAll", 0)]
-    games = ["LOWER_IMPLEMENT", "FOLD_IMPLEMENT", "TURN_ON_IMPLEMENT", "TOGGLE_DISCHARGE", "TOGGLE_COVER",
-             "TOGGLE_PIPE", "TOGGLE_TIPSIDE", "ROTATE_PLOW", "RESET_BALE_COUNTER", "PRESS_TOOL_KEY",
-             "FOLD_ALL_IMPLEMENTS", "TURN_ON_ALL_IMPLEMENTS", "TIP_ALL", "COVER_ALL"]
-    for n, (action, value) in enumerate(sent, start=1):
-        writer.submit(str(n), action, value)
-        a = attrs(tmp_path / "cmd" / f"{n}.xml")
-        assert a["action"] == games[n - 1]
-        assert a.get("value") == (None if value is None else f"{value:.3f}")
-    assert acks == []
-    for n, (action, value) in enumerate([("implement.tipAll", 2), ("implement.tipAll", None),
-                                         ("implement.foldAll", 1), ("implement.key", 0),
-                                         ("implement.lower", -1), ("implement.width", None)], start=20):
-        writer.submit(str(n), action, value)
-    assert [a["data"]["reason"] for a in acks] == ["value not allowed"] * 5 + ["action not allowed"]

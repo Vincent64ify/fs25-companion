@@ -1,23 +1,24 @@
 -- Commands.lua
--- Runs the dashboard's commands (docs/PLAN.md, Controls). The client writes
--- one file per command, numbered from 1 per game session:
+-- Runs the dashboard's commands (docs/PLAN.md, Controls). The companion
+-- writes one file per command, numbered from 1 per game session, with the
+-- dashboard's action name (specs/0007; hello says so: commands.actions 2):
 --
 --     modSettings/FS25_Companion/cmd/<n>.xml
---     <command session="<sessionId>" id="<n>" action="TOGGLE_LIGHTS" ref="<backend ref>"/>
---     <command ... action="CRUISE_SET_SPEED" ref="..." value="23.000"/>   (km/h)
+--     <command session="<sessionId>" id="<n>" action="lights.toggle" ref="<companion ref>"/>
+--     <command ... action="cruise.set" ref="..." value="23.000"/>   (km/h)
 --
 -- (a temp file, read back once, then renamed, so it appears whole). Every
 -- frame the mod checks whether the next number exists (fileExists costs
 -- about 0.1 ms, C0). When it does, it reads it with XMLFile.load, checks the
--- session and the allow-list, runs the action, and answers with a
--- `command_ack` envelope:
+-- session, the action and its value (Commands.ACTIONS, the one list), runs
+-- the action, and answers with a `command_ack` envelope:
 --
---     {"id":<n>,"ref":"<backend ref>","action":"TOGGLE_LIGHTS","ok":true,"via":"TOGGLE_LIGHTS"}
+--     {"id":<n>,"ref":"<companion ref>","action":"lights.toggle","ok":true,"via":"TOGGLE_LIGHTS"}
 --     {"id":<n>,"ref":"...","ok":false,"reason":"not in a vehicle"}
 --
 -- `via` says what ran: the input action's name, or "setter". The caller
 -- sends the `cab` topic in the same frame, so the new state reaches the
--- dashboard with the ack. The client deletes the file once it sees the ack.
+-- dashboard with the ack. The companion deletes the file once it sees the ack.
 --
 -- Never io.open(path, "r") here: FS25 opens the file for writing, which
 -- empties it (C0).
@@ -892,8 +893,8 @@ local function powered(vehicle)
 end
 
 -- Actions ------------------------------------------------------------------
--- The actions a command may run; anything else is refused. The backend
--- and the client keep their own lists (by dashboard action name).
+-- The actions a command may run, by the dashboard's name (specs/0007): the
+-- one list. Anything else is refused, and so is a value that doesn't fit.
 --   inputs     input actions tried in order, the first with an active
 --              event wins; or function(vehicle, implement) -> list
 --   value      the input value passed to the callbacks (default 1)
@@ -906,58 +907,81 @@ end
 --              when the command has none
 --   job        function(vehicle, value) -> a job over several tools
 --   key        the selected tool's other key, by its number in extraKeys
+--   values     { min, max }: the command's number and its range; without
+--              it the command carries none
+--   optional   the number may be left out (a tool's id: the key's own tool)
+local TOOL_ID = { 0, 2 ^ 31 }
+
 Commands.ACTIONS = {
-    TOGGLE_LIGHTS = { inputs = { "TOGGLE_LIGHTS" }, fallback = toggleLights },
-    TOGGLE_HIGH_BEAM_LIGHT = { inputs = { "TOGGLE_HIGH_BEAM_LIGHT" }, fallback = toggleHighBeam },
-    TOGGLE_BEACON_LIGHTS = { inputs = { "TOGGLE_BEACON_LIGHTS" }, fallback = toggleBeacon },
-    TOGGLE_TURNLIGHT_HAZARD = { inputs = { "TOGGLE_TURNLIGHT_HAZARD" },
-        fallback = turnLight("TURNLIGHT_HAZARD", 3) },
-    TOGGLE_TURNLIGHT_LEFT = { inputs = { "TOGGLE_TURNLIGHT_LEFT" }, fallback = turnLight("TURNLIGHT_LEFT", 1) },
-    TOGGLE_TURNLIGHT_RIGHT = { inputs = { "TOGGLE_TURNLIGHT_RIGHT" }, fallback = turnLight("TURNLIGHT_RIGHT", 2) },
-    TOGGLE_MOTOR_STATE = { inputs = { "TOGGLE_MOTOR_STATE" }, fallback = toggleEngine },
-    TOGGLE_CRUISE_CONTROL = { inputs = { "TOGGLE_CRUISE_CONTROL" }, fallback = toggleCruise },
-    CRUISE_SPEED_DOWN = { direct = cruiseStep(-1), inputs = { "AXIS_CRUISE_CONTROL" }, value = -1 },
-    CRUISE_SPEED_UP = { direct = cruiseStep(1), inputs = { "AXIS_CRUISE_CONTROL" }, value = 1 },
-    -- an absolute set speed: the dashboard's −/+ while held
-    CRUISE_SET_SPEED = { direct = cruiseSet },
-    TOGGLE_AI = { inputs = { "TOGGLE_AI" } },
+    ["lights.toggle"] = { inputs = { "TOGGLE_LIGHTS" }, fallback = toggleLights },
+    ["highBeam.toggle"] = { inputs = { "TOGGLE_HIGH_BEAM_LIGHT" }, fallback = toggleHighBeam },
+    ["beacon.toggle"] = { inputs = { "TOGGLE_BEACON_LIGHTS" }, fallback = toggleBeacon },
+    ["hazard.toggle"] = { inputs = { "TOGGLE_TURNLIGHT_HAZARD" }, fallback = turnLight("TURNLIGHT_HAZARD", 3) },
+    ["turnLeft.toggle"] = { inputs = { "TOGGLE_TURNLIGHT_LEFT" }, fallback = turnLight("TURNLIGHT_LEFT", 1) },
+    ["turnRight.toggle"] = { inputs = { "TOGGLE_TURNLIGHT_RIGHT" }, fallback = turnLight("TURNLIGHT_RIGHT", 2) },
+    ["engine.toggle"] = { inputs = { "TOGGLE_MOTOR_STATE" }, fallback = toggleEngine },
+    ["cruise.toggle"] = { inputs = { "TOGGLE_CRUISE_CONTROL" }, fallback = toggleCruise },
+    ["cruise.down"] = { direct = cruiseStep(-1), inputs = { "AXIS_CRUISE_CONTROL" }, value = -1 },
+    ["cruise.up"] = { direct = cruiseStep(1), inputs = { "AXIS_CRUISE_CONTROL" }, value = 1 },
+    -- an absolute set speed in km/h: the dashboard's −/+ while held
+    ["cruise.set"] = { direct = cruiseSet, values = { 1, 250 } },
+    ["ai.toggle"] = { inputs = { "TOGGLE_AI" } },
     -- without an id: the tool the key acts on, as in C2
-    LOWER_IMPLEMENT = { implement = true, inputs = { "LOWER_IMPLEMENT" }, fallback = toggleLower,
-        aim = AIMED.LOWER_IMPLEMENT },
-    FOLD_IMPLEMENT = { inputs = { "IMPLEMENT_EXTRA2" }, fallback = toggleFold, aim = AIMED.FOLD_IMPLEMENT },
-    TURN_ON_IMPLEMENT = { implement = true, inputs = { "IMPLEMENT_EXTRA" }, fallback = toggleTurnOn,
-        aim = AIMED.TURN_ON_IMPLEMENT },
+    ["implement.lower"] = { implement = true, inputs = { "LOWER_IMPLEMENT" }, fallback = toggleLower,
+        aim = AIMED.LOWER_IMPLEMENT, values = TOOL_ID, optional = true },
+    ["implement.fold"] = { inputs = { "IMPLEMENT_EXTRA2" }, fallback = toggleFold, aim = AIMED.FOLD_IMPLEMENT,
+        values = TOOL_ID, optional = true },
+    ["implement.turnOn"] = { implement = true, inputs = { "IMPLEMENT_EXTRA" }, fallback = toggleTurnOn,
+        aim = AIMED.TURN_ON_IMPLEMENT, values = TOOL_ID, optional = true },
     -- Attach (specs/0003): the attach key (Q), only while the game has
     -- something in reach; detaching is each card's Detach. (C2's first try
     -- ran DETACH for an attached implement, which isn't what Q does.)
-    HITCH = { when = attachInReach, inputs = { "ATTACH" } },
+    ["hitch.toggle"] = { when = attachInReach, inputs = { "ATTACH" } },
     -- C3: the value is the tool's id (the cab's rig)
-    SELECT_IMPLEMENT = { direct = selectTarget },
+    ["implement.select"] = { direct = selectTarget, values = TOOL_ID },
     -- G and its other way
-    SELECT_NEXT_IMPLEMENT = { inputs = { "SWITCH_IMPLEMENT" }, fallback = selectStep(1) },
-    SELECT_PREVIOUS_IMPLEMENT = { inputs = { "SWITCH_IMPLEMENT_BACK" }, fallback = selectStep(-1) },
-    DETACH_IMPLEMENT = { direct = detachTarget },
+    ["implement.next"] = { inputs = { "SWITCH_IMPLEMENT" }, fallback = selectStep(1) },
+    ["implement.previous"] = { inputs = { "SWITCH_IMPLEMENT_BACK" }, fallback = selectStep(-1) },
+    ["implement.detach"] = { direct = detachTarget, values = TOOL_ID },
     -- the Implement screen: Ctrl+V, O, I (else Ctrl+I, to the ground) and N
-    LOWER_ALL_IMPLEMENTS = { when = powered, job = lowerAllJob, inputs = { "LOWER_ALL_IMPLEMENTS" }, fallback = lowerAll },
-    TOGGLE_PIPE = { inputs = { "TOGGLE_PIPE" }, fallback = togglePipe, aim = AIMED.TOGGLE_PIPE },
-    TOGGLE_DISCHARGE = { inputs = { "TOGGLE_TIPSTATE", "TOGGLE_TIPSTATE_GROUND" }, aim = AIMED.TOGGLE_DISCHARGE },
-    TOGGLE_COVER = { inputs = { "TOGGLE_COVER" }, fallback = toggleCover, aim = AIMED.TOGGLE_COVER },
+    ["implement.lowerAll"] = { when = powered, job = lowerAllJob, inputs = { "LOWER_ALL_IMPLEMENTS" },
+        fallback = lowerAll },
+    ["implement.pipe"] = { inputs = { "TOGGLE_PIPE" }, fallback = togglePipe, aim = AIMED.TOGGLE_PIPE,
+        values = TOOL_ID, optional = true },
+    ["implement.unload"] = { inputs = { "TOGGLE_TIPSTATE", "TOGGLE_TIPSTATE_GROUND" }, aim = AIMED.TOGGLE_DISCHARGE,
+        values = TOOL_ID, optional = true },
+    ["implement.cover"] = { inputs = { "TOGGLE_COVER" }, fallback = toggleCover, aim = AIMED.TOGGLE_COVER,
+        values = TOOL_ID, optional = true },
     -- the Vehicle page's cards (specs/0003): one tool's tip side, a plow's
     -- rotate, the bale counter's reset; the selected tool's other keys
-    TOGGLE_TIPSIDE = { aim = AIMED.TOGGLE_TIPSIDE, aimOnly = true },
-    ROTATE_PLOW = { aim = AIMED.ROTATE_PLOW, aimOnly = true },
-    RESET_BALE_COUNTER = { aim = AIMED.RESET_BALE_COUNTER, aimOnly = true },
-    PRESS_TOOL_KEY = { key = true },
+    ["implement.tipSide"] = { aim = AIMED.TOGGLE_TIPSIDE, aimOnly = true, values = TOOL_ID, optional = true },
+    ["implement.rotate"] = { aim = AIMED.ROTATE_PLOW, aimOnly = true, values = TOOL_ID, optional = true },
+    ["implement.baleReset"] = { aim = AIMED.RESET_BALE_COUNTER, aimOnly = true, values = TOOL_ID, optional = true },
+    ["implement.key"] = { key = true, values = { 1, 64 } },
     -- the All row: the game's own keys, else every tool's setter (fold all
     -- raises what's lowered first); tip and cover all act on each in turn
     -- (value 1: tip, open; 0: stop, close)
-    FOLD_ALL_IMPLEMENTS = { job = foldAllJob },
-    TURN_ON_ALL_IMPLEMENTS = { job = turnOnAllJob, inputs = { "TURN_ON_ALL_IMPLEMENTS" }, fallback = turnOnAll },
-    TIP_ALL = { job = eachTool(AIMED.TOGGLE_DISCHARGE, function(e) return e.discharging == true end) },
-    COVER_ALL = { job = eachTool(AIMED.TOGGLE_COVER, function(e) return e.cover ~= nil and e.cover.open == true end) },
+    ["implement.foldAll"] = { job = foldAllJob },
+    ["implement.turnOnAll"] = { job = turnOnAllJob, inputs = { "TURN_ON_ALL_IMPLEMENTS" }, fallback = turnOnAll },
+    ["implement.tipAll"] = { job = eachTool(AIMED.TOGGLE_DISCHARGE, function(e) return e.discharging == true end),
+        values = { 0, 1 } },
+    ["implement.coverAll"] = { job = eachTool(AIMED.TOGGLE_COVER, function(e) return e.cover ~= nil and e.cover.open == true end),
+        values = { 0, 1 } },
     -- the Harvester screen: straw swath or chopper (the game's TOGGLE_CHOPPER)
-    TOGGLE_STRAW = { inputs = { "TOGGLE_CHOPPER" }, fallback = toggleStraw },
+    ["implement.straw"] = { inputs = { "TOGGLE_CHOPPER" }, fallback = toggleStraw },
 }
+
+-- whether the command's number fits its action
+local function valueFits(spec, value)
+    if spec.values == nil then
+        return value == nil
+    end
+    if value == nil then
+        return spec.optional == true
+    end
+    -- value ~= value: NaN
+    return value == value and value >= spec.values[1] and value <= spec.values[2]
+end
 
 local ATTRIBUTES = { "session", "id", "action", "ref", "value" }
 
@@ -976,10 +1000,11 @@ function Commands.new(dir, sessionId, log)
     return self
 end
 
--- for hello: where the client writes and which number the mod reads next
--- (a client that starts mid-session continues from there)
+-- for hello: where the companion writes, which number the mod reads next
+-- (a companion that starts mid-session continues from there), and that the
+-- files name the dashboard's actions (actions 2, specs/0007)
 function Commands:info()
-    return { dir = self.dir, next = self.nextId }
+    return { dir = self.dir, next = self.nextId, actions = 2 }
 end
 
 function Commands:path(id)
@@ -1045,6 +1070,9 @@ local function run(actionName, value)
     local spec = Commands.ACTIONS[actionName]
     if spec == nil then
         return false, "action not allowed"
+    end
+    if not valueFits(spec, value) then
+        return false, "value not allowed"
     end
     local vehicle = Api.controlledVehicle()
     if vehicle == nil then
@@ -1346,7 +1374,7 @@ function Commands:poll()
     end
     if cmd.session ~= self.sessionId then
         -- left over from an earlier game session: not this session's
-        -- command <id>, which the client will still write
+        -- command <id>, which the companion will still write
         if deleteFile ~= nil then
             pcall(deleteFile, path)
         end

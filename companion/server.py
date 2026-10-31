@@ -1,11 +1,11 @@
 """The dashboard's server: its files, /ws for viewers, the map images.
 
     viewer -> server:  {"type": "command", "id": str, "action": str, "value"?: number}
-                       a tap on a control; the action must be in
-                       protocol.COMMAND_ACTIONS ("lights.toggle"), and a
-                       value only for an action in COMMAND_VALUES, in its
-                       range ("cruise.set": km/h). Anything else a viewer
-                       sends is ignored.
+                       a tap on a control ("lights.toggle"; "cruise.set"
+                       with km/h). Only its shape is checked here
+                       (protocol.command_refusal); the mod knows its
+                       actions and their values (specs/0007). Anything
+                       else a viewer sends is ignored.
 
     server -> viewer:  {"type": "snapshot", "topics": {topic: envelope}}
                        on connect, and again when a new game session starts
@@ -26,10 +26,11 @@
                        checked: the mod waited for the tools to move;
                        unmoved: those that didn't, {id, name, why}
                        to the viewer that sent the command, with its own
-                       id: from the mod, from the command writer (replay,
-                       superseded...), or straight from here when the
-                       action isn't allowed. The new state follows as the
-                       cab topic.
+                       id: from the mod (which refuses an action it doesn't
+                       run or a value out of range), from the command
+                       writer (replay, superseded, update the mod...), or
+                       straight from here for a bad shape. The new state
+                       follows as the cab topic.
 
     GET /api/maps/<mapId>/<hash>/{overview.png, overview_2048.png, meta.json}
                        from the map cache (map_assets.py)
@@ -47,8 +48,7 @@ from fastapi.staticfiles import StaticFiles
 from starlette.websockets import WebSocketDisconnect
 
 from .map_assets import FILE_TYPES, cached_file
-from .protocol import (COMMAND_ACTIONS, EVENT_TOPICS, ProtocolVersionError, ValidationError,
-                       command_value_ok, parse_envelope)
+from .protocol import EVENT_TOPICS, InvalidEnvelope, ProtocolVersionError, command_refusal, parse_envelope
 from .state import StateStore
 
 log = logging.getLogger("companion.server")
@@ -129,10 +129,10 @@ class Hub:
                     self.protocol_error = str(e)
                     log.warning("%s", e)
                     await self.broadcast({"type": "protocol_error", "message": str(e)})
-            except ValidationError as e:
+            except InvalidEnvelope as e:
                 self.invalid += 1
                 if self.invalid == 1 or self.invalid % 100 == 0:
-                    log.warning("dropped %d invalid envelope(s), latest: %s", self.invalid, e.errors()[:1])
+                    log.warning("dropped %d invalid envelope(s), latest: %s", self.invalid, e)
         if valid and self.protocol_error is not None:
             self.protocol_error = None
             log.info("protocol error cleared")
@@ -182,17 +182,10 @@ class Hub:
         if not isinstance(viewer_id, str) or not 0 < len(viewer_id) <= MAX_COMMAND_ID:
             return
 
-        async def refuse(reason: str) -> None:
-            await safe_send(ws, {"type": "command_ack", "id": viewer_id, "ok": False, "reason": reason})
-
-        action = msg.get("action")
-        # a list or object isn't hashable: check the type before the lookup
-        if not isinstance(action, str) or action not in COMMAND_ACTIONS:
-            await refuse("action not allowed")
-            return
-        value = msg.get("value")
-        if not command_value_ok(action, value):
-            await refuse("value not allowed")
+        action, value = msg.get("action"), msg.get("value")
+        refusal = command_refusal(action, value)
+        if refusal is not None:
+            await safe_send(ws, {"type": "command_ack", "id": viewer_id, "ok": False, "reason": refusal})
             return
         self.command_seq += 1
         ref = str(self.command_seq)

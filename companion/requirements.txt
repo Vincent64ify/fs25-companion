@@ -1,6 +1,5 @@
 fastapi>=0.110
 uvicorn[standard]>=0.29
-pydantic>=2
 Pillow>=10
 # scripts/rig_check.py, scripts/allrow_check.py and tests/test_golden.py
 websockets>=12

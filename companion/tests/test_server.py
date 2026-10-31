@@ -86,7 +86,7 @@ def test_viewer_gets_snapshot_then_updates(setup):
     client, _, publish = setup
     first = connect(client)
     publish(hello())
-    publish(env("player", {"x": "bad"}, seq=2), env("player", {"x": 1, "z": 2}, seq=3))
+    publish({**env("player", {"x": 0, "z": 0}, seq=2), "extra": 1}, env("player", {"x": 1, "z": 2}, seq=3))
     assert recv(first)["envelope"]["topic"] == "hello"
     # the invalid envelope never reaches viewers
     assert recv(first)["envelope"]["data"] == {"x": 1, "z": 2}
@@ -186,37 +186,38 @@ def test_checked_and_via_reach_the_viewer(setup):
     assert recv(viewer) == {"type": "command_ack", "id": "l1", "ok": True, "reason": None}
 
 
-def test_commands_outside_the_allow_list_never_reach_the_writer(setup):
+def test_any_well_formed_command_reaches_the_writer(setup):
+    """specs/0007: the mod knows which actions it runs and their values;
+    here only the shape is checked."""
     client, hub, _ = setup
     viewer = connect(client)
-    command(viewer, "x1", action="engine.explode")
-    assert recv(viewer) == {"type": "command_ack", "id": "x1", "ok": False, "reason": "action not allowed"}
+    hub.writer.answer = "no game (replay)"
+    for cid, action, value in (("a", "engine.explode", None), ("b", "cruise.set", 999), ("c", "lights.toggle", 3),
+                               ("d", "cruise.set", None)):
+        command(viewer, cid, action=action, value=value)
+        assert recv(viewer)["id"] == cid
+    assert [(a, v) for _, a, v in hub.writer.got] == [
+        ("engine.explode", None), ("cruise.set", 999), ("lights.toggle", 3), ("cruise.set", None)]
+
+
+def test_a_bad_shape_is_refused_at_once(setup):
+    client, hub, _ = setup
+    viewer = connect(client)
     command(viewer, {"not": "a string"})  # no id to answer: ignored
-    # an action that isn't a string is refused, and the socket lives on
-    for bad in ([], {}, None, True, 3):
+    # an action that isn't a short dotted name is refused, and the socket lives on
+    for bad in ([], {}, None, True, 3, "lights toggle", "x" * 41, "<script>"):
         command(viewer, "x-bad", action=bad)
-        assert recv(viewer)["reason"] == "action not allowed"
+        assert recv(viewer) == {"type": "command_ack", "id": "x-bad", "ok": False, "reason": "action not allowed"}
+    for bad in ("fast", True, [], {}):
+        command(viewer, "v-bad", action="cruise.set", value=bad)
+        assert recv(viewer)["reason"] == "value not allowed"
     viewer.send_text(json.dumps({"type": "hello", "role": "viewer"}))  # ignored
     viewer.send_text("not json")
-    command(viewer, "x2")
     # the ack of x2 shows the socket read everything before it
     hub.writer.answer = "no game (replay)"
-    command(viewer, "x3")
-    assert recv(viewer)["id"] == "x3"
-    assert [a for _, a, _ in hub.writer.got] == ["lights.toggle", "lights.toggle"]
-
-
-def test_values_are_checked(setup):
-    client, hub, _ = setup
-    viewer = connect(client)
-    command(viewer, "s1", action="cruise.set", value=23.5)
-    for bad in (None, "fast", True, 0, 999):
-        command(viewer, "b", action="cruise.set", value=bad)
-        assert recv(viewer)["reason"] == "value not allowed"
-    # a value on an action that takes none
-    command(viewer, "c", action="lights.toggle", value=3)
-    assert recv(viewer)["reason"] == "value not allowed"
-    assert [(a, v) for _, a, v in hub.writer.got] == [("cruise.set", 23.5)]
+    command(viewer, "x2")
+    assert recv(viewer)["id"] == "x2"
+    assert [a for _, a, _ in hub.writer.got] == ["lights.toggle"]
 
 
 def test_protocol_mismatch_is_reported_and_cleared(setup):

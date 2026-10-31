@@ -73,7 +73,9 @@ up to date until the live check.
   one place, commands that say the state they want). S0 is done: the
   golden replay test (`tests/test_golden.py`). S1 is done and
   live-checked ([spec 0006](../specs/0006-one-local-process.md),
-  `python -m companion`); S2 is next. The
+  `python -m companion`). S2 is done and live-checked
+  ([spec 0007](../specs/0007-protocol-in-one-place.md), mod 0.9.0); S3 is
+  next. The
   rigs spec 0003 moved out come after it.
 
 ## Ground rules
@@ -223,7 +225,11 @@ and the mod each accept only actions from the known list.
   median. C1 uses `XMLFile.load` (both readers cost the same) plus the
   read-back.
 
-**C1 as built (2026-10-24, mod 0.5.0).** Lights is wired in both themes
+**C1 as built (2026-10-24, mod 0.5.0).** Since spec 0007 (mod 0.9.0) the
+one list of actions is the mod's `Commands.ACTIONS`, keyed by the
+dashboard's name; the companion checks a command's shape and writes the
+name as it is. The rest of this section is how C1 was first built.
+Lights is wired in both themes
 (New Holland's control column, and a Controls card in Default).
 - Web: `src/commands.js` (ids, 2 s timeout), `connection.js`
   `sendCommand`, `ui/control.js` (pending on pointerdown, the game's state

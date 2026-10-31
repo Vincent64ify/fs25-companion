@@ -34,8 +34,8 @@ import { h } from "../ui/dom.js";
  * @property {(v: import("../types.js").Vehicle|undefined, cab: import("../types.js").Cab|undefined) => boolean|undefined} read
  *   on or off; undefined: unavailable. cab: the cab topic, when the mod
  *   sends it (mod 0.5.0 and later)
- * @property {string} [action] the command a tap sends (backend
- *   protocol.COMMAND_ACTIONS); without one the control only shows the state
+ * @property {string} [action] the command a tap sends (a key of the mod's
+ *   Commands.ACTIONS); without one the control only shows the state
  * @property {(v: import("../types.js").Vehicle|undefined, cab: import("../types.js").Cab|undefined) => import("../ui/control.js").ControlDots|undefined} [dots]
  *   steps shown as dots under the label
  * @property {(v: import("../types.js").Vehicle|undefined, cab: import("../types.js").Cab|undefined) => boolean|undefined} [moving]
