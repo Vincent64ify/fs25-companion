@@ -451,21 +451,27 @@ local AIMED = {
     RESET_BALE_COUNTER = { cap = "bales", inputs = { "BALE_COUNTER_RESET" } },
 }
 
--- the first of these inputs with an active event on this object
+-- the first of these inputs with an active event on this object, one the
+-- game shows first: a trailer's two tip keys are both active, and the game
+-- shows one at a time, hiding the other (displayIsVisible false; spike
+-- 0.0.8), which then does nothing (specs/0003 revision 3)
 local function liveInputFor(object, inputs)
     local binding = g_inputBinding
     if type(binding) ~= "table" or type(binding.nameActions) ~= "table"
         or type(binding.actionEvents) ~= "table" then
         return nil
     end
-    for _, name in ipairs(inputs) do
-        local action = binding.nameActions[name]
-        local events = action ~= nil and binding.actionEvents[action] or nil
-        if type(events) == "table" then
-            for _, event in pairs(events) do
-                if type(event) == "table" and event.isActive ~= false and event.targetObject == object
-                    and type(event.callback) == "function" then
-                    return name
+    for _, shownOnly in ipairs({ true, false }) do
+        for _, name in ipairs(inputs) do
+            local action = binding.nameActions[name]
+            local events = action ~= nil and binding.actionEvents[action] or nil
+            if type(events) == "table" then
+                for _, event in pairs(events) do
+                    if type(event) == "table" and event.isActive ~= false and event.targetObject == object
+                        and type(event.callback) == "function"
+                        and not (shownOnly and event.displayIsVisible == false) then
+                        return name
+                    end
                 end
             end
         end
@@ -529,7 +535,7 @@ local function comboRunning(root)
     return type(combos) == "table" and combos.isRunning == true
 end
 
-local CHECKED = { lower = true, fold = true, turnOn = true }
+local CHECKED = { lower = true, fold = true, turnOn = true, tip = true }
 
 -- what the check reads of a tool; the fold's time and direction seen live
 -- (spikes 0.0.5, 0.0.6: the time grows while folding, foldMoveDirection 1
@@ -542,6 +548,8 @@ local function readings(object)
         unfolded = Api.tryCall(object, "getIsUnfolded"),
         foldTime = Api.tryCall(object, "getFoldAnimTime") or (type(fold) == "table" and fold.foldAnimTime or nil),
         foldDirection = type(fold) == "table" and fold.foldMoveDirection or nil,
+        -- revision 3: Tip, as the cab reads it
+        discharging = VehicleState.extras(object, {}).discharging,
     }
 end
 
@@ -567,6 +575,8 @@ local function moved(t, now)
         -- through its fold: lowering unfolds toward working, raising folds
         -- up, and getIsLowered stays true while it rises (spike 0.0.6)
         return VehicleState.foldLowers(t.object) and foldMoves(t.before, now, t.want and -1 or 1)
+    elseif t.kind == "tip" then
+        return now.discharging == t.want
     end
     return now.on == t.want
 end
@@ -583,6 +593,8 @@ local function wantOf(e, kind)
         return e.lowered ~= true
     elseif kind == "fold" then
         return e.unfolded ~= false
+    elseif kind == "tip" then
+        return e.discharging ~= true
     end
     return e.turnedOn ~= true
 end
@@ -623,23 +635,28 @@ end
 
 -- Tip all and Uncover all: the one-tool command on each that has the
 -- capability and isn't there yet (value 1: tipping, open; 0: stopped,
--- closed), in driving order
+-- closed), in driving order; Tip all checked (revision 3)
 local function eachTool(aim, isThere)
     return function(vehicle, value)
         local want = value ~= 0
-        local steps, refused = {}, {}
+        local steps, refused, check = {}, {}, {}
         for _, m in ipairs(drivingOrder(vehicle)) do
             local e = capsOf(m.object, m.depth)
             if hasCap(e, aim.cap) and isThere(e) ~= want then
                 local step, reason = stepFor(m.object, m.depth, aim)
                 if step ~= nil then
                     steps[#steps + 1] = step
+                    check[#check + 1] = checkOf(m.object, m.depth, aim.cap, want)
                 else
                     refused[#refused + 1] = nameOf(m.object) .. ": " .. reason
                 end
             end
         end
-        return newJob(vehicle, steps, refused)
+        local job = newJob(vehicle, steps, refused)
+        if CHECKED[aim.cap] and #check > 0 then
+            job.check = check
+        end
+        return job
     end
 end
 

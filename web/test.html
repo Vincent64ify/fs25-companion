@@ -1838,6 +1838,12 @@ check("tools: every capability's button, labelled with what a tap does", vt.tool
     "Uncover|implement.cover|9|false|false|", "Pipe in|implement.pipe|9|true|false|", "Rotate|implement.rotate|9|false|false|",
     "Reset count|implement.baleReset|9|false|false|12 bales", "Detach|implement.detach|9|false|false|",
     "Allow create fields|implement.key|1|false|false|"]);
+// spec 0003 revision 3: the label says where the load goes, as the key the game shows
+check("tools: Tip says Unload here off a sale point, Tip over one, Stop while tipping", [
+  { tipTo: "ground", discharging: false }, { tipTo: "object", discharging: false }, { discharging: false },
+  { tipTo: "ground", discharging: true }].map((s) => vt.toolButtons({ id: 3, depth: 1, can: ["tip"], ...s })
+  .find((b) => b.action === "implement.unload")?.label),
+  ["Unload here", "Tip", "Tip", "Stop"]);
 check("tools: an older mod (no can): its fields give the buttons", [
   sel.canOf({ depth: 1, canLower: true, lowered: false, foldable: true, canTurnOn: true }),
   sel.canOf({ depth: 1, canLower: false, lowered: false, trailer: true, discharging: false, cover: { open: false } }),

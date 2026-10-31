@@ -238,6 +238,25 @@ These results override any API guesses later in this document.
   (the KDD 2.00 to 2.03 s after the KDF, five times). A tool's own Lower
   moves it in the frame of the press. `startAttacherJointCombo` is the
   tractor's method.
+- **A trailer's tip keys** (spike 0.0.8 and the 0.8.15 / 0.8.16 live
+  checks, 2026-10-31, the Case IH Vestrum 100 with two Farmtech EDK 650;
+  spec 0003 revision 3):
+  - Two keys, both registered and `isActive` while the trailer is
+    selected: `TOGGLE_TIPSTATE` (I, "Start overloading": into what's
+    under it) and `TOGGLE_TIPSTATE_GROUND` (Ctrl+I, "Unload here"). The
+    game shows one at a time and hides the other with the event's
+    `displayIsVisible` false: I over a sale point that takes the load,
+    Ctrl+I elsewhere. The hidden one does nothing.
+  - Dischargeable's `getCanDischargeToObject(spec_dischargeable.currentDischargeNode)`
+    is true only over the sale point that takes the load, also for a
+    trailer that isn't selected.
+  - `getDischargeState()` turns non-zero the frame tipping starts, 0
+    when it stops; Ctrl+I on land not ours tips nothing (the game warns
+    that we have no access), as does I over a sale point that doesn't
+    take the load.
+  - `TOGGLE_TIPSIDE` steps `spec_trailer.preferedTipSideIndex` through
+    `tipSideCount` sides (four on the EDK 650: Back, Grain door, Left,
+    Right); `spec_cover.hasCovers` is false on it.
 
 ---
 

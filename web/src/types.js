@@ -96,7 +96,7 @@
  * @typedef {SelectedImplement & {id?: number, parent?: number, depth: number, side?: "front"|"rear",
  *   selectable?: boolean, selected?: boolean, pipe?: {out: boolean, moving: boolean}, discharging?: boolean,
  *   trailer?: boolean, cover?: {open: boolean}, can?: string[], canNow?: Record<string, boolean>,
- *   whyNot?: Record<string, string>, tipSide?: {index: number, count: number, name?: string},
+ *   whyNot?: Record<string, string>, tipSide?: {index: number, count: number, name?: string}, tipTo?: "object"|"ground",
  *   plow?: {rotated: boolean}, bales?: {count?: number, total?: number},
  *   extraKeys?: {action: string, text: string}[]}} RigEntry
  */

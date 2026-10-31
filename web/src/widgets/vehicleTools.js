@@ -187,8 +187,10 @@ export function toolButtons(e) {
       // a folded tool can't turn on (Vincent, 2026-10-26)
       return folded && !e.turnedOn ? { ...b, unavailable: true, why: "Unfold first" } : b;
     },
-    tip: () => ({ label: e.discharging ? "Stop" : "Tip", icon: "unload", action: "implement.unload",
-      on: e.discharging === true }),
+    // where the load goes, as the key the game shows (spec 0003 revision 3):
+    // Ctrl+I's "Unload here" off a sale point, else Tip into it
+    tip: () => ({ label: e.discharging ? "Stop" : e.tipTo === "ground" ? "Unload here" : "Tip", icon: "unload",
+      action: "implement.unload", on: e.discharging === true }),
     tipSide: () => ({ label: "Tip side", icon: "tipSide", action: "implement.tipSide", on: false,
       line: e.tipSide?.name || (e.tipSide ? `${e.tipSide.index} / ${e.tipSide.count}` : undefined) }),
     cover: () => ({ label: e.cover?.open ? "Cover" : "Uncover", icon: "cover", action: "implement.cover",

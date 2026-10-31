@@ -482,6 +482,32 @@ local function tipSideOf(object, spec)
     return out
 end
 
+-- where a trailer's Tip goes (specs/0003 revision 3): "object" while the
+-- game shows I (TOGGLE_TIPSTATE, over something that takes the load),
+-- "ground" while it shows Ctrl+I (TOGGLE_TIPSTATE_GROUND, "Unload here");
+-- both are active, one shown (spike 0.0.8). Not selected, its keys aren't
+-- registered: Dischargeable's getCanDischargeToObject on its current node
+-- (true only over the sale point that took the load, spike 0.0.8)
+local function tipToOf(object)
+    local into = VehicleState.liveKey(object, "TOGGLE_TIPSTATE")
+    if into ~= nil and into.shown == true then
+        return "object"
+    end
+    local ground = VehicleState.liveKey(object, "TOGGLE_TIPSTATE_GROUND")
+    if ground ~= nil and ground.shown == true then
+        return "ground"
+    end
+    local spec = object.spec_dischargeable
+    local node = type(spec) == "table" and spec.currentDischargeNode or nil
+    if type(node) == "table" then
+        local can = Api.tryCall(object, "getCanDischargeToObject", node)
+        if type(can) == "boolean" then
+            return can and "object" or "ground"
+        end
+    end
+    return nil
+end
+
 -- sets out.can (the capabilities in CAPABILITIES' order), the state each
 -- goes with (lowered, unfolded, turnedOn, discharging, tipSide, cover,
 -- pipe, plow, bales), and out.canNow[cap] = false with out.whyNot[cap] (the
@@ -542,6 +568,7 @@ function VehicleState.capabilities(object, out, depth)
     local trailer = object.spec_trailer
     if type(trailer) == "table" and type(trailer.tipSideCount) == "number" and trailer.tipSideCount >= 1 then
         has.tip = true
+        out.tipTo = tipToOf(object)
         if trailer.tipSideCount >= 2 then
             has.tipSide = true
             out.tipSide = tipSideOf(object, trailer)
@@ -593,7 +620,9 @@ function VehicleState.liveKey(object, action)
             local ev = spec.actionEvents[action]
             local e = type(ev) == "table" and ev.actionEventId ~= nil and events[ev.actionEventId] or nil
             if type(e) == "table" then
-                return { action = action, text = e.contextDisplayText, active = e.isActive ~= false, spec = k }
+                return { action = action, text = e.contextDisplayText, active = e.isActive ~= false, spec = k,
+                    -- false while the game hides it (spike 0.0.8)
+                    shown = e.displayIsVisible }
             end
         end
     end

@@ -23,7 +23,7 @@
 CompanionSpike = {}
 local CS = CompanionSpike
 
-local SPIKE_VERSION = "0.0.7"
+local SPIKE_VERSION = "0.0.8"
 local MOD_DIR = g_currentModDirectory or ""
 
 local LIMITS = {
@@ -1241,7 +1241,10 @@ end
 -- them (the keyboard's and the mod's), with the tools' states before and
 -- 30 frames after. The trace only wraps the callbacks; they still run.
 local KEY_ACTIONS = { "LOWER_ALL_IMPLEMENTS", "FOLD_ALL_IMPLEMENTS", "TURN_ON_ALL_IMPLEMENTS",
-    "LOWER_IMPLEMENT", "FOLD_IMPLEMENT", "TURN_ON_IMPLEMENT" }
+    "LOWER_IMPLEMENT", "FOLD_IMPLEMENT", "TURN_ON_IMPLEMENT",
+    -- 0.0.8: the tip keys; the game shows I ("Dump") only over a trigger that
+    -- takes the load, else Ctrl+I ("Unload here"), both isActive (spec 0003)
+    "TOGGLE_TIPSTATE", "TOGGLE_TIPSTATE_GROUND" }
 local TRACE_MAX_CALLS = 300
 local TRACE_AFTER_FRAMES = 30
 
@@ -1315,6 +1318,34 @@ local function valueOf(obj, name, ...)
 end
 
 -- the rig's states: what each button acts on
+-- 0.0.8: a trailer's discharge, to learn what tells a trigger in reach from
+-- the ground: Dischargeable's spec and its current node, plain fields, and
+-- the FS22 getters' answers (unverified names, each tried)
+local function dischargeOf(o)
+    local spec = o.spec_dischargeable
+    if type(spec) ~= "table" then
+        return nil
+    end
+    local node = spec.currentDischargeNode
+    local specPlain, specTables = eventFields(spec)
+    local out = { spec = specPlain, specTables = specTables,
+        tipState = type(o.spec_trailer) == "table" and o.spec_trailer.tipState or nil }
+    if type(node) == "table" then
+        local plain, tables = eventFields(node)
+        out.node, out.nodeTables = plain, tables
+        out.dischargeObject = node.dischargeObject ~= nil and tostring(node.dischargeObject) or nil
+        out.dischargeHit = node.dischargeHit
+        out.dischargeFailedReason = node.dischargeFailedReason
+        out.canDischargeToObject = valueOf(o, "getCanDischargeToObject", node)
+        out.canDischargeToGround = valueOf(o, "getCanDischargeToGround", node)
+        out.canDischargeAtPosition = valueOf(o, "getCanDischargeAtPosition", node)
+        out.canToggleDischargeToObject = valueOf(o, "getCanToggleDischargeToObject")
+        out.canToggleDischargeToGround = valueOf(o, "getCanToggleDischargeToGround")
+        out.dischargeState = valueOf(o, "getDischargeState")
+    end
+    return out
+end
+
 local function rigStates()
     local v = getControlledVehicle()
     if v == nil then
@@ -1332,6 +1363,7 @@ local function rigStates()
             foldMoveDirection = type(o.spec_foldable) == "table" and o.spec_foldable.foldMoveDirection or nil,
             turnedOn = valueOf(o, "getIsTurnedOn"),
             motorStarted = valueOf(o, "getIsMotorStarted"),
+            discharge = dischargeOf(o),
         }
     end
     return out
@@ -1496,8 +1528,10 @@ local function writeJson(name, out)
     return true
 end
 
-local function writeKeys(out)
-    return writeJson("keys.json", out)
+-- csKeys NAME writes keys-NAME.json (0.0.8: one file per place)
+local function writeKeys(out, name)
+    local file = name ~= nil and name ~= "" and ("keys-" .. tostring(name):gsub("[^%w_-]", "") .. ".json") or "keys.json"
+    return writeJson(file, out), file
 end
 
 ---------------------------------------------------------------------------
@@ -1833,7 +1867,7 @@ function CompanionSpike:loadMap(name)
             "consoleDump", CompanionSpike)
         addConsoleCommand("csSelect", "Select each tool of the rig in turn, then put the selection back",
             "consoleSelect", CompanionSpike)
-        addConsoleCommand("csKeys", "Write the All row's key handlers to keys.json",
+        addConsoleCommand("csKeys", "Write the All row's and the tip keys' handlers to keys.json (csKeys NAME: keys-NAME.json)",
             "consoleKeys", CompanionSpike)
         addConsoleCommand("csTrace", "Start, or stop and write, a trace of the All row's key handlers",
             "consoleTrace", CompanionSpike)
@@ -1866,7 +1900,7 @@ function CompanionSpike:deleteMap()
     end
 end
 
-function CompanionSpike:consoleKeys()
+function CompanionSpike:consoleKeys(name)
     local ok, res = pcall(probeKeys)
     if not ok then
         log("keys probe failed: %s", tostring(res))
@@ -1876,7 +1910,8 @@ function CompanionSpike:consoleKeys()
     for _, name in ipairs(KEY_ACTIONS) do
         parts[#parts + 1] = name .. "=" .. tostring(res.actions[name].count)
     end
-    return (writeKeys({ keys = res }) and "keys.json written: " or "keys.json FAILED: ") .. table.concat(parts, " ")
+    local written, file = writeKeys({ keys = res }, name)
+    return file .. (written and " written: " or " FAILED: ") .. table.concat(parts, " ")
 end
 
 function CompanionSpike:consolePress(name)

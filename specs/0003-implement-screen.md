@@ -1,7 +1,7 @@
 # 0003: Vehicle page with a card per tool (the Implement tab merges in)
 
-Status: built (revision 2 live-checked on the mowers; the other rigs open)
-Mod: 0.8.15 · Started: 2026-10-26 · Design: canvas [FS25 Companion: Vehicle vs Implement](https://claude.ai/artifact/HvFL9rUTBC7cbDtnNH8WaT)
+Status: built (revisions 2 and 3 live-checked, on the mowers and the trailers; the other rigs open)
+Mod: 0.8.16 · Started: 2026-10-26 · Design: canvas [FS25 Companion: Vehicle vs Implement](https://claude.ai/artifact/HvFL9rUTBC7cbDtnNH8WaT)
 (option A), [THEMES.md, Implement screen](../docs/THEMES.md#implement-screen-design-2026-10-24) (replaced)
 
 ## Goal
@@ -191,6 +191,92 @@ XT 390; the client, `scripts/livewatch.py` and `allrow_check.py`):
   live checks, not now.
 - The All row's labels follow what the game's key does, starting with
   Fold all.
+
+## Revision 3: Tip presses the key the game shows
+
+Approved by Vincent and built (mod 0.8.16, 2026-10-31). Behaviour and
+Commands below say the same where they changed.
+
+**Why.** Live (mod 0.8.15, `rig_check.py`, two EDK 650 with wheat and
+parsnips): Tip answered ok and nothing tipped everywhere but over a sale
+point that took the load. A trailer has two tip keys, I
+(`TOGGLE_TIPSTATE`, "Start overloading": into what's under it) and Ctrl+I
+(`TOGGLE_TIPSTATE_GROUND`, "Unload here"), and the mod presses the first
+with an active event. Both are always active; the game shows one at a
+time (spike 0.0.8): I over something that takes the load, else Ctrl+I.
+So the mod pressed a key the game had hidden, which does nothing. And
+where the game refused (land not ours: "You don't have access to this
+land") the answer was ok too.
+
+**What the player sees.**
+- One button, as the game has one prompt at a time; its label says
+  where the load goes, before the tap: **Tip** over something that takes
+  the load (a sale point, a silo), **Unload here** elsewhere (the game's
+  own words for Ctrl+I), **Stop** while it tips. A tap does what that
+  key does. Two buttons (Tip and a "force tip") were weighed and left
+  out (Vincent, 2026-10-31): the game never offers both, so one would
+  always be faded on a card that's already tight, and Ctrl+I forces
+  nothing (the game still refuses land not ours). To dump beside a sale
+  point, move off it, as with the keyboard.
+- Tip gets revision 2's check: the button stays pending until the
+  trailer starts tipping (`discharging`), else "Failed" with "Nothing
+  moved" (the game's own words, as "You don't have access to this land",
+  aren't found yet). Stop is checked the same way. Tip all: ok only when
+  every trailer started, else the reason names the others.
+- Tip all keeps its label; tip side, cover and pipe as today.
+
+**The rule.** Of a command's keys, the mod presses the first the game
+shows (`displayIsVisible` not false), else the first active as today.
+Only Tip has more than one key, so nothing else changes.
+
+**Data contract.** Each trailer's rig entry gains `tipTo`: `"object"`
+while the game shows I, `"ground"` while it shows Ctrl+I, absent when
+neither is known (no events: the trailer isn't selected and its keys
+aren't registered; then the mod reads `getCanDischargeToObject` on its
+current discharge node, true → `"object"`, false → `"ground"`). Protocol
+v1 (a field). Web: the label from `tipTo` ("Unload here" for
+`"ground"`, else "Tip").
+
+| Name | Where from | State |
+|---|---|---|
+| an input event's `displayIsVisible`: false on the tip key the game hides, `isActive` true on both | InputBinding.lua | seen in spike 0.0.8 (two places, 2026-10-31) |
+| `getCanDischargeToObject(node)` true only over the sale point that took the load; `spec_dischargeable.currentDischargeNode` | Dischargeable.lua | seen in spike 0.0.8 (for `tipTo` when the trailer's keys aren't registered) |
+| the ground refusal's words ("You don't have access to this land") | Dischargeable.lua? | unknown: not in the node's fields |
+
+**Plan.** Mod (0.8.16): `liveInputFor` prefers a shown event; `tipTo`
+on each trailer (`VehicleState.lua`); Tip (`TOGGLE_DISCHARGE`) and Tip
+all checked as Fold and Lower are (`discharging` the asked way). Web:
+the card's label from `tipTo` (`vehicleTools.js`). `rig_check.py`
+already judges the answers; it prints `tipTo` with each Tip.
+
+**Acceptance, automated.**
+- [x] `run.lua` ("commands, tip"): with both tip keys active and Ctrl+I's
+  shown, Tip presses `TOGGLE_TIPSTATE_GROUND`; with I's shown,
+  `TOGGLE_TIPSTATE`; with neither flag, the first active, as today.
+- [x] `run.lua` ("commands, tip"): Tip ok once `discharging` turns; a
+  press that tips nothing answers "Nothing moved"; Tip all names the
+  trailer that didn't.
+- [x] `run.lua` ("capabilities: tipTo"): `tipTo` follows the shown key
+  ("object" with I's, "ground" with Ctrl+I's); without events,
+  `getCanDischargeToObject`.
+- [x] `web/test.html`: a trailer with `tipTo: "ground"` shows Unload here,
+  `"object"` or none Tip, discharging Stop.
+- [x] Checked in the browser pane at 1180×820, day and night: the
+  trailers rig with one card on Unload here, the other on Tip.
+
+**Live check** (the Vestrum 100 with the two EDK 650, loaded; `rig_check.py`):
+- [x] On our land: each card says Unload here; it unloads on the ground
+  and Stop stops it; Tip all both.
+- [x] Over a sale point that takes the load: that card says Tip, and it
+  tips into it; the other trailer's still says Unload here.
+- [x] On land not ours: Tip fails (what the game shows, Vincent).
+  2026-10-31 (0.8.16, the Vestrum 100 with two EDK 650, wheat and
+  parsnips; `rig_check.py`; confirmed by Vincent): on our land 14 of 14,
+  both cards Unload here, each Tip and Stop by `TOGGLE_TIPSTATE_GROUND`,
+  ok once it moved, Tip all both; over the parsnip sale point the front
+  card Tip, the rear (wheat) Unload here, Tip by `TOGGLE_TIPSTATE` into
+  it and stopped; on land not ours both Tips "Nothing moved", nothing
+  tipped, the game warning that we have no access there.
 
 ## Behaviour
 
@@ -453,7 +539,8 @@ now), or off once they all are. `implement.tipAll` and `implement.coverAll`
 (value 1 = open / tip, 0 = close / stop; no game key) run the one-tool
 command on each that has the capability and isn't there yet, in driving
 order, then put the selection back; the ack names any the game refused
-("EDK 650: …").
+("EDK 650: …"). Tip and Tip all are checked (revision 3): ok once each
+trailer started (or stopped) tipping, by the tip key the game shows.
 
 `hitch.toggle` becomes Attach's: the attach key, only while
 `cab.attachable` ("nothing in reach" otherwise; it never detaches any
@@ -566,7 +653,15 @@ Automated (each one a test that exists before the work is called built):
   ones failed on 0.8.9.
   Checked in the browser pane at 1180×820, day and night.
 
-Live check (mod 0.8.8; the spike is done; the rigs above):
+Live check (mod 0.8.8; the spike is done; the rigs above). The open
+rigs go through `scripts/rig_check.py` (2026-10-31): it prints what the
+dashboard reads of each tool (to hold against the HUD), presses every
+card button there and back, Tip side once per side, Reset count, each
+tool's other keys twice (not Dump or Unload), Tip all and Cover all, and
+with `--attach` Attach; an ok must change the cab, a faded button must be
+refused with nothing changed, the selection must come back, and each line
+names which way it went (`via`, now on the viewer's ack). LOOK lines are
+Vincent's to answer. Judging tested in `client/tests/test_rig_check.py`.
 - [x] Front and rear mowers: both cards; each card's Fold, Lower and Turn
   on act on its own mower; Unfold all, Lower all and Turn on all work
   both, one tap each.
@@ -580,10 +675,16 @@ Live check (mod 0.8.8; the spike is done; the rigs above):
   rear: the game's `FOLD_ALL_IMPLEMENTS` acts on every tool but won't
   fold one lowered on its joint ("Folding is not allowed while the tool
   is lowered."), and the XT 390 raises by folding.
-- [ ] Two trailers: Tip and Uncover per trailer; the three-way tipper's
+- [x] Two trailers: Tip and Uncover per trailer; the three-way tipper's
   Tip side steps as the game's key does.
-- [ ] A sprayer with sections: the width and sections match the HUD; Left
-  in / out and Right in / out act on the right side.
+  2026-10-31 (0.8.15 and 0.8.16, the Vestrum 100 with two Farmtech EDK
+  650, `rig_check.py`; confirmed by Vincent): Tip side 28 of 28 over five
+  runs, each press a step by `TOGGLE_TIPSIDE` (Back, Grain door, Left,
+  Right, four sides), the selection back each time; Tip per trailer and
+  Tip all by revision 3. The EDK 650 has no cover (`hasCovers` false),
+  so no Uncover; Cover waits for a rig with one.
+- [ ] A sprayer with sections: its card's Fold and Turn on act on it
+  (the width and sections are left out: open question 4).
 - [ ] A plow: Rotate turns it; unavailable with the game's reason while
   raised.
 - [ ] A baler: its chamber matches the HUD.
@@ -878,3 +979,43 @@ Live check (mod 0.8.8; the spike is done; the rigs above):
   Vincent: the game matched every step. Revision 2 live-checked on the
   mowers; the other rigs' boxes (trailers, sprayer, plow, baler, weight,
   truck, Attach) are still open.
+- 2026-10-31: `scripts/rig_check.py` for the open rigs' live check: every
+  card button on any rig, judged from the cab (ok means it changed, a
+  faded button is refused, the selection comes back), Tip side per side,
+  Reset count, the other keys, Tip all and Cover all, Attach. The
+  backend passes the mod's `via` to the viewer, so each line says which
+  way a command went. The sprayer's box drops the width (open question
+  4). Tests: `client/tests/test_rig_check.py`, a backend test; 141
+  Python/Lua tests pass.
+- 2026-10-31: live check, `rig_check.py` on the Case IH Vestrum 100 with
+  two Farmtech EDK 650 (loaded with wheat), mod 0.8.15. Tip side 16 of
+  16 over two runs, each press a step (Left, Right, Back, Grain door) by
+  `TOGGLE_TIPSIDE`, the selection back each time. Tip answered ok by
+  `TOGGLE_TIPSTATE` every time but moved nothing twice where the game
+  refused: over a sale point that doesn't take wheat, and on land not
+  ours (Ctrl+I: "You don't have access to this land", Vincent); the
+  dashboard showed neither. So Tip needs the moved check (NEXT.md). The
+  run on our own land is next.
+- 2026-10-31: spike 0.0.8 (`csKeys sale`, `csKeys ground`, the Vestrum
+  100 with the EDK 650s, one over a sale point taking parsnips): both
+  tip keys always `isActive`; the game hides the one it doesn't offer
+  (`displayIsVisible` false), I over the sale point, Ctrl+I elsewhere;
+  `getCanDischargeToObject` true only over the sale point. Revision 3
+  drafted; Vincent chose one button whose label says where the load
+  goes over two (Tip and "force tip"), approved, and built (mod 0.8.16):
+  `liveInputFor` presses a shown key first, `tipTo` on each trailer,
+  Tip and Tip all checked; web: Unload here / Tip / Stop. Tests: two Lua
+  tests (the mocks' tip keys act as the game's), test.html; 142
+  Python/Lua tests and test.html pass. Checked in the browser pane at
+  1180×820, day and night.
+- 2026-10-31: live check (0.8.16), `rig_check.py` on the trailers: on
+  our land 14 of 14 (Unload here, each by Ctrl+I's key, Tip all both);
+  over a parsnip sale point the front trailer's card Tip, tipped in by
+  I's key and stopped, the rear's Unload here; on land not ours Tip
+  "Nothing moved" and nothing tipped (the game warned we have no access).
+  Confirmed by Vincent. Revision 3 live-checked; the trailers' box
+  ticked (no cover on the EDK 650). The tip facts move to DONE.md. Seen
+  once: the run's first reading had the front trailer's `tipTo` still
+  "object" after driving off the sale point; it read "ground" by the
+  press (the rig was likely still settling). Next rigs: sprayer, plow,
+  baler, weight, truck, Attach.

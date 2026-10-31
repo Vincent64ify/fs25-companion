@@ -150,6 +150,16 @@ Lower all as the mod does and records every change in those and in the
 tools' states, frame by frame, for 8 s. Run it once to lower, once to
 raise; on a second tractor if there is one.
 
+Spike 0.0.8: `csKeys` also lists the tip keys, `TOGGLE_TIPSTATE` (I,
+"Dump") and `TOGGLE_TIPSTATE_GROUND` (Ctrl+I, "Unload here"), and each
+trailer's discharge (Dischargeable's spec and current node, plain fields,
+and the FS22 getters' answers). Live (2026-10-31) the game showed I only
+over a sale point that takes the load and Ctrl+I elsewhere, while both
+events said `isActive`: the dumps show what tells them apart. `csKeys
+NAME` writes `keys-NAME.json`. With a loaded trailer selected: `csKeys
+sale` over a sale point that takes the load, `csKeys ground` on your own
+land.
+
 ## Command spike (C0)
 
 `FS25_CommandSpike` checks the command channel planned for Controls (see

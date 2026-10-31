@@ -34,7 +34,9 @@ The first message names the role.
                         on connect while there is one; null once the
                         client's envelopes are good again
     backend -> viewer:  {"type": "command_ack", "id": str, "ok": bool,
-                        "reason": str|null, "checked"?: true, "unmoved"?: [...]}
+                        "reason": str|null, "via"?: str, "checked"?: true,
+                        "unmoved"?: [...]}
+                        via: what ran, the key's input action or "setter";
                         checked: the mod waited for the tools to move;
                         unmoved: those that didn't, {id, name, why}
                         to the viewer that sent the command, with its own
@@ -178,6 +180,9 @@ async def answer_command(session: Session, ack: dict) -> None:
         return
     viewer, viewer_id = pending
     answer = {"type": "command_ack", "id": viewer_id, "ok": ack.get("ok") is True, "reason": ack.get("reason")}
+    # which way it went: the key's input action, or "setter" (specs/0003, scripts/rig_check.py)
+    if isinstance(ack.get("via"), str):
+        answer["via"] = ack["via"]
     # specs/0003 revision 2: whether the mod checked the tools moved, and which didn't
     if ack.get("checked") is True:
         answer["checked"] = True

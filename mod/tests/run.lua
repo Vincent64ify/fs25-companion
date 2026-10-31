@@ -2390,9 +2390,10 @@ test("commands, all: fold all raises what's lowered first, then the game's key; 
     eq(ack.ok, true)
     eq(pressed(), "1004:TOGGLE_TIPSTATE,1003:TOGGLE_TIPSTATE", "the last trailer first, as they're driven")
     eq(root:getSelectedVehicle().id, 1004, "the selection put back")
-    byId[1004].spec_dischargeable.currentDischargeState = 1
+    byId[1003].spec_dischargeable.currentDischargeState = 0
     run("TIP_ALL", 1)
     eq(pressed(), "1003:TOGGLE_TIPSTATE", "the one already tipping is skipped")
+    byId[1003].spec_dischargeable.currentDischargeState = 0
     run("TIP_ALL", 0)
     eq(pressed(), "1004:TOGGLE_TIPSTATE", "stop: only the one tipping")
     g_inputBinding = nil
@@ -2567,6 +2568,116 @@ test("commands, checked: ok once the tools moved, else which didn't and why", fu
     eq(ack.ok, true)
     eq(ack.checked, nil)
     C.CHECK_MAX_FRAMES = 240
+    g_inputBinding = nil
+    localToLocal = nil
+end)
+
+-- spec 0003 revision 3: a trailer has two tip keys, both active; the game
+-- shows one at a time (spike 0.0.8: displayIsVisible), I over something
+-- that takes the load, else Ctrl+I. Tip presses the shown one, checked.
+local function showTip(o, key)
+    for _, k in ipairs(o.dump.keys.dischargeable) do
+        k.visible = k.action == key
+    end
+    o.dischargeTo = key == "TOGGLE_TIPSTATE" and "object" or "ground"
+end
+
+test("commands, tip: the key the game shows, ok once it tips, else which didn't", function()
+    if TMP_DIR == nil then
+        return
+    end
+    local C = Companion.Commands
+    C.CHECK_MAX_FRAMES = 5
+    local run, root, byId, pressed = spikeCommands("trailers")
+    local front, rear = byId[1003], byId[1004]
+    -- on our land: Ctrl+I, "Unload here"
+    showTip(rear, "TOGGLE_TIPSTATE_GROUND")
+    SpikeRigs.registerKeys(root)
+    pressed()
+    local ack = run("TOGGLE_DISCHARGE", 1004)
+    eq(ack.ok, true, "unload here: " .. tostring(ack.reason))
+    eq(ack.checked, true)
+    eq(ack.via, "TOGGLE_TIPSTATE_GROUND")
+    eq(pressed(), "1004:TOGGLE_TIPSTATE_GROUND", "not the hidden I")
+    eq(rear:getDischargeState() ~= 0, true, "tipping")
+    eq(run("TOGGLE_DISCHARGE", 1004).ok, true, "stop")
+    eq(rear:getDischargeState(), 0)
+    -- over a sale point that takes the load: I
+    showTip(rear, "TOGGLE_TIPSTATE")
+    SpikeRigs.registerKeys(root)
+    pressed()
+    ack = run("TOGGLE_DISCHARGE", 1004)
+    eq(ack.ok, true)
+    eq(pressed(), "1004:TOGGLE_TIPSTATE")
+    run("TOGGLE_DISCHARGE", 1004)
+    -- the game refuses (land not ours, live 2026-10-31): nothing tips
+    showTip(rear, "TOGGLE_TIPSTATE_GROUND")
+    SpikeRigs.registerKeys(root)
+    rear.stuck = true
+    ack = run("TOGGLE_DISCHARGE", 1004)
+    rear.stuck = nil
+    eq(ack.ok, false)
+    eq(ack.reason, "Nothing moved")
+    eq(ack.unmoved[1].id, 1004)
+    -- neither shown nor hidden (spike 0.0.4's keys): the first active, as before
+    for _, k in ipairs(rear.dump.keys.dischargeable) do
+        k.visible = nil
+    end
+    rear.dischargeTo = nil
+    SpikeRigs.registerKeys(root)
+    pressed()
+    eq(run("TOGGLE_DISCHARGE", 1004).via, "TOGGLE_TIPSTATE")
+    run("TOGGLE_DISCHARGE", 1004)
+    -- Tip all: each trailer by its shown key, checked; one that doesn't tip is named
+    showTip(front, "TOGGLE_TIPSTATE_GROUND")
+    showTip(rear, "TOGGLE_TIPSTATE_GROUND")
+    SpikeRigs.registerKeys(root)
+    pressed()
+    ack = run("TIP_ALL", 1)
+    eq(ack.ok, true, "tip all: " .. tostring(ack.reason))
+    eq(ack.checked, true)
+    eq(pressed(), "1004:TOGGLE_TIPSTATE_GROUND,1003:TOGGLE_TIPSTATE_GROUND")
+    eq(front:getDischargeState() ~= 0 and rear:getDischargeState() ~= 0, true, "both tipping")
+    eq(run("TIP_ALL", 0).ok, true, "stop all")
+    front.stuck = true
+    ack = run("TIP_ALL", 1)
+    front.stuck = nil
+    eq(ack.ok, false)
+    eq(ack.reason, "Farmtech EDK 650: Nothing moved")
+    eq(#ack.unmoved, 1)
+    eq(ack.unmoved[1].id, 1003)
+    run("TIP_ALL", 0)
+    C.CHECK_MAX_FRAMES = 240
+    g_inputBinding = nil
+    localToLocal = nil
+end)
+
+test("capabilities: tipTo follows the tip key the game shows, else getCanDischargeToObject", function()
+    local VS = Companion.VehicleState
+    local root, byId = SpikeRigs.rig(spikeDump("trailers"), SIDES)
+    local front, rear = byId[1003], byId[1004]
+    local function tipTo(id)
+        for _, e in ipairs(VS.rig(root)) do
+            if e.id == id then
+                return e.tipTo
+            end
+        end
+    end
+    eq(tipTo(1004), nil, "spike 0.0.4's keys: neither shown nor hidden")
+    showTip(rear, "TOGGLE_TIPSTATE_GROUND")
+    SpikeRigs.registerKeys(root)
+    eq(tipTo(1004), "ground")
+    showTip(rear, "TOGGLE_TIPSTATE")
+    SpikeRigs.registerKeys(root)
+    eq(tipTo(1004), "object")
+    -- not selected: its keys aren't registered; its discharge node answers
+    eq(tipTo(1003), nil)
+    local node = {}
+    front.spec_dischargeable.currentDischargeNode = node
+    front.getCanDischargeToObject = function(_, n) return n == node and front.overSalePoint == true end
+    eq(tipTo(1003), "ground")
+    front.overSalePoint = true
+    eq(tipTo(1003), "object")
     g_inputBinding = nil
     localToLocal = nil
 end)

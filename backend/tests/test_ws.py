@@ -203,6 +203,27 @@ def test_a_checked_ack_tells_the_viewer_what_didnt_move():
         assert recv(viewer) == {"type": "command_ack", "id": "l1", "ok": True, "reason": None}
 
 
+def test_an_ack_tells_the_viewer_which_way_it_went():
+    """specs/0003: the mod's via (the key's input action, or "setter") reaches
+    the viewer, for scripts/rig_check.py; an ack without one carries none."""
+    client = TestClient(create_app())
+    with client.websocket_connect("/ws?pair=via") as game, \
+            client.websocket_connect("/ws?pair=via") as viewer:
+        game.send_text(json.dumps({"type": "hello", "role": "client"}))
+        assert recv(game)["type"] == "welcome"
+        viewer_hello(viewer)
+        command(viewer, "r1", action="implement.rotate")
+        ref = recv(game)["ref"]
+        send_env(game, env("command_ack", {"id": 1, "ref": ref, "action": "ROTATE_PLOW", "ok": True,
+                                           "via": "IMPLEMENT_EXTRA"}, seq=5))
+        assert recv(viewer) == {"type": "command_ack", "id": "r1", "ok": True, "reason": None,
+                                "via": "IMPLEMENT_EXTRA"}
+        command(viewer, "r2", action="implement.rotate")
+        ref = recv(game)["ref"]
+        send_env(game, ack_env(ref, seq=6))
+        assert recv(viewer) == {"type": "command_ack", "id": "r2", "ok": True, "reason": None}
+
+
 def test_commands_outside_the_allow_list_never_reach_the_client():
     client = TestClient(create_app())
     with client.websocket_connect("/ws?pair=deny") as game, \

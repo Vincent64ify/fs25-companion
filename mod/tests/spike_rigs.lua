@@ -162,6 +162,8 @@ function SpikeRigs.register(object, specName, key)
     local event = {
         id = nextEventId, isActive = key.active ~= false, targetObject = object,
         contextDisplayText = key.text,
+        -- the game hides a key it doesn't offer now, active still (spike 0.0.8)
+        displayIsVisible = key.visible,
         callback = function(target, name)
             b.pressed[#b.pressed + 1] = { id = target.id, action = name }
             if target.onKey ~= nil then
@@ -244,6 +246,15 @@ function SpikeRigs.act(target, name)
             if o.on ~= on and (not on or o:getCanBeTurnedOn()) then
                 o.on = on
             end
+        end
+    elseif name == "TOGGLE_TIPSTATE" or name == "TOGGLE_TIPSTATE_GROUND" then
+        -- I tips into what takes the load, Ctrl+I on the ground; the one the
+        -- game hides does nothing (live 2026-10-31). dischargeTo: where it
+        -- can go now (nil: either). Dischargeable's states: 1 object, 2 ground
+        local to = name == "TOGGLE_TIPSTATE" and "object" or "ground"
+        local spec = target.spec_dischargeable
+        if type(spec) == "table" and (target.dischargeTo == nil or target.dischargeTo == to) then
+            spec.currentDischargeState = (spec.currentDischargeState or 0) ~= 0 and 0 or (to == "object" and 1 or 2)
         end
     elseif name == "LOWER_ALL_IMPLEMENTS" then
         local tools, lower = {}, false
