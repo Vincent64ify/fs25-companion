@@ -125,8 +125,8 @@ python client/companion_client.py --local
 # no game? replay a recording instead
 python client/companion_client.py --local --replay fixtures/solek_v1.ndjson --loop
 
-# all tests: mod (through lupa), client, backend
-python -m pytest mod/tests client/tests backend/tests
+# all tests: mod (through lupa), client, backend, the golden replay
+python -m pytest mod/tests client/tests backend/tests tests
 
 # map transform tests: open http://localhost:8123/test.html (all green)
 ```

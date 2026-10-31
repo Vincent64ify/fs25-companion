@@ -33,9 +33,12 @@ commands back.
 ## Checking
 
 ```bash
-python -m pytest mod/tests client/tests backend/tests
+python -m pytest mod/tests client/tests backend/tests tests
 ```
 
+- `tests/test_golden.py` pins every message a viewer gets from the Solek
+  replay (`fixtures/golden_viewer.ndjson`); `GOLDEN_UPDATE=1` rewrites it,
+  only when a change to what viewers get is on purpose.
 - `web/test.html` (all green) through the `replay-solek` launch config
   (`.claude/launch.json`, port 8124): `http://localhost:8124/test.html`.
 - The same replay is the browser-pane check for screens at 1180×820, day

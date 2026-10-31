@@ -70,7 +70,8 @@ up to date until the live check.
   [Open checks](#open-checks)).
 - Planned (2026-10-31): [SIMPLIFY.md](SIMPLIFY.md), making the code
   smaller in phases S0 to S5, local first (one process, the protocol in
-  one place, commands that say the state they want). Not started. The
+  one place, commands that say the state they want). S0 is done: the
+  golden replay test (`tests/test_golden.py`). The
   rigs spec 0003 moved out come after it.
 
 ## Ground rules

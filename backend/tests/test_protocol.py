@@ -7,7 +7,9 @@ from backend.app.protocol import (ProtocolVersionError, ValidationError,
                                   parse_envelope)
 
 FIXTURES = Path(__file__).resolve().parents[2] / "fixtures"
-V1_FIXTURES = sorted(p for p in FIXTURES.glob("*.ndjson") if not p.name.startswith("spike_"))
+# golden_*: what viewers received (tests/test_golden.py), not envelopes
+V1_FIXTURES = sorted(p for p in FIXTURES.glob("*.ndjson")
+                     if not p.name.startswith(("spike_", "golden_")))
 
 
 def env(topic, data, v=1, seq=1):

@@ -96,6 +96,15 @@ Before moving anything, pin down what the dashboard receives today.
 
 Done when: the golden test passes on today's code.
 
+Done (2026-10-31): `tests/test_golden.py` runs the real
+`companion_client.run()` with `--local --replay`, feeding one envelope at a
+time (so nothing is coalesced and the order is fixed) and answering the
+command files as a fake mod. Beyond the plan it also pins a second viewer's
+snapshot, a superseded `cruise.set`, an ack sent again after a rotation
+(nobody gets it), a same-session hello (an update) and a new session (a
+snapshot), and that an ack reaches only the viewer that asked. The golden
+file is 3,128 lines; the test takes about 2 s.
+
 ### S1: One local process (spec 0006)
 
 The client and backend become one app that tails the file, keeps the
