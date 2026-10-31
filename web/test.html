@@ -1635,13 +1635,13 @@ check("theme: the Vehicle screen's slots and its column", [
   slotsOf(vehScreen), slotsOf(loaderScreen),
   vehGroups.map((g) => q(g, ".control-group-label")),
   [...vehGroups[1].querySelectorAll(".control-label")].map((e) => e.textContent),
-  [...vehGroups[2].querySelectorAll(".control-label")].map((e) => e.textContent),
   [...loaderScreen.querySelectorAll(".control-column .control-group-label")].map((e) => e.textContent),
   [...appV.querySelectorAll('.control-column .control[data-control="engineOn"]')].length,
   THEMES[0].screens.filter((s) => s.tab === "vehicle" || s.id === "vehicle").map((s) => `${s.choice}:${s.icon}`),
   [...appV.querySelectorAll(".tab")].map((t) => t.dataset.screen)],
   [[true, false, false, true, true, true, false], [true, true, true, false, false, false, false],
-    ["Lights", "Drive", "Hitch"], ["Cruise −", "Cruise", "Cruise +", "Engine", "AI worker"], ["Attach"], ["Lights", "Drive"],
+    // no Hitch group: Attach waits for its own spec (spec 0003's close)
+    ["Lights", "Drive"], ["Cruise −", "Cruise", "Cruise +", "Engine", "AI worker"], ["Lights", "Drive"],
     4, ["Vehicle:tractor", "Loader:loader", "Harvester:harvester"], ["map", "vehicle"]]);
 
 // the Vehicle page's card: Loads (the rig's tanks and weight) even with a
@@ -1827,7 +1827,8 @@ check("tools: the engine off, Unfold all and Lower all are faded with the game's
   [offAll?.label, offAll?.unavailable, offAll?.note], [loweredAll?.label, loweredAll?.unavailable === true],
   [lowerOff?.label, lowerOff?.unavailable, lowerOff?.note]],
   [["Unfold all", true, "Please start the engine first"], ["Fold all", false], ["Lower all", true, "Please start the engine first"]]);
-check("tools: every capability's button, labelled with what a tap does", vt.toolButtons({ id: 9, depth: 1, selected: true,
+// cover, rotate and bales have no button until their own spec (spec 0003's close)
+check("tools: every confirmed capability's button, labelled with what a tap does; cover, rotate and bales none", vt.toolButtons({ id: 9, depth: 1, selected: true,
   can: ["lower", "fold", "turnOn", "tip", "tipSide", "cover", "pipe", "rotate", "bales", "detach"], lowered: true, unfolded: false,
   turnedOn: false, discharging: true, tipSide: { index: 2, count: 3, name: "Left" }, cover: { open: false },
   pipe: { out: true, moving: false }, plow: { rotated: false }, bales: { count: 12 },
@@ -1835,8 +1836,7 @@ check("tools: every capability's button, labelled with what a tap does", vt.tool
   .map((b) => [b.label, b.action, b.value, b.on, b.unavailable === true, b.line ?? ""].join("|")),
   ["Raise|implement.lower|9|true|false|", "Unfold|implement.fold|9|false|false|", "Turn on|implement.turnOn|9|false|true|",
     "Stop|implement.unload|9|true|false|", "Tip side|implement.tipSide|9|false|false|Left",
-    "Uncover|implement.cover|9|false|false|", "Pipe in|implement.pipe|9|true|false|", "Rotate|implement.rotate|9|false|false|",
-    "Reset count|implement.baleReset|9|false|false|12 bales", "Detach|implement.detach|9|false|false|",
+    "Pipe in|implement.pipe|9|true|false|", "Detach|implement.detach|9|false|false|",
     "Allow create fields|implement.key|1|false|false|"]);
 // spec 0003 revision 3: the label says where the load goes, as the key the game shows
 check("tools: Tip says Unload here off a sale point, Tip over one, Stop while tipping", [
@@ -1889,11 +1889,12 @@ for (const b of allOn.allEl.querySelectorAll(".control")) tap(b);
 await Promise.resolve();
 check("tools: the All row: lit while all are on, labelled with what a tap does; Turn on all waits while one is folded", [
   ...allShown, allButtons[2].querySelector(".control-value")?.textContent, mixed.sent, allOn.sent.slice(3)],
-  [["Fold all:on", "Raise all:on", "Turn off all:on", "Stop all:on", "Cover all:on"],
+  [["Fold all:on", "Raise all:on", "Turn off all:on", "Stop all:on"],
     // one folded, one not: Fold all, as the game's key does (spike 0.0.5, revision 2)
-    ["Fold all:off", "Lower all:off", "Turn on all:unavailable", "Tip all:off", "Uncover all:off"], "Unfold first",
-    [["implement.foldAll", undefined], ["implement.lowerAll", undefined], ["implement.tipAll", 1], ["implement.coverAll", 1]],
-    [["implement.tipAll", 0], ["implement.coverAll", 0]]]);
+    // no Cover all until cover has its own spec (spec 0003's close)
+    ["Fold all:off", "Lower all:off", "Turn on all:unavailable", "Tip all:off"], "Unfold first",
+    [["implement.foldAll", undefined], ["implement.lowerAll", undefined], ["implement.tipAll", 1]],
+    [["implement.tipAll", 0]]]);
 check("tools: one working thing: no All row; nothing attached; on foot", [
   rigFix.sprayer && toolsPage(rigFix.sprayer.vehicles, rigFix.sprayer.cab).allEl.hidden,
   q(toolsPage(rigFix.attach.vehicles, rigFix.attach.cab).cardsEl, ".tool-none"),

@@ -41,7 +41,7 @@ up to date until the live check.
   with mod 0.8.6. Revision 2 (dashboard only) is confirmed in game on
   2026-10-27: that page is now Loader, picked by itself, beside a plain
   Vehicle page; the tab names its page; a tap on a tile only selects.
-  Spec [0003](../specs/0003-implement-screen.md) is built (mod 0.8.16):
+  Spec [0003](../specs/0003-implement-screen.md) is closed (mod 0.8.17):
   the Implement tab merges into the Vehicle page, a card per tool with
   the buttons the game's parts allow, checked against a census of every
   vehicle type and real rig dumps. Revision 2: fold, lower and turn on
@@ -50,8 +50,11 @@ up to date until the live check.
   the mowers it passed 36 of 36 (2026-10-30). Revision 3: Tip presses
   the tip key the game shows (Unload here on the ground, Tip into a sale
   point) and answers ok once the trailer tips; `scripts/rig_check.py`
-  checks any rig's buttons, and the trailers passed (2026-10-31). The
-  sprayer, plow, baler, weight, truck and Attach are next.
+  checks any rig's buttons, and the trailers passed (2026-10-31). Closed
+  on 2026-10-31 with what's confirmed: the cover, Rotate, the bale
+  counter and Attach are hidden (their keys stay among the other keys),
+  and the sprayer, plow, baler, cover, Attach and the rig shapes each get
+  their own spec after [SIMPLIFY.md](SIMPLIFY.md).
   Canvases are built from the design system
   ([THEMES.md](THEMES.md#design-system-2026-10-25)).
 - The code review of 2026-10-30 ([REVIEW-2026-10-30.md](REVIEW-2026-10-30.md))
@@ -65,6 +68,10 @@ up to date until the live check.
   ([NEXT.md](NEXT.md)).
 - macOS is still to test, and a few things are still to confirm in game (see
   [Open checks](#open-checks)).
+- Planned (2026-10-31): [SIMPLIFY.md](SIMPLIFY.md), making the code
+  smaller in phases S0 to S5, local first (one process, the protocol in
+  one place, commands that say the state they want). Not started. The
+  rigs spec 0003 moved out come after it.
 
 ## Ground rules
 

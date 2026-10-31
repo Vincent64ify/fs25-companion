@@ -2062,9 +2062,12 @@ test("capabilities: spike 0.0.4's rigs give each member its buttons, can't-now r
     eq(rigs.baler[1041].bales.count, 0)
     eq(rigs.trailers[1004].discharging, false)
     eq(rigs.mowers[996].lowered, true)
-    -- the selected one's other keys, each once, by input action
-    eq(joined(rigs.plow[1037].extraKeys), "Allow create fields")
-    eq(joined(rigs.baler[1041].extraKeys), "Turn on automatic drop,Lower pickup", "the pickup lowers by its own key")
+    -- the selected one's other keys, each once, by input action; a
+    -- capability with no button yet (rotate, bales: spec 0003's close)
+    -- leaves its key there
+    eq(joined(rigs.plow[1037].extraKeys), "Rotate plow,Allow create fields")
+    eq(joined(rigs.baler[1041].extraKeys), "Reset bale counter,Turn on automatic drop,Lower pickup",
+        "the pickup lowers by its own key")
     eq(joined(rigs.sprayer[1031].extraKeys), "Dump,Dump on ground,Unload", "a sprayer's dump isn't tipping")
     eq(rigs.mowers[996].extraKeys, nil, "all covered")
     eq(rigs.mowers[994].extraKeys, nil, "not selected")
@@ -2227,12 +2230,16 @@ test("commands, aimed: a tool's id selects it, presses its key, puts the selecti
     ack = run("FOLD_IMPLEMENT")
     eq(ack.via, "IMPLEMENT_EXTRA2")
     eq(pressed(), "996:IMPLEMENT_EXTRA2")
-    -- the selected tool's other keys, by number
+    -- the selected tool's other keys, by number: Rotate plow, then Allow
+    -- create fields (rotate has no button yet: spec 0003's close)
     run, root, byId, pressed = spikeCommands("plow")
     ack = run("PRESS_TOOL_KEY", 1)
+    eq(ack.via, "IMPLEMENT_EXTRA", "Rotate plow")
+    eq(pressed(), "1037:IMPLEMENT_EXTRA")
+    ack = run("PRESS_TOOL_KEY", 2)
     eq(ack.via, "IMPLEMENT_EXTRA3", "Allow create fields")
     eq(pressed(), "1037:IMPLEMENT_EXTRA3")
-    eq(run("PRESS_TOOL_KEY", 2).reason, "no such key")
+    eq(run("PRESS_TOOL_KEY", 3).reason, "no such key")
     ack = run("ROTATE_PLOW")
     eq(ack.via, "IMPLEMENT_EXTRA", "rotate: the selected plow")
     eq(pressed(), "1037:IMPLEMENT_EXTRA")

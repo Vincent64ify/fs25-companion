@@ -21,7 +21,7 @@ export default {
       { label: "Lights", controls: ["lights", "highBeam", "beacon", "hazard", "turnLeft", "turnRight"] },
       { label: "Drive", controls: ["cruiseDown", "cruise", "cruiseUp", "engineOn", "aiWorker"] },
       { label: "Implement", implementName: true,
-        controls: ["implementLowered", "fold", "implementOn", "attach"] },
+        controls: ["implementLowered", "fold", "implementOn"] },
     ],
   },
   screens: [
@@ -42,8 +42,8 @@ export default {
     {
       // the Vehicle tab's default page (specs/0003, the Implement tab
       // merged in): the band with the rig strip, the All row, a card per
-      // working thing, Also attached; then the column with Lights, Drive
-      // and Hitch (Attach)
+      // working thing, Also attached; then the column with Lights and
+      // Drive (Attach waits for its own spec: spec 0003's close)
       id: "vehicle", label: "Vehicle", icon: "tractor", choice: "Vehicle",
       slots: [
         { group: "tools", slots: [
@@ -52,8 +52,7 @@ export default {
           { widget: "toolCards" },
           { widget: "toolsAlso" },
         ] },
-        { controls: true, omit: ["implementLowered", "fold", "implementOn", "attach"],
-          add: [{ label: "Hitch", controls: ["attach"] }] },
+        { controls: true, omit: ["implementLowered", "fold", "implementOn"] },
       ],
     },
     {
@@ -68,7 +67,7 @@ export default {
           { widget: "loadCard" },
           { widget: "targetCard" },
         ] },
-        { controls: true, omit: ["implementLowered", "fold", "implementOn", "attach"] },
+        { controls: true, omit: ["implementLowered", "fold", "implementOn"] },
       ],
     },
     {
@@ -84,7 +83,7 @@ export default {
           { widget: "headerCard" },
         ] },
         // the header's buttons are on its card; Attach is on Vehicle
-        { controls: true, omit: ["implementLowered", "fold", "implementOn", "attach"] },
+        { controls: true, omit: ["implementLowered", "fold", "implementOn"] },
       ],
     },
   ],

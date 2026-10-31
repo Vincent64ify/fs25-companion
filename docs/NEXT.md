@@ -5,9 +5,10 @@ Things to fix next, in no particular order. Longer-term ideas are under
 
 - **The other buttons' answers:** since spec 0003 revision 2 (mod 0.8.14)
   fold, lower and turn on answer ok only once the tools moved, and Tip
-  since revision 3 (mod 0.8.16). Cover,
-  pipe, tip side and rotate still answer once their key ran; each gets
-  the same check after its rig's live check (trailers, a plow).
+  since revision 3 (mod 0.8.16). Pipe and tip side still answer once
+  their key ran; each gets the same check in its rig's spec. Cover and
+  Rotate have no button since 0003's close (mod 0.8.17); theirs get it
+  in the cover and plow specs.
   Live (2026-10-31): Tip answered ok and nothing tipped over a sale
   point that doesn't take the load and on land not ours ("You don't
   have access to this land"); spec 0003's Log.

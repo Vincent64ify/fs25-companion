@@ -388,6 +388,16 @@ export function screenRig(v, cab) {
 export const CAPABILITIES = ["lower", "fold", "turnOn", "tip", "tipSide", "cover", "pipe", "rotate", "bales", "detach"];
 
 /**
+ * The capabilities with a button: the ones confirmed in game (spec 0003's
+ * close). Cover, rotate and bales wait for their own spec; until then the
+ * mod sends their keys among the selected tool's other keys (mod 0.8.17).
+ */
+export const BUTTON_CAPABILITIES = ["lower", "fold", "turnOn", "tip", "tipSide", "pipe", "detach"];
+
+/** What a rig member's card has buttons for. @param {import("../types.js").RigEntry} e */
+export const buttonCapsOf = (e) => canOf(e).filter((c) => BUTTON_CAPABILITIES.includes(c));
+
+/**
  * What a rig member can do: the mod's `can`, read from the game's parts
  * (mod 0.8.7); from an older mod, what its fields show.
  * @param {import("../types.js").RigEntry} e
@@ -450,8 +460,8 @@ export const alsoAttached = (v, cab) => drivingOrder(screenRig(v, cab))
 
 /**
  * The All row: a button for each capability two or more cards share. Fold,
- * lower and turn on all are the game's own keys; tip and cover all act on
- * each in turn. Turn on all waits while one of them is folded.
+ * lower and turn on all are the game's own keys; tip all acts on each in
+ * turn. Turn on all waits while one of them is folded.
  * @param {import("../types.js").RigEntry[]} cards
  * @returns {AllAction[]}
  */
@@ -460,7 +470,7 @@ export function allActions(cards) {
   const out = [];
   /** @param {string} cap @param {(list: import("../types.js").RigEntry[]) => Omit<AllAction, "cap">} make */
   const add = (cap, make) => {
-    const list = cards.filter((e) => canOf(e).includes(cap));
+    const list = cards.filter((e) => buttonCapsOf(e).includes(cap));
     if (list.length >= 2) out.push({ cap, ...make(list) });
   };
   add("fold", (list) => {
@@ -489,10 +499,6 @@ export function allActions(cards) {
   add("tip", (list) => {
     const on = list.every((e) => e.discharging === true);
     return { action: "implement.tipAll", value: on ? 0 : 1, on, label: on ? "Stop all" : "Tip all" };
-  });
-  add("cover", (list) => {
-    const on = list.every((e) => e.cover?.open === true);
-    return { action: "implement.coverAll", value: on ? 0 : 1, on, label: on ? "Cover all" : "Uncover all" };
   });
   return out;
 }

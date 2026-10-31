@@ -643,7 +643,13 @@ local KEY_CAPS = {
 local NOT_A_TOOL_KEY = { FOLD_ALL_IMPLEMENTS = true, TURN_ON_ALL_IMPLEMENTS = true, LOWER_ALL_IMPLEMENTS = true,
     ATTACH = true, DETACH = true }
 
--- the selected tool's live keys that no capability in `can` covers, each
+-- the capabilities a card has a button for: the ones confirmed in game
+-- (spec 0003's close). Cover, rotate and bales wait for their own spec;
+-- until then their keys are other keys, with the game's labels
+local BUTTON_CAPS = { lower = true, fold = true, turnOn = true, tip = true, tipSide = true, pipe = true,
+    detach = true }
+
+-- the selected tool's live keys that no button in `can` covers, each
 -- once, by input action: {action, text} ("Allow create fields", "Turn on
 -- automatic drop", a modded tool's own). The turn on key never is: Turn on
 -- comes and goes with the fold and the engine (live, 0.8.7: "Turn on
@@ -655,7 +661,7 @@ function VehicleState.extraKeys(object, can)
     end
     local covered = {}
     for _, cap in ipairs(can or {}) do
-        covered[cap] = true
+        covered[cap] = BUTTON_CAPS[cap] == true
     end
     local seen, out = {}, {}
     for k, spec in pairs(object) do

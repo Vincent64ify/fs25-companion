@@ -1,7 +1,7 @@
 # 0003: Vehicle page with a card per tool (the Implement tab merges in)
 
-Status: built (revisions 2 and 3 live-checked, on the mowers and the trailers; the other rigs open)
-Mod: 0.8.16 · Started: 2026-10-26 · Design: canvas [FS25 Companion: Vehicle vs Implement](https://claude.ai/artifact/HvFL9rUTBC7cbDtnNH8WaT)
+Status: live-checked (closed 2026-10-31: see [Closed](#closed-2026-10-31))
+Mod: 0.8.17 · Started: 2026-10-26 · Design: canvas [FS25 Companion: Vehicle vs Implement](https://claude.ai/artifact/HvFL9rUTBC7cbDtnNH8WaT)
 (option A), [THEMES.md, Implement screen](../docs/THEMES.md#implement-screen-design-2026-10-24) (replaced)
 
 ## Goal
@@ -21,6 +21,49 @@ included, so nothing is written per tool type: **the mod sends what each
 tool can do, read from the game's own parts, and the page draws a button
 for each and nothing else.** A census of every vehicle type in the game
 checks the rule, and real rigs dumped from the game are the tests.
+
+## Closed (2026-10-31)
+
+Closed by Vincent with what's confirmed in game, so the
+[Simplify](../docs/SIMPLIFY.md) phases have a fixed thing to keep. The
+rest is no longer one spec: each capability gets its own small one,
+after the Simplify phases, confirmed in game before it gets a button.
+
+**Confirmed and kept:** the page (band, All row, cards, Also attached);
+the capability rule; buttons for lower, fold, turn on, tip, tip side,
+pipe and detach; the All row's Fold, Lower, Turn on and Tip all; an ok
+that means the tools moved (revisions 2 and 3); the selected tool's
+other keys. On the mowers (revision 2, 36 of 36) and the trailers
+(revision 3, Tip side 28 of 28); pipe on the Harvester screen (spec 0001).
+
+**Hidden until their own spec (mod 0.8.17):** the cover (Uncover /
+Cover, Cover all), the plow's Rotate, the bale counter's Reset count and
+its count, and Attach in the column. The mod still reads them (`can`, the
+states), but their keys are the selected tool's other keys now, with the
+game's labels ("Rotate plow", "Reset bale counter"), so nothing a player
+could do is gone; a tool that isn't selected shows none of them, as for
+every other key. The commands (`implement.cover`, `implement.rotate`,
+`implement.baleReset`, `implement.coverAll`, `hitch.toggle`) stay in the
+mod and the backend, and the Attach control in `controls.js`, for those
+specs; no button sends them.
+
+**Moved out** (each its own spec later, with its rig's live check):
+- Sprayer: Fold and Turn on on a trailed and a self-propelled sprayer,
+  its Dump keys, the working width (open question 4).
+- Plow: Rotate as a button, unavailable with the game's reason while
+  raised; Allow create fields.
+- Baler: the chamber against the HUD, the count and Reset count, the
+  pickup and automatic drop.
+- Cover: Uncover / Cover and Cover all, on a rig with a cover.
+- Attach: faded until something is in reach, then attaches it.
+- Rig shapes: a weight alone (Also attached only), the vehicle's own card
+  (a self-propelled sprayer, a tipper truck).
+- The mod log's `via` for every command: into Simplify S4, which needs
+  the same evidence.
+
+Revisions 2 and 3 below are the record of those changes and their live
+checks; Behaviour, Capabilities, Data contract and Commands say what the
+code does now.
 
 ## Revision 2: an ok means the tools moved
 
@@ -287,8 +330,8 @@ already judges the answers; it prints `tipTo` with each Tip.
 - **Layout (1180×820):** the band (job, speed, fuel, DEF, wear, Engine
   hot) with the rig strip, as spec 0002 has it; under it the All row (two
   or more working things only); under that, the cards; then Also
-  attached. The control column: Lights, Drive, Hitch (Attach). No Loads
-  card: tanks are on their cards.
+  attached. The control column: Lights and Drive (Attach waits for its
+  own spec: Closed). No Loads card: tanks are on their cards.
 - **The band's label** names the vehicle's brand: "Vehicle · New Holland"
   (the shop's brand, as the mod sends it). Strip tiles keep the model
   alone: five tiles leave no room for both.
@@ -309,19 +352,22 @@ already judges the answers; it prints `tipTo` with each Tip.
   - stats: speed against the tool's limit, working width, area this run,
     and the tool's own wear. The vehicle's own card has no wear (the band
     shows it) and no Detach;
-  - **a button for each capability** the mod sends, labelled with what a
-    tap does ("Raise", "Fold", "Turn off", "Tip" / "Stop", "Uncover",
-    "Pipe out", "Rotate", "Reset count", "Detach"); unavailable (45%),
+  - **a button for each confirmed capability** the mod sends (lower,
+    fold, turn on, tip, tip side, pipe, detach), labelled with what a
+    tap does ("Raise", "Fold", "Turn off", "Tip" / "Stop", "Pipe out",
+    "Detach"); cover, rotate and bales have none until their own spec
+    (Closed); unavailable (45%),
     with the game's words on hover, while the game says it can't now
     (`canNow`), and Turn on while the tool is folded ("Unfold first").
     Buttons are control-size (80 px tall), as many columns as fit the
     card, wrapping after that. A tap sends the command with the tool's
     id and stays pending until the ack, then until the state changes (at
     most 1.5 s);
-  - **the selected tool's other keys**: its live keys no capability
-    covers, as buttons with the game's labels ("Allow create fields",
-    "Turn on automatic drop", "Lower pickup", a sprayer's "Dump",
-    "Dump on ground", "Unload"), after the others;
+  - **the selected tool's other keys**: its live keys no button
+    covers, as buttons with the game's labels ("Rotate plow", "Allow
+    create fields", "Reset bale counter", "Turn on automatic drop",
+    "Lower pickup", a sprayer's "Dump", "Dump on ground", "Unload"),
+    after the others;
   - **tip side**, for a trailer that tips more than one way: one button,
     "Tip side" over the current side ("Back"), that steps to the next
     side, as the game's key does;
@@ -333,18 +379,17 @@ already judges the answers; it prints `tipTo` with each Tip.
   - its tanks with their estimates ("Seeds · 58%", "empty ≈ 42 min",
     "Runs out first"), as the Implement card had them, side by side where
     the card is wide (a baler's chamber, net and wrap); an empty one
-    "Empty". "Covered" isn't written on the load: the Uncover / Cover
-    button shows it;
-  - the bale counter: the game's count on its Reset count button
-    ("12 bales").
+    "Empty". "Covered" isn't written on the load;
+  - the bale counter's count: not shown until the baler's spec.
 - **All row** (two or more working things): one button per capability
   that two or more of them share: Unfold all / Fold all, Lower all /
   Raise all and Turn on all / Turn off all are the game's own keys ("Fold
   all tools", "Lower/raise all tools", "Turn on/off all tools"; spike
-  0.0.4); Tip all and Uncover all / Cover all act on each in turn. Lit while all are in
+  0.0.4); Tip all acts on each in turn (Cover all waits for the cover's
+  spec). Lit while all are in
   the "on" state; the label says what a tap does ("Unfold all" / "Fold
   all", "Lower all" / "Raise all", "Turn on all" / "Turn off all", "Tip
-  all" / "Stop all", "Uncover all" / "Cover all"). Turn on all is
+  all" / "Stop all"). Turn on all is
   unavailable while one of them is folded, with "Unfold first" under it
   (Vincent, 2026-10-26). Revision 2: "Fold all" while any is unfolded, as
   the game's key folds then (spike 0.0.5); Fold all, Lower all and Turn
@@ -358,14 +403,14 @@ already judges the answers; it prints `tipTo` with each Tip.
   the compact form (head, buttons 60 px tall, the main meter); five or
   six, three by two, compact. More than six: open question 2 (today they
   go on in rows of three).
-- **Nothing attached:** the band, "Nothing attached" where the cards go,
-  and Attach in the column. Tools but no working thing (a weight alone):
+- **Nothing attached:** the band and "Nothing attached" where the cards
+  go. Tools but no working thing (a weight alone):
   Also attached only. Without a vehicle: "Get in a vehicle to see its
   tools here".
-- **Attach** (replaces Hitch, in the column on every page that has it):
-  faded until the game has something in reach to attach (its own Attach
-  prompt is up), then it attaches that. Detaching is each card's Detach
-  (Vincent, 2026-10-26).
+- **Attach** (replaced Hitch): not on any page until its own spec
+  (Closed). As built and kept for that spec: faded until the game has
+  something in reach to attach (its own Attach prompt is up), then it
+  attaches that. Detaching is each card's Detach (Vincent, 2026-10-26).
 - **Taps never change the page** (spec 0002 revision 2).
 - **Day and Night:** both palettes. **Compact (portrait):** one column,
   the cards stacked.
@@ -404,7 +449,11 @@ tool's Turn on without words of the game's: "Unfold first") (spike 0.0.4:
 allowed, and through the fold `getIsFoldMiddleAllowed`;
 `getCanToggleTurnedOn` with `getTurnedOnNotAllowedWarning`, which also
 gives a folded tool's Turn on its words;
-`getIsPlowRotationAllowed`). The page reads nothing else to decide a
+`getIsPlowRotationAllowed`). The page draws a button only for the
+confirmed ones (lower, fold, turnOn, tip, tipSide, pipe, detach:
+`BUTTON_CAPABILITIES` in `selectors.js`, `BUTTON_CAPS` in
+`VehicleState.lua`); the mod leaves the others' keys among the other
+keys. The page reads nothing else to decide a
 button: a type it has never seen gets whatever its parts allow. Against
 the census, with every part holding something, the rule gives one
 capability per part as the spike counted them (fold 178, turn on 95,
@@ -426,7 +475,7 @@ check.
     states that go with them (`tipSide {index, count, name}`,
     `plow {rotated}`, `bales {count, total}`; the others are sent today),
     `canNow` / `whyNot` (above), and the selected one `extraKeys`
-    (`[{action, text}]`: its live keys no capability covers, each once,
+    (`[{action, text}]`: its live keys no button covers, each once,
     by input action; not the all-tools keys, Attach, Detach, nor the
     vehicle's attacher joints' keys, which act on its tools);
   - `cab.attachable`: true while something is in reach to attach,
@@ -507,8 +556,10 @@ game refuses now (its `whyNot`, or "not allowed now").
 
 New, each with the tool's id (without one: the selected tool's):
 - `implement.tipSide` (`TOGGLE_TIPSIDE`): the key that steps the tip side;
-- `implement.rotate` (`ROTATE_PLOW`): the plow's rotate key;
-- `implement.baleReset` (`RESET_BALE_COUNTER`): the bale counter's reset key;
+- `implement.rotate` (`ROTATE_PLOW`): the plow's rotate key (no button
+  sends it since the close: the key is an other key);
+- `implement.baleReset` (`RESET_BALE_COUNTER`): the bale counter's reset
+  key (the same);
 - `implement.key` (`PRESS_TOOL_KEY`), value the key's number (1 ..) in
   the selected tool's `extraKeys`: presses that key on it;
 - not built (open question 4): `implement.widthLeftIn`, `widthLeftOut`,
@@ -536,13 +587,15 @@ the game won't raise it now). Lower all, without power, presses nothing
 and answers with the game's words, its button faded with them. With no live event, every tool's setter: unfold all while one
 is folded, else fold them; turn all on (not one the game won't turn on
 now), or off once they all are. `implement.tipAll` and `implement.coverAll`
-(value 1 = open / tip, 0 = close / stop; no game key) run the one-tool
+(value 1 = open / tip, 0 = close / stop; no game key; no button sends
+Cover all since the close) run the one-tool
 command on each that has the capability and isn't there yet, in driving
 order, then put the selection back; the ack names any the game refused
 ("EDK 650: …"). Tip and Tip all are checked (revision 3): ok once each
 trailer started (or stopped) tipping, by the tip key the game shows.
 
-`hitch.toggle` becomes Attach's: the attach key, only while
+`hitch.toggle` becomes Attach's (no button sends it since the close):
+the attach key, only while
 `cab.attachable` ("nothing in reach" otherwise; it never detaches any
 more). `implement.select` is unchanged; `implement.detach` answers with
 the game's reason ("You first need to fold up the tool (mower)!").
@@ -652,6 +705,15 @@ Automated (each one a test that exists before the work is called built):
   answer with them. `web/test.html`: Lower all faded with them. The Lua
   ones failed on 0.8.9.
   Checked in the browser pane at 1180×820, day and night.
+- [x] The close (mod 0.8.17): `run.lua` "capabilities": the plow's other
+  keys are Rotate plow and Allow create fields, the baler's start with
+  Reset bale counter; "commands, aimed": other key 1 on the plow presses
+  its rotate key, 2 Allow create fields. `web/test.html`: the buttons for
+  every confirmed capability and none for cover, rotate and bales; no
+  Cover all; the Vehicle page's column Lights and Drive; the rig
+  fixtures (`fixtures/rig_fixtures.py`) regenerated with the plow's and
+  baler's keys. Checked in the browser pane at 1180×820: the plow (day)
+  and the baler (night) from the rig fixtures.
 
 Live check (mod 0.8.8; the spike is done; the rigs above). The open
 rigs go through `scripts/rig_check.py` (2026-10-31): it prints what the
@@ -683,28 +745,25 @@ Vincent's to answer. Judging tested in `client/tests/test_rig_check.py`.
   Right, four sides), the selection back each time; Tip per trailer and
   Tip all by revision 3. The EDK 650 has no cover (`hasCovers` false),
   so no Uncover; Cover waits for a rig with one.
-- [ ] A sprayer with sections: its card's Fold and Turn on act on it
-  (the width and sections are left out: open question 4).
-- [ ] A plow: Rotate turns it; unavailable with the game's reason while
-  raised.
-- [ ] A baler: its chamber matches the HUD.
-- [ ] A weight alone: Also attached with Lower; no card.
-- [ ] A self-propelled sprayer and a tipper truck: the vehicle's own card.
-- [ ] After any card button, the game's selected tool is the one it was.
-- [ ] Attach is faded until you back up to a tool, lights up with the
-  game's prompt, and attaches it.
+- Moved out at the close (Closed): a sprayer with sections; a plow's
+  Rotate; a baler's chamber; a weight alone; a self-propelled sprayer and
+  a tipper truck; Attach.
+- [x] After any card button, the game's selected tool is the one it was.
+  On the mowers (2026-10-30, the selection back on the XT 390 each time)
+  and the trailers (2026-10-31, `rig_check.py` checks it on every press:
+  back each time).
 - [x] A button on a tool that isn't selected acts within half a second
   (select, its key, back), and the game's own refusals come back in its
   words (fold a lowered mower).
-- [ ] The selected tool's other keys: the plow's "Allow create fields",
-  the baler's "Turn on automatic drop" and "Lower pickup" work as the
-  keys do.
-- [ ] The baler's count matches the game's bale counter; Reset count
-  resets it.
+- [x] The selected tool's other keys work as the keys do: the KDD 941
+  STH's "Toggle work mode" and "Work mode left / middle / right"
+  (2026-10-30, 0.8.10; Work mode left pressed `WORKMODE_LEFT`). The
+  plow's and the baler's moved out with their rigs.
+- Moved out: the baler's count and Reset count.
 - [x] The rear mower folded for transport still shows Raise / Lower
   (its joint lowers it), unavailable only while the game says so.
-- [ ] mod log: which way each command went ("FOLD_IMPLEMENT via
-  IMPLEMENT_EXTRA2" or "via setter") for the unverified names above.
+- Moved to Simplify S4: the mod log's `via` for every command (S4 needs
+  the same evidence before it drops the setters).
 - [x] The rear XT 390's card has Lower; it lowers and raises the mower
   (log: "LOWER_IMPLEMENT via LOWER_IMPLEMENT", not "via setter").
 - [x] Both mowers lowered and on: one Fold all raises the front one, then
@@ -1019,3 +1078,16 @@ Vincent's to answer. Judging tested in `client/tests/test_rig_check.py`.
   "object" after driving off the sale point; it read "ground" by the
   press (the rig was likely still settling). Next rigs: sprayer, plow,
   baler, weight, truck, Attach.
+- 2026-10-31: closed with Vincent (while planning
+  [SIMPLIFY.md](../docs/SIMPLIFY.md)): what's confirmed stays, the cover,
+  Rotate, the bale counter and Attach are hidden until their own specs,
+  the open rigs move out (Closed). Mod 0.8.17: `extraKeys` leaves the
+  hidden capabilities' keys among the other keys (`BUTTON_CAPS`). Web:
+  `BUTTON_CAPABILITIES`, `buttonCapsOf` for the cards and the All row
+  (no Cover all), no Attach in the theme's columns. Tests: `run.lua`
+  (the plow's and baler's other keys, their numbers), the rig fixtures,
+  `web/test.html`; 142 Python/Lua tests and test.html (269) pass. Checked
+  in the browser pane at 1180×820, day (plow) and night (baler). No live
+  check for 0.8.17 here: the mowers and trailers have none of the hidden
+  capabilities, so nothing confirmed changes; the new other keys are
+  checked in game with their rigs' specs.

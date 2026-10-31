@@ -67,13 +67,14 @@ EXPECT = {
         "all": [],
     },
     "plow": {
-        "cards": ["SERVO T 6000 P: Lower:off, Fold:on, Rotate:off, Detach:off, Allow create fields:off"],
+        "cards": ["SERVO T 6000 P: Lower:off, Fold:on, Detach:off, Rotate plow:off, Allow create fields:off"],
         "selected": "SERVO T 6000 P",
         "also": [],
         "all": [],
     },
     "baler": {
-        "cards": ["G-1 F125 Kombi: Turn on:off, Reset count:off, Detach:off, Turn on automatic drop:off, Lower pickup:off"],
+        "cards": ["G-1 F125 Kombi: Turn on:off, Detach:off, Reset bale counter:off, Turn on automatic drop:off,"
+                  " Lower pickup:off"],
         "selected": "G-1 F125 Kombi",
         "also": [],
         "all": [],

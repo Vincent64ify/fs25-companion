@@ -3,7 +3,7 @@
 // tab merged in): every tool you can work with as a card with all its
 // buttons, under the band.
 // - toolsAll: the All row, a button for each thing two or more cards share
-//   (Unfold all, Lower all, Turn on all, Tip all, Uncover all).
+//   (Unfold all, Lower all, Turn on all, Tip all).
 // - toolCards: a card per working thing in driving order, the vehicle in
 //   its place when it works by itself (a sprayer, a tipper truck). A card
 //   has a button for each capability the mod sends (`can`, read from the
@@ -15,7 +15,7 @@
 // Estimates come from data/rates.js.
 
 import {
-  allActions, alsoAttached, cabOf, canOf, cardsOf, controlledVehicle, entryModel, fillMax, fillName, fillPct,
+  allActions, alsoAttached, buttonCapsOf, cabOf, canOf, cardsOf, controlledVehicle, entryModel, fillMax, fillName, fillPct,
   fillStop, fillsOf, implementById, kindLabel, lowersInRig, screenRig, vehicleKind,
 } from "../data/selectors.js";
 import { areaText, lengthText, speedUnit, speedValue, unitsOf } from "../data/units.js";
@@ -164,16 +164,17 @@ const whyNot = (/** @type {RigEntry} */ e, /** @type {string} */ cap, /** @type 
   e.whyNot?.[cap] || own || "Not now";
 
 /**
- * A card's buttons: one for each capability in `can`, in the mod's order,
- * labelled with what a tap does ("Raise", "Fold", "Turn off", "Tip"); the
- * vehicle's own card has no Detach. The selected tool's other live keys
- * follow, with the game's labels.
+ * A card's buttons: one for each confirmed capability in `can`, in the
+ * mod's order, labelled with what a tap does ("Raise", "Fold", "Turn off",
+ * "Tip"); the vehicle's own card has no Detach. The selected tool's other
+ * live keys follow, with the game's labels (cover, rotate and the bale
+ * counter's among them until their own spec: spec 0003's close).
  * @param {RigEntry} e
  * @returns {ToolButton[]}
  */
 export function toolButtons(e) {
   const id = typeof e.id === "number" ? e.id : undefined;
-  const can = canOf(e);
+  const can = buttonCapsOf(e);
   const folded = can.includes("fold") && e.unfolded === false;
   /** @type {Record<string, () => Omit<ToolButton, "key">|undefined>} */
   const make = {
@@ -193,13 +194,8 @@ export function toolButtons(e) {
       action: "implement.unload", on: e.discharging === true }),
     tipSide: () => ({ label: "Tip side", icon: "tipSide", action: "implement.tipSide", on: false,
       line: e.tipSide?.name || (e.tipSide ? `${e.tipSide.index} / ${e.tipSide.count}` : undefined) }),
-    cover: () => ({ label: e.cover?.open ? "Cover" : "Uncover", icon: "cover", action: "implement.cover",
-      on: e.cover?.open === true }),
     pipe: () => ({ label: e.pipe?.out ? "Pipe in" : "Pipe out", icon: "pipe", action: "implement.pipe",
       on: e.pipe?.out === true, moving: e.pipe?.moving === true }),
-    rotate: () => ({ label: "Rotate", icon: "rotate", action: "implement.rotate", on: false }),
-    bales: () => ({ label: "Reset count", icon: "reset", action: "implement.baleReset", on: false,
-      line: typeof e.bales?.count === "number" ? `${e.bales.count} ${e.bales.count === 1 ? "bale" : "bales"}` : undefined }),
     detach: () => (e.depth === 0 ? undefined
       : { label: "Detach", icon: "hitch", action: "implement.detach", on: false }),
   };
@@ -515,7 +511,7 @@ export function toolsAll(store, opts = {}) {
 }
 
 const ALL_ICONS = /** @type {Record<string, string>} */ ({
-  fold: "fold", lower: "lowerAll", turnOn: "implementOn", tip: "unload", cover: "cover",
+  fold: "fold", lower: "lowerAll", turnOn: "implementOn", tip: "unload",
 });
 
 /** "1,500 kg · Fendt · Weights · Front · Raised": an Also attached line. */

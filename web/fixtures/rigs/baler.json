@@ -57,6 +57,10 @@
     "depth": 1,
     "extraKeys": [
      {
+      "action": "BALE_COUNTER_RESET",
+      "text": "Reset bale counter"
+     },
+     {
       "action": "IMPLEMENT_EXTRA4",
       "text": "Turn on automatic drop"
      },
@@ -136,7 +140,7 @@
  },
  "expect": {
   "cards": [
-   "G-1 F125 Kombi: Turn on:off, Reset count:off, Detach:off, Turn on automatic drop:off, Lower pickup:off"
+   "G-1 F125 Kombi: Turn on:off, Detach:off, Reset bale counter:off, Turn on automatic drop:off, Lower pickup:off"
   ],
   "selected": "G-1 F125 Kombi",
   "also": [],

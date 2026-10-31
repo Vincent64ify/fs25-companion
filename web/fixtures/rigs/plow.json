@@ -58,6 +58,10 @@
     "depth": 1,
     "extraKeys": [
      {
+      "action": "IMPLEMENT_EXTRA",
+      "text": "Rotate plow"
+     },
+     {
       "action": "IMPLEMENT_EXTRA3",
       "text": "Allow create fields"
      }
@@ -117,7 +121,7 @@
  },
  "expect": {
   "cards": [
-   "SERVO T 6000 P: Lower:off, Fold:on, Rotate:off, Detach:off, Allow create fields:off"
+   "SERVO T 6000 P: Lower:off, Fold:on, Detach:off, Rotate plow:off, Allow create fields:off"
   ],
   "selected": "SERVO T 6000 P",
   "also": [],
