@@ -459,9 +459,11 @@ export const alsoAttached = (v, cab) => drivingOrder(screenRig(v, cab))
  */
 
 /**
- * The All row: a button for each capability two or more cards share. Fold,
- * lower and turn on all are the game's own keys; tip all acts on each in
- * turn. Turn on all waits while one of them is folded.
+ * The All row: a button for each capability two or more cards share, each
+ * asking for the state its label names (value 1: folded, lowered, on,
+ * tipping; specs/0008). Fold, lower and turn on all are the game's own keys
+ * where they give that state; tip all acts on each in turn. Turn on all
+ * waits while one of them is folded.
  * @param {import("../types.js").RigEntry[]} cards
  * @returns {AllAction[]}
  */
@@ -480,20 +482,22 @@ export function allActions(cards) {
     const blocked = list.every((e) => e.canNow?.fold === false && e.lowered !== true);
     // the game's key folds while one is unfolded (spike 0.0.5, revision 2)
     const folds = list.some((e) => e.unfolded === true);
-    return { action: "implement.foldAll", on, label: folds ? "Fold all" : "Unfold all", moving: list.some((e) => e.foldMoving),
+    return { action: "implement.foldAll", value: folds ? 1 : 0, on, label: folds ? "Fold all" : "Unfold all",
+      moving: list.some((e) => e.foldMoving),
       unavailable: blocked || undefined, note: blocked ? list[0].whyNot?.fold || "Not now" : undefined };
   });
   add("lower", (list) => {
     const on = list.every((e) => e.lowered === true);
     // none the game lets lower or raise (the engine off: live 0.8.9)
     const blocked = list.every((e) => e.canNow?.lower === false);
-    return { action: "implement.lowerAll", on, label: on ? "Raise all" : "Lower all",
+    return { action: "implement.lowerAll", value: on ? 0 : 1, on, label: on ? "Raise all" : "Lower all",
       unavailable: blocked || undefined, note: blocked ? list[0].whyNot?.lower || "Not now" : undefined };
   });
   add("turnOn", (list) => {
     const on = list.every((e) => e.turnedOn === true);
     const folded = !on && list.some((e) => canOf(e).includes("fold") && e.unfolded === false);
-    return { action: "implement.turnOnAll", on, label: on ? "Turn off all" : "Turn on all", unavailable: folded,
+    return { action: "implement.turnOnAll", value: on ? 0 : 1, on, label: on ? "Turn off all" : "Turn on all",
+      unavailable: folded,
       note: folded ? "Unfold first" : undefined };
   });
   add("tip", (list) => {

@@ -18,13 +18,15 @@ const commander = createCommander((msg) => {
 });
 
 /**
- * Send a command to the game ("lights.toggle", or "cruise.set" with a
- * value); resolves with the mod's answer, or a failure after 2 s without one.
+ * Send a command to the game: the state it wants ("beacon.set" with 1,
+ * "cruise.set" with km/h, "tool.lower" with 1 and the tool's rig id);
+ * resolves with the mod's answer, or a failure after the timeout without one.
  * @param {string} action
  * @param {number} [value]
+ * @param {number} [tool]
  * @returns {Promise<import("./commands.js").CommandResult>}
  */
-export const sendCommand = (action, value) => commander.send(action, value);
+export const sendCommand = (action, value, tool) => commander.send(action, value, tool);
 
 /** the last commands' round trips, tap to the mod's answer (Settings) */
 export const roundTrips = () => commander.roundTrips();

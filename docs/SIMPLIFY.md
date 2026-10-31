@@ -207,6 +207,16 @@ reading; the client's resend; the golden test with set commands.
 Live check: each set command twice in a row (the second answers
 "already"), and Cruise − / + held.
 
+Built (2026-10-31, spec 0008, mod 0.10.0): every reading counted as
+verified (Vincent), so every switch and tool button is a set; high beam,
+the turn lights, straw, tip and the All row too. `companion/commands.py`
+198 → 153 lines (`companion/` 1,343): the slot, superseding and the
+timeout went, and there's no resend (decided in the spec). The mod's
+`Commands.lua` grew 1,421 → 1,614: the state readers, the lights job and
+the All row's "key where it gives the asked state, else each tool's own";
+S4 is where it shrinks. Live-checked (2026-10-31) on four rigs; the AI
+worker is left out (its key does nothing without a job: NEXT.md).
+
 ### S4: One way to run each action (spec 0009)
 
 - **Evidence first:** the mod logs which path ran ("via KEY" or "via

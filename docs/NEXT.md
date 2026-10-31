@@ -12,6 +12,25 @@ Things to fix next, in no particular order. Longer-term ideas are under
   Live (2026-10-31): Tip answered ok and nothing tipped over a sale
   point that doesn't take the load and on land not ours ("You don't
   have access to this land"); spec 0003's Log.
+- **AI worker opens the game's worker screen** (spec 0008's live check,
+  2026-10-31): `TOGGLE_AI` does nothing in a vehicle with no job set up
+  (the L90H, the T7.300), so the button can't hire. Vincent: a tap
+  should open the game's AI job screen (pick the job there), and stop a
+  worker that runs. Opening that screen from the mod needs a game GUI
+  call that isn't verified: find it first.
+- **Tip with the engine off** (spec 0008's live check, 2026-10-31, the
+  Vestrum 100 and two EDK 650): the game only says to start the engine,
+  and Tip answers "Nothing moved" after its check's wait. Fold and lower
+  are refused at once with the game's words (`VehicleState.powered`); tip
+  should be too, and its card button fade, in the trailer's spec.
+- **Lower all answered "Nothing moved" once** (spec 0008's live check,
+  2026-10-31, T7.300 with the KDF 341 S and KDD 941 STH, both raised and
+  unfolded, game in focus): the front lowered about 3 s after the press
+  instead of at once, after the check's 1 s, and the doubled Lower all
+  pressed the key again (both ended lowered). The same press a minute
+  later was clean ([spec 0008](../specs/0008-commands-say-the-state.md)'s
+  Log). The frames rotated away; next time, keep a copy of the stream and
+  see whether the combo ran (`attacherJointCombos.isRunning`).
 - **Code review of 2026-10-30:** seven findings (F1 to F7) in
   [REVIEW-2026-10-30.md](REVIEW-2026-10-30.md), with its suggested order.
   F2 is fixed ([spec 0005](../specs/0005-tailer-sees-every-new-file.md),

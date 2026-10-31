@@ -3100,18 +3100,20 @@
 {"to":"A","msg":{"type":"command_ack","id":"c1","ok":false,"reason":"action not allowed"}}
 {"step":"A: a value out of range"}
 {"to":"A","msg":{"type":"command_ack","id":"c2","ok":false,"reason":"value not allowed"}}
-{"step":"A: lights.toggle, the mod runs it"}
+{"step":"A: lights.set 1, the mod runs it"}
 {"to":"A","msg":{"type":"command_ack","id":"c3","ok":true,"reason":null,"via":"TOGGLE_LIGHTS"}}
-{"step":"A: implement.lower 7, the mod checks the tools and one didn't move"}
+{"step":"A: tool.lower 1 on tool 7, the mod checks the tools and one didn't move"}
+{"step":"command file 4","tool":"7"}
 {"to":"A","msg":{"type":"command_ack","id":"c4","ok":true,"reason":null,"via":"LOWER_IMPLEMENT","checked":true,"unmoved":[{"id":7,"name":"Plough","why":"did not lower"}]}}
-{"step":"A: engine.toggle, the mod refuses"}
+{"step":"A: engine.set 1, the mod refuses"}
 {"to":"A","msg":{"type":"command_ack","id":"c5","ok":false,"reason":"not in a vehicle"}}
-{"step":"A: cruise.set 20, 21, 22 while the first is in the game"}
-{"to":"A","msg":{"type":"command_ack","id":"c7","ok":true,"reason":"superseded"}}
-{"step":"the mod answers 20; 22 goes in"}
+{"step":"A: cruise.set 20, 21, 22 sent together: each written, each answered (specs/0008)"}
+{"step":"command files 6 to 8","values":["20.000","21.000","22.000"]}
 {"to":"A","msg":{"type":"command_ack","id":"c6","ok":true,"reason":null,"via":"CRUISE_SET_SPEED"}}
-{"step":"command file 7","value":"22.000"}
+{"to":"A","msg":{"type":"command_ack","id":"c7","ok":true,"reason":null,"via":"CRUISE_SET_SPEED"}}
 {"to":"A","msg":{"type":"command_ack","id":"c8","ok":true,"reason":null,"via":"CRUISE_SET_SPEED"}}
+{"step":"A: lights.set 1 again: the mod answers already"}
+{"to":"A","msg":{"type":"command_ack","id":"c9","ok":true,"reason":null,"already":true}}
 {"step":"the mod sends the last ack again (after a rotation): nobody gets it"}
 {"to":"A","msg":{"type":"update","envelope":{"v":1,"seq":800001,"t":0,"topic":"player","data":{"x":1.0,"z":0.0,"marker":1}}}}
 {"to":"B","msg":{"type":"update","envelope":{"v":1,"seq":800001,"t":0,"topic":"player","data":{"x":1.0,"z":0.0,"marker":1}}}}
@@ -3121,7 +3123,7 @@
 {"step":"a new game session"}
 {"to":"A","msg":{"type":"snapshot","topics":{"hello":{"v":1,"seq":1,"t":71796,"topic":"hello","data":{"protocolVersion":1,"modVersion":"fixture","sessionId":"fixture-solek-2","platform":"windows","mapId":"FS25_Solek.SampleModMap","mapTitle":"Solek","isModMap":true,"isMultiplayer":false,"terrainSize":2048,"ingameMap":{"worldSizeX":2048,"worldSizeZ":2048,"worldCenterOffsetX":1024,"worldCenterOffsetZ":1024,"mapExtensionScaleFactor":0.5,"mapExtensionOffsetX":0.25,"mapExtensionOffsetZ":0.25},"farmId":1}}}}}
 {"to":"B","msg":{"type":"snapshot","topics":{"hello":{"v":1,"seq":1,"t":71796,"topic":"hello","data":{"protocolVersion":1,"modVersion":"fixture","sessionId":"fixture-solek-2","platform":"windows","mapId":"FS25_Solek.SampleModMap","mapTitle":"Solek","isModMap":true,"isMultiplayer":false,"terrainSize":2048,"ingameMap":{"worldSizeX":2048,"worldSizeZ":2048,"worldCenterOffsetX":1024,"worldCenterOffsetZ":1024,"mapExtensionScaleFactor":0.5,"mapExtensionOffsetX":0.25,"mapExtensionOffsetZ":0.25},"farmId":1}}}}}
-{"step":"B: lights.toggle with A's old id; only B gets the answer"}
+{"step":"B: lights.set 1 with A's old id; only B gets the answer"}
 {"step":"command file 1","session":"fixture-solek-2"}
 {"to":"B","msg":{"type":"command_ack","id":"c3","ok":true,"reason":null,"via":"TOGGLE_LIGHTS"}}
 {"to":"A","msg":{"type":"update","envelope":{"v":1,"seq":800002,"t":0,"topic":"player","data":{"x":2.0,"z":0.0,"marker":2}}}}

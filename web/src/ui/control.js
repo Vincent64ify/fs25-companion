@@ -16,7 +16,8 @@
 // run them (the engine starting, an implement attaching): with `settle`,
 // the control stays pending after the ack until the game's state changes
 // (settle.key), at most settle.ms; nothing changed then shows settle.hint
-// for a moment, quietly, not as a failure.
+// for a moment, quietly, not as a failure. An answer that the game was
+// already there (specs/0008) ends pending at once.
 //
 // A held control (`hold`, the cruise −/+) ticks on touch-down, then again
 // after 400 ms every 120 ms, every 50 ms after 1.5 s, until it's let go
@@ -149,7 +150,7 @@ export function createControl(def, press, settle, hold) {
     } catch (e) {
       result = { ok: false, reason: String(e) };
     }
-    const changed = result.ok ? await waitToSettle(before) : true;
+    const changed = result.ok && !result.already ? await waitToSettle(before) : true;
     busy = false;
     show();
     if (!result.ok && settle?.hint && settle.quiet?.includes(result.reason || "")) {

@@ -46,3 +46,4 @@ behaviour, in Behaviour too: the spec always says what the code does now.
 | [0005](0005-tailer-sees-every-new-file.md) | The client notices every new stream file (review F2) | live-checked | no change |
 | [0006](0006-one-local-process.md) | One local process (SIMPLIFY S1) | live-checked | no change |
 | [0007](0007-protocol-in-one-place.md) | The protocol in one place (SIMPLIFY S2) | live-checked | 0.9.0 |
+| [0008](0008-commands-say-the-state.md) | Commands say the state they want (SIMPLIFY S3) | live-checked (AI worker left out: NEXT.md) | 0.10.0 |

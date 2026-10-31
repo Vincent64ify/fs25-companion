@@ -29,7 +29,7 @@ import { icon } from "../ui/icons.js";
 /** @typedef {import("../types.js").RigEntry} RigEntry */
 /** @typedef {import("../data/selectors.js").Implement} Implement */
 /** @typedef {import("../types.js").Vehicle} Vehicle */
-/** @typedef {(action: string, value?: number) => Promise<import("../commands.js").CommandResult>} Send */
+/** @typedef {(action: string, value?: number, tool?: number) => Promise<import("../commands.js").CommandResult>} Send */
 
 // a tank this full (of where it stops: its weight limit, else its
 // capacity), or full this soon, asks for a trailer
@@ -154,7 +154,9 @@ export function pickable(el, e, name, send) {
 /**
  * One button: what a tap does, the command (with the tool's id), lit or
  * not, unavailable with the game's reason, a value line.
- * @typedef {{key: string, label: string, icon: string, action: string, value?: number, on: boolean,
+ * value: the state a tap asks for (specs/0008) with the tool's id as tool,
+ * or a one-shot's number (the tool's id for Tip side and Detach).
+ * @typedef {{key: string, label: string, icon: string, action: string, value?: number, tool?: number, on: boolean,
  *   unavailable?: boolean, why?: string, moving?: boolean, progressive?: boolean, line?: string}} ToolButton
  */
 
@@ -166,7 +168,8 @@ const whyNot = (/** @type {RigEntry} */ e, /** @type {string} */ cap, /** @type 
 /**
  * A card's buttons: one for each confirmed capability in `can`, in the
  * mod's order, labelled with what a tap does ("Raise", "Fold", "Turn off",
- * "Tip"); the vehicle's own card has no Detach. The selected tool's other
+ * "Tip") and asking the tool for that state (specs/0008: tool.lower 0 for
+ * Raise); the vehicle's own card has no Detach. The selected tool's other
  * live keys follow, with the game's labels (cover, rotate and the bale
  * counter's among them until their own spec: spec 0003's close).
  * @param {RigEntry} e
@@ -176,35 +179,39 @@ export function toolButtons(e) {
   const id = typeof e.id === "number" ? e.id : undefined;
   const can = buttonCapsOf(e);
   const folded = can.includes("fold") && e.unfolded === false;
+  /** @type {(asked: boolean) => {value: number, tool: number|undefined}} the state a tap asks for */
+  const set = (asked) => ({ value: asked ? 1 : 0, tool: id });
   /** @type {Record<string, () => Omit<ToolButton, "key">|undefined>} */
   const make = {
     lower: () => ({ label: e.lowered ? "Raise" : "Lower", icon: e.lowered ? "hitchUp" : "hitchDown",
-      action: "implement.lower", on: e.lowered === true, progressive: true }),
+      action: "tool.lower", ...set(e.lowered !== true), on: e.lowered === true, progressive: true }),
+    // value 1: folded
     fold: () => ({ label: e.foldMoving ? (e.unfolded ? "Folding…" : "Unfolding…") : e.unfolded ? "Fold" : "Unfold",
-      icon: "fold", action: "implement.fold", on: e.unfolded === true, moving: e.foldMoving === true }),
+      icon: "fold", action: "tool.fold", ...set(e.unfolded === true), on: e.unfolded === true,
+      moving: e.foldMoving === true }),
     turnOn: () => {
-      const b = { label: e.turnedOn ? "Turn off" : "Turn on", icon: "implementOn", action: "implement.turnOn",
-        on: e.turnedOn === true };
+      const b = { label: e.turnedOn ? "Turn off" : "Turn on", icon: "implementOn", action: "tool.turnOn",
+        ...set(e.turnedOn !== true), on: e.turnedOn === true };
       // a folded tool can't turn on (Vincent, 2026-10-26)
       return folded && !e.turnedOn ? { ...b, unavailable: true, why: "Unfold first" } : b;
     },
     // where the load goes, as the key the game shows (spec 0003 revision 3):
     // Ctrl+I's "Unload here" off a sale point, else Tip into it
     tip: () => ({ label: e.discharging ? "Stop" : e.tipTo === "ground" ? "Unload here" : "Tip", icon: "unload",
-      action: "implement.unload", on: e.discharging === true }),
-    tipSide: () => ({ label: "Tip side", icon: "tipSide", action: "implement.tipSide", on: false,
+      action: "tool.tip", ...set(e.discharging !== true), on: e.discharging === true }),
+    tipSide: () => ({ label: "Tip side", icon: "tipSide", action: "implement.tipSide", value: id, on: false,
       line: e.tipSide?.name || (e.tipSide ? `${e.tipSide.index} / ${e.tipSide.count}` : undefined) }),
-    pipe: () => ({ label: e.pipe?.out ? "Pipe in" : "Pipe out", icon: "pipe", action: "implement.pipe",
-      on: e.pipe?.out === true, moving: e.pipe?.moving === true }),
+    pipe: () => ({ label: e.pipe?.out ? "Pipe in" : "Pipe out", icon: "pipe", action: "tool.pipe",
+      ...set(e.pipe?.out !== true), on: e.pipe?.out === true, moving: e.pipe?.moving === true }),
     detach: () => (e.depth === 0 ? undefined
-      : { label: "Detach", icon: "hitch", action: "implement.detach", on: false }),
+      : { label: "Detach", icon: "hitch", action: "implement.detach", value: id, on: false }),
   };
   /** @type {ToolButton[]} */
   const out = [];
   for (const cap of can) {
     const b = make[cap]?.();
     if (!b) continue;
-    const button = { key: cap, ...b, value: id };
+    const button = { key: cap, ...b };
     if (notNow(e, cap)) Object.assign(button, { unavailable: true, why: whyNot(e, cap, button.why) });
     out.push(button);
   }
@@ -229,8 +236,8 @@ export function toolButtons(e) {
  */
 function buttonRow(send, onWhy) {
   const sent = send;
-  send = async (action, value) => {
-    const result = await sent(action, value);
+  send = async (action, value, tool) => {
+    const result = await sent(action, value, tool);
     if (!result.ok && result.reason) onWhy?.(result.reason);
     return result;
   };
@@ -249,7 +256,7 @@ function buttonRow(send, onWhy) {
           if (shown.has(b.key)) continue;
           const item = { b, ui: /** @type {ReturnType<typeof createControl>} */ (/** @type {unknown} */ (undefined)) };
           item.ui = createControl({ label: b.label, icon: b.icon, progressive: b.progressive },
-            () => send(item.b.action, item.b.value),
+            () => send(item.b.action, item.b.value, item.b.tool),
             { ms: 1500, key: () => `${item.b.on}:${item.b.label}:${item.b.line ?? ""}` });
           item.ui.el.dataset.control = b.key;
           item.ui.el.addEventListener("pointerdown", (ev) => {

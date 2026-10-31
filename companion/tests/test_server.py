@@ -35,8 +35,8 @@ class Writer:
         self.got = []
         self.answer = None
 
-    def submit(self, ref, action, value=None):
-        self.got.append((ref, action, value))
+    def submit(self, ref, action, value=None, tool=None):
+        self.got.append((ref, action, value) if tool is None else (ref, action, value, tool))
         if self.answer is not None:
             self.hub.put_ack(ack_envelope(ref, self.answer))
 
@@ -184,6 +184,20 @@ def test_checked_and_via_reach_the_viewer(setup):
     command(viewer, "l1")
     publish(ack_env(handed(hub, 2), seq=6))
     assert recv(viewer) == {"type": "command_ack", "id": "l1", "ok": True, "reason": None}
+    # specs/0008: already there, nothing ran
+    command(viewer, "b1", action="beacon.set", value=1)
+    publish(ack_env(handed(hub, 3), seq=7, already=True))
+    assert recv(viewer) == {"type": "command_ack", "id": "b1", "ok": True, "reason": None, "already": True}
+
+
+def test_a_tool_passes_through(setup):
+    """specs/0008: a tool's id goes to the writer with the action."""
+    client, hub, _ = setup
+    viewer = connect(client)
+    hub.writer.answer = "no game (replay)"
+    command(viewer, "t1", action="tool.fold", value=1, tool=1004)
+    assert recv(viewer)["id"] == "t1"
+    assert hub.writer.got == [(hub.writer.got[0][0], "tool.fold", 1, 1004)]
 
 
 def test_any_well_formed_command_reaches_the_writer(setup):
@@ -210,6 +224,9 @@ def test_a_bad_shape_is_refused_at_once(setup):
         assert recv(viewer) == {"type": "command_ack", "id": "x-bad", "ok": False, "reason": "action not allowed"}
     for bad in ("fast", True, [], {}):
         command(viewer, "v-bad", action="cruise.set", value=bad)
+        assert recv(viewer)["reason"] == "value not allowed"
+    for bad in ("9", True, -1, 1.5, [], {}):
+        command(viewer, "t-bad", action="tool.lower", value=1, tool=bad)
         assert recv(viewer)["reason"] == "value not allowed"
     viewer.send_text(json.dumps({"type": "hello", "role": "viewer"}))  # ignored
     viewer.send_text("not json")

@@ -50,8 +50,11 @@ REMOVED_ON_PURPOSE = {}
 
 
 # the fake mod's actions and the key each runs (mod/src/Commands.lua)
-FAKE_MOD = {"lights.toggle": "TOGGLE_LIGHTS", "implement.lower": "LOWER_IMPLEMENT",
-            "engine.toggle": "TOGGLE_MOTOR_STATE", "cruise.set": "CRUISE_SET_SPEED"}
+FAKE_MOD = {"lights.set": "TOGGLE_LIGHTS", "tool.lower": "LOWER_IMPLEMENT",
+            "engine.set": "TOGGLE_MOTOR_STATE", "cruise.set": "CRUISE_SET_SPEED"}
+# the set actions: the fake mod keeps a pretend state and answers "already"
+# when it's there (specs/0008)
+FAKE_SETS = {"lights.set", "tool.lower", "engine.set"}
 
 
 class Finished(Exception):
@@ -111,6 +114,8 @@ class Driver:
         self.viewers = {}
         self.put = None
         self.out = []
+        # the fake mod's pretend game: (action, tool) -> the state it's in
+        self.state = {}
 
     # recording
 
@@ -167,15 +172,20 @@ class Driver:
 
     def ack(self, attrib, ok=True, **extra):
         """The command_ack the mod sends for a command file: it knows its
-        actions and their values (specs/0007), and names the key it ran."""
+        actions and their values (specs/0007), names the key it ran, and
+        runs nothing for a state it's in already (specs/0008)."""
         data = {"id": int(attrib["id"]), "ref": attrib["ref"], "action": attrib["action"], "ok": ok}
         value = float(attrib["value"]) if "value" in attrib else None
+        key = (attrib["action"], attrib.get("tool"))
         if attrib["action"] not in FAKE_MOD:
             data.update(ok=False, reason="action not allowed")
         elif attrib["action"] == "cruise.set" and not 1 <= value <= 250:
             data.update(ok=False, reason="value not allowed")
+        elif ok and attrib["action"] in FAKE_SETS and self.state.get(key) == value:
+            data["already"] = True
         elif ok:
             data["via"] = FAKE_MOD[attrib["action"]]
+            self.state[key] = value
         data.update(extra)
         return {"v": 1, "seq": 900000 + int(attrib["id"]), "t": 0, "topic": "command_ack", "data": data}
 
@@ -225,30 +235,33 @@ class Driver:
         await self.send("A", {"id": "c2", "action": "cruise.set", "value": 999})
         await self.feed_ack(await self.command_file(2), "c2")
 
-        self.step("A: lights.toggle, the mod runs it")
-        await self.send("A", {"id": "c3", "action": "lights.toggle"})
+        self.step("A: lights.set 1, the mod runs it")
+        await self.send("A", {"id": "c3", "action": "lights.set", "value": 1})
         await self.feed_ack(await self.command_file(3), "c3")
 
-        self.step("A: implement.lower 7, the mod checks the tools and one didn't move")
-        await self.send("A", {"id": "c4", "action": "implement.lower", "value": 7})
-        await self.feed_ack(await self.command_file(4), "c4", checked=True,
+        self.step("A: tool.lower 1 on tool 7, the mod checks the tools and one didn't move")
+        await self.send("A", {"id": "c4", "action": "tool.lower", "value": 1, "tool": 7})
+        attrib = await self.command_file(4)
+        self.out.append({"step": "command file 4", "tool": attrib.get("tool")})
+        await self.feed_ack(attrib, "c4", checked=True,
                             unmoved=[{"id": 7, "name": "Plough", "why": "did not lower"}])
 
-        self.step("A: engine.toggle, the mod refuses")
-        await self.send("A", {"id": "c5", "action": "engine.toggle"})
+        self.step("A: engine.set 1, the mod refuses")
+        await self.send("A", {"id": "c5", "action": "engine.set", "value": 1})
         await self.feed_ack(await self.command_file(5), "c5", ok=False, reason="not in a vehicle")
 
-        self.step("A: cruise.set 20, 21, 22 while the first is in the game")
-        await self.send("A", {"id": "c6", "action": "cruise.set", "value": 20})
-        first = await self.command_file(6)
-        await self.send("A", {"id": "c7", "action": "cruise.set", "value": 21})
-        await self.send("A", {"id": "c8", "action": "cruise.set", "value": 22})
-        await self.expect("A", self.of_type("command_ack", id="c7"))
-        self.step("the mod answers 20; 22 goes in")
-        await self.feed_ack(first, "c6")
-        last = await self.command_file(7)
-        self.out.append({"step": "command file 7", "value": last.get("value")})
-        await self.feed_ack(last, "c8")
+        self.step("A: cruise.set 20, 21, 22 sent together: each written, each answered (specs/0008)")
+        for cid, value in (("c6", 20), ("c7", 21), ("c8", 22)):
+            await self.send("A", {"id": cid, "action": "cruise.set", "value": value})
+        files = [await self.command_file(n) for n in (6, 7, 8)]
+        self.out.append({"step": "command files 6 to 8", "values": [f.get("value") for f in files]})
+        for attrib, cid in zip(files, ("c6", "c7", "c8")):
+            await self.feed_ack(attrib, cid)
+        last = files[-1]
+
+        self.step("A: lights.set 1 again: the mod answers already")
+        await self.send("A", {"id": "c9", "action": "lights.set", "value": 1})
+        await self.feed_ack(await self.command_file(9), "c9")
 
         self.step("the mod sends the last ack again (after a rotation): nobody gets it")
         await self.put([self.ack(last)])
@@ -258,13 +271,14 @@ class Driver:
         await self.feed(self.envelopes[0], "A", "B")
 
         self.step("a new game session")
+        self.state = {}
         hello = json.loads(json.dumps(self.envelopes[0]))
         hello["seq"] = 1
         hello["data"]["sessionId"] = "fixture-solek-2"
         await self.feed(hello, "A", "B")
 
-        self.step("B: lights.toggle with A's old id; only B gets the answer")
-        await self.send("B", {"id": "c3", "action": "lights.toggle"})
+        self.step("B: lights.set 1 with A's old id; only B gets the answer")
+        await self.send("B", {"id": "c3", "action": "lights.set", "value": 1})
         attrib = await self.command_file(1)
         self.out.append({"step": "command file 1", "session": attrib.get("session")})
         await self.put([self.ack(attrib)])

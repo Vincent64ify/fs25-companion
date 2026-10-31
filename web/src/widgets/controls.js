@@ -6,8 +6,10 @@
 // them in labelled groups; on foot, or without the data, a control is
 // unavailable.
 //
-// One button per toggle (Controls C2): it sends the toggle and shows the
-// game's state, never a pair of on and off buttons. The implement controls
+// One button per switch (Controls C2): it shows the game's state and a tap
+// sends the state it shows next (specs/0008: lights on, the next light
+// stage, this tool raised), never a pair of on and off buttons; already
+// there, the mod does nothing. The implement controls
 // act as their keys do: on the tool the key's live event belongs to
 // (cab.keys, Controls C3), which is usually the one selected in game (the
 // group's label names it), but the game keeps an action only one tool has
@@ -51,9 +53,12 @@ import { h } from "../ui/dom.js";
  * @property {boolean} [progressive] "Raising…" while its command runs
  * @property {-1|1} [hold] a held step: the cruise set speed down or up
  *   (cruise.set with the target, see cruiseStepper)
- * @property {(v: any, cab: any) => number|undefined} [sendValue] the number a
- *   tap sends with its action (Detach: the selected tool's id)
+ * @property {(v: any, cab: any) => Sent} [send] what a tap sends with its
+ *   action: the state it wants next (specs/0008) and the tool it's for
+ *   (Detach: the selected tool's id as its value)
  */
+
+/** @typedef {{value?: number, tool?: number}} Sent */
 
 /** the light switches from the cab when the mod sends it, else from vehicles */
 const lightsFrom = (/** @type {any} */ v, /** @type {any} */ cab) =>
@@ -166,6 +171,25 @@ export function selectedName(/** @type {any} */ v, /** @type {any} */ cab) {
   if (selected) return selected.name;
   return selectedImplement(v, cab)?.name;
 }
+
+/** a switch: the other state from the one it shows (1 on, 0 off) */
+const flip = (/** @type {ControlDef["read"]} */ read) =>
+  (/** @type {any} */ v, /** @type {any} */ cab) => ({ value: read(v, cab) ? 0 : 1 });
+
+/**
+ * The Lights button: the next stage after the one its dots show, off after
+ * the last (the game's light key, C1); without stages, on or off.
+ * @returns {Sent}
+ */
+export function nextLightStage(/** @type {any} */ v, /** @type {any} */ cab) {
+  const l = lightsFrom(v, cab);
+  if (l && Number.isInteger(l.stages) && Number.isInteger(l.stage)) return { value: (l.stage + 1) % (l.stages + 1) };
+  return { value: l?.on ? 0 : 1 };
+}
+
+/** the rig id of the tool an implement key acts on, else the selected one */
+const toolIdFor = (/** @type {"lower"|"fold"|"turnOn"} */ key, /** @type {any} */ cab) =>
+  keyTool(cab, key)?.id ?? selectedInRig(cab)?.id;
 
 /** the cab's value, or the vehicles topic's without the cab */
 const either = (/** @type {any} */ v, /** @type {any} */ cab, /** @type {(src: any) => any} */ pick) =>
@@ -292,54 +316,65 @@ const steppers = new WeakMap();
 
 /** @type {Record<string, ControlDef>} */
 export const CONTROLS = {
-  lights: { label: "Lights", icon: "lights", read: light("on"), action: "lights.toggle", dots: lightStageDots },
-  highBeam: { label: "High beam", icon: "highBeam", read: light("high"), action: "highBeam.toggle" },
-  beacon: { label: "Beacon", icon: "beacon", read: light("beacon"), action: "beacon.toggle" },
-  hazard: { label: "Hazard", icon: "hazard", tint: "alarm", read: light("hazard"), action: "hazard.toggle" },
-  turnLeft: { label: "Turn L", icon: "turnLeft", tint: "ok", read: light("left"), action: "turnLeft.toggle" },
-  turnRight: { label: "Turn R", icon: "turnRight", tint: "ok", read: light("right"), action: "turnRight.toggle" },
-  // starting takes a few seconds in game: pending until it runs
-  engineOn: { label: "Engine", icon: "engineOn", action: "engine.toggle",
+  lights: { label: "Lights", icon: "lights", read: light("on"), action: "lights.set", dots: lightStageDots,
+    send: nextLightStage },
+  highBeam: { label: "High beam", icon: "highBeam", read: light("high"), action: "highBeam.set", send: flip(light("high")) },
+  beacon: { label: "Beacon", icon: "beacon", read: light("beacon"), action: "beacon.set", send: flip(light("beacon")) },
+  hazard: { label: "Hazard", icon: "hazard", tint: "alarm", read: light("hazard"), action: "hazard.set",
+    send: flip(light("hazard")) },
+  turnLeft: { label: "Turn L", icon: "turnLeft", tint: "ok", read: light("left"), action: "turnLeft.set",
+    send: flip(light("left")) },
+  turnRight: { label: "Turn R", icon: "turnRight", tint: "ok", read: light("right"), action: "turnRight.set",
+    send: flip(light("right")) },
+  // starting takes a few seconds in game: pending until it runs (a tap
+  // meanwhile asks for on again: already on its way)
+  engineOn: { label: "Engine", icon: "engineOn", action: "engine.set",
     read: (v, cab) => either(v, cab, (src) => bool(src.engineOn)),
+    send: (v, cab) => ({ value: CONTROLS.engineOn.read(v, cab) ? 0 : 1 }),
     moving: (v, cab) => cab?.inVehicle === true && cab.engineState === "starting",
     settle: { ms: 10000 } },
-  cruise: { label: "Cruise", icon: "cruise", action: "cruise.toggle", read: (v, cab) => {
+  cruise: { label: "Cruise", icon: "cruise", action: "cruiseOn.set", read: (v, cab) => {
     const c = cab ? (cab.inVehicle ? cab.cruise : undefined) : cruiseOf(v);
     return c ? c.state !== "off" : undefined;
-  }, value: cruiseSetSpeed },
+  }, send: (v, cab) => ({ value: CONTROLS.cruise.read(v, cab) ? 0 : 1 }), value: cruiseSetSpeed },
   // held: the set speed down or up, a step per tick; never "on"
   cruiseDown: { label: "Cruise −", icon: "cruiseDown", action: "cruise.set", hold: -1,
     read: (v, cab) => (CONTROLS.cruise.read(v, cab) === undefined ? undefined : false) },
   cruiseUp: { label: "Cruise +", icon: "cruiseUp", action: "cruise.set", hold: 1,
     read: (v, cab) => (CONTROLS.cruise.read(v, cab) === undefined ? undefined : false) },
-  aiWorker: { label: "AI worker", icon: "aiWorker", action: "ai.toggle",
-    read: (v, cab) => either(v, cab, (src) => (cab ? bool(src.aiActive) : src.isAI === true)) },
+  aiWorker: { label: "AI worker", icon: "aiWorker", action: "ai.set",
+    read: (v, cab) => either(v, cab, (src) => (cab ? bool(src.aiActive) : src.isAI === true)),
+    send: (v, cab) => ({ value: CONTROLS.aiWorker.read(v, cab) ? 0 : 1 }) },
   // the selected implement
   // the label is what a tap will do, as the game's help says it; lit: the
   // state ("Raise", lit, while lowered)
-  implementLowered: { label: "Lower", icon: "hitchDown", action: "implement.lower", progressive: true,
+  implementLowered: { label: "Lower", icon: "hitchDown", action: "tool.lower", progressive: true,
     read: (v, cab) => {
       const i = toolFor("lower")(v, cab);
       return i && i.canLower !== false && !lowerKeyOnLoader(v, cab) ? i.lowered === true : undefined;
     },
     labels: (v, cab) => (toolFor("lower")(v, cab)?.lowered
       ? { label: "Raise", icon: "hitchUp" } : { label: "Lower", icon: "hitchDown" }),
+    send: (v, cab) => ({ value: toolFor("lower")(v, cab)?.lowered ? 0 : 1, tool: toolIdFor("lower", cab) }),
     value: toolNote("lower") },
-  fold: { label: "Unfold", icon: "fold", action: "implement.fold", progressive: true, read: (v, cab) => {
+  // value 1: folded
+  fold: { label: "Unfold", icon: "fold", action: "tool.fold", progressive: true, read: (v, cab) => {
     const i = toolFor("fold")(v, cab);
     return i && i.foldable ? i.unfolded === true : undefined;
   }, moving: (v, cab) => toolFor("fold")(v, cab)?.foldMoving === true,
   value: toolNote("fold"),
+  send: (v, cab) => ({ value: toolFor("fold")(v, cab)?.unfolded ? 1 : 0, tool: toolIdFor("fold", cab) }),
   labels: (v, cab) => {
     const i = toolFor("fold")(v, cab);
     // a fold started in game: which way it goes is a guess from where it was
     if (i?.foldMoving) return { label: i.unfolded ? "Folding…" : "Unfolding…" };
     return { label: i?.unfolded ? "Fold" : "Unfold" };
   } },
-  implementOn: { label: "Work", icon: "implementOn", action: "implement.turnOn", read: (v, cab) => {
+  implementOn: { label: "Work", icon: "implementOn", action: "tool.turnOn", read: (v, cab) => {
     const i = toolFor("turnOn")(v, cab);
     return i && (!cab || i.canTurnOn) ? i.turnedOn === true : undefined;
-  }, value: toolNote("turnOn") },
+  }, value: toolNote("turnOn"),
+  send: (v, cab) => ({ value: toolFor("turnOn")(v, cab)?.turnedOn ? 0 : 1, tool: toolIdFor("turnOn", cab) }) },
   // Attach (specs/0003): the attach key (Q), faded until the game has
   // something in reach (its own Attach prompt is up), then it attaches
   // that; pending until what's attached changes. Detaching is each card's.
@@ -348,35 +383,47 @@ export const CONTROLS = {
     settle: { ms: 1500, key: attachedSet, hint: "None in reach", quiet: ["nothing in reach"] } },
   // a status, not a button: unavailable without an implement that has a PTO
   pto: { label: "PTO", icon: "pto", read: ptoOf },
-  // the Implement screen's keys, each as the game's key: Ctrl+V lowers or
-  // raises every tool (lit while one is lowered), O the pipe, I unloads a
-  // combine or tips a trailer (Ctrl+I to the ground where only that is
-  // live), N the cover, and the combine's straw
+  // the Implement screen's keys, each asking for the state its label names:
+  // Ctrl+V lowers or raises every tool (lit while one is lowered), O the
+  // pipe, I tips a trailer (Ctrl+I to the ground where only that is live),
+  // N the cover (a one-shot), and the combine's straw
   lowerAll: { label: "Lower all", icon: "lowerAll", action: "implement.lowerAll", progressive: true,
     read: (v, cab) => {
       const tools = lowerable(v, cab);
       return tools.length ? tools.some((e) => e.lowered) : undefined;
     },
-    labels: (v, cab) => (lowerable(v, cab).some((e) => e.lowered) ? { label: "Raise all" } : { label: "Lower all" }) },
-  pipe: { label: "Pipe out", icon: "pipe", action: "implement.pipe", read: pipeKey.read, value: pipeKey.value,
+    labels: (v, cab) => (lowerable(v, cab).some((e) => e.lowered) ? { label: "Raise all" } : { label: "Lower all" }),
+    send: (v, cab) => ({ value: lowerable(v, cab).some((e) => e.lowered) ? 0 : 1 }) },
+  pipe: { label: "Pipe out", icon: "pipe", action: "tool.pipe", read: pipeKey.read, value: pipeKey.value,
+    send: (v, cab) => {
+      const t = pipeKey.tool(cab);
+      return { value: t?.pipe?.out ? 0 : 1, tool: t?.id };
+    },
     moving: (v, cab) => pipeKey.tool(cab)?.pipe?.moving === true,
     labels: (v, cab) => ({ label: pipeKey.tool(cab)?.pipe?.out ? "Pipe in" : "Pipe out" }) },
-  unload: { label: "Unload", icon: "unload", action: "implement.unload", read: unloadKey.read, value: unloadKey.value,
+  unload: { label: "Unload", icon: "unload", action: "tool.tip", read: unloadKey.read, value: unloadKey.value,
+    send: (v, cab) => {
+      const t = unloadKey.tool(cab);
+      return { value: t?.discharging ? 0 : 1, tool: t?.id };
+    },
     labels: (v, cab) => ({ label: unloadKey.tool(cab)?.trailer ? "Tipping" : "Unload" }) },
   cover: { label: "Uncover", icon: "cover", action: "implement.cover", read: coverKey.read, value: coverKey.value,
     labels: (v, cab) => ({ label: coverKey.tool(cab)?.cover?.open ? "Cover" : "Uncover" }) },
   // a combine's threshing: its own turn on (B, as the game's help says
   // "Turn on harvester"), lit while it threshes
-  thresher: { label: "Thresher", icon: "implementOn", action: "implement.turnOn", read: (v, cab) => {
+  thresher: { label: "Thresher", icon: "implementOn", action: "tool.turnOn", read: (v, cab) => {
     const head = rigOf(cab).find((e) => e.depth === 0);
     return head?.canTurnOn ? head.turnedOn === true : undefined;
+  }, send: (v, cab) => {
+    const head = rigOf(cab).find((e) => e.depth === 0);
+    return { value: head?.turnedOn ? 0 : 1, tool: head?.id };
   } },
   // a combine's straw (the game's TOGGLE_CHOPPER): lit while it lays a swath
-  straw: { label: "Straw swath", icon: "straw", action: "implement.straw", read: strawKey.read,
-    value: strawKey.value },
+  straw: { label: "Straw swath", icon: "straw", action: "straw.set", read: strawKey.read,
+    value: strawKey.value, send: (v, cab) => ({ value: strawKey.tool(cab)?.straw?.swath ? 0 : 1 }) },
   // the selected tool, from what it hangs on
   detach: { label: "Detach", icon: "hitch", action: "implement.detach",
-    sendValue: (v, cab) => selectedInRig(cab)?.id,
+    send: (v, cab) => ({ value: selectedInRig(cab)?.id }),
     read: (v, cab) => {
       const selected = selectedInRig(cab);
       return selected && selected.depth > 0 ? false : undefined;
@@ -419,19 +466,29 @@ export const TILES = {
     } },
 };
 
+/** @typedef {(action: string, value?: number, tool?: number) => Promise<import("../commands.js").CommandResult>} Send */
+
+/**
+ * A control's tap: its action with what it sends now.
+ * @param {ControlDef} def @param {Store} store @param {Send} send
+ */
+const pressOf = (def, store, send) => () => {
+  const out = def.send?.(controlledVehicle(store), cabOf(store)) ?? {};
+  return send(/** @type {string} */ (def.action), out.value, out.tool);
+};
+
 /**
  * State tiles, kept up to date: one tap sends the control's action.
  * @param {string[]} ids in TILES
  * @param {Store} store
- * @param {(action: string, value?: number) => Promise<import("../commands.js").CommandResult>} [send]
+ * @param {Send} [send]
  */
 export function controlTiles(ids, store, send = sendCommand) {
   const items = ids.map((id) => {
     const tile = TILES[id];
     if (!tile) throw new Error(`no tile "${id}"`);
     const def = CONTROLS[tile.control];
-    const action = def.action;
-    const press = action ? () => send(action, def.sendValue?.(controlledVehicle(store), cabOf(store))) : undefined;
+    const press = def.action ? pressOf(def, store, send) : undefined;
     const ui = createControl({ label: tile.caption, icon: tile.icon || def.icon }, press);
     ui.el.classList.add("control-tile");
     ui.el.dataset.tile = id;
@@ -469,7 +526,7 @@ export function controlTiles(ids, store, send = sendCommand) {
  * One labelled group of controls, kept up to date.
  * @param {ControlGroup} group
  * @param {Store} store
- * @param {(action: string, value?: number) => Promise<import("../commands.js").CommandResult>} [send]
+ * @param {Send} [send]
  */
 export function controlGroup(group, store, send = sendCommand) {
   let stepper = steppers.get(store);
@@ -502,8 +559,7 @@ export function controlGroup(group, store, send = sendCommand) {
       const end = hold.end;
       hold.end = () => { if (down) { down = false; end(); } };
     }
-    const press = action && !hold ? () => send(action, def.sendValue?.(controlledVehicle(store), cabOf(store)))
-      : undefined;
+    const press = action && !hold ? pressOf(def, store, send) : undefined;
     const ui = createControl(def, press, settle, hold);
     // the theme can size one (Engine is two columns wide in Drive)
     ui.el.dataset.control = id;

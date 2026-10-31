@@ -74,8 +74,9 @@ up to date until the live check.
   golden replay test (`tests/test_golden.py`). S1 is done and
   live-checked ([spec 0006](../specs/0006-one-local-process.md),
   `python -m companion`). S2 is done and live-checked
-  ([spec 0007](../specs/0007-protocol-in-one-place.md), mod 0.9.0); S3 is
-  next. The
+  ([spec 0007](../specs/0007-protocol-in-one-place.md), mod 0.9.0). S3 is
+  done and live-checked ([spec 0008](../specs/0008-commands-say-the-state.md),
+  mod 0.10.0: commands say the state they want); S4 is next. The
   rigs spec 0003 moved out come after it.
 
 ## Ground rules

@@ -1,11 +1,13 @@
 """The dashboard's server: its files, /ws for viewers, the map images.
 
-    viewer -> server:  {"type": "command", "id": str, "action": str, "value"?: number}
-                       a tap on a control ("lights.toggle"; "cruise.set"
-                       with km/h). Only its shape is checked here
-                       (protocol.command_refusal); the mod knows its
-                       actions and their values (specs/0007). Anything
-                       else a viewer sends is ignored.
+    viewer -> server:  {"type": "command", "id": str, "action": str, "value"?: number,
+                        "tool"?: int}
+                       a tap on a control: the state it wants ("beacon.set"
+                       with 1; "cruise.set" with km/h; "tool.lower" with 1
+                       and the tool's rig id, specs/0008). Only its shape is
+                       checked here (protocol.command_refusal); the mod
+                       knows its actions and their values (specs/0007).
+                       Anything else a viewer sends is ignored.
 
     server -> viewer:  {"type": "snapshot", "topics": {topic: envelope}}
                        on connect, and again when a new game session starts
@@ -20,15 +22,16 @@
                        on connect while there is one; null once the mod's
                        envelopes are good again
     server -> viewer:  {"type": "command_ack", "id": str, "ok": bool,
-                       "reason": str|null, "via"?: str, "checked"?: true,
-                       "unmoved"?: [...]}
+                       "reason": str|null, "via"?: str, "already"?: true,
+                       "checked"?: true, "unmoved"?: [...]}
                        via: what ran, the key's input action or "setter";
+                       already: it was in that state, nothing ran;
                        checked: the mod waited for the tools to move;
                        unmoved: those that didn't, {id, name, why}
                        to the viewer that sent the command, with its own
                        id: from the mod (which refuses an action it doesn't
                        run or a value out of range), from the command
-                       writer (replay, superseded, update the mod...), or
+                       writer (replay, update the mod...), or
                        straight from here for a bad shape. The new state
                        follows as the cab topic.
 
@@ -171,6 +174,9 @@ class Hub:
         # which way it went: the key's input action, or "setter" (specs/0003, scripts/rig_check.py)
         if isinstance(ack.get("via"), str):
             answer["via"] = ack["via"]
+        # specs/0008: in the asked state already, nothing ran
+        if ack.get("already") is True:
+            answer["already"] = True
         # specs/0003 revision 2: whether the mod checked the tools moved, and which didn't
         if ack.get("checked") is True:
             answer["checked"] = True
@@ -182,8 +188,8 @@ class Hub:
         if not isinstance(viewer_id, str) or not 0 < len(viewer_id) <= MAX_COMMAND_ID:
             return
 
-        action, value = msg.get("action"), msg.get("value")
-        refusal = command_refusal(action, value)
+        action, value, tool = msg.get("action"), msg.get("value"), msg.get("tool")
+        refusal = command_refusal(action, value, tool)
         if refusal is not None:
             await safe_send(ws, {"type": "command_ack", "id": viewer_id, "ok": False, "reason": refusal})
             return
@@ -192,7 +198,7 @@ class Hub:
         self.commands[ref] = (ws, viewer_id)
         while len(self.commands) > MAX_PENDING_COMMANDS:
             self.commands.popitem(last=False)
-        self.writer.submit(ref, action, value)
+        self.writer.submit(ref, action, value, tool)
         await self.flush()
 
     # viewers

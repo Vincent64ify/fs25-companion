@@ -238,6 +238,29 @@ These results override any API guesses later in this document.
   (the KDD 2.00 to 2.03 s after the KDF, five times). A tool's own Lower
   moves it in the frame of the press. `startAttacherJointCombo` is the
   tractor's method.
+- **The states a command compares** (spec 0008's live check, mod 0.10.0,
+  2026-10-31: a Volvo L90H with three light stages, the T7.300 with the
+  KDF 341 S and KDD 941 STH, a CH7.70 with a SuperFlex header, the
+  Vestrum 100 with two EDK 650). Each read what the game did, so a
+  doubled command answered `already` without pressing anything:
+  - the light stage (`spec_lights.currentLightState`, else the
+    `lightStates` entry matching `lightsTypesMask`); `TOGGLE_LIGHTS`
+    steps 1, 2, 3, then back to off, one stage per press, read the next
+    frame;
+  - `lightsTypesMask` bit 8 (high beam), `beaconLightsActive`,
+    `turnLightState` (left, right, hazard);
+  - the engine: `getIsMotorStarted()` and `getMotorState()` with
+    `MotorState.STARTING` (about 4 s on the L90H);
+  - cruise control on: `getCruiseControlState()`;
+  - `getIsLowered`, `getIsUnfolded`, `getIsTurnedOn`, and
+    `spec_foldable.foldMoveDirection` while a fold moves (a second fold
+    command answered `already`; the opposite one reversed it);
+  - the pipe: `spec_pipe.targetState` (the state it moves to);
+  - straw: `spec_combine.isSwathActive`;
+  - tipping: `getDischargeState()`. Ctrl+I with the engine off: the game
+    asks to start the engine and nothing tips.
+  - Not confirmed: `getIsAIActive()` turning on, since `TOGGLE_AI`
+    without a job set up does nothing.
 - **A trailer's tip keys** (spike 0.0.8 and the 0.8.15 / 0.8.16 live
   checks, 2026-10-31, the Case IH Vestrum 100 with two Farmtech EDK 650;
   spec 0003 revision 3):
@@ -378,7 +401,11 @@ roles or uploads; the map images are served from the client's cache. Since
 [spec 0007](../specs/0007-protocol-in-one-place.md) (mod 0.9.0) it checks
 the envelope only, in plain Python: `web/src/types.js` is the one
 description of each topic, and the mod's `Commands.ACTIONS` the one list of
-commands. The layout below is how it was built first.
+commands. Since [spec 0008](../specs/0008-commands-say-the-state.md) (mod
+0.10.0) a command says the state it wants (`beacon.set` 1, `tool.lower` 1
+with the tool's rig id): the mod presses the key only when the game isn't
+there yet, else answers `already`, and the companion writes every command
+as it comes. The layout below is how it was built first.
 
 ```
 backend/app/
@@ -611,3 +638,9 @@ Changes since Phase 4 (2026-10-21 to 2026-10-22):
   game gets there; `cab` carries the motor state and the selected
   implement and its fold; commands may carry a value (`cruise.set`).
   Details in PLAN.md, "C2 as built".
+- **Commands say the state they want** (spec
+  [0008](../specs/0008-commands-say-the-state.md), mod 0.10.0, SIMPLIFY S3,
+  live-checked 2026-10-31): every switch and tool button sends the state
+  it wants; the mod presses the key only when the game isn't there and
+  answers `already` otherwise; the companion writes every command as it
+  comes.

@@ -1,12 +1,14 @@
 // @ts-check
-// Commands to the game (docs/PLAN.md, Controls): a control sends
-// {"type":"command","id":"<unique>","action":"lights.toggle"} over the
-// viewer's WebSocket, and the backend answers with
-// {"type":"command_ack","id","ok","reason"} once the mod ran it. The new
+// Commands to the game (docs/PLAN.md, Controls): a control sends the state
+// it wants, {"type":"command","id":"<unique>","action":"beacon.set",
+// "value":1} (and "tool", a rig id, for one tool's: specs/0008) over the
+// viewer's WebSocket, and the companion answers with
+// {"type":"command_ack","id","ok","reason"} once the mod ran it, with
+// "already": true when the game was in that state and nothing ran. The new
 // state follows as the cab topic. No answer within the timeout counts as
 // a failure.
 
-/** @typedef {{ok: boolean, reason?: string}} CommandResult */
+/** @typedef {{ok: boolean, reason?: string, already?: boolean}} CommandResult */
 /** @typedef {{count: number, last?: number, median?: number, max?: number}} RoundTrips ms, tap to the mod's answer */
 
 // 10 s: a tool command waits until the tools moved (specs/0003 revision 2):
@@ -47,26 +49,31 @@ export function createCommander(transmit, opts = {}) {
 
   return {
     /**
-     * @param {string} action "lights.toggle"
-     * @param {number} [value] for actions that carry one ("cruise.set": km/h)
+     * @param {string} action "beacon.set"
+     * @param {number} [value] the state it wants (1 on, 0 off; "lights.set":
+     *   the stage; "cruise.set": km/h)
+     * @param {number} [tool] the rig id of the tool it acts on ("tool.lower")
      * @returns {Promise<CommandResult>}
      */
-    send(action, value) {
+    send(action, value, tool) {
       const id = `${prefix}-${++seq}`;
       return new Promise((resolve) => {
         const timer = setTimeout(() => settle(id, { ok: false, reason: "no answer" }), timeoutMs);
         pending.set(id, { resolve, timer, sent: now() });
-        const msg = value === undefined ? { type: "command", id, action } : { type: "command", id, action, value };
+        /** @type {{type: string, id: string, action: string, value?: number, tool?: number}} */
+        const msg = { type: "command", id, action };
+        if (value !== undefined) msg.value = value;
+        if (tool !== undefined) msg.tool = tool;
         if (!transmit(msg)) {
           settle(id, { ok: false, reason: "not connected" });
         }
       });
     },
 
-    /** @param {{id?: unknown, ok?: unknown, reason?: unknown}} msg a command_ack */
+    /** @param {{id?: unknown, ok?: unknown, reason?: unknown, already?: unknown}} msg a command_ack */
     ack(msg) {
       if (typeof msg.id !== "string") return;
-      settle(msg.id, msg.ok === true ? { ok: true }
+      settle(msg.id, msg.ok === true ? (msg.already === true ? { ok: true, already: true } : { ok: true })
         : { ok: false, reason: typeof msg.reason === "string" ? msg.reason : "failed" }, true);
     },
 

@@ -32,8 +32,9 @@ Game API names used, each one **verified** (with its place in
 ## Commands
 
 Web → game actions (`mod/src/Commands.lua`, keyed by the dashboard's name): the
-action name, the game input it presses, its fallback, and what the
-dashboard shows the same frame.
+action name, the state it asks for (a switch is a `.set` with its value,
+specs/0008) and the reading it compares, the game input it presses, its
+fallback, and what the dashboard shows the same frame.
 
 ## Plan
 

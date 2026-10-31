@@ -373,27 +373,35 @@ check("controls: implement's name in the label, aria", [implGroup.querySelector(
 const { createCommander, COMMAND_TIMEOUT_MS } = await import("./src/commands.js");
 const sent = [];
 const cmd = createCommander((m) => { sent.push(m); return true; }, { timeoutMs: 40, prefix: "t" });
-const okRun = cmd.send("lights.toggle");
+const okRun = cmd.send("hitch.toggle");
 cmd.ack({ id: "other", ok: true });
 cmd.ack({ id: "t-1", ok: true });
-const failRun = cmd.send("lights.toggle");
+const failRun = cmd.send("hitch.toggle");
 cmd.ack({ id: "t-2", ok: false, reason: "not in a vehicle" });
-const lateRun = cmd.send("lights.toggle");
-const offline = createCommander(() => false).send("lights.toggle");
+const lateRun = cmd.send("hitch.toggle");
+const offline = createCommander(() => false).send("hitch.toggle");
 check("commands: message, ack by id, failure, timeout, offline",
   [sent[0], await okRun, await failRun, await lateRun, await offline, cmd.pending()],
-  [{ type: "command", id: "t-1", action: "lights.toggle" }, { ok: true },
+  [{ type: "command", id: "t-1", action: "hitch.toggle" }, { ok: true },
    { ok: false, reason: "not in a vehicle" }, { ok: false, reason: "no answer" },
    { ok: false, reason: "not connected" }, 0]);
 // specs/0004: after a rotation the mod sends recent acks again; one for a
 // command answered or timed out already changes nothing
-const nextRun = cmd.send("lights.toggle");
+const nextRun = cmd.send("hitch.toggle");
 cmd.ack({ id: "t-1", ok: false, reason: "replayed" });
 cmd.ack({ id: "t-3", ok: true });
 cmd.ack({ id: "t-4", ok: false, reason: "not in a vehicle" });
 cmd.ack({ id: "t-4", ok: true });
 check("commands: a replayed ack is ignored", [await nextRun, cmd.roundTrips().count, cmd.pending()],
   [{ ok: false, reason: "not in a vehicle" }, 3, 0]);
+// specs/0008: the state it wants and the tool; "already" when nothing ran
+const setRun = cmd.send("tool.lower", 1, 9);
+cmd.ack({ id: "t-5", ok: true, already: true });
+const beaconRun = cmd.send("beacon.set", 0);
+cmd.ack({ id: "t-6", ok: true, already: false });
+check("commands: a set carries its value and tool; already comes back", [sent.slice(-2), await setRun, await beaconRun],
+  [[{ type: "command", id: "t-5", action: "tool.lower", value: 1, tool: 9 },
+    { type: "command", id: "t-6", action: "beacon.set", value: 0 }], { ok: true, already: true }, { ok: true }]);
 
 const ccs = createStore();
 /** @type {((r: any) => void)[]} */
@@ -414,7 +422,7 @@ ccs.set("cab", { inVehicle: true, vehicleId: 1, lights: { on: false, beacon: fal
 check("controls: the cab wins over the vehicles topic", states(tapGroup), ["off", "off"]);
 tap(lightsBtn);
 tap(lightsBtn);
-check("controls: pending at once, one command at a time", [lightsBtn.dataset.state, presses], ["pending", ["lights.toggle"]]);
+check("controls: pending at once, one command at a time", [lightsBtn.dataset.state, presses], ["pending", ["lights.set"]]);
 ccs.set("cab", { inVehicle: true, vehicleId: 1, lights: { on: true }, implements: [] });
 check("controls: stays pending until the answer", lightsBtn.dataset.state, "pending");
 answers[0]({ ok: true });
@@ -431,7 +439,7 @@ check("controls: on foot by the cab: unavailable", states(tapGroup), ["unavailab
 const keyboard = controlGroup({ label: "L", controls: ["lights"] }, ccs, (a) => { presses.push(`key:${a}`); return Promise.resolve({ ok: true }); });
 ccs.set("cab", { inVehicle: true, lights: { on: false } });
 keyboard.querySelector(".control").click();
-check("controls: the keyboard presses too", presses.at(-1), "key:lights.toggle");
+check("controls: the keyboard presses too", presses.at(-1), "key:lights.set");
 
 const { lightStageDots } = await import("./src/widgets/controls.js");
 const cabL = (lights) => ({ inVehicle: true, lights });
@@ -489,7 +497,51 @@ for (const b of [...drive.querySelectorAll(".control"), ...impl.querySelectorAll
 }
 await Promise.resolve(); await Promise.resolve();
 check("C2: each button sends its own action", sentC2,
-  ["cruise.toggle", "engine.toggle", "ai.toggle", "implement.lower", "implement.fold", "hitch.toggle"]);
+  ["cruiseOn.set", "engine.set", "ai.set", "tool.lower", "tool.fold", "hitch.toggle"]);
+
+// specs/0008: a tap sends the state the button shows next, with its tool
+const s8 = createStore();
+const sent8 = [];
+const s8send = (a, v, t) => { sent8.push(t === undefined ? [a, v] : [a, v, t]); return Promise.resolve({ ok: true }); };
+const s8groups = [
+  controlGroup({ label: "Lights", controls: ["lights", "highBeam", "beacon", "hazard", "turnLeft", "turnRight"] }, s8, s8send),
+  controlGroup({ label: "Drive", controls: ["cruise", "engineOn", "aiWorker"] }, s8, s8send),
+  controlGroup({ label: "Implement", controls: ["implementLowered", "fold", "implementOn"] }, s8, s8send)];
+const s8cab = (extra) => ({ ...c2cab({ lights: { on: true, high: true, beacon: false, hazard: false, left: true, right: false,
+  stage: 2, stages: 3 }, canTurnOn: true,
+  rig: [{ id: 3, depth: 0 }, { id: 9, depth: 1, selected: true, lowered: true, canLower: true, foldable: true,
+    unfolded: true, turnedOn: false, canTurnOn: true }],
+  keys: { lower: 9, fold: 9, turnOn: 9 } }), ...extra });
+s8.set("cab", s8cab({ implement: { ...c2cab({}).implement, lowered: true, unfolded: true, canTurnOn: true } }));
+const tapAll8 = async () => {
+  // the last round's buttons done waiting for the game
+  await new Promise((r) => setTimeout(r, 0));
+  sent8.length = 0;
+  for (const g of s8groups) for (const b of g.querySelectorAll(".control")) if (b.dataset.state !== "unavailable") tap(b);
+  await new Promise((r) => setTimeout(r, 0));
+  return [...sent8];
+};
+const sentOn = await tapAll8();
+s8.set("cab", s8cab({ lights: { on: true, stage: 3, stages: 3 }, cruise: { state: "off", speed: 15 }, engineOn: false,
+  aiActive: true }));
+const sentLast = await tapAll8();
+s8.set("cab", s8cab({ lights: { on: false } }));
+const sentNoStages = (await tapAll8())[0];
+check("specs/0008: each button asks for the state it shows next, a tool's with its id", [sentOn, sentLast.slice(0, 1),
+  sentLast.slice(6, 9), sentNoStages],
+  [[["lights.set", 3], ["highBeam.set", 0], ["beacon.set", 1], ["hazard.set", 1], ["turnLeft.set", 0], ["turnRight.set", 1],
+    ["cruiseOn.set", 0], ["engine.set", 0], ["ai.set", 1],
+    ["tool.lower", 0, 9], ["tool.fold", 1, 9], ["tool.turnOn", 1, 9]],
+    [["lights.set", 0]], [["cruiseOn.set", 1], ["engine.set", 1], ["ai.set", 0]], ["lights.set", 1]]);
+// an answer that it was there already ends pending at once, even where the
+// button waits for the game (Engine: up to 10 s)
+const s8b = createStore();
+const engGroup = controlGroup({ label: "D", controls: ["engineOn"] }, s8b, () => Promise.resolve({ ok: true, already: true }));
+s8b.set("cab", c2cab({ engineOn: false }));
+const engAlready = engGroup.querySelector(".control");
+tap(engAlready);
+await new Promise((r) => setTimeout(r, 0));
+check("specs/0008: already: no wait for a change", engAlready.dataset.state, "off");
 
 // C2 feedback: running border, settle (engine, hitch), cruise set speed
 const fb = createStore();
@@ -1142,8 +1194,8 @@ ics.set("cab", harvest({ selected: 22 }));
 tap(icDetach);
 tap(icAll);
 await new Promise((r) => setTimeout(r, 0));
-check("implement controls: Detach sends the selected tool's id, Lower all the key",
-  icSent, [["implement.detach", 22], ["implement.lowerAll", undefined]]);
+check("implement controls: Detach sends the selected tool's id, Lower all the state its label names",
+  icSent, [["implement.detach", 22], ["implement.lowerAll", 0]]);
 
 // the tanks on a card (the Implement screen's, the Vehicle page's cards' since specs/0003)
 const { tankRows } = await import("./src/widgets/vehicleTools.js");
@@ -1273,7 +1325,7 @@ check("harvester screen: measuring: until full and throughput while the rate is 
 const tileStore = createStore();
 const tileSent = [];
 const tiles = controlTiles(["thresher", "pipe", "straw", "header", "fold"], tileStore,
-  (a, value) => { tileSent.push([a, value]); return Promise.resolve({ ok: true }); });
+  (a, value, tool) => { tileSent.push([a, value, tool]); return Promise.resolve({ ok: true }); });
 const tileShow = () => [...tiles.querySelectorAll(".control-tile")].map((t) => (t.hidden ? null
   : `${t.dataset.tile}:${t.querySelector(".control-value").textContent}:${t.dataset.state}`));
 tileStore.set("vehicles", harvVehicles());
@@ -1291,8 +1343,8 @@ check("harvester screen: tiles show the state, light as specified and send their
   [["thresher:On:on", "pipe:In:off", "straw:Swath:off", "header:Down:on", "fold:Unfolded:off"],
     ["thresher:Off:off", "pipe:Out:on", "straw:Chop:off", "header:Up:off", "fold:Unfolded:off"],
     ["thresher:On:on", "pipe:In:off", null, "header:Down:on", null],
-    [["implement.turnOn", undefined], ["implement.pipe", undefined], ["implement.straw", undefined],
-      ["implement.lower", undefined], ["implement.fold", undefined]],
+    [["tool.turnOn", 0, 20], ["tool.pipe", 1, 20], ["straw.set", 0, undefined], ["tool.lower", 0, 21],
+      ["tool.fold", 1, 21]],
     ["Thresher", "Pipe", "Straw", "Header", "Fold"]]);
 
 // the widgets, with a steady 640 L a minute
@@ -1730,7 +1782,7 @@ const noRates = { rate: () => undefined, rising: () => false, area: () => undefi
 const toolsPage = (vehicles, cab) => {
   const s = createStore();
   const sent = [];
-  const send = (a, v) => { sent.push([a, v]); return Promise.resolve({ ok: true }); };
+  const send = (a, v, t) => { sent.push(t === undefined ? [a, v] : [a, v, t]); return Promise.resolve({ ok: true }); };
   const cardsEl = vt.toolCards(s, { send, rates: noRates });
   const allEl = vt.toolsAll(s, { send });
   const alsoEl = vt.toolsAlso(s, { send });
@@ -1770,7 +1822,7 @@ tap(madeButtons[1]);
 await Promise.resolve();
 check("tools: buttons from can: an unknown part adds nothing; the game's \"not now\" with its words; each aims at its tool", [
   vt.toolButtons(madeUp).map((b) => b.label), madeStates, madeButtons[0].title, madePage.sent],
-  [["Fold", "Turn on"], ["Fold:unavailable", "Turn on:off"], "Lower the blade first", [["implement.turnOn", 50]]]);
+  [["Fold", "Turn on"], ["Fold:unavailable", "Turn on:off"], "Lower the blade first", [["tool.turnOn", 1, 50]]]);
 // live (0.8.7): the reason was only the hover title, out of reach on a
 // tablet; a tap on the faded button shows it on the card, sending nothing
 const madeNote = () => madePage.cardsEl.querySelector(".tool-note");
@@ -1832,16 +1884,17 @@ check("tools: every confirmed capability's button, labelled with what a tap does
   turnedOn: false, discharging: true, tipSide: { index: 2, count: 3, name: "Left" }, cover: { open: false },
   pipe: { out: true, moving: false }, plow: { rotated: false }, bales: { count: 12 },
   extraKeys: [{ action: "IMPLEMENT_EXTRA3", text: "Allow create fields" }] })
-  .map((b) => [b.label, b.action, b.value, b.on, b.unavailable === true, b.line ?? ""].join("|")),
-  ["Raise|implement.lower|9|true|false|", "Unfold|implement.fold|9|false|false|", "Turn on|implement.turnOn|9|false|true|",
-    "Stop|implement.unload|9|true|false|", "Tip side|implement.tipSide|9|false|false|Left",
-    "Pipe in|implement.pipe|9|true|false|", "Detach|implement.detach|9|false|false|",
-    "Allow create fields|implement.key|1|false|false|"]);
+  .map((b) => [b.label, b.action, b.value, b.tool ?? "", b.on, b.unavailable === true, b.line ?? ""].join("|")),
+  // specs/0008: the state a tap asks for, with the tool's id
+  ["Raise|tool.lower|0|9|true|false|", "Unfold|tool.fold|0|9|false|false|", "Turn on|tool.turnOn|1|9|false|true|",
+    "Stop|tool.tip|0|9|true|false|", "Tip side|implement.tipSide|9||false|false|Left",
+    "Pipe in|tool.pipe|0|9|true|false|", "Detach|implement.detach|9||false|false|",
+    "Allow create fields|implement.key|1||false|false|"]);
 // spec 0003 revision 3: the label says where the load goes, as the key the game shows
 check("tools: Tip says Unload here off a sale point, Tip over one, Stop while tipping", [
   { tipTo: "ground", discharging: false }, { tipTo: "object", discharging: false }, { discharging: false },
   { tipTo: "ground", discharging: true }].map((s) => vt.toolButtons({ id: 3, depth: 1, can: ["tip"], ...s })
-  .find((b) => b.action === "implement.unload")?.label),
+  .find((b) => b.action === "tool.tip")?.label),
   ["Unload here", "Tip", "Tip", "Stop"]);
 check("tools: an older mod (no can): its fields give the buttons", [
   sel.canOf({ depth: 1, canLower: true, lowered: false, foldable: true, canTurnOn: true }),
@@ -1887,13 +1940,14 @@ for (const b of allButtons) tap(b);
 for (const b of allOn.allEl.querySelectorAll(".control")) tap(b);
 await Promise.resolve();
 check("tools: the All row: lit while all are on, labelled with what a tap does; Turn on all waits while one is folded", [
-  ...allShown, allButtons[2].querySelector(".control-value")?.textContent, mixed.sent, allOn.sent.slice(3)],
+  ...allShown, allButtons[2].querySelector(".control-value")?.textContent, mixed.sent, allOn.sent],
   [["Fold all:on", "Raise all:on", "Turn off all:on", "Stop all:on"],
     // one folded, one not: Fold all, as the game's key does (spike 0.0.5, revision 2)
     // no Cover all until cover has its own spec (spec 0003's close)
     ["Fold all:off", "Lower all:off", "Turn on all:unavailable", "Tip all:off"], "Unfold first",
-    [["implement.foldAll", undefined], ["implement.lowerAll", undefined], ["implement.tipAll", 1]],
-    [["implement.tipAll", 0]]]);
+    // specs/0008: each asks for the state its label names
+    [["implement.foldAll", 1], ["implement.lowerAll", 1], ["implement.tipAll", 1]],
+    [["implement.foldAll", 1], ["implement.lowerAll", 0], ["implement.turnOnAll", 0], ["implement.tipAll", 0]]]);
 check("tools: one working thing: no All row; nothing attached; on foot", [
   rigFix.sprayer && toolsPage(rigFix.sprayer.vehicles, rigFix.sprayer.cab).allEl.hidden,
   q(toolsPage(rigFix.attach.vehicles, rigFix.attach.cab).cardsEl, ".tool-none"),

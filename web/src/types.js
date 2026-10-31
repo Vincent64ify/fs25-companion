@@ -47,8 +47,8 @@
  * @property {string} [gameDir]
  * @property {{dir?: string, next: number, actions?: number}} [commands] where
  *   the companion writes commands and the number the mod reads next;
- *   actions 2: the files name the dashboard's actions (mod 0.9.0,
- *   specs/0007), absent before
+ *   actions 3: the files name the dashboard's set actions (mod 0.10.0,
+ *   specs/0008); 2: its toggles (mod 0.9.x, specs/0007); absent before
  */
 
 /**
@@ -181,6 +181,8 @@
  * @property {boolean} ok
  * @property {string} [reason]
  * @property {string} [via] what ran: the input action's name, or "setter"
+ * @property {boolean} [already] the game was in the asked state already:
+ *   nothing ran (mod 0.10.0, specs/0008)
  * @property {boolean} [checked] the mod waited for the tools to move
  *   (specs/0003 revision 2)
  * @property {{id: number, name?: string, why?: string}[]} [unmoved] those that didn't

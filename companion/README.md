@@ -51,9 +51,10 @@ paths.py       finds the FS25 profile folder and the cache folder
 - `protocol.py` checks the envelope only; what a topic's data holds is
   described once, in `web/src/types.js` (specs/0007). A command is checked
   for its shape; the mod's `Commands.ACTIONS` is the one list of actions
-  and their values. `commands.py` writes the dashboard's action name as it
-  is, and answers "update the mod" while the mod's hello lacks
-  `commands.actions: 2` (a mod before 0.9.0).
+  and their values. `commands.py` writes the dashboard's action name, its
+  value and its tool as they are, every command as it comes (each says the
+  state it wants, specs/0008), and answers "update the mod" while the
+  mod's hello lacks `commands.actions: 3` (a mod before 0.10.0).
 - `server.py`: the hub checks each envelope (`protocol.py`) and sends
   one read out as the latest envelope per topic, `hello` first, then the
   command acks in order: the cab state an ack's command changed is on the

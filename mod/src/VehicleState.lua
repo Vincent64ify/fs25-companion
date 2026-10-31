@@ -119,6 +119,25 @@ local function lightStages(spec, mask)
     return nil, stages, true
 end
 
+-- the light types a stage turns on, as a mask without the high beam (0:
+-- off); without stages, stage 1 is the front lights (light type 0). Nil
+-- for a stage the vehicle hasn't
+function VehicleState.lightStageMask(vehicle, stage)
+    local spec = vehicle.spec_lights
+    if spec == nil then
+        return nil
+    end
+    if stage == 0 then
+        return 0
+    end
+    local states = spec.lightStates
+    if type(states) ~= "table" or #states == 0 then
+        return stage == 1 and 1 or nil
+    end
+    local types = stateTypes(states[stage])
+    return types ~= nil and withoutHighBeam(maskOf(types)) or nil
+end
+
 -- the light switches, nil for a vehicle without lights
 function VehicleState.lights(vehicle)
     local spec = vehicle.spec_lights

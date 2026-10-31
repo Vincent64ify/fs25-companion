@@ -77,3 +77,9 @@ def test_commands_are_checked_for_shape_only():
         assert command_refusal(action, None) == "action not allowed", action
     for value in ("fast", True, [], {}, float("nan"), float("inf")):
         assert command_refusal("cruise.set", value) == "value not allowed", value
+    # a tool's id (specs/0008): a whole number, not negative, or absent
+    assert command_refusal("tool.lower", 1, 0) is None
+    assert command_refusal("tool.lower", 1, 2 ** 31) is None
+    assert command_refusal("tool.lower", 1, None) is None
+    for tool in ("9", True, -1, 1.5, float("nan"), [], {}):
+        assert command_refusal("tool.lower", 1, tool) == "value not allowed", tool

@@ -1,11 +1,13 @@
 -- Commands.lua
 -- Runs the dashboard's commands (docs/PLAN.md, Controls). The companion
 -- writes one file per command, numbered from 1 per game session, with the
--- dashboard's action name (specs/0007; hello says so: commands.actions 2):
+-- dashboard's action name (specs/0007) and the state it wants (specs/0008;
+-- hello says so: commands.actions 3):
 --
 --     modSettings/FS25_Companion/cmd/<n>.xml
---     <command session="<sessionId>" id="<n>" action="lights.toggle" ref="<companion ref>"/>
+--     <command session="<sessionId>" id="<n>" action="beacon.set" ref="<companion ref>" value="1.000"/>
 --     <command ... action="cruise.set" ref="..." value="23.000"/>   (km/h)
+--     <command ... action="tool.lower" ref="..." value="1.000" tool="9"/>   (a rig id)
 --
 -- (a temp file, read back once, then renamed, so it appears whole). Every
 -- frame the mod checks whether the next number exists (fileExists costs
@@ -13,10 +15,14 @@
 -- session, the action and its value (Commands.ACTIONS, the one list), runs
 -- the action, and answers with a `command_ack` envelope:
 --
---     {"id":<n>,"ref":"<companion ref>","action":"lights.toggle","ok":true,"via":"TOGGLE_LIGHTS"}
+--     {"id":<n>,"ref":"<companion ref>","action":"beacon.set","ok":true,"via":"TOGGLE_BEACON_LIGHTS"}
+--     {"id":<n>,"ref":"...","action":"beacon.set","ok":true,"already":true}
 --     {"id":<n>,"ref":"...","ok":false,"reason":"not in a vehicle"}
 --
--- `via` says what ran: the input action's name, or "setter". The caller
+-- A set action reads the state the cab reports and presses the key only
+-- when it differs; already there (or on its way), it presses nothing and
+-- answers `already`. `via` says what ran: the input action's name, or
+-- "setter". The caller
 -- sends the `cab` topic in the same frame, so the new state reaches the
 -- dashboard with the ack. The companion deletes the file once it sees the ack.
 --
@@ -60,13 +66,17 @@ local function lightsMask(vehicle)
     return type(spec.lightsTypesMask) == "number" and spec.lightsTypesMask or 0
 end
 
--- lights: off <-> the front lights (light type 0)
-local function toggleLights(vehicle)
+-- lights: the stage's own light types (0 off), the high beam kept
+local function setLightStage(vehicle, stage)
     local mask = lightsMask(vehicle)
-    if mask == nil then
+    local target = VehicleState.lightStageMask(vehicle, stage)
+    if mask == nil or target == nil then
         return false, "no lights"
     end
-    vehicle:setLightsTypesMask(mask ~= 0 and 0 or 1)
+    if stage > 0 and hasBit(mask, 8) then
+        target = target + 8
+    end
+    vehicle:setLightsTypesMask(target)
     return true
 end
 
@@ -206,6 +216,53 @@ local function toggleLower(_, implement)
     return true
 end
 
+-- States (specs/0008) ------------------------------------------------------
+-- What a set action compares, read as the cab reads it: 1 or 0 (the light
+-- stage for the lights), nil when it can't be read (then the key is pressed).
+
+-- the light stage (0 off); without stages, 0 or 1
+local function lightStage(vehicle)
+    local lights = VehicleState.lights(vehicle)
+    if lights == nil then
+        return nil
+    end
+    if lights.stages ~= nil then
+        return lights.stage
+    end
+    return lights.on and 1 or 0
+end
+
+local function lightSwitch(name)
+    return function(vehicle)
+        local lights = VehicleState.lights(vehicle)
+        if lights == nil or type(lights[name]) ~= "boolean" then
+            return nil
+        end
+        return lights[name] and 1 or 0
+    end
+end
+
+-- an engine that is starting is on its way to on
+local function engineState(vehicle)
+    local state = VehicleState.engineState(vehicle)
+    if state == nil then
+        return nil
+    end
+    return state == "off" and 0 or 1
+end
+
+local function cruiseOn(vehicle)
+    local cruise = VehicleState.cruise(vehicle)
+    if cruise == nil then
+        return nil
+    end
+    return cruise.state == "off" and 0 or 1
+end
+
+local function aiState(vehicle)
+    return VehicleState.aiActive(vehicle) and 1 or 0
+end
+
 -- Selection (C3) -----------------------------------------------------------
 -- The dashboard picks a tool and the game selects it, as G would after
 -- enough presses (PLAN.md C3, verified in the selection spike).
@@ -308,17 +365,6 @@ local function pipeOne(object)
     return false, "can't move the pipe now"
 end
 
--- the first pipe in the rig
-local function togglePipe(vehicle)
-    for _, object in ipairs(rigObjects(vehicle)) do
-        local done, reason = pipeOne(object)
-        if done ~= nil then
-            return done, reason
-        end
-    end
-    return false, "no pipe"
-end
-
 -- a combine's straw: swath or chopper, where the crop has a windrow
 local function toggleStraw(vehicle)
     for _, object in ipairs(rigObjects(vehicle)) do
@@ -333,6 +379,17 @@ local function toggleStraw(vehicle)
         end
     end
     return false, "no combine"
+end
+
+-- 1 laying a swath, 0 chopping (the cab's straw)
+local function strawState(vehicle)
+    for _, object in ipairs(rigObjects(vehicle)) do
+        local straw = VehicleState.extras(object, {}).straw
+        if straw ~= nil then
+            return straw.swath and 1 or 0
+        end
+    end
+    return nil
 end
 
 -- a cover: on to its next state (0 closed); nil when it has none
@@ -588,16 +645,33 @@ local function checkOf(object, depth, kind, want)
     return { object = object, depth = depth, kind = kind, want = want, before = readings(object) }
 end
 
--- the asked state of a tool's one button, from the state its label shows
-local function wantOf(e, kind)
-    if kind == "lower" then
-        return e.lowered ~= true
-    elseif kind == "fold" then
-        return e.unfolded ~= false
+-- whether a tool is in the asked state, or on its way there (specs/0008):
+-- want is lowered, folded, on, out or tipping. A fold moving counts by its
+-- direction (1 folding, -1 unfolding; spikes 0.0.5, 0.0.6), so does a
+-- tool that lowers through its fold (getIsLowered stays true while it
+-- rises); the pipe by the state it moves to
+local function isThere(kind, object, e, want)
+    local fold = object.spec_foldable
+    local direction = type(fold) == "table" and fold.foldMoveDirection or 0
+    local moving = direction == 1 or direction == -1
+    if kind == "fold" then
+        if moving then
+            return direction == (want and 1 or -1)
+        end
+        return type(e.unfolded) == "boolean" and e.unfolded == not want
+    elseif kind == "lower" then
+        if moving and VehicleState.foldLowers(object) then
+            return direction == (want and -1 or 1)
+        end
+        return e.lowered == want
+    elseif kind == "turnOn" then
+        return e.turnedOn == want
+    elseif kind == "pipe" then
+        return e.pipe ~= nil and e.pipe.out == want
     elseif kind == "tip" then
-        return e.discharging ~= true
+        return e.discharging == want
     end
-    return e.turnedOn ~= true
+    return false
 end
 
 -- whether a key has a live event on any object
@@ -617,33 +691,44 @@ local function hasLive(name)
     return false
 end
 
--- a one-tool command: its job, or why not; fold, lower and turn on checked
-local function aimed(vehicle, aim, id)
+-- a one-tool command: its job, or why not, or nil, nil, true when the tool
+-- is in the asked state already (want: a set; nil: a one-shot); lower,
+-- fold, turn on and tip checked
+local function aimed(vehicle, aim, id, want)
     local object, depth = memberById(vehicle, id)
     if object == nil then
         return nil, "not attached"
+    end
+    if want ~= nil then
+        local e = capsOf(object, depth)
+        if hasCap(e, aim.cap) and isThere(aim.cap, object, e, want) then
+            return nil, nil, true
+        end
     end
     local step, reason = stepFor(object, depth, aim)
     if step == nil then
         return nil, reason
     end
     local job = newJob(vehicle, { step })
-    if CHECKED[aim.cap] then
-        job.check = { checkOf(object, depth, aim.cap, wantOf(capsOf(object, depth), aim.cap)) }
+    if CHECKED[aim.cap] and want ~= nil then
+        job.check = { checkOf(object, depth, aim.cap, want) }
     end
     return job
 end
 
+-- the answer of a job that has nothing to do (specs/0008)
+local ALREADY = {}
+
 -- Tip all and Uncover all: the one-tool command on each that has the
 -- capability and isn't there yet (value 1: tipping, open; 0: stopped,
 -- closed), in driving order; Tip all checked (revision 3)
-local function eachTool(aim, isThere)
+local function eachTool(aim, there)
     return function(vehicle, value)
         local want = value ~= 0
         local steps, refused, check = {}, {}, {}
         for _, m in ipairs(drivingOrder(vehicle)) do
             local e = capsOf(m.object, m.depth)
-            if hasCap(e, aim.cap) and isThere(e) ~= want then
+            if hasCap(e, aim.cap) and there(e) ~= want then
                 local step, reason = stepFor(m.object, m.depth, aim)
                 if step ~= nil then
                     steps[#steps + 1] = step
@@ -661,16 +746,14 @@ local function eachTool(aim, isThere)
     end
 end
 
--- Fold all and Turn on all, when the game's key has no event: as the
--- game's key, fold every tool while one is unfolded (spike 0.0.5), else
--- unfold them; turn every one on, or off once they all are
-local function foldAll(vehicle)
-    local tools, unfold = {}, true
+-- Fold all and Turn on all, when the game's key has no event: every tool
+-- not in the asked state yet, by its setter (fold: folded or unfolded; on)
+local function foldAll(vehicle, fold)
+    local tools = {}
     for _, m in ipairs(drivingOrder(vehicle)) do
         local e = capsOf(m.object, m.depth)
         if hasCap(e, "fold") and type(m.object.setFoldState) == "function" then
             tools[#tools + 1] = { object = m.object, unfolded = e.unfolded == true }
-            unfold = unfold and e.unfolded ~= true
         end
     end
     if #tools == 0 then
@@ -678,22 +761,21 @@ local function foldAll(vehicle)
     end
     for _, t in ipairs(tools) do
         local direction = Api.tryCall(t.object, "getToggledFoldDirection")
-        if t.unfolded ~= unfold and type(direction) == "number" then
+        if t.unfolded == fold and type(direction) == "number" then
             t.object:setFoldState(direction, false)
         end
     end
     return true
 end
 
-local function turnOnAll(vehicle)
-    local tools, on = {}, false
+local function turnOnAll(vehicle, on)
+    local tools = {}
     for _, m in ipairs(drivingOrder(vehicle)) do
         local e = capsOf(m.object, m.depth)
         -- not one the game won't turn on now (folded)
         if hasCap(e, "turnOn") and type(m.object.setIsTurnedOn) == "function"
             and not (e.canNow ~= nil and e.canNow.turnOn == false) then
             tools[#tools + 1] = { object = m.object, on = e.turnedOn == true }
-            on = on or e.turnedOn ~= true
         end
     end
     if #tools == 0 then
@@ -724,103 +806,134 @@ local function allKeyStep(name, setter)
     end }
 end
 
--- Lower all: the game's own key once (specs/0003 revision 2; spikes 0.0.5
--- and 0.0.6: the mod's press acts as Ctrl+V), lowering every tool while
--- one is raised, else raising them all, checked. With no live key, each
--- tool's Lower toward that state, in driving order, the selection put
--- back; no tool's Lower could act: the game's combo. Nil when no tool has
--- Lower (a combine's header): the key, else its combo, unchecked.
-local function lowerAllJob(vehicle)
-    local tools, lower = {}, false
+-- The All row's tools with this capability, in driving order, and those
+-- not in the asked state yet (specs/0008)
+local function allTools(vehicle, cap, want)
+    local tools, pending = {}, {}
     for _, m in ipairs(drivingOrder(vehicle)) do
         local e = capsOf(m.object, m.depth)
-        if hasCap(e, "lower") then
-            tools[#tools + 1] = { object = m.object, depth = m.depth, lowered = e.lowered == true }
-            lower = lower or e.lowered ~= true
-        end
-    end
-    if #tools == 0 then
-        return nil
-    end
-    local check = {}
-    for _, t in ipairs(tools) do
-        if t.lowered ~= lower then
-            check[#check + 1] = checkOf(t.object, t.depth, "lower", lower)
-        end
-    end
-    if hasLive("LOWER_ALL_IMPLEMENTS") then
-        local job = newJob(vehicle, { allKeyStep("LOWER_ALL_IMPLEMENTS") })
-        job.check = check
-        return job
-    end
-    local steps, refused, checked = {}, {}, {}
-    for _, t in ipairs(tools) do
-        if t.lowered ~= lower then
-            local step, reason = stepFor(t.object, t.depth, AIMED.LOWER_IMPLEMENT)
-            if step ~= nil then
-                steps[#steps + 1] = step
-                checked[#checked + 1] = checkOf(t.object, t.depth, "lower", lower)
-            else
-                refused[#refused + 1] = nameOf(t.object) .. ": " .. reason
+        if hasCap(e, cap) then
+            local t = { object = m.object, depth = m.depth, e = e }
+            tools[#tools + 1] = t
+            if not isThere(cap, m.object, e, want) then
+                pending[#pending + 1] = t
             end
+        end
+    end
+    return tools, pending
+end
+
+-- each pending tool's own action toward the asked state, checked: where
+-- the game's all-tools key would do something else
+local function eachOwn(vehicle, pending, aim, want)
+    local steps, refused, check = {}, {}, {}
+    for _, t in ipairs(pending) do
+        local step, reason = stepFor(t.object, t.depth, aim)
+        if step ~= nil then
+            steps[#steps + 1] = step
+            check[#check + 1] = checkOf(t.object, t.depth, aim.cap, want)
+        else
+            refused[#refused + 1] = nameOf(t.object) .. ": " .. reason
         end
     end
     local job = newJob(vehicle, steps, refused)
-    job.check = checked
-    job.lastResort = function(v) return lowerAll(v) end
+    job.check = check
     return job
 end
 
--- Turn on all: the game's key once, else every tool's setter; turning
--- every one on while one is off, else all off; checked. Nil with no tool
--- that turns on (the key, unchecked, as before).
-local function turnOnAllJob(vehicle)
-    local tools, on = {}, false
-    for _, m in ipairs(drivingOrder(vehicle)) do
-        local e = capsOf(m.object, m.depth)
-        if hasCap(e, "turnOn") then
-            tools[#tools + 1] = { object = m.object, depth = m.depth, on = e.turnedOn == true }
-            on = on or e.turnedOn ~= true
-        end
-    end
+-- Lower all (value 1 lowered, 0 raised): the game's own key once (specs/0003
+-- revision 2; spikes 0.0.5 and 0.0.6: the mod's press acts as Ctrl+V)
+-- where it gives the asked state, checked: it lowers every tool while one
+-- is raised, else raises them all. Otherwise, or with no live key, each
+-- tool's Lower toward that state, in driving order, the selection put
+-- back; where the key would have done it and no tool's Lower could act:
+-- the game's combo. Nil when no tool has Lower (a combine's header): the
+-- key, else its combo, unchecked.
+local function lowerAllJob(vehicle, value)
+    local lower = value == 1
+    local tools, pending = allTools(vehicle, "lower", lower)
     if #tools == 0 then
         return nil
     end
-    local job = newJob(vehicle, { allKeyStep("TURN_ON_ALL_IMPLEMENTS", turnOnAll) })
-    job.check = {}
+    if #pending == 0 then
+        return ALREADY
+    end
+    local anyRaised = false
     for _, t in ipairs(tools) do
-        if t.on ~= on then
-            job.check[#job.check + 1] = checkOf(t.object, t.depth, "turnOn", on)
+        anyRaised = anyRaised or t.e.lowered ~= true
+    end
+    local keyFits = lower == anyRaised
+    if keyFits and hasLive("LOWER_ALL_IMPLEMENTS") then
+        local job = newJob(vehicle, { allKeyStep("LOWER_ALL_IMPLEMENTS") })
+        job.check = {}
+        for _, t in ipairs(pending) do
+            job.check[#job.check + 1] = checkOf(t.object, t.depth, "lower", lower)
         end
+        return job
+    end
+    local job = eachOwn(vehicle, pending, AIMED.LOWER_IMPLEMENT, lower)
+    if keyFits then
+        job.lastResort = function(v) return lowerAll(v) end
     end
     return job
 end
 
--- Fold all: the game's own key, once. Live (0.8.7) it folds every tool, but
--- not one lowered on its joint ("Folding is not allowed while the tool is
--- lowered."); one that lowers through its fold it raises itself. So, when
--- folding, those are raised first (each one's Lower, as its card does) and
--- the key waits until the game lets them fold (at most SETTLE_FRAMES).
--- Pressed on the last one raised (it's selected then), else the selected
--- tool if it folds, else the first; no key: every tool's setter.
-local FOLD_ALL = { cap = "fold", inputs = { "FOLD_ALL_IMPLEMENTS" }, fallback = function(vehicle) return foldAll(vehicle) end }
-
-local function foldAllJob(vehicle)
-    local selected = Api.tryCall(VehicleState.rootOf(vehicle), "getSelectedVehicle")
-    local tools, folding, at = {}, false, nil
-    for _, m in ipairs(drivingOrder(vehicle)) do
-        local e = capsOf(m.object, m.depth)
-        if hasCap(e, "fold") then
-            tools[#tools + 1] = { object = m.object, depth = m.depth, e = e }
-            -- the game's key folds while one is unfolded (spike 0.0.5)
-            folding = folding or e.unfolded == true
-            if m.object == selected or at == nil then
-                at = m.object
-            end
-        end
+-- Turn on all (value 1 on, 0 off): the game's key once, else every tool's
+-- setter, where the key gives the asked state (it turns every one on while
+-- one is off, else all off); otherwise each tool's own turn on; checked
+local function turnOnAllJob(vehicle, value)
+    local on = value == 1
+    local tools, pending = allTools(vehicle, "turnOn", on)
+    if #tools == 0 then
+        return newJob(vehicle, {}, { "nothing turns on" })
     end
+    if #pending == 0 then
+        return ALREADY
+    end
+    local anyOff = false
+    for _, t in ipairs(tools) do
+        anyOff = anyOff or t.e.turnedOn ~= true
+    end
+    if on ~= anyOff then
+        return eachOwn(vehicle, pending, AIMED.TURN_ON_IMPLEMENT, on)
+    end
+    local job = newJob(vehicle, { allKeyStep("TURN_ON_ALL_IMPLEMENTS", function(v) return turnOnAll(v, on) end) })
+    job.check = {}
+    for _, t in ipairs(pending) do
+        job.check[#job.check + 1] = checkOf(t.object, t.depth, "turnOn", on)
+    end
+    return job
+end
+
+-- Fold all (value 1 folded, 0 unfolded): the game's own key, once, where
+-- it gives the asked state (it folds every tool while one is unfolded,
+-- else unfolds them; spike 0.0.5); otherwise each tool's own fold. Live
+-- (0.8.7) the key folds every tool, but not one lowered on its joint
+-- ("Folding is not allowed while the tool is lowered."); one that lowers
+-- through its fold it raises itself. So, when folding, those are raised
+-- first (each one's Lower, as its card does) and the key waits until the
+-- game lets them fold (at most SETTLE_FRAMES). Pressed on the last one
+-- raised (it's selected then), else the selected tool if it folds, else
+-- the first; no key: every tool's setter.
+local function foldAllJob(vehicle, value)
+    local folding = value == 1
+    local tools, pending = allTools(vehicle, "fold", folding)
     if #tools == 0 then
         return newJob(vehicle, {}, { "nothing folds" })
+    end
+    if #pending == 0 then
+        return ALREADY
+    end
+    local selected = Api.tryCall(VehicleState.rootOf(vehicle), "getSelectedVehicle")
+    local anyUnfolded, at = false, nil
+    for _, t in ipairs(tools) do
+        anyUnfolded = anyUnfolded or t.e.unfolded == true
+        if t.object == selected or at == nil then
+            at = t.object
+        end
+    end
+    if folding ~= anyUnfolded then
+        return eachOwn(vehicle, pending, AIMED.FOLD_IMPLEMENT, folding)
     end
     local steps, raised, blocked = {}, {}, {}
     for _, t in ipairs(tools) do
@@ -838,7 +951,8 @@ local function foldAllJob(vehicle)
     if #blocked == #tools then
         return newJob(vehicle, {}, { blocked[1] })
     end
-    steps[#steps + 1] = { object = at, aim = FOLD_ALL, ready = function()
+    local aim = { cap = "fold", inputs = { "FOLD_ALL_IMPLEMENTS" }, fallback = function(v) return foldAll(v, folding) end }
+    steps[#steps + 1] = { object = at, aim = aim, ready = function()
         for _, t in ipairs(raised) do
             local e = capsOf(t.object, t.depth)
             if e.canNow ~= nil and e.canNow.fold == false then
@@ -849,10 +963,36 @@ local function foldAllJob(vehicle)
     end }
     local job = newJob(vehicle, steps)
     job.check = {}
-    for _, t in ipairs(tools) do
-        if (folding and t.e.unfolded == true) or (not folding and t.e.unfolded == false) then
-            job.check[#job.check + 1] = checkOf(t.object, t.depth, "fold", folding)
+    for _, t in ipairs(pending) do
+        job.check[#job.check + 1] = checkOf(t.object, t.depth, "fold", folding)
+    end
+    return job
+end
+
+-- The lights (specs/0008): the light key steps through the stages, then
+-- off (C1); pressed once a frame and the stage read after each, until it
+-- shows the asked one, at most stages + 1 presses. With no live key, the
+-- stage's mask by the setter.
+local function lightsJob(vehicle, want, stages)
+    local job = { presses = 0 }
+    job.tick = function()
+        if lightStage(vehicle) == want then
+            return { ok = true, via = job.via }
         end
+        if job.presses > (stages or 1) then
+            return { ok = false, reason = string.format("lights didn't reach stage %d", want), via = job.via }
+        end
+        job.presses = job.presses + 1
+        if runInputAction("TOGGLE_LIGHTS") > 0 then
+            job.via = "TOGGLE_LIGHTS"
+            return nil
+        end
+        local done, why = setLightStage(vehicle, want)
+        if not done then
+            return { ok = false, reason = why }
+        end
+        job.via = "setter"
+        return nil
     end
     return job
 end
@@ -896,43 +1036,64 @@ end
 -- The actions a command may run, by the dashboard's name (specs/0007): the
 -- one list. Anything else is refused, and so is a value that doesn't fit.
 --   inputs     input actions tried in order, the first with an active
---              event wins; or function(vehicle, implement) -> list
+--              event wins; or function(vehicle) -> list
 --   value      the input value passed to the callbacks (default 1)
 --   direct     a setter tried before the inputs (exact single steps)
 --   fallback   a setter tried when no input event ran
---   implement  needs a selected implement
 --   when       function(vehicle) -> ok, reason: refused unless ok
+--   state      function(vehicle) -> the state now (specs/0008): the command's
+--              value is the one it asks for; already there, nothing runs
+--   fits       function(vehicle, value) -> whether the value fits this vehicle
+--   tool       the command carries a tool's id (the cab's rig) and asks
+--              that tool for a state (value 1 or 0) with `aim`
 --   aim        with a tool's id (specs/0003): select it, press the key, put
 --              the selection back (AIMED); aimOnly: the selected tool's id
 --              when the command has none
---   job        function(vehicle, value) -> a job over several tools
+--   job        function(vehicle, value) -> a job over several tools, or
+--              ALREADY
 --   key        the selected tool's other key, by its number in extraKeys
 --   values     { min, max }: the command's number and its range; without
---              it the command carries none
+--              it the command carries none; whole: a whole number
 --   optional   the number may be left out (a tool's id: the key's own tool)
 local TOOL_ID = { 0, 2 ^ 31 }
+-- a state: 1 on, 0 off
+local SET = { 0, 1, whole = true }
 
 Commands.ACTIONS = {
-    ["lights.toggle"] = { inputs = { "TOGGLE_LIGHTS" }, fallback = toggleLights },
-    ["highBeam.toggle"] = { inputs = { "TOGGLE_HIGH_BEAM_LIGHT" }, fallback = toggleHighBeam },
-    ["beacon.toggle"] = { inputs = { "TOGGLE_BEACON_LIGHTS" }, fallback = toggleBeacon },
-    ["hazard.toggle"] = { inputs = { "TOGGLE_TURNLIGHT_HAZARD" }, fallback = turnLight("TURNLIGHT_HAZARD", 3) },
-    ["turnLeft.toggle"] = { inputs = { "TOGGLE_TURNLIGHT_LEFT" }, fallback = turnLight("TURNLIGHT_LEFT", 1) },
-    ["turnRight.toggle"] = { inputs = { "TOGGLE_TURNLIGHT_RIGHT" }, fallback = turnLight("TURNLIGHT_RIGHT", 2) },
-    ["engine.toggle"] = { inputs = { "TOGGLE_MOTOR_STATE" }, fallback = toggleEngine },
-    ["cruise.toggle"] = { inputs = { "TOGGLE_CRUISE_CONTROL" }, fallback = toggleCruise },
+    -- the light stage, 0 off (0 or 1 without stages)
+    ["lights.set"] = { state = lightStage, values = { 0, 16, whole = true },
+        fits = function(vehicle, value)
+            local lights = VehicleState.lights(vehicle)
+            return value <= (lights ~= nil and lights.stages or 1)
+        end,
+        job = function(vehicle, value)
+            local lights = VehicleState.lights(vehicle)
+            return lightsJob(vehicle, value, lights ~= nil and lights.stages or nil)
+        end },
+    ["highBeam.set"] = { state = lightSwitch("high"), values = SET, inputs = { "TOGGLE_HIGH_BEAM_LIGHT" },
+        fallback = toggleHighBeam },
+    ["beacon.set"] = { state = lightSwitch("beacon"), values = SET, inputs = { "TOGGLE_BEACON_LIGHTS" },
+        fallback = toggleBeacon },
+    ["hazard.set"] = { state = lightSwitch("hazard"), values = SET, inputs = { "TOGGLE_TURNLIGHT_HAZARD" },
+        fallback = turnLight("TURNLIGHT_HAZARD", 3) },
+    ["turnLeft.set"] = { state = lightSwitch("left"), values = SET, inputs = { "TOGGLE_TURNLIGHT_LEFT" },
+        fallback = turnLight("TURNLIGHT_LEFT", 1) },
+    ["turnRight.set"] = { state = lightSwitch("right"), values = SET, inputs = { "TOGGLE_TURNLIGHT_RIGHT" },
+        fallback = turnLight("TURNLIGHT_RIGHT", 2) },
+    ["engine.set"] = { state = engineState, values = SET, inputs = { "TOGGLE_MOTOR_STATE" }, fallback = toggleEngine },
+    ["cruiseOn.set"] = { state = cruiseOn, values = SET, inputs = { "TOGGLE_CRUISE_CONTROL" }, fallback = toggleCruise },
     ["cruise.down"] = { direct = cruiseStep(-1), inputs = { "AXIS_CRUISE_CONTROL" }, value = -1 },
     ["cruise.up"] = { direct = cruiseStep(1), inputs = { "AXIS_CRUISE_CONTROL" }, value = 1 },
     -- an absolute set speed in km/h: the dashboard's −/+ while held
     ["cruise.set"] = { direct = cruiseSet, values = { 1, 250 } },
-    ["ai.toggle"] = { inputs = { "TOGGLE_AI" } },
-    -- without an id: the tool the key acts on, as in C2
-    ["implement.lower"] = { implement = true, inputs = { "LOWER_IMPLEMENT" }, fallback = toggleLower,
-        aim = AIMED.LOWER_IMPLEMENT, values = TOOL_ID, optional = true },
-    ["implement.fold"] = { inputs = { "IMPLEMENT_EXTRA2" }, fallback = toggleFold, aim = AIMED.FOLD_IMPLEMENT,
-        values = TOOL_ID, optional = true },
-    ["implement.turnOn"] = { implement = true, inputs = { "IMPLEMENT_EXTRA" }, fallback = toggleTurnOn,
-        aim = AIMED.TURN_ON_IMPLEMENT, values = TOOL_ID, optional = true },
+    ["ai.set"] = { state = aiState, values = SET, inputs = { "TOGGLE_AI" } },
+    -- one tool's state by its id (specs/0008): lowered, folded, on, pipe
+    -- out, tipping
+    ["tool.lower"] = { tool = true, aim = AIMED.LOWER_IMPLEMENT, values = SET },
+    ["tool.fold"] = { tool = true, aim = AIMED.FOLD_IMPLEMENT, values = SET },
+    ["tool.turnOn"] = { tool = true, aim = AIMED.TURN_ON_IMPLEMENT, values = SET },
+    ["tool.pipe"] = { tool = true, aim = AIMED.TOGGLE_PIPE, values = SET },
+    ["tool.tip"] = { tool = true, aim = AIMED.TOGGLE_DISCHARGE, values = SET },
     -- Attach (specs/0003): the attach key (Q), only while the game has
     -- something in reach; detaching is each card's Detach. (C2's first try
     -- ran DETACH for an attached implement, which isn't what Q does.)
@@ -943,13 +1104,7 @@ Commands.ACTIONS = {
     ["implement.next"] = { inputs = { "SWITCH_IMPLEMENT" }, fallback = selectStep(1) },
     ["implement.previous"] = { inputs = { "SWITCH_IMPLEMENT_BACK" }, fallback = selectStep(-1) },
     ["implement.detach"] = { direct = detachTarget, values = TOOL_ID },
-    -- the Implement screen: Ctrl+V, O, I (else Ctrl+I, to the ground) and N
-    ["implement.lowerAll"] = { when = powered, job = lowerAllJob, inputs = { "LOWER_ALL_IMPLEMENTS" },
-        fallback = lowerAll },
-    ["implement.pipe"] = { inputs = { "TOGGLE_PIPE" }, fallback = togglePipe, aim = AIMED.TOGGLE_PIPE,
-        values = TOOL_ID, optional = true },
-    ["implement.unload"] = { inputs = { "TOGGLE_TIPSTATE", "TOGGLE_TIPSTATE_GROUND" }, aim = AIMED.TOGGLE_DISCHARGE,
-        values = TOOL_ID, optional = true },
+    -- the cover (N): a one-shot, its rigs not confirmed (specs/0003)
     ["implement.cover"] = { inputs = { "TOGGLE_COVER" }, fallback = toggleCover, aim = AIMED.TOGGLE_COVER,
         values = TOOL_ID, optional = true },
     -- the Vehicle page's cards (specs/0003): one tool's tip side, a plow's
@@ -958,32 +1113,49 @@ Commands.ACTIONS = {
     ["implement.rotate"] = { aim = AIMED.ROTATE_PLOW, aimOnly = true, values = TOOL_ID, optional = true },
     ["implement.baleReset"] = { aim = AIMED.RESET_BALE_COUNTER, aimOnly = true, values = TOOL_ID, optional = true },
     ["implement.key"] = { key = true, values = { 1, 64 } },
-    -- the All row: the game's own keys, else every tool's setter (fold all
-    -- raises what's lowered first); tip and cover all act on each in turn
-    -- (value 1: tip, open; 0: stop, close)
-    ["implement.foldAll"] = { job = foldAllJob },
-    ["implement.turnOnAll"] = { job = turnOnAllJob, inputs = { "TURN_ON_ALL_IMPLEMENTS" }, fallback = turnOnAll },
+    -- the All row, each with the state it asks for (specs/0008; value 1:
+    -- lowered, folded, on, tipping, open): the game's own key where it
+    -- gives that state, else each tool's own (fold all raises what's
+    -- lowered first); tip and cover all act on each in turn. Lower all
+    -- with no tool that lowers (a combine's header): Ctrl+V, else its combo
+    ["implement.lowerAll"] = { when = powered, job = lowerAllJob, inputs = { "LOWER_ALL_IMPLEMENTS" },
+        fallback = lowerAll, values = SET },
+    ["implement.foldAll"] = { job = foldAllJob, values = SET },
+    ["implement.turnOnAll"] = { job = turnOnAllJob, values = SET },
     ["implement.tipAll"] = { job = eachTool(AIMED.TOGGLE_DISCHARGE, function(e) return e.discharging == true end),
         values = { 0, 1 } },
     ["implement.coverAll"] = { job = eachTool(AIMED.TOGGLE_COVER, function(e) return e.cover ~= nil and e.cover.open == true end),
         values = { 0, 1 } },
-    -- the Harvester screen: straw swath or chopper (the game's TOGGLE_CHOPPER)
-    ["implement.straw"] = { inputs = { "TOGGLE_CHOPPER" }, fallback = toggleStraw },
+    -- the Harvester screen: 1 straw swath, 0 chopper (the game's TOGGLE_CHOPPER)
+    ["straw.set"] = { state = strawState, values = SET, inputs = { "TOGGLE_CHOPPER" }, fallback = toggleStraw },
 }
 
 -- whether the command's number fits its action
-local function valueFits(spec, value)
+local function inRange(range, value)
+    -- value ~= value: NaN
+    return value == value and value >= range[1] and value <= range[2]
+        and (not range.whole or value == math.floor(value))
+end
+
+-- whether the command's number and tool fit its action
+local function valueFits(spec, value, tool)
+    if spec.tool then
+        if tool == nil or not inRange({ TOOL_ID[1], TOOL_ID[2], whole = true }, tool) then
+            return false
+        end
+    elseif tool ~= nil then
+        return false
+    end
     if spec.values == nil then
         return value == nil
     end
     if value == nil then
         return spec.optional == true
     end
-    -- value ~= value: NaN
-    return value == value and value >= spec.values[1] and value <= spec.values[2]
+    return inRange(spec.values, value)
 end
 
-local ATTRIBUTES = { "session", "id", "action", "ref", "value" }
+local ATTRIBUTES = { "session", "id", "action", "ref", "value", "tool" }
 
 function Commands.new(dir, sessionId, log)
     local self = setmetatable({}, Commands)
@@ -1002,9 +1174,9 @@ end
 
 -- for hello: where the companion writes, which number the mod reads next
 -- (a companion that starts mid-session continues from there), and that the
--- files name the dashboard's actions (actions 2, specs/0007)
+-- files name the dashboard's set actions (actions 3, specs/0008)
 function Commands:info()
-    return { dir = self.dir, next = self.nextId, actions = 2 }
+    return { dir = self.dir, next = self.nextId, actions = 3 }
 end
 
 function Commands:path(id)
@@ -1064,14 +1236,15 @@ function runInputAction(name, value, target)
     return called
 end
 
--- returns ok, reason, via, or a job (specs/0003) as the fourth; value: the
--- command's number, if it has one
-local function run(actionName, value)
+-- returns ok, reason, via, or a job (specs/0003) as the fourth, or
+-- already (specs/0008) as the fifth; value: the command's number, if it has
+-- one; tool: its tool's id
+local function run(actionName, value, tool)
     local spec = Commands.ACTIONS[actionName]
     if spec == nil then
         return false, "action not allowed"
     end
-    if not valueFits(spec, value) then
+    if not valueFits(spec, value, tool) then
         return false, "value not allowed"
     end
     local vehicle = Api.controlledVehicle()
@@ -1083,6 +1256,22 @@ local function run(actionName, value)
         if not ok then
             return false, why
         end
+    end
+    if spec.fits ~= nil and not spec.fits(vehicle, value) then
+        return false, "value not allowed"
+    end
+    if spec.state ~= nil and spec.state(vehicle) == value then
+        return true, nil, nil, nil, true
+    end
+    if spec.tool then
+        local job, why, already = aimed(vehicle, spec.aim, tool, value == 1)
+        if already then
+            return true, nil, nil, nil, true
+        end
+        if job == nil then
+            return false, why
+        end
+        return nil, nil, nil, job
     end
     if spec.aim ~= nil and (value ~= nil or spec.aimOnly) then
         if value == nil then
@@ -1097,6 +1286,9 @@ local function run(actionName, value)
     end
     -- a job, unless it has none for this rig (then as below)
     local job = spec.job ~= nil and spec.job(vehicle, value) or nil
+    if job == ALREADY then
+        return true, nil, nil, nil, true
+    end
     if job ~= nil then
         return nil, nil, nil, job
     end
@@ -1110,21 +1302,17 @@ local function run(actionName, value)
         end
         return false, "not available now"
     end
-    local implement = VehicleState.selectedImplement(vehicle)
-    if spec.implement and implement == nil then
-        return false, "no implement"
-    end
     local reason
     if spec.direct ~= nil then
         local done
-        done, reason = spec.direct(vehicle, implement, value)
+        done, reason = spec.direct(vehicle, nil, value)
         if done then
             return true, nil, "setter"
         end
     end
     local inputs = spec.inputs
     if type(inputs) == "function" then
-        inputs = inputs(vehicle, implement)
+        inputs = inputs(vehicle)
     end
     for _, name in ipairs(inputs or {}) do
         if runInputAction(name, spec.value) > 0 then
@@ -1133,7 +1321,7 @@ local function run(actionName, value)
     end
     if spec.fallback ~= nil then
         local done
-        done, reason = spec.fallback(vehicle, implement)
+        done, reason = spec.fallback(vehicle)
         if done then
             return true, nil, "setter"
         end
@@ -1245,6 +1433,10 @@ local function unmovedOf(job)
 end
 
 local function stepJob(job)
+    -- a job that runs frame by frame by itself (the lights)
+    if job.tick ~= nil then
+        return job.tick(job)
+    end
     while true do
         local step = job.steps[job.i]
         if step == nil then
@@ -1395,8 +1587,8 @@ function Commands:poll()
         return nil
     end
     self.nextId = id + 1
-    local ran, reason, via, job
-    ok, ran, reason, via, job = pcall(run, cmd.action, tonumber(cmd.value))
+    local ran, reason, via, job, already
+    ok, ran, reason, via, job, already = pcall(run, cmd.action, tonumber(cmd.value), tonumber(cmd.tool))
     if ok and job ~= nil then
         job.ack = { id = id, ref = cmd.ref, action = cmd.action }
         self.job = job
@@ -1417,5 +1609,6 @@ function Commands:poll()
         ok = ran == true,
         reason = ran ~= true and (reason or "failed") or nil,
         via = via,
+        already = already or nil,
     }
 end
