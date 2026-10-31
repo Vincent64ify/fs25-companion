@@ -143,7 +143,7 @@ and trimmed (relay and pairing tests go), `web/test.html` green.
 Built (2026-10-31, spec 0006): `companion/` is 1,876 lines (from 3,375).
 It keeps `map_assets {mapId, hash}` and the same map URLs, served from
 the cache, and `client_status` is always connected; so the golden file
-passed unchanged. Live check open.
+passed unchanged. Live-checked (2026-10-31).
 
 Live check: Solek and Kinlaig (the DLC map's overview), every screen
 fills, a light and a tool button work, a reload and a rotation.

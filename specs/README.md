@@ -44,4 +44,4 @@ behaviour, in Behaviour too: the spec always says what the code does now.
 | [0003](0003-implement-screen.md) | Vehicle page with a card per tool (Implement merges in) | live-checked (closed 2026-10-31: mowers and trailers; the other rigs move to their own specs) | 0.8.17 |
 | [0004](0004-acks-survive-rotation.md) | Command answers survive a stream rotation (review F1) | live-checked | 0.8.13 |
 | [0005](0005-tailer-sees-every-new-file.md) | The client notices every new stream file (review F2) | live-checked | no change |
-| [0006](0006-one-local-process.md) | One local process (SIMPLIFY S1) | built (live check open) | no change |
+| [0006](0006-one-local-process.md) | One local process (SIMPLIFY S1) | live-checked | no change |

@@ -1,6 +1,6 @@
 # 0006: One local process
 
-Status: built
+Status: live-checked
 Mod: no change · Started: 2026-10-31 · Plan: [SIMPLIFY.md, S1](../docs/SIMPLIFY.md#s1-one-local-process-spec-0006)
 
 ## Goal
@@ -121,12 +121,12 @@ Automated:
       every screen fills, the map image shows, at 1180×820 Day and Night.
 
 Live check (in game, Vincent):
-- [ ] Solek: `python -m companion`, every screen fills, the map image
+- [x] Solek: `python -m companion`, every screen fills, the map image
       shows.
-- [ ] Kinlaig (the DLC map): its overview shows (or the plain map, as
+- [x] Kinlaig (the DLC map): its overview shows (or the plain map, as
       today).
-- [ ] A light and a tool button each answer, and the cab state follows.
-- [ ] A dashboard reload, and a stream rotation (reload the savegame),
+- [x] A light and a tool button each answer, and the cab state follows.
+- [x] A dashboard reload, and a stream rotation (reload the savegame),
       keep working.
 
 ## Decisions
@@ -155,3 +155,5 @@ Live check (in game, Vincent):
   1180×820 Day and Night fills, map image shown, pill Live. The Vehicle
   screen logs a `vehicleTools.js` error in the replay that the committed
   code (5d2d36c) logs too: not from this change, in NEXT.md.
+- 2026-10-31: live-checked by Vincent: Solek and Kinlaig, a light and a
+  tool button, a reload and a rotation all worked.

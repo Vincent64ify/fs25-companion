@@ -71,9 +71,9 @@ up to date until the live check.
 - Planned (2026-10-31): [SIMPLIFY.md](SIMPLIFY.md), making the code
   smaller in phases S0 to S5, local first (one process, the protocol in
   one place, commands that say the state they want). S0 is done: the
-  golden replay test (`tests/test_golden.py`). S1 is built
-  ([spec 0006](../specs/0006-one-local-process.md), `python -m companion`),
-  its live check open. The
+  golden replay test (`tests/test_golden.py`). S1 is done and
+  live-checked ([spec 0006](../specs/0006-one-local-process.md),
+  `python -m companion`); S2 is next. The
   rigs spec 0003 moved out come after it.
 
 ## Ground rules
