@@ -31,6 +31,19 @@ Things to fix next, in no particular order. Longer-term ideas are under
   later was clean ([spec 0008](../specs/0008-commands-say-the-state.md)'s
   Log). The frames rotated away; next time, keep a copy of the stream and
   see whether the combo ran (`attacherJointCombos.isRunning`).
+- **Time estimates and the game's time scale** (Vincent, 2026-10-31):
+  the "time left" estimates (fuel and DEF range, a seed or spray tank
+  empty, a grain tank full) must take the game's speed into account (x1,
+  x5, x20 ...). Today they ignore it: `web/src/data/rates.js` times the
+  levels with the browser's clock (`performance.now()`), and the fuel
+  range divides by the game's L/h (`lastFuelUsageDisplay`), while the
+  dashboard's clock shows game time. To do: send the time scale from the
+  mod (`env` topic; its name in FS25 is unverified, e.g.
+  `missionInfo.timeScale`, behind `Api.lua`); check in game at x1 and x5
+  what scales (does a tank drop faster per real minute? is the HUD's L/h
+  per game hour?); then say which time each estimate shows (real minutes,
+  game time, or "until 14:30" on the game clock) and convert. Needs a
+  spec (mod, protocol field and screens).
 - **Code review of 2026-10-30:** seven findings (F1 to F7) in
   [REVIEW-2026-10-30.md](REVIEW-2026-10-30.md), with its suggested order.
   F2 is fixed ([spec 0005](../specs/0005-tailer-sees-every-new-file.md),
