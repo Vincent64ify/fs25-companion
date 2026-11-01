@@ -553,7 +553,7 @@ const fbCab = (extra) => ({ inVehicle: true, engineOn: false, engineState: "off"
   cruise: { state: "off", speed: 15, speedReverse: 8, reverse: false },
   implement: { name: "Rubin 12" }, implements: [{ lowered: false, turnedOn: false }], ...extra });
 fb.set("cab", fbCab({}));
-check("feedback: every control has the running border", !!engBtn.querySelector("svg.control-ring rect[pathLength='100']"), true);
+check("specs/0010: no running border round a control", engBtn.querySelector(".control-ring"), null);
 tap(engBtn);
 answer({ ok: true });
 await Promise.resolve(); await Promise.resolve(); await Promise.resolve();
@@ -1963,6 +1963,27 @@ await Promise.resolve();
 check("tools: the head selects the tool in game (not the selected one again)", [heads.map((e) => e.dataset.pick ?? ""),
   headPage.sent], [["", "true"], [["implement.select", 994]]]);
 
+// specs/0010 revision 2: a tap anywhere on a card selects its tool; a tap
+// on one of its buttons presses only that button
+const bodyPage = toolsPage(rigFix.mowers.vehicles, rigFix.mowers.cab);
+const bodyCards = [...bodyPage.cardsEl.querySelectorAll(".tool-card")];
+const pointerClick = (el) => el.dispatchEvent(new MouseEvent("click", { bubbles: true, detail: 1 }));
+pointerClick(bodyCards[0].querySelector(".tool-stats") ?? bodyCards[0]);
+await Promise.resolve();
+const selectedAgain = bodyPage.sent.length;
+pointerClick(bodyCards[1].querySelector(".tool-stats") ?? bodyCards[1]);
+await Promise.resolve();
+// a button on the other (unselected) card, on a fresh page
+const btnPage = toolsPage(rigFix.mowers.vehicles, rigFix.mowers.cab);
+const bodyBtn = /** @type {HTMLElement} */ (btnPage.cardsEl.querySelectorAll(".tool-card")[1]
+  .querySelector(".control:not([data-state='unavailable'])"));
+tap(bodyBtn);
+pointerClick(bodyBtn);
+await Promise.resolve();
+check("specs/0010: a tap on a card's body selects its tool (not the selected one); its buttons only press",
+  [selectedAgain, bodyPage.sent, btnPage.sent.length, btnPage.sent.some(([a]) => a === "implement.select")],
+  [0, [["implement.select", 994]], 1, false]);
+
 // the band names the brand; the strip's tiles keep the model alone
 const brandS = createStore();
 const brandBand = vsc.vehicleBand(brandS, { rates: { fuelPerHour: () => undefined, defPerHour: () => undefined } });
@@ -2041,6 +2062,93 @@ for (const palette of ["day", "night"]) {
 }
 check("tools: layout at 1180 × 820, day and night: every fixture and 1 to 6 tools fit, no scrolling, buttons 48 px or more",
   layoutIssues, []);
+
+// specs/0010: states, surfaces and motion, read from the theme's CSS
+const { createControl: tidyControl } = await import("./src/ui/control.js");
+const tidy = ldoc.createElement("div");
+ldoc.body.append(tidy);
+const lwin = /** @type {Window} */ (ldoc.defaultView);
+const tcs = (/** @type {Element} */ el, /** @type {string} */ pseudo = "") => lwin.getComputedStyle(el, pseudo);
+/** a control drawn in a state before it's on the page, so nothing transitions */
+const tidyCtl = (def, state) => {
+  const c = tidyControl(def, () => new Promise(() => {}));
+  c.set(state);
+  tidy.append(c.el);
+  return c.el;
+};
+/** a token's colour as the browser computes it */
+const tokenColour = (name) => {
+  const probe = ldoc.createElement("i");
+  probe.style.color = `var(${name})`;
+  tidy.append(probe);
+  return tcs(probe).color;
+};
+const tidyEl = (tag, attrs) => {
+  const el = ldoc.createElement(tag);
+  for (const [k, v] of Object.entries(attrs)) el.setAttribute(k, v);
+  tidy.append(el);
+  return el;
+};
+const lights = { label: "Lights", icon: "lights" };
+const hazard = { label: "Hazard", icon: "hazard", tint: "alarm" };
+const tidyRows = [];
+for (const palette of ["day", "night"]) {
+  ldoc.documentElement.dataset.palette = palette;
+  lstore.set("vehicles", rigFix[RIGS[0]].vehicles);
+  lstore.set("cab", rigFix[RIGS[0]].cab);
+  tidy.replaceChildren();
+  const root = tcs(ldoc.documentElement);
+  const off = tidyCtl(lights, "off");
+  const unavailable = tidyCtl(lights, "unavailable");
+  const pending = tidyCtl(lights, "pending");
+  const hazardOff = tidyCtl(hazard, "off");
+  const hazardOn = tidyCtl(hazard, "on");
+  const hazardPending = tidyCtl(hazard, "pending");
+  const on = tidyCtl(lights, "on");
+  const tool = tidyEl("button", { class: "tool", "aria-pressed": "true" });
+  const tile = tidyEl("button", { class: "rig-tile", "data-pending": "true" });
+  const head = tidyEl("div", { class: "tool-head", "data-pending": "true" });
+  const step = tidyEl("button", { class: "impl-step", "data-state": "pending" });
+  const plainCard = tidyEl("section", { class: "tool-card", "data-selected": "false" });
+  const pickedCard = tidyEl("section", { class: "tool-card", "data-selected": "true" });
+  const tab = /** @type {HTMLElement} */ (lapp.querySelector('.tab[aria-pressed="true"]'));
+  const band = /** @type {HTMLElement} */ (lapp.querySelector(".veh-band"));
+  const card = /** @type {HTMLElement} */ (lapp.querySelector(".tool-card"));
+  tidyRows.push([palette,
+    ["tokens", ["--t-fast", "--t-base", "--t-slow", "--t-breathe", "--ease"].filter((t) => !root.getPropertyValue(t).trim())],
+    ["unavailable", tcs(unavailable).opacity, tcs(unavailable).borderTopStyle, tcs(unavailable).boxShadow],
+    ["pending", tcs(pending).borderTopColor === tokenColour("--on-border"), tcs(pending, "::before").animationName,
+      tcs(pending).animationName],
+    ["hazard pending", tcs(hazardPending).borderTopColor === tokenColour("--alarm")],
+    ["hazard off", tcs(/** @type {Element} */ (hazardOff.querySelector(".icon"))).color === tcs(hazardOff).color],
+    ["hazard on", tcs(hazardOn, "::before").backgroundColor === tokenColour("--alarm"), tcs(hazardOn, "::before").opacity],
+    ["on", tcs(on, "::before").backgroundImage.includes("gradient"), tcs(on, "::before").opacity],
+    ["tab", tcs(tab).backgroundImage, tcs(tab).boxShadow.includes("inset")],
+    ["map tool", tcs(tool).backgroundImage, tcs(tool).boxShadow.includes("inset")],
+    // a selected card keeps its selection ring; the lift (with its inset highlight) goes
+    ["surfaces", tcs(band).boxShadow, tcs(card).boxShadow.includes("inset"), tcs(off).boxShadow !== "none"],
+    ["waiting", tcs(step).outlineStyle, tcs(step).animationName, tcs(step).opacity],
+    // revision 2: selecting is too quick for a waiting look; the selected card is tinted all over
+    ["selecting", tcs(tile).outlineStyle, tcs(tile).animationName, tcs(head).outlineStyle, tcs(head).animationName],
+    ["selected card", tcs(pickedCard).backgroundImage !== tcs(plainCard).backgroundImage]]);
+}
+const tidyWant = (palette) => [palette,
+  ["tokens", []],
+  ["unavailable", "1", "dashed", "none"],
+  ["pending", true, "control-wait", "none"],
+  ["hazard pending", true],
+  ["hazard off", true],
+  ["hazard on", true, "1"],
+  ["on", true, "1"],
+  ["tab", "none", true],
+  ["map tool", "none", true],
+  ["surfaces", "none", false, true],
+  ["waiting", "solid", "waiting", "1"],
+  ["selecting", "none", "none", "none", "none"],
+  ["selected card", true]];
+check("specs/0010: one look per state, outlines for where you are, lift only on what you press, one way to wait",
+  tidyRows, [tidyWant("day"), tidyWant("night")]);
+tidy.remove();
 layoutFrame.remove();
 
 // --- icons (ui/icons.js) --------------------------------------------------------

@@ -124,7 +124,9 @@ export function tankRows(tanks) {
 
 /**
  * The selection: a tap on something the game can select sends
- * implement.select, pending until the cab shows it (or 1.5 s).
+ * implement.select, pending until the cab shows it (or 1.5 s). Pending only
+ * stops a second tap: the game answers in a frame or two, so it has no look
+ * (specs/0010).
  * @param {HTMLElement} el
  * @param {RigEntry} e
  * @param {string} name
@@ -394,6 +396,13 @@ function toolCard(send) {
   const buttons = buttonRow(send, note.show);
   const tanks = h("div", { className: "tool-tanks" });
   const el = h("section", { className: "tool-card" }, head, stats, buttons.el, tanks, note.el);
+  // a tap anywhere on the card selects its tool, as the head does; its
+  // buttons only press (specs/0010, revision 2)
+  el.addEventListener("click", (ev) => {
+    const target = /** @type {Element} */ (ev.target);
+    if (head.contains(target) || target.closest("button, a, input, select, .control")) return;
+    if (head.dataset.pick === "true") head.click();
+  });
   let lastHead = "";
   let lastKind = "";
   let lastStats = "";

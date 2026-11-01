@@ -470,8 +470,8 @@ change.** Built from commit `0ccf814`.
   | 16 | Card titles (field, implement, theme) |
   | 15 | Status bar, tab labels |
   | 14 | Body rows |
-  | 13 | Secondary text, units, notes |
-  | 12 | Control labels; section labels in capitals with 0.08 em spacing |
+  | 13 | Secondary text, units, notes; control labels (specs/0010) |
+  | 12 | Section labels in capitals with 0.08 em spacing |
   | 11 | Small tags |
 
 ### Palettes
@@ -490,8 +490,8 @@ Gradients run top to bottom unless noted. "Ink" is the dark text on yellow.
 | Text | `#0D1B33` | `#EAF0FA` |
 | Muted text | `#55627A` | `#9DB0CF` |
 | Bar text, muted | `#FFFFFF`, `#BFD0EE` | `#EAF0FA`, `#9DB0CF` |
-| On (controls, recentre, Working) | `#2B6BD6 → #0C4DB8`, white text | `#FFD65C → #FFC72C`, ink `#0A1A33` |
-| Selected tab | `#1B4A9E → #0C2D6B`, white text | `#FFD65C → #FFC72C`, ink |
+| On (controls, Working) | `#2B6BD6 → #0C4DB8`, white text | `#FFD65C → #FFC72C`, ink `#0A1A33` |
+| Where you are (selected tab, recentre while following, Layers open, the tab's menu) | tint `#DFE8F7`, 2 px ring `#0C4DB8`, ink `#0C2D6B` | tint `rgba(255,199,44,0.14)`, 2 px ring `#FFC72C`, ink `#FFD65C` |
 | Settings button while open | `#FFFFFF`, text `#0C4DB8` | `#FFD65C → #FFC72C`, ink |
 | Icon badge | `#FFD65C → #FFC72C`, ink | the same |
 | OK | `#12804A` (fill `#23A262 → #12804A`) | `#42D392` (fill `#4FE09C → #2DB876`) |
@@ -503,12 +503,26 @@ Gradients run top to bottom unless noted. "Ink" is the dark text on yellow.
 
 - Map colours (hotspots, fields, crops, markers) are the same in both
   palettes and every theme.
-- Turn arrows use OK, Hazard uses Alarm.
-- Unavailable controls: the off style at 45 % opacity.
+- Turn arrows use OK, Hazard uses Alarm, only while on: off they are
+  neutral, on they fill with that colour (white ink by day, `#0A1A33` at
+  night). A filled blue or yellow only ever means "on"
+  ([specs/0010](../specs/0010-tidy-states-and-motion.md)).
+- Unavailable controls: a flat, dashed 1.5 px outline in the muted colour,
+  no fill or shadow, muted icon and label (specs/0010; was the off style
+  at 45 %).
+- Pending: the border takes the colour the button is going to and a faint
+  tint of it breathes inside (8 % to 28 %); no ring, no glow. Selecting a
+  tool has no waiting look: the game answers too fast for one.
+- The game's selected tool card: a faint tint over the whole card
+  (`rgba(12,77,184,0.07)` by day, `rgba(255,199,44,0.08)` at night) inside
+  the 2 px `select` ring; a tap anywhere on a card selects its tool.
 
 ### Depth
 
-- **Lift (cards, tiles, map, toolbar):** day
+- **Lift** only on what you can press (controls, the map toolbar, column
+  buttons, steps) and on what floats over the map or the screen (the map,
+  field panel, popups, Layers, the tab menu); readout bands and display
+  cards are flat (specs/0010). Day
   `inset 0 1px 0 #FFFFFF, 0 2px 4px rgba(12,45,107,0.10), 0 6px 14px rgba(12,45,107,0.10)`;
   night `inset 0 1px 0 rgba(255,255,255,0.08), 0 4px 14px rgba(0,0,0,0.4)`.
 - **On buttons:** day
@@ -516,6 +530,21 @@ Gradients run top to bottom unless noted. "Ink" is the dark text on yellow.
   night `inset 0 1px 0 rgba(255,255,255,0.45), 0 2px 10px rgba(255,199,44,0.22)`.
 - **Panels over the screen:** `0 20px 60px` at 35 % (day) or 60 % (night).
 - No blur anywhere, for older tablets.
+
+### Motion (specs/0010)
+
+| Token | Value | Use |
+|---|---|---|
+| `--t-fast` | 120 ms | a press (controls and the map toolbar give to 96 %) |
+| `--t-base` | 180 ms | a state changes (the lit colour fades, tabs, selection) |
+| `--t-slow` | 300 ms | meters and bars |
+| `--t-breathe` | 1.2 s | waiting for the game (a control's tint, other things' outline) |
+| (attention) | 2 s | the Harvester's "until full" eases to a lighter orange and back |
+| `--ease` | `cubic-bezier(0.2, 0.7, 0.3, 1)` | everything |
+
+- Nothing fades its text, and nothing glows past an element's edge.
+- Reduced motion: no transitions or animations; waiting keeps a still
+  tint or outline.
 
 ### Radii
 
@@ -533,7 +562,7 @@ Gradients run top to bottom unless noted. "Ink" is the dark text on yellow.
 - **Chrome:** status bar 56; tab bar 64 with 44-tall tab pills (padding
   0 16–18, gap 6); page padding 12; gaps between areas 12.
 - **Controls:** a 268-wide column; labelled groups 14 apart; 3 columns of
-  80-tall buttons with 8 gaps; 26 px icons, 12 px labels.
+  80-tall buttons with 8 gaps; 28 px icons, 13 px labels (specs/0010).
 - **Map:** floating toolbar of 48 buttons, top-left inside the map, 12 in
   from the edges; field panel 248 wide, top-right; scale bottom-right.
 - **Vehicle screen:** columns `1fr | 300`, rows `296 | 116 | 1fr`;

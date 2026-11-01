@@ -10,9 +10,9 @@
 // lights' stages, one dot per stage the vehicle has, lit up to the current
 // one; or a value line (setValue): the cruise control's set speed.
 //
-// Pending shows as a "loading" border: a dash running clockwise round the
-// button's edge (an SVG rect's stroke-dashoffset), a slow pulse instead
-// with reduced motion. Some actions take a while in game after the mod has
+// Pending is all in the theme's CSS (specs/0010): the border takes the
+// colour the button is going to and a faint tint of it breathes inside,
+// still with reduced motion. Some actions take a while in game after the mod has
 // run them (the engine starting, an implement attaching): with `settle`,
 // the control stays pending after the ack until the game's state changes
 // (settle.key), at most settle.ms; nothing changed then shows settle.hint
@@ -85,7 +85,7 @@ export function createControl(def, press, settle, hold) {
   const dotsEl = h("span", { className: "control-dots" });
   dotsEl.setAttribute("aria-hidden", "true");
   const valueEl = h("span", { className: "control-value" });
-  el.append(valueEl, dotsEl, loadingRing());
+  el.append(valueEl, dotsEl);
   /** @type {ControlDots|undefined} */
   let dots;
 
@@ -252,22 +252,4 @@ export function createControl(def, press, settle, hold) {
 
   set("unavailable");
   return { el, set, setDots, setValue, setLabel };
-}
-
-const SVG_NS = "http://www.w3.org/2000/svg";
-
-/** the pending border: a rect round the button, its dash running clockwise */
-function loadingRing() {
-  const svg = document.createElementNS(SVG_NS, "svg");
-  svg.setAttribute("class", "control-ring");
-  svg.setAttribute("aria-hidden", "true");
-  const rect = document.createElementNS(SVG_NS, "rect");
-  // the path's length as 100, whatever the button's size; the size and
-  // corner here for browsers without CSS geometry (the theme's CSS wins)
-  rect.setAttribute("pathLength", "100");
-  rect.setAttribute("width", "100%");
-  rect.setAttribute("height", "100%");
-  rect.setAttribute("rx", "12");
-  svg.append(rect);
-  return svg;
 }

@@ -6,7 +6,7 @@ it relies on, are in [DONE.md](DONE.md). Small fixes go in
 [specs/](../specs/README.md): written and approved before the code, kept
 up to date until the live check.
 
-## Where things stand (2026-10-31)
+## Where things stand (2026-11-01)
 
 - Phases 0 to 4 of the rework are built and run live on Windows (Solek, and
   Kinlaig, a paid DLC map): the file stream, the client and backend, and the
@@ -57,6 +57,13 @@ up to date until the live check.
   their own spec after [SIMPLIFY.md](SIMPLIFY.md).
   Canvases are built from the design system
   ([THEMES.md](THEMES.md#design-system-2026-10-25)).
+- The look is tidied (spec [0010](../specs/0010-tidy-states-and-motion.md),
+  dashboard only): one look per control state (a dashed unavailable, a
+  calm waiting tint with no spinner, Hazard and the turn arrows coloured
+  only when on), where you are as a tinted outline, flat readouts and
+  cards, one set of motion timings. Revision 2: selecting a tool has no
+  waiting look, the selected card is tinted all over, and a tap anywhere
+  on a card selects it. Confirmed in game on 2026-11-01.
 - The code review of 2026-10-30 ([REVIEW-2026-10-30.md](REVIEW-2026-10-30.md))
   found seven issues. F5 to F7 are fixed (mod 0.8.12), and F1 is fixed and
   confirmed in game (spec [0004](../specs/0004-acks-survive-rotation.md),
