@@ -1320,6 +1320,21 @@ button { font: inherit; color: inherit; }
 .tool-stat[data-level] .widget-meter > span { background: var(--warn-fill); }
 /* control-size buttons, as many columns as fit the card */
 .tool-buttons { display: grid; flex: none; grid-template-columns: repeat(auto-fit, minmax(76px, 1fr)); grid-auto-rows: 80px; gap: 8px; }
+/* the game's long key labels ("Work mode right") wrap onto a second line
+   instead of cutting off: four alike at a glance were live (2026-10-30) */
+.tool-buttons .control-label {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  white-space: normal;
+  overflow-wrap: break-word;
+}
+.tool-buttons .control { gap: 4px; }
+/* the other keys share one icon and differ at the end ("… left", "… right"):
+   a smaller icon, a third line */
+.tool-buttons .control[data-control^="key:"] .icon { width: 20px; height: 20px; }
+.tool-buttons .control[data-control^="key:"] .control-label { -webkit-line-clamp: 3; line-clamp: 3; }
 /* tanks side by side where the card is wide (a baler's chamber, net, wrap) */
 .tool-tanks { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 8px; min-height: 0; }
 .tool-tanks[hidden] { display: none; }
@@ -1330,6 +1345,9 @@ button { font: inherit; color: inherit; }
 .tool-cards[data-compact="true"] .tool-badge { width: 34px; height: 34px; }
 .tool-cards[data-compact="true"] .tool-name { font-size: 16px; }
 .tool-cards[data-compact="true"] .tool-buttons { grid-template-columns: repeat(auto-fit, minmax(56px, 1fr)); grid-auto-rows: 60px; gap: 6px; }
+/* a smaller icon leaves room for two lines of label in 60 px */
+.tool-cards[data-compact="true"] .tool-buttons .control .icon { width: 22px; height: 22px; }
+.tool-cards[data-compact="true"] .tool-buttons .control[data-control^="key:"] .control-label { -webkit-line-clamp: 2; line-clamp: 2; }
 .tool-cards[data-compact="true"] .tank { gap: 4px; padding: 6px 10px; }
 .tool-cards[data-compact="true"] .tank-pct { font-size: 17px; }
 

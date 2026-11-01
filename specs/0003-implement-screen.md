@@ -91,8 +91,7 @@ judged from the files instead of by eye.
   moved". On the All row: ok only when every tool that should move did;
   otherwise the reason names the others ("KDD 941 STH: Nothing moved").
   As built: the reason shows on the card's note, and on a note just
-  under the All row, for 3 s, as a faded tap's does (a tablet has no
-  hover); any failed answer does, not only these.
+  under the All row, for 3 s; any failed answer does, not only these.
 - **Lower all presses the game's key again** (`LOWER_ALL_IMPLEMENTS`,
   once), not each tool's Lower. If it moves nothing, it fails and says so:
   no second press, no fallback that hides it.
@@ -356,8 +355,8 @@ already judges the answers; it prints `tipTo` with each Tip.
     fold, turn on, tip, tip side, pipe, detach), labelled with what a
     tap does ("Raise", "Fold", "Turn off", "Tip" / "Stop", "Pipe out",
     "Detach"); cover, rotate and bales have none until their own spec
-    (Closed); unavailable (45%),
-    with the game's words on hover, while the game says it can't now
+    (Closed); unavailable (faded, with no reason shown: 2026-11-01)
+    while the game says it can't now
     (`canNow`), and Turn on while the tool is folded ("Unfold first").
     Buttons are control-size (80 px tall), as many columns as fit the
     card, wrapping after that. A tap sends the command with the tool's
@@ -390,8 +389,10 @@ already judges the answers; it prints `tipTo` with each Tip.
   the "on" state; the label says what a tap does ("Unfold all" / "Fold
   all", "Lower all" / "Raise all", "Turn on all" / "Turn off all", "Tip
   all" / "Stop all"). Turn on all is
-  unavailable while one of them is folded, with "Unfold first" under it
-  (Vincent, 2026-10-26). Revision 2: "Fold all" while any is unfolded, as
+  unavailable while one of them is folded (Vincent, 2026-10-26). A faded
+  All button is only faded, as every card button: no reason under it,
+  on hover or after a tap (Vincent, 2026-11-01). A failed answer still
+  shows on the row's note. Revision 2: "Fold all" while any is unfolded, as
   the game's key folds then (spike 0.0.5); Fold all, Lower all and Turn
   on all answer ok only once the tools moved, a failure's reason on a
   note under the row.
@@ -440,9 +441,9 @@ capability needs the part **and what it holds**:
 
 Where the game answers why not, the entry carries `canNow[cap] = false`
 and `whyNot[cap]` (its words, when it has some), so a button is
-unavailable with the game's own words: in its title, and on the card for
-3 s after a tap on it, since a tablet has no hover (live 0.8.7; a folded
-tool's Turn on without words of the game's: "Unfold first") (spike 0.0.4:
+unavailable (a folded tool's Turn on too). Since 2026-11-01 the button is
+only faded: its reason shows nowhere, not on hover and not after a tap
+(Vincent); the words stay in the cab topic and the button's `why` (spike 0.0.4:
 `getIsFoldAllowed` → "Folding is not allowed while the tool is lowered.",
 `isDetachAllowed` → "You first need to fold up the tool (mower)!";
 `getAllowsLowering` only while the tool is raised: raising stays
@@ -1091,3 +1092,7 @@ Vincent's to answer. Judging tested in `client/tests/test_rig_check.py`.
   check for 0.8.17 here: the mowers and trailers have none of the hidden
   capabilities, so nothing confirmed changes; the new other keys are
   checked in game with their rigs' specs.
+- 2026-11-01: a faded button (card, All row, Also attached) is only
+  faded: no line under it, no hover title, no note after a tap (Vincent:
+  "if it's not available it should just be in its disabled state"). A
+  failed answer still shows its reason on the card and the All row.

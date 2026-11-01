@@ -1810,6 +1810,15 @@ for (const name of RIGS) {
 }
 check("tools: rig fixtures: the cards, each card's buttons, Also attached and the All row", fixShown, fixWant);
 
+// an older mod (the Solek replay): implements with no id and no cab rig; a
+// lone row's order once joined to "" and was never built (NEXT.md)
+const noIds = toolsPage({ controlledId: 1, vehicles: [{ id: 1, name: "Tractor", implements: [
+  { name: "Weight 1500", lowered: false, canLower: true }] }] }, { inVehicle: true });
+const noIds2 = toolsPage({ controlledId: 1, vehicles: [{ id: 1, name: "Tractor", implements: [
+  { name: "Weight 1500", lowered: false, canLower: true }, { name: "Weight 800", lowered: true, canLower: true }] }] },
+  { inVehicle: true });
+check("tools: tools with no id (an older mod): one row each", [noIds.shown().also.length, noIds2.shown().also.length], [1, 2]);
+
 // a tool the dashboard has never seen: exactly the buttons its `can` says
 const madeUp = { id: 50, name: "Laser Leveller 9000", depth: 1, side: "rear", selectable: true, selected: false,
   can: ["fold", "turnOn"], unfolded: true, turnedOn: false, laser: { on: true }, canNow: { fold: false },
@@ -1820,24 +1829,23 @@ const madeButtons = [...madePage.cardsEl.querySelectorAll(".tool-card .control")
 const madeStates = madeButtons.map((b) => `${lbl(b)}:${b.dataset.state}`);
 tap(madeButtons[1]);
 await Promise.resolve();
-check("tools: buttons from can: an unknown part adds nothing; the game's \"not now\" with its words; each aims at its tool", [
-  vt.toolButtons(madeUp).map((b) => b.label), madeStates, madeButtons[0].title, madePage.sent],
-  [["Fold", "Turn on"], ["Fold:unavailable", "Turn on:off"], "Lower the blade first", [["tool.turnOn", 1, 50]]]);
-// live (0.8.7): the reason was only the hover title, out of reach on a
-// tablet; a tap on the faded button shows it on the card, sending nothing
+check("tools: buttons from can: an unknown part adds nothing; the game's \"not now\" fades it; each aims at its tool", [
+  vt.toolButtons(madeUp).map((b) => b.label), madeStates, madePage.sent],
+  [["Fold", "Turn on"], ["Fold:unavailable", "Turn on:off"], [["tool.turnOn", 1, 50]]]);
+// a faded button is only faded (Vincent, 2026-11-01): no reason on hover
+// or on a tap, and a tap sends nothing
 const madeNote = () => madePage.cardsEl.querySelector(".tool-note");
 const sentBefore = madePage.sent.length;
 tap(madeButtons[0]);
 await Promise.resolve();
-const noteShown = [madeNote()?.textContent, madeNote()?.hidden, madePage.sent.length - sentBefore];
+const noteShown = [madeButtons[0].title, madeNote()?.hidden, madePage.sent.length - sentBefore];
 const foldedTurnOn = vt.toolButtons({ id: 51, depth: 1, can: ["fold", "turnOn"], unfolded: false, turnedOn: false,
   canNow: { turnOn: false } }).find((b) => b.key === "turnOn");
-check("tools: a tap on a faded button shows the game's reason on the card; folded, Turn on says unfold first", [
-  noteShown, [foldedTurnOn?.unavailable, foldedTurnOn?.why]],
-  [["Lower the blade first", false, 0], [true, "Unfold first"]]);
+check("tools: a faded button shows no reason, on hover or on a tap; folded, Turn on is faded", [
+  noteShown, foldedTurnOn?.unavailable],
+  [["", true, 0], true]);
 // revision 2: an ok means the tools moved; "Nothing moved" (or the game's
-// words) shows on the card, and on the All row, as a faded tap's reason
-// does; the dashboard waits 5 s (Fold all may raise first, then the check)
+// words) shows on the card, and on the All row; the dashboard waits 5 s (Fold all may raise first, then the check)
 const failPage = (() => {
   const s = createStore();
   const send = () => Promise.resolve({ ok: false, reason: "Nothing moved" });
@@ -1940,11 +1948,13 @@ for (const b of allButtons) tap(b);
 for (const b of allOn.allEl.querySelectorAll(".control")) tap(b);
 await Promise.resolve();
 check("tools: the All row: lit while all are on, labelled with what a tap does; Turn on all waits while one is folded", [
-  ...allShown, allButtons[2].querySelector(".control-value")?.textContent, mixed.sent, allOn.sent],
+  // faded with no reason at all: no line, no title, no note on a tap (2026-11-01)
+  ...allShown, [allButtons[2].querySelector(".control-value")?.textContent || "", allButtons[2].title,
+    mixed.allEl.querySelector(".tool-note")?.hidden], mixed.sent, allOn.sent],
   [["Fold all:on", "Raise all:on", "Turn off all:on", "Stop all:on"],
     // one folded, one not: Fold all, as the game's key does (spike 0.0.5, revision 2)
     // no Cover all until cover has its own spec (spec 0003's close)
-    ["Fold all:off", "Lower all:off", "Turn on all:unavailable", "Tip all:off"], "Unfold first",
+    ["Fold all:off", "Lower all:off", "Turn on all:unavailable", "Tip all:off"], ["", "", true],
     // specs/0008: each asks for the state its label names
     [["implement.foldAll", 1], ["implement.lowerAll", 1], ["implement.tipAll", 1]],
     [["implement.foldAll", 1], ["implement.lowerAll", 0], ["implement.turnOnAll", 0], ["implement.tipAll", 0]]]);

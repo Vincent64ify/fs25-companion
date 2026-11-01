@@ -37,7 +37,7 @@ const CALL_TRAILER_PCT = 80;
 const CALL_TRAILER_MIN = 3;
 // this many cards or more: the compact form (head, buttons, main meter)
 const COMPACT_FROM = 3;
-// how long a faded button's reason stays on its card after a tap
+// how long a failed answer's reason stays on its card
 const NOTE_SHOWN_MS = 3000;
 
 /** The vehicles topic's side of an entry: its implement, or the vehicle itself. */
@@ -49,6 +49,12 @@ export function entryKind(/** @type {RigEntry} */ e, /** @type {Vehicle|undefine
   const d = detailOf(e, v);
   return e.depth === 0 ? vehicleKind(v) : vehicleKind({ ...d, motorized: false });
 }
+
+/**
+ * A row's key across renders: the tool's id, else its place (an older mod's
+ * tools have no id; NEXT.md, the Solek replay).
+ */
+const keyOf = (/** @type {RigEntry} */ e, /** @type {number} */ i) => (typeof e.id === "number" ? e.id : `#${i}`);
 
 /** Working: turned on, or discharging (the yellow badge). */
 export const working = (/** @type {RigEntry} */ e) => e.turnedOn === true || e.discharging === true;
@@ -155,7 +161,7 @@ export function pickable(el, e, name, send) {
 
 /**
  * One button: what a tap does, the command (with the tool's id), lit or
- * not, unavailable with the game's reason, a value line.
+ * not, unavailable (why: the game's reason, not shown), a value line.
  * value: the state a tap asks for (specs/0008) with the tool's id as tool,
  * or a one-shot's number (the tool's id for Tip side and Detach).
  * @typedef {{key: string, label: string, icon: string, action: string, value?: number, tool?: number, on: boolean,
@@ -230,9 +236,10 @@ export function toolButtons(e) {
 /**
  * A row of buttons kept across renders, so a tap's pending state survives
  * the cab's next update. Each sends its command; pending until the ack,
- * then until its state changes (at most 1.5 s). A tap on an unavailable one,
- * and a failed answer ("Nothing moved", the game's words: revision 2),
- * hand their reason to `onWhy` (a tablet has no hover for the title).
+ * then until its state changes (at most 1.5 s). A failed answer ("Nothing
+ * moved", the game's words: revision 2) hands its reason to `onWhy`. An
+ * unavailable one is only faded: no reason on hover or on a tap (Vincent,
+ * 2026-11-01).
  * @param {Send} send
  * @param {(why: string) => void} [onWhy]
  */
@@ -261,9 +268,6 @@ function buttonRow(send, onWhy) {
             () => send(item.b.action, item.b.value, item.b.tool),
             { ms: 1500, key: () => `${item.b.on}:${item.b.label}:${item.b.line ?? ""}` });
           item.ui.el.dataset.control = b.key;
-          item.ui.el.addEventListener("pointerdown", (ev) => {
-            if (ev.button === 0 && item.b.unavailable && item.b.why) onWhy?.(item.b.why);
-          });
           shown.set(b.key, item);
         }
         for (const key of [...shown.keys()]) if (!buttons.some((b) => b.key === key)) shown.delete(key);
@@ -276,14 +280,6 @@ function buttonRow(send, onWhy) {
         item.ui.setLabel(b.label, b.icon);
         item.ui.setValue(b.line);
         item.ui.set(b.unavailable ? "unavailable" : b.moving ? "pending" : b.on ? "on" : "off");
-        // unavailable: the game's reason on hover
-        if (b.unavailable && b.why) {
-          item.ui.el.title = b.why;
-          item.ui.el.dataset.why = "true";
-        } else if (item.ui.el.dataset.why) {
-          item.ui.el.removeAttribute("title");
-          delete item.ui.el.dataset.why;
-        }
       }
     },
   };
@@ -363,7 +359,7 @@ function tankRow(/** @type {ReturnType<typeof tankRows>[number]} */ t) {
   return row;
 }
 
-/** A button's reason (faded, or a failed answer), for a few seconds after a tap. */
+/** A failed answer's reason ("Nothing moved", the game's words), for a few seconds. */
 function reasonNote() {
   const el = h("p", { className: "tool-note" });
   el.hidden = true;
@@ -471,7 +467,8 @@ export function toolCards(store, opts = {}) {
   if (opts.id) root.id = opts.id;
   /** @type {Map<unknown, ReturnType<typeof toolCard>>} */
   const cards = new Map();
-  let lastOrder = "";
+  /** @type {string|undefined} */
+  let lastOrder;
   const render = () => {
     const v = controlledVehicle(store);
     const cab = cabOf(store);
@@ -481,15 +478,16 @@ export function toolCards(store, opts = {}) {
     none.hidden = !none.textContent;
     root.dataset.count = String(shown.length);
     root.dataset.compact = String(shown.length >= COMPACT_FROM);
-    const order = shown.map((e) => e.id).join("|");
+    const keys = shown.map(keyOf);
+    const order = JSON.stringify(keys);
     if (order !== lastOrder) {
       lastOrder = order;
-      for (const id of [...cards.keys()]) if (!shown.some((e) => e.id === id)) cards.delete(id);
-      for (const e of shown) if (!cards.has(e.id)) cards.set(e.id, toolCard(send));
-      list.replaceChildren(...shown.map((e) => /** @type {any} */ (cards.get(e.id)).el));
+      for (const key of [...cards.keys()]) if (!keys.includes(key)) cards.delete(key);
+      for (const key of keys) if (!cards.has(key)) cards.set(key, toolCard(send));
+      list.replaceChildren(...keys.map((key) => /** @type {any} */ (cards.get(key)).el));
     }
     const units = unitsOf(store);
-    for (const e of shown) cards.get(e.id)?.render(e, v, rates, units);
+    shown.forEach((e, i) => cards.get(keys[i])?.render(e, v, rates, units));
   };
   store.subscribe("vehicles", render);
   store.subscribe("cab", render);
@@ -518,7 +516,7 @@ export function toolsAll(store, opts = {}) {
     const actions = v ? allActions(cardsOf(v, cabOf(store))) : [];
     root.hidden = actions.length === 0;
     buttons.set(actions.map((a) => ({ key: a.cap, label: a.label, icon: ALL_ICONS[a.cap] || "implement",
-      action: a.action, value: a.value, on: a.on, unavailable: a.unavailable, why: a.note, line: a.note,
+      action: a.action, value: a.value, on: a.on, unavailable: a.unavailable,
       moving: a.moving })));
   };
   store.subscribe("vehicles", render);
@@ -550,29 +548,31 @@ export function toolsAlso(store, opts = {}) {
   if (opts.id) root.id = opts.id;
   /** @type {Map<unknown, {el: HTMLElement, text: HTMLElement, badge: HTMLElement, buttons: ReturnType<typeof buttonRow>}>} */
   const rows = new Map();
-  let lastOrder = "";
+  /** @type {string|undefined} */
+  let lastOrder;
   const render = () => {
     const v = controlledVehicle(store);
     const also = v ? alsoAttached(v, cabOf(store)) : [];
     root.hidden = also.length === 0;
-    const order = also.map((e) => e.id).join("|");
+    const keys = also.map(keyOf);
+    const order = JSON.stringify(keys);
     if (order !== lastOrder) {
       lastOrder = order;
-      for (const e of also) {
-        if (rows.has(e.id)) continue;
+      for (const key of keys) {
+        if (rows.has(key)) continue;
         const badge = h("span", { className: "tool-badge" });
         const text = h("span", { className: "tools-also-text" });
         const buttons = buttonRow(send);
-        rows.set(e.id, { el: h("li", { className: "tools-also-row" }, badge, text, buttons.el), text, badge, buttons });
+        rows.set(key, { el: h("li", { className: "tools-also-row" }, badge, text, buttons.el), text, badge, buttons });
       }
-      list.replaceChildren(...also.map((e) => /** @type {any} */ (rows.get(e.id)).el));
+      list.replaceChildren(...keys.map((key) => /** @type {any} */ (rows.get(key)).el));
     }
-    for (const e of also) {
-      const row = /** @type {any} */ (rows.get(e.id));
+    also.forEach((e, i) => {
+      const row = /** @type {any} */ (rows.get(keys[i]));
       row.badge.replaceChildren(icon(entryKind(e, v)));
       row.text.textContent = alsoLine(e, v);
       row.buttons.set(toolButtons(e).filter((b) => b.key === "detach" || (b.key === "lower" && lowersInRig(e, v))));
-    }
+    });
   };
   store.subscribe("vehicles", render);
   store.subscribe("cab", render);
