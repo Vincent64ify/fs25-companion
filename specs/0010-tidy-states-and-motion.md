@@ -59,9 +59,10 @@ in a frame or two, so a selection has no waiting look at all: an
 animation that short only jittered. A tap on a rig tile, an implement row
 or **anywhere on a tool card** (not only its head) selects that tool in
 game; a tap on one of the card's buttons only presses that button. The
-game's selected tool card shows as selected all over: a faint accent tint
-over the whole card (blue by day, yellow at night) with the 2 px accent
-ring round it.
+game's selected tool card shows as selected by the 2 px accent ring round
+it (blue by day, yellow at night); its background is any card's. (Until
+2026-11-01 a faint accent tint covered the whole card too: Vincent took
+it out, as it matched the stat tiles' grey and they seemed to float.)
 
 **Other things that wait for the game** (a step, Detach): a thin accent
 outline, 2 px outside the edge, that breathes between strong and faint
@@ -240,3 +241,7 @@ any tractor with a tool):
   with no flicker (the watcher shows each `implement.select` answered in
   the same second), the selected card reads as selected by day and at
   night, and a card's buttons press only themselves. Live-checked.
+- 2026-11-01: (spec 0011's live check) Vincent: the selected card shows
+  by its ring alone; `--sel-card` is gone, its background is any card's.
+  Tool cards' stat tiles take the Combine card's background (`--line`, as
+  `.harv-stat`), their meters a `--card-solid` track.

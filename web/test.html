@@ -2200,9 +2200,11 @@ for (const palette of ["day", "night"]) {
     // a selected card keeps its selection ring; the lift (with its inset highlight) goes
     ["surfaces", tcs(band).boxShadow, tcs(card).boxShadow.includes("inset"), tcs(off).boxShadow !== "none"],
     ["waiting", tcs(step).outlineStyle, tcs(step).animationName, tcs(step).opacity],
-    // revision 2: selecting is too quick for a waiting look; the selected card is tinted all over
+    // revision 2: selecting is too quick for a waiting look; the selected card shows by its ring
+    // alone, its background any card's (Vincent, 2026-11-01: the tint went)
     ["selecting", tcs(tile).outlineStyle, tcs(tile).animationName, tcs(head).outlineStyle, tcs(head).animationName],
-    ["selected card", tcs(pickedCard).backgroundImage !== tcs(plainCard).backgroundImage]]);
+    ["selected card", tcs(pickedCard).boxShadow !== tcs(plainCard).boxShadow,
+      tcs(pickedCard).backgroundImage === tcs(plainCard).backgroundImage]]);
 }
 const tidyWant = (palette) => [palette,
   ["tokens", []],
@@ -2217,7 +2219,7 @@ const tidyWant = (palette) => [palette,
   ["surfaces", "none", false, true],
   ["waiting", "solid", "waiting", "1"],
   ["selecting", "none", "none", "none", "none"],
-  ["selected card", true]];
+  ["selected card", true, true]];
 check("specs/0010: one look per state, outlines for where you are, lift only on what you press, one way to wait",
   tidyRows, [tidyWant("day"), tidyWant("night")]);
 tidy.remove();

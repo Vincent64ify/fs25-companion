@@ -229,9 +229,10 @@ end
 
 -- The working width (specs/0011): a sprayer's sections, which the game's
 -- PARTIAL WIDTH HUD block shows. VariableWorkWidth's fields seen in spike
--- 0.0.4 (the Berthoud Vantage 4300: 4 + 4 and a centre); each section's
--- width is unverified. {left, leftMax, right, rightMax, center, sections?},
--- or nil without sections or when a read fails
+-- 0.0.4 (the Berthoud Vantage 4300: 4 + 4 and a centre). {left, leftMax,
+-- right, rightMax, center}, or nil without sections or when a read fails.
+-- No metres: sections[i].width isn't one (live, 0.12.0: 1, 0.84, 0.65,
+-- 0.29, 0 ... 1 across a 33 m boom), and the game's own isn't known yet
 function VehicleState.width(object)
     local spec = object.spec_variableWorkWidth
     if type(spec) ~= "table" then
@@ -246,18 +247,6 @@ function VehicleState.width(object)
         for _, k in ipairs({ "left", "leftMax", "right", "rightMax" }) do
             if type(w[k]) ~= "number" then
                 return nil
-            end
-        end
-        -- the metres only from the game's own widths, one for each section
-        local sections, widths = spec.sections, {}
-        local count = w.leftMax + w.rightMax + (w.center and 1 or 0)
-        if type(sections) == "table" and #sections == count then
-            for i = 1, count do
-                local section = sections[i]
-                widths[i] = type(section) == "table" and type(section.width) == "number" and section.width or nil
-            end
-            if #widths == count then
-                w.sections = widths
             end
         end
         return w

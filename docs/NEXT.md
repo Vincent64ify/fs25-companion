@@ -55,4 +55,14 @@ Things to fix next, in no particular order. Longer-term ideas are under
   live 2026-10-31, the Vestrum 100). No card shows them today (a tractor
   has none), but a self-propelled sprayer's would. Built in
   [spec 0011](../specs/0011-sprayer.md) (mod 0.12.0): the vehicle's own
-  keys leave its driving parts' keys out; its live check confirms it.
+  keys leave its driving parts' keys out. Live (the Agrio DINO II):
+  all but "Toggle AI Worker", spec 0011's fix 3.
+- **The mod's version in hello** (spec 0011's live check, 2026-11-01):
+  `Companion.VERSION` in `mod/src/Companion.lua` still says 0.9.1, so
+  hello's `modVersion` is wrong since 0.9.1 (the game ran 0.12.1). Read it
+  from `modDesc.xml` at load (`g_modManager`, unverified), or bump it with
+  every mod version.
+- **The design system artifact** needs a refresh (THEMES.md): spec 0011
+  added four icons (`widthLeftIn`, `widthLeftOut`, `widthRightIn`,
+  `widthRightOut`) and the width strip, and the selected tool card lost
+  its tint (2026-11-01).

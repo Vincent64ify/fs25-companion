@@ -59,7 +59,6 @@
      outline; a filled --on only ever means "on" (specs/0010) */
   --sel-tint: #DFE8F7;
   --sel-ink: #0C2D6B;
-  --sel-card: rgba(12, 77, 184, 0.07);  /* over the game's selected tool card */
   /* the ink on a lit Hazard (alarm) or turn arrow (ok) */
   --alarm-ink: #FFFFFF;
   --ok-ink: #FFFFFF;
@@ -141,7 +140,6 @@
   --chip-off-bg: #132B5C;
   --sel-tint: rgba(255, 199, 44, 0.14);
   --sel-ink: #FFD65C;
-  --sel-card: rgba(255, 199, 44, 0.08);
   --alarm-ink: #0A1A33;
   --ok-ink: #0A1A33;
 
@@ -1251,11 +1249,10 @@ button { font: inherit; color: inherit; }
   border-radius: 16px;
   background: var(--card);
 }
-/* the game's selected tool: a faint accent tint over the whole card and the
-   accent ring round it (specs/0010, revision 2) */
+/* the game's selected tool: the accent ring round the card, its background
+   as any card's (specs/0010, revision 2; the tint went 2026-11-01) */
 .tool-card[data-selected="true"] {
   border-color: var(--select);
-  background: linear-gradient(var(--sel-card), var(--sel-card)), var(--card);
   box-shadow: 0 0 0 2px var(--select);
 }
 /* a tap anywhere on a card selects its tool (vehicleTools.js toolCard) */
@@ -1311,11 +1308,13 @@ button { font: inherit; color: inherit; }
   min-width: 0;
   padding: 8px 10px;
   border-radius: 12px;
-  background: var(--chip-off-bg);
+  /* as the Combine card's (.harv-stat) */
+  background: var(--line);
 }
 .tool-stat-label { font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
 .tool-stat-value { overflow: hidden; font-size: 17px; font-weight: 700; font-variant-numeric: tabular-nums; text-overflow: ellipsis; white-space: nowrap; }
-.tool-stat .widget-meter { width: auto; height: 5px; }
+/* its track in the card's colour: the tile is the meter's own grey */
+.tool-stat .widget-meter { width: auto; height: 5px; background: var(--card-solid); }
 .tool-stat[data-level] .tool-stat-value { color: var(--warn); }
 .tool-stat[data-level] .widget-meter > span { background: var(--warn-fill); }
 /* control-size buttons, as many columns as fit the card */

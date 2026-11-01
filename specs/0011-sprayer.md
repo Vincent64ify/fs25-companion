@@ -1,7 +1,7 @@
 # 0011: Sprayer
 
 Status: built
-Mod: 0.12.0 · Started: 2026-11-01 · Design: [THEMES.md](../docs/THEMES.md#implement-screen-design-2026-10-24) (the card); spec [0003](0003-implement-screen.md) (moved out at its close)
+Mod: 0.12.1 · Started: 2026-11-01 · Design: [THEMES.md](../docs/THEMES.md#implement-screen-design-2026-10-24) (the card); spec [0003](0003-implement-screen.md) (moved out at its close)
 
 ## Goal
 
@@ -39,9 +39,10 @@ the vehicle's own card, with no Detach and no wear (the band has both).
     off ones grey with a dashed outline (as an unavailable control,
     specs/0010);
   - under it, the sections and the width in use, both: "8 / 9 sections ·
-    30 / 33 m" (Vincent, 2026-11-01). The metres need each section's width
-    (unverified); until the mod has them, the line is "8 / 9 sections"
-    alone, never an estimate;
+    30 / 33 m" (Vincent, 2026-11-01). The metres need each section's width;
+    until the mod has them, the line is "8 / 9 sections" alone, never an
+    estimate. The mod sends none today: the game's `sections[i].width`
+    isn't metres (live, 0.12.0), and no other source is known;
   - the four buttons, always together in that row (like the Cruise row),
     each side's pair at its end of the strip. In takes one section off
     that side, out puts one back; each presses the game's width key for
@@ -126,9 +127,9 @@ Game API names used:
 | `getIsTurnedOn`, `getCanBeTurnedOn`, `getTurnedOnNotAllowedWarning`, `IMPLEMENT_EXTRA` (turn on) | TurnOnVehicle.lua | verified (DONE.md, the mowers): not yet on a sprayer |
 | `getIsUnfolded`, `getIsFoldAllowed`, `IMPLEMENT_EXTRA2` (fold) | Foldable.lua | verified (DONE.md, the mowers): not yet on a sprayer |
 | `spec_variableWorkWidth.hasSections`, `leftSide`, `leftSideMax`, `rightSide`, `rightSideMax`, `hasCenter` | VariableWorkWidth.lua | seen in spike 0.0.4 (Berthoud Vantage 4300: 4 + 4 + centre); unverified while it changes |
-| `spec_variableWorkWidth.sections[i].width` (each section's width, left to right) | VariableWorkWidth.lua | unverified |
+| `spec_variableWorkWidth.sections[i].width` | VariableWorkWidth.lua | seen live (0.12.0, the Berthoud): not metres, 1, 0.84, 0.65, 0.29, 0, then back to 1 (each section's place across the boom?); not read since 0.12.1 |
 | `spec_foldable.unfoldWarning` (the words while folded) | Foldable.lua | unverified |
-| `VARIABLE_WORK_WIDTH_LEFT`, `_RIGHT`, `_TOGGLE` | inputBinding.xml | exist (spike 0.0.4's input actions); not registered while the sprayer was selected, folded state unknown: unverified |
+| `VARIABLE_WORK_WIDTH_LEFT`, `_RIGHT`, `_TOGGLE` | inputBinding.xml | LEFT and RIGHT are two-way axes, each shown in Controls as Activate / Deactivate left (right) partial widths, with no default key; TOGGLE on Ctrl+Z (Vincent's inputBinding.xml, 2026-11-01). Not registered on the Berthoud (Precision Farming on), selected, unfolded and on, keys bound: the game did nothing (live, 0.12.0) |
 | `TOGGLE_TIPSTATE` "Dump", `TOGGLE_TIPSTATE_GROUND` "Dump on ground" (Dischargeable), `UNLOAD` "Unload" (FillUnit) | spike 0.0.4's sprayer keys | the keys are live (spike 0.0.4); what they do on a sprayer is unverified |
 | the driving parts' specs (`spec_drivable`, `spec_motorized`, `spec_honk`, ...) to leave out of the vehicle's keys | Drivable.lua and others | unverified on a self-propelled sprayer |
 
@@ -203,24 +204,73 @@ Automated (each one a test that exists before the work is called built):
 Live check (in game; Solek, CLAAS ARION 410 with the Berthoud Vantage
 4300, then a self-propelled sprayer from the shop; `rig_check.py` and
 `livewatch.py`):
-- [ ] Probe first: unfolded and turned on, are the width keys live, and
+- [x] Probe first: unfolded and turned on, are the width keys live, and
   what do they do (one press: which side, in or out)? Not live: the
-  strip follows the game's keys pressed in game, read-only.
-- [ ] Unfold / Fold: ok once the boom moved; with the engine off refused
-  at once with the game's words.
-- [ ] Turn on / off: ok once it's on; folded, faded.
+  strip follows the game's keys pressed in game, read-only. (Vincent,
+  2026-11-01: not live on the Berthoud, even bound to keys; the game
+  does nothing with them, so the strip stays read-only with no buttons.
+  Nothing in game changes the sections, so the strip following them
+  couldn't be checked.)
+- [x] Unfold / Fold: ok once the boom moved; with the engine off refused
+  at once with the game's words. (Vincent, 2026-11-01, mod 0.12.1: ok
+  once moving, taps while moving "already"; engine off, Fold faded with
+  "Please start the engine first!")
+- [x] Turn on / off: ok once it's on; folded, faded. (Vincent,
+  2026-11-01, mod 0.12.1: folded, faded with "You first need to unfold
+  the tool (sprayer)!"; unfolded, on and off each ok in the frame of the
+  press. Detach on the Berthoud worked too.)
 - [ ] If the keys are live: Left in / out, Right in / out: one section each, the strip and the
   game's PARTIAL WIDTH HUD the same after each press; a side at its limit
-  fades its button.
+  fades its button. (Doesn't apply on the Berthoud or the DINO II: the
+  keys aren't live. Left open for a sprayer where they are.)
 - [ ] Dump, Dump on ground, Unload: what each does in game, and whether
-  the label says it (open question 2).
-- [ ] The tank's "empty in" while spraying (at x1).
+  the label says it (open question 2). (So far: Dump did nothing with
+  nothing in reach, Unload puts the tank into pallets on the ground; Dump
+  on ground untried, as its button pressed Unload: fix 1.)
+- [x] The tank's "empty in" while spraying (at x1). (Vincent,
+  2026-11-01, mod 0.12.1)
 - [ ] Self-propelled: its card has no driving keys, Fold and Turn on work
-  as on the trailed one.
+  as on the trailed one. (The Agrio DINO II: all but "Toggle AI Worker",
+  fix 3; Fold's label wrong while folding, fix 4.)
 - [ ] After every card button, the game's selected tool is the one it was.
+  (livewatch shows it: the W 600's Lower selected it and put the Berthoud
+  back in the same second; every other change was a head tap or a
+  Detach. Waiting for Vincent to confirm.)
 - [ ] The same card with Precision Farming off (a savegame without it,
   if there is one): Fold, Turn on, the strip and the tank as above, no
   Precision Farming keys.
+
+### Fixes from the live check (to build, mod 0.12.2)
+
+Found on 2026-11-01 (the Log has the details). Each needs its test first,
+then a recheck in game.
+
+1. **Other keys by name, not number.** A card's other key sends its
+   number in `extraKeys`, and a key that comes and goes
+   (`DOUBLED_SPRAY_AMOUNT`, 21 times in one session) shifts the ones
+   after it: "Dump on ground" pressed `UNLOAD`. `implement.key` should
+   carry the key's input action name (like `side`: viewer, companion
+   shape check, command file, mod), and the mod presses it only if it's
+   among the selected tool's other keys now. Recheck: Dump on ground.
+2. **The vehicle's own keys when pressing.** `selectedKey` (Commands.lua)
+   builds the list without leaving out the driving keys on the vehicle
+   itself (`extraKeys(selected, can)` without `own`), so a self-propelled
+   sprayer's keys don't match the cab's. Gone with fix 1; if not, pass
+   `own` for depth 0.
+3. **No "Toggle AI Worker" on a card.** `TOGGLE_AI` comes from an AI part
+   not in the driving parts' list (the DINO II, the ARION); leave it out
+   of every card's keys (`NOT_A_TOOL_KEY`), as the dashboard has its own
+   AI worker button. Recheck: the DINO II's card.
+4. **Fold's label while folding.** `getIsUnfolded` turns false as soon as
+   the fold starts, so a moving fold always reads "Unfolding…". Send the
+   fold's direction (`foldMoveDirection`: 1 folding, -1 unfolding, spikes
+   0.0.5 and 0.0.6) on each rig entry and label from it. Recheck: Fold
+   and Unfold on both sprayers.
+5. **Turn on with the engine off.** Unfolded with the engine off,
+   `getCanBeTurnedOn` is false and the mod drops Turn on from `can` (it
+   keeps it only while folded). Keep it, faded, with the game's words
+   (`getTurnedOnNotAllowedWarning`, else the engine's). Recheck: the
+   engine off, the boom unfolded.
 
 ## Decisions
 
@@ -290,3 +340,47 @@ Choices made while building that the live check should confirm or change.
   spike 0.0.4's sprayer until the probe. pytest and `web/test.html` green;
   the replay checked at 1180×820, one and two cards and compact, day and
   night. Four new icons: the design system artifact needs a refresh.
+- 2026-11-01: live check, probe (mod 0.12.0, Solek, the ARION 410 and
+  the Berthoud): Unfold and Turn on answered ok from the dashboard. The
+  width keys are never registered on the Berthoud, selected, unfolded
+  and on, even with Vincent's keys bound to them, and the game does
+  nothing with them: the strip stays read-only, as decided. The game's
+  `sections[i].width` turned out not to be metres (the card showed
+  "9 / 9 sections · 6 / 6 m" and Width 5.6 m for a 33 m boom): from
+  0.12.1 the mod sends no section widths, so the line is sections alone
+  and Width the tool's working width.
+- 2026-11-01: live check, mod 0.12.1: Unfold / Fold and Turn on / off
+  ticked. Dump, Dump on ground, Unload: Dump did nothing (nothing in
+  reach to take the load); Unload put the tank into liquid fertilizer
+  pallets on the ground. The "Dump on ground" button pressed `UNLOAD`:
+  other keys go by their number in `extraKeys`, and "Sprayer application
+  rate change" (`DOUBLED_SPRAY_AMOUNT`) comes and goes (21 times in the
+  session), shifting the keys after it. Also, `selectedKey` doesn't leave
+  out the driving keys on the vehicle's own entry, so a self-propelled
+  sprayer's numbers would be off. To fix after the check (Vincent's
+  call): send the key's game name instead of its number, then try Dump
+  on ground again.
+- 2026-11-01: live check: "empty in" ticked. Seen on the way: with the
+  engine off and the boom unfolded, Turn on is gone from the card
+  (`getCanBeTurnedOn` false, and the mod keeps Turn on only while
+  folded); it should stay, faded, as with the boom folded. To fix after
+  the check. The selected card's tint matched the stat tiles' grey and
+  they seemed to float (Vincent): the selected card now shows by its ring
+  alone, and the stat tiles take the Combine card's background (web only;
+  spec 0010's Log).
+- 2026-11-01: live check, self-propelled (the Agrio DINO II): its own card
+  has Fold and Turn on, no Detach, no wear, the strip read-only (4 + 4
+  and a centre). Its other keys still list "Toggle AI Worker" (`TOGGLE_AI`,
+  from an AI part not in the driving parts' list; the ARION's too): to
+  fix after the check by leaving `TOGGLE_AI` out of every card's keys, as
+  the dashboard has its own AI worker button. Turn on / off ok. While
+  folding, the Fold button said "Unfolding…": `getIsUnfolded` turns false
+  as the fold starts (livewatch, the DINO and the Berthoud), and the label
+  reads it; to fix after the check by sending the fold's direction
+  (`foldMoveDirection`, 1 folding, spikes 0.0.5 and 0.0.6) and labelling
+  from it.
+- 2026-11-01: live check paused (Vincent away). Ticked: the probe,
+  Unfold / Fold, Turn on / off, "empty in". Open: Dump on ground, the
+  self-propelled card, the selection (shown by livewatch, to confirm),
+  Precision Farming off. Five fixes to build first (Fixes from the live
+  check), then their rechecks.

@@ -62,8 +62,17 @@ up to date until the live check.
   calm waiting tint with no spinner, Hazard and the turn arrows coloured
   only when on), where you are as a tinted outline, flat readouts and
   cards, one set of motion timings. Revision 2: selecting a tool has no
-  waiting look, the selected card is tinted all over, and a tap anywhere
-  on a card selects it. Confirmed in game on 2026-11-01.
+  waiting look, the selected card shows by its accent ring (its tint went
+  on 2026-11-01), and a tap anywhere on a card selects it. Confirmed in
+  game on 2026-11-01.
+- The sprayer is built (spec [0011](../specs/0011-sprayer.md), mod
+  0.12.1): Fold and Turn on on a trailed and a self-propelled sprayer, the
+  boom's sections as a strip (read-only: the game's width keys aren't live
+  on the Berthoud or the DINO II), no driving keys on a vehicle's own
+  card. Its live check is under way: the probe, Fold, Turn on and "empty
+  in" are confirmed (2026-11-01); five fixes it found come first, starting
+  with other keys sent by name (a key that comes and goes shifted the
+  numbers, and Dump on ground pressed Unload).
 - The code review of 2026-10-30 ([REVIEW-2026-10-30.md](REVIEW-2026-10-30.md))
   found seven issues. F5 to F7 are fixed (mod 0.8.12), and F1 is fixed and
   confirmed in game (spec [0004](../specs/0004-acks-survive-rotation.md),

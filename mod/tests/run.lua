@@ -2981,15 +2981,14 @@ test("sprayer: the width from the boom's sections; absent without or when a read
     eq(e.width.center, true)
     eq(e.width.sections, nil, "no section widths: none sent")
     eq(joined(e.can), "fold,turnOn,width,detach")
-    -- each section's width, when the game has one for each (unverified)
+    -- the game's sections[i].width isn't metres (live, 0.12.0: the
+    -- Berthoud's read 1, 0.84, 0.65, 0.29, 0 ... 1): never sent
     local sections = {}
-    for i = 1, 9 do
-        sections[i] = { width = i == 5 and 1 or 4 }
+    for i, x in ipairs({ 1, 0.84, 0.65, 0.29, 0, 0.29, 0.65, 0.84, 1 }) do
+        sections[i] = { width = x }
     end
     o.spec_variableWorkWidth.sections = sections
-    eq(joined(VS.capabilities(o, {}, 1).width.sections), "4,4,4,4,1,4,4,4,4")
-    sections[9] = nil
-    eq(VS.capabilities(o, {}, 1).width.sections, nil, "one missing: none")
+    eq(VS.capabilities(o, {}, 1).width.sections, nil, "not metres: none sent")
     -- no sections: no width, no capability, its keys or not
     o.spec_variableWorkWidth.hasSections = false
     e = VS.capabilities(o, {}, 1)
