@@ -8,6 +8,12 @@ the game, and its `cab` goes to web/fixtures/rigs/<rig>.json with a
 dumps don't have, from the table below) and what the Vehicle page must show
 for it (`expect`, checked by web/test.html "rig fixtures").
 
+Two are made from the sprayer's dump until spec 0011's probe dumps the real
+ones (VARIANTS): the width keys live and the right side at 2 of 4, and a
+self-propelled sprayer (the tractor and the Berthoud as one vehicle, with
+the driving keys a vehicle registers; their labels as seen live on the
+Vestrum 100, 2026-10-31).
+
     python fixtures/rig_fixtures.py          # write the fixtures
     python fixtures/rig_fixtures.py --check  # fail if they're out of date
 
@@ -40,6 +46,7 @@ SHOP = {
     1044: ("Fendt", "weights", "Weights", "front"),
     1051: ("Fliegl", "containerTrailers", "Container trailers"),
     1053: ("Mercedes-Benz Trucks", "trucks", "Trucks"),
+    1060: ("Berthoud", "sprayers", "Sprayers"),
 }
 
 # what the Vehicle page must show for each rig: the cards in driving order,
@@ -60,11 +67,28 @@ EXPECT = {
         "also": [],
         "all": ["Tip all:off"],
     },
+    # spike 0.0.4: sections, no width keys live: the strip read-only (specs/0011)
     "sprayer": {
         "cards": ["Vantage 4300: Fold:on, Turn on:off, Detach:off, Dump:off, Dump on ground:off, Unload:off"],
         "selected": "Vantage 4300",
         "also": [],
         "all": [],
+        "width": ["Vantage 4300: ■■■■■■■■■ 9 / 9 sections: "],
+    },
+    "sprayer-width": {
+        "cards": ["Vantage 4300: Fold:on, Turn on:off, Detach:off, Dump:off, Dump on ground:off, Unload:off"],
+        "selected": "Vantage 4300",
+        "also": [],
+        "all": [],
+        "width": ["Vantage 4300: ■■■■■■■□□ 7 / 9 sections: Left out:unavailable, Left in:off, Right in:off,"
+                  " Right out:off"],
+    },
+    "sprayer-self": {
+        "cards": ["Self-propelled 4300: Fold:on, Turn on:off, Dump:off, Dump on ground:off, Unload:off"],
+        "selected": "Self-propelled 4300",
+        "also": [],
+        "all": [],
+        "width": ["Self-propelled 4300: ■■■■■■■■■ 9 / 9 sections: "],
     },
     "plow": {
         "cards": ["SERVO T 6000 P: Lower:off, Fold:on, Detach:off, Rotate plow:off, Allow create fields:off"],
@@ -115,6 +139,37 @@ def load_dump(rig):
     for m in dump["members"]:
         m["name"] = fix_name(m["name"])
     return dump
+
+
+# the width keys as the probe may find them (their labels made up)
+WIDTH_KEYS = [{"action": "VARIABLE_WORK_WIDTH_LEFT", "active": True, "text": "Partial width left"},
+              {"action": "VARIABLE_WORK_WIDTH_RIGHT", "active": True, "text": "Partial width right"}]
+# the driving keys a vehicle registers on its own parts
+DRIVING_KEYS = {
+    "drivable": [{"action": "AXIS_ACCELERATE_VEHICLE", "active": True, "text": "Accelerate"},
+                 {"action": "AXIS_MOVE_SIDE_VEHICLE", "active": True, "text": "Steer vehicle"}],
+    "honk": [{"action": "HONK", "active": True, "text": "Honk"}],
+}
+
+
+def with_width_keys(dump):
+    sprayer = dump["members"][1]
+    sprayer["keys"]["variableWorkWidth"] = WIDTH_KEYS
+    sprayer["variableWorkWidth"]["rightSide"] = 2
+    return dump
+
+
+def self_propelled(dump):
+    tractor, sprayer = dump["members"]
+    one = {**sprayer, "id": 1060, "depth": 0, "name": "Berthoud Self-propelled 4300",
+           "specs": sorted(set(tractor["specs"]) | set(sprayer["specs"]) - {"attachable"}),
+           "keys": {**sprayer["keys"], **DRIVING_KEYS}, "selected": 1060}
+    del one["parent"], one["detach"]
+    return {**dump, "selectedId": 1060, "selectable": [1060], "members": [one]}
+
+
+# rig -> (the dump it's made from, how)
+VARIANTS = {"sprayer-width": ("sprayer", with_width_keys), "sprayer-self": ("sprayer", self_propelled)}
 
 
 def fills_of(member):
@@ -179,10 +234,15 @@ def fixtures():
     lua = lua_runtime()
     out = {}
     for rig, expect in EXPECT.items():
-        dump = load_dump(rig)
+        base, made = VARIANTS.get(rig, (rig, None))
+        dump = load_dump(base)
+        if made is not None:
+            dump = made(dump)
         out[rig] = {
             "rig": rig,
-            "source": f"mod/tests/fixtures/spike0003/{rig}.json, through the mod's Cab collector",
+            "source": f"mod/tests/fixtures/spike0003/{base}.json"
+                      + (f" ({made.__name__}, until spec 0011's probe)" if made else "")
+                      + ", through the mod's Cab collector",
             "cab": cab_of(lua, dump),
             "vehicles": vehicles_of(dump),
             "expect": expect,

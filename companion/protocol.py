@@ -8,7 +8,8 @@ Only the envelope is checked here: what a topic's ``data`` holds is
 described once, in web/src/types.js, and the dashboard ignores what it
 doesn't know. Breaking changes bump ``v``. A command is checked for its
 shape only: its actions and values are the mod's list (Commands.lua,
-specs/0007); a tool's id, where it names one, is a rig id (specs/0008).
+specs/0007); a tool's id, where it names one, is a rig id (specs/0008),
+and tool.width's side is left or right (specs/0011).
 """
 
 import math
@@ -66,14 +67,21 @@ def parse_envelope(raw: Any) -> Dict[str, Any]:
     return raw
 
 
-def command_refusal(action: Any, value: Any, tool: Any = None) -> Optional[str]:
+# a side (specs/0011: tool.width, one section in or out on that side)
+SIDES = {"left", "right"}
+
+
+def command_refusal(action: Any, value: Any, tool: Any = None, side: Any = None) -> Optional[str]:
     """Why a viewer's command is refused before it reaches the mod, or None:
     the action must be a short dotted name, the value a number or absent,
-    the tool a whole number from 0 or absent."""
+    the tool a whole number from 0 or absent, the side left, right or
+    absent."""
     if not isinstance(action, str) or not ACTION_RE.match(action):
         return "action not allowed"
     if value is not None and not _number(value):
         return "value not allowed"
     if tool is not None and not (_int(tool) and tool >= 0):
+        return "value not allowed"
+    if side is not None and not (isinstance(side, str) and side in SIDES):
         return "value not allowed"
     return None

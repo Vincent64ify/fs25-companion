@@ -8,6 +8,7 @@
 --     <command session="<sessionId>" id="<n>" action="beacon.set" ref="<companion ref>" value="1.000"/>
 --     <command ... action="cruise.set" ref="..." value="23.000"/>   (km/h)
 --     <command ... action="tool.lower" ref="..." value="1.000" tool="9"/>   (a rig id)
+--     <command ... action="tool.width" ref="..." value="-1.000" tool="9" side="left"/>
 --
 -- (a temp file, read back once, then renamed, so it appears whole). Every
 -- frame the mod checks whether the next number exists (fileExists costs
@@ -248,6 +249,9 @@ local AIMED = {
     TOGGLE_TIPSIDE = { cap = "tipSide", inputs = { "TOGGLE_TIPSIDE" } },
     ROTATE_PLOW = { cap = "rotate", inputs = { "IMPLEMENT_EXTRA" } },
     RESET_BALE_COUNTER = { cap = "bales", inputs = { "BALE_COUNTER_RESET" } },
+    -- specs/0011: the width keys, one per side (inputBinding.xml; unverified)
+    WIDTH_LEFT = { cap = "width", inputs = { "VARIABLE_WORK_WIDTH_LEFT" } },
+    WIDTH_RIGHT = { cap = "width", inputs = { "VARIABLE_WORK_WIDTH_RIGHT" } },
 }
 
 -- the first of these inputs with an active event on this object, one the
@@ -363,6 +367,8 @@ local function readings(object)
         foldDirection = type(fold) == "table" and fold.foldMoveDirection or nil,
         -- revision 3: Tip, as the cab reads it
         discharging = VehicleState.extras(object, {}).discharging,
+        -- specs/0011: the sections on each side
+        width = VehicleState.width(object),
     }
 end
 
@@ -390,6 +396,8 @@ local function moved(t, now)
         return VehicleState.foldLowers(t.object) and foldMoves(t.before, now, t.want and -1 or 1)
     elseif t.kind == "tip" then
         return now.discharging == t.want
+    elseif t.kind == "width" then
+        return now.width ~= nil and now.width[t.side] == t.want
     end
     return now.on == t.want
 end
@@ -473,6 +481,33 @@ end
 
 -- the answer of a job that has nothing to do (specs/0008)
 local ALREADY = {}
+
+-- specs/0011: one section in (value -1) or out (1) on one side, by the
+-- game's key for that side, checked: ok once that side moved by one. The
+-- key gets the value as its input, as an axis would; which way a press
+-- goes is the live check's probe
+local function widthJob(vehicle, id, side, value)
+    local object, depth = memberById(vehicle, id)
+    if object == nil then
+        return nil, "not attached"
+    end
+    local aim = side == "left" and AIMED.WIDTH_LEFT or AIMED.WIDTH_RIGHT
+    local step, reason = stepFor(object, depth, aim)
+    if step == nil then
+        return nil, reason
+    end
+    local width = VehicleState.width(object)
+    local want = width[side] + value
+    if want < 0 or want > width[side .. "Max"] then
+        return nil, "at its limit"
+    end
+    step.value = value
+    local job = newJob(vehicle, { step })
+    local t = checkOf(object, depth, "width", want)
+    t.side = side
+    job.check = { t }
+    return job
+end
 
 -- Tip all and Uncover all: the one-tool command on each that has the
 -- capability and isn't there yet (value 1: tipping, open; 0: stopped,
@@ -745,6 +780,8 @@ end
 --   job        function(vehicle, value) -> a job over several tools, or
 --              ALREADY
 --   key        the selected tool's other key, by its number in extraKeys
+--   width      with a tool's id and a side ("left", "right"): the only
+--              action with a side (specs/0011)
 --   values     { min, max }: the command's number and its range; without
 --              it the command carries none; whole: a whole number
 --   optional   the number may be left out (a tool's id: the key's own tool)
@@ -780,6 +817,8 @@ Commands.ACTIONS = {
     ["tool.turnOn"] = { tool = true, aim = AIMED.TURN_ON_IMPLEMENT, values = SET },
     ["tool.pipe"] = { tool = true, aim = AIMED.TOGGLE_PIPE, values = SET },
     ["tool.tip"] = { tool = true, aim = AIMED.TOGGLE_DISCHARGE, values = SET },
+    -- one section in (-1) or out (1) on one side (specs/0011)
+    ["tool.width"] = { tool = true, width = true, values = { -1, 1, whole = true } },
     -- Attach (specs/0003): the attach key (Q), only while the game has
     -- something in reach; detaching is each card's Detach. (C2's first try
     -- ran DETACH for an attached implement, which isn't what Q does.)
@@ -822,8 +861,17 @@ local function inRange(range, value)
         and (not range.whole or value == math.floor(value))
 end
 
--- whether the command's number and tool fit its action
-local function valueFits(spec, value, tool)
+local SIDES = { left = true, right = true }
+
+-- whether the command's number, tool and side fit its action
+local function valueFits(spec, value, tool, side)
+    if spec.width then
+        if not SIDES[side] or value == 0 then
+            return false
+        end
+    elseif side ~= nil then
+        return false
+    end
     if spec.tool then
         if tool == nil or not inRange({ TOOL_ID[1], TOOL_ID[2], whole = true }, tool) then
             return false
@@ -840,7 +888,7 @@ local function valueFits(spec, value, tool)
     return inRange(spec.values, value)
 end
 
-local ATTRIBUTES = { "session", "id", "action", "ref", "value", "tool" }
+local ATTRIBUTES = { "session", "id", "action", "ref", "value", "tool", "side" }
 
 function Commands.new(dir, sessionId, log)
     local self = setmetatable({}, Commands)
@@ -923,13 +971,13 @@ end
 
 -- returns ok, reason, via, or a job (specs/0003) as the fourth, or
 -- already (specs/0008) as the fifth; value: the command's number, if it has
--- one; tool: its tool's id
-local function run(actionName, value, tool)
+-- one; tool: its tool's id; side: tool.width's
+local function run(actionName, value, tool, side)
     local spec = Commands.ACTIONS[actionName]
     if spec == nil then
         return false, "action not allowed"
     end
-    if not valueFits(spec, value, tool) then
+    if not valueFits(spec, value, tool, side) then
         return false, "value not allowed"
     end
     local vehicle = Api.controlledVehicle()
@@ -947,6 +995,13 @@ local function run(actionName, value, tool)
     end
     if spec.state ~= nil and spec.state(vehicle) == value then
         return true, nil, nil, nil, true
+    end
+    if spec.width then
+        local job, why = widthJob(vehicle, tool, side, value)
+        if job == nil then
+            return false, why
+        end
+        return nil, nil, nil, job
     end
     if spec.tool then
         local job, why, already = aimed(vehicle, spec.aim, tool, value == 1)
@@ -1026,7 +1081,7 @@ local function press(step, root)
     end
     for _, target in ipairs(targets) do
         local name = type(target) == "table" and liveInputFor(target, step.aim.inputs) or nil
-        if name ~= nil and runInputAction(name, 1, target) > 0 then
+        if name ~= nil and runInputAction(name, step.value or 1, target) > 0 then
             return name
         end
     end
@@ -1254,7 +1309,7 @@ function Commands:poll()
     end
     self.nextId = id + 1
     local ran, reason, via, job, already
-    ok, ran, reason, via, job, already = pcall(run, cmd.action, tonumber(cmd.value), tonumber(cmd.tool))
+    ok, ran, reason, via, job, already = pcall(run, cmd.action, tonumber(cmd.value), tonumber(cmd.tool), cmd.side)
     if ok and job ~= nil then
         job.ack = { id = id, ref = cmd.ref, action = cmd.action }
         self.job = job

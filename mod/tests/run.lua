@@ -703,12 +703,13 @@ local function commandStubs(dir)
             }
         end,
     }
-    return function(id, session, action, ref, value, tool)
+    return function(id, session, action, ref, value, tool, side)
         local f = assert(io.open(string.format("%s%d.xml", dir, id), "w"))
-        f:write(string.format('<command session="%s" id="%d" action="%s" ref="%s"%s%s/>',
+        f:write(string.format('<command session="%s" id="%d" action="%s" ref="%s"%s%s%s/>',
             session, id, action, ref or ("r" .. id),
             value ~= nil and string.format(' value="%.3f"', value) or "",
-            tool ~= nil and string.format(' tool="%d"', tool) or ""))
+            tool ~= nil and string.format(' tool="%d"', tool) or "",
+            side ~= nil and string.format(' side="%s"', side) or ""))
         f:close()
     end
 end
@@ -2345,9 +2346,9 @@ local function spikeCommands(name)
         return commands:poll()
     end
     -- the ack and how many frames it took
-    local function run(action, value, tool)
+    local function run(action, value, tool, side)
         n = n + 1
-        write(n, "S7", action, nil, value, tool)
+        write(n, "S7", action, nil, value, tool, side)
         -- room for the check's wait (spec 0003 revision 2)
         for i = 1, 300 do
             local ack = frame()
@@ -2939,6 +2940,164 @@ test("capabilities: tipTo follows the tip key the game shows, else getCanDischar
     eq(tipTo(1003), "object")
     g_inputBinding = nil
     localToLocal = nil
+end)
+
+-- Sprayer (specs/0011) -------------------------------------------------------
+
+-- the width keys as the probe may find them live (spike 0.0.4 didn't);
+-- their labels are made up
+local WIDTH_KEYS = {
+    { action = "VARIABLE_WORK_WIDTH_LEFT", active = true, text = "Partial width left" },
+    { action = "VARIABLE_WORK_WIDTH_RIGHT", active = true, text = "Partial width right" },
+}
+
+-- a sprayer with sections (spike 0.0.4's Berthoud: 4 + 4 and a centre), the
+-- left side at `left`, its width keys registered when `keys`
+local function sectionSprayer(left, keys)
+    SpikeRigs.binding()
+    local o = { id = 31, typeName = "sprayer", unfolded = true, spec_turnOnVehicle = {},
+        spec_variableWorkWidth = { hasSections = true, leftSide = left, leftSideMax = 4, rightSide = 4,
+            rightSideMax = 4, hasCenter = true },
+        spec_foldable = { foldingParts = { {} }, unfoldWarning = "First unfold the sprayer" } }
+    o.getFullName = function() return "Berthoud Vantage 4300" end
+    o.getIsUnfolded = function(self) return self.unfolded end
+    o.getAllowsLowering = function() return false end
+    o.getIsTurnedOn = function() return false end
+    o.getCanBeTurnedOn = function(self) return self.unfolded end
+    for _, key in ipairs(keys and WIDTH_KEYS or {}) do
+        SpikeRigs.register(o, "variableWorkWidth", key)
+    end
+    return o
+end
+
+test("sprayer: the width from the boom's sections; absent without or when a read fails; can has width only with sections and their keys", function()
+    local VS = Companion.VehicleState
+    local o = sectionSprayer(2, true)
+    local e = VS.capabilities(o, {}, 1)
+    eq(e.width.left, 2)
+    eq(e.width.leftMax, 4)
+    eq(e.width.right, 4)
+    eq(e.width.rightMax, 4)
+    eq(e.width.center, true)
+    eq(e.width.sections, nil, "no section widths: none sent")
+    eq(joined(e.can), "fold,turnOn,width,detach")
+    -- each section's width, when the game has one for each (unverified)
+    local sections = {}
+    for i = 1, 9 do
+        sections[i] = { width = i == 5 and 1 or 4 }
+    end
+    o.spec_variableWorkWidth.sections = sections
+    eq(joined(VS.capabilities(o, {}, 1).width.sections), "4,4,4,4,1,4,4,4,4")
+    sections[9] = nil
+    eq(VS.capabilities(o, {}, 1).width.sections, nil, "one missing: none")
+    -- no sections: no width, no capability, its keys or not
+    o.spec_variableWorkWidth.hasSections = false
+    e = VS.capabilities(o, {}, 1)
+    eq(e.width, nil, "no sections")
+    eq(joined(e.can), "fold,turnOn,detach")
+    -- a read that throws: no width
+    o.spec_variableWorkWidth = setmetatable({ hasSections = true, leftSideMax = 4, rightSide = 4, rightSideMax = 4 },
+        { __index = function(_, k) if k == "leftSide" then error("boom") end end })
+    eq(VS.capabilities(o, {}, 1).width, nil, "a read failed")
+    -- its keys never live: the width read-only, no capability
+    local readOnly = sectionSprayer(4, false)
+    e = VS.capabilities(readOnly, {}, 1)
+    eq(e.width.left, 4)
+    eq(joined(e.can), "fold,turnOn,detach")
+    -- seen live once (selected), the capability stays while it isn't
+    local seen = sectionSprayer(4, true)
+    VS.capabilities(seen, {}, 1)
+    SpikeRigs.unregister(seen)
+    eq(joined(VS.capabilities(seen, {}, 1).can), "fold,turnOn,width,detach", "kept")
+    -- the width keys have a button: not other keys
+    SpikeRigs.register(seen, "variableWorkWidth", WIDTH_KEYS[1])
+    SpikeRigs.register(seen, "variableWorkWidth", { action = "VARIABLE_WORK_WIDTH_TOGGLE", text = "Toggle partial width" })
+    eq(joined(VS.extraKeys(seen, VS.capabilities(seen, {}, 1).can)), "Toggle partial width")
+    -- folded: not now, with the game's words
+    seen.unfolded = false
+    e = VS.capabilities(seen, {}, 1)
+    eq(e.canNow.width, false)
+    eq(e.whyNot.width, "First unfold the sprayer")
+    g_inputBinding = nil
+end)
+
+test("commands, sprayer: tool.width presses its side's key once, ok once that side moved by one; else Nothing moved; folded, the game's words", function()
+    if TMP_DIR == nil then
+        return
+    end
+    local C = Companion.Commands
+    C.CHECK_MAX_FRAMES = 5
+    local run, root, byId, pressed = spikeCommands("sprayer")
+    local sprayer = byId[1031]
+    sprayer.dump.keys.variableWorkWidth = WIDTH_KEYS
+    SpikeRigs.registerKeys(root)
+    local spec = sprayer.spec_variableWorkWidth
+    eq(spec.leftSide, 4, "spike 0.0.4: all on")
+    local ack, frames = run("tool.width", -1, 1031, "left")
+    eq(ack.ok, true, "left in: " .. tostring(ack.reason))
+    eq(ack.checked, true)
+    eq(ack.via, "VARIABLE_WORK_WIDTH_LEFT")
+    eq(pressed(), "1031:VARIABLE_WORK_WIDTH_LEFT", "once, on the sprayer")
+    eq(spec.leftSide, 3)
+    eq(frames, 1)
+    -- at its limit: refused, nothing pressed
+    ack = run("tool.width", 1, 1031, "right")
+    eq(ack.ok, false)
+    eq(ack.reason, "at its limit")
+    eq(pressed(), "")
+    eq(run("tool.width", -1, 1031, "right").ok, true)
+    eq(spec.rightSide, 3)
+    eq(pressed(), "1031:VARIABLE_WORK_WIDTH_RIGHT")
+    -- a key that does nothing: "Nothing moved", after the check's wait
+    sprayer.stuck = true
+    ack, frames = run("tool.width", -1, 1031, "left")
+    sprayer.stuck = nil
+    eq(ack.ok, false)
+    eq(ack.reason, "Nothing moved")
+    eq(ack.unmoved[1].id, 1031)
+    eq(frames > C.CHECK_MAX_FRAMES, true, "waited for it: " .. frames)
+    eq(spec.leftSide, 3)
+    eq(pressed(), "1031:VARIABLE_WORK_WIDTH_LEFT")
+    -- folded: refused at once with the game's words
+    sprayer.foldDirection = -1
+    sprayer.spec_foldable.unfoldWarning = "First unfold the sprayer"
+    ack, frames = run("tool.width", 1, 1031, "left")
+    eq(ack.ok, false)
+    eq(ack.reason, "First unfold the sprayer")
+    eq(frames, 1)
+    eq(pressed(), "")
+    sprayer.foldDirection = 1
+    -- the side and the value checked; a side only on tool.width
+    eq(run("tool.width", 1, 1031, "middle").reason, "value not allowed")
+    eq(run("tool.width", 1, 1031).reason, "value not allowed")
+    eq(run("tool.width", 0, 1031, "left").reason, "value not allowed")
+    eq(run("tool.width", 2, 1031, "left").reason, "value not allowed")
+    eq(run("tool.fold", 1, 1031, "left").reason, "value not allowed")
+    eq(pressed(), "")
+    C.CHECK_MAX_FRAMES = 240
+    g_inputBinding = nil
+    localToLocal = nil
+end)
+
+test("sprayer: the vehicle's own other keys leave out its driving parts' keys", function()
+    local VS = Companion.VehicleState
+    SpikeRigs.binding()
+    local o = { id = 40, typeName = "sprayer" }
+    o.getFullName = function() return "Hardi Rubicon 9000" end
+    o.selectableObjects = { { vehicle = o } }
+    o.getSelectedVehicle = function(self) return self end
+    o.getAttachedImplements = function() return {} end
+    SpikeRigs.register(o, "drivable", { action = "AXIS_ACCELERATE_VEHICLE", text = "Accelerate" })
+    SpikeRigs.register(o, "drivable", { action = "AXIS_MOVE_SIDE_VEHICLE", text = "Steer vehicle" })
+    SpikeRigs.register(o, "honk", { action = "HONK", text = "Honk" })
+    SpikeRigs.register(o, "FS25_precisionFarming.extendedMotorized", { action = "PRECISIONFARMING_TOGGLE_X", text = "Motor info" })
+    SpikeRigs.register(o, "sprayer", { action = "DOUBLED_SPRAY_AMOUNT", text = "Activate doubled application rate" })
+    local rig = VS.rig(o)
+    eq(rig[1].selected, true, "the vehicle selected")
+    eq(joined(rig[1].extraKeys), "Activate doubled application rate")
+    -- a tool's keys stay as they were
+    eq(#VS.extraKeys(o, {}), 5)
+    g_inputBinding = nil
 end)
 
 test("whole mod streams every topic", function()

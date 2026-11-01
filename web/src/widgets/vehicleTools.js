@@ -10,6 +10,9 @@
 //   game's parts), never one per tool type, and the selected tool's other
 //   live keys with the game's own labels. Three or more cards go compact.
 // - toolsAlso: each tool with no card (a weight), one line, Lower and Detach.
+// A sprayer's card shows its working width (specs/0011-sprayer.md): a strip
+// of its sections and how many are on, with Left / Right in / out where the
+// game's width keys are live.
 // A tap on a card's head selects that tool in game; a button aims at its
 // own tool (the command carries its id); the page never changes.
 // Estimates come from data/rates.js.
@@ -18,7 +21,7 @@ import {
   allActions, alsoAttached, buttonCapsOf, cabOf, canOf, cardsOf, controlledVehicle, entryModel, fillMax, fillName, fillPct,
   fillStop, fillsOf, implementById, kindLabel, lowersInRig, screenRig, vehicleKind,
 } from "../data/selectors.js";
-import { areaText, lengthText, speedUnit, speedValue, unitsOf } from "../data/units.js";
+import { areaText, lengthText, lengthUnit, lengthValue, speedUnit, speedValue, unitsOf } from "../data/units.js";
 import { minutesText, ratesOf, timeLeft } from "../data/rates.js";
 import { sendCommand } from "../connection.js";
 import { fillMeter, hitchText, maxBadge } from "./implements.js";
@@ -29,7 +32,11 @@ import { icon } from "../ui/icons.js";
 /** @typedef {import("../types.js").RigEntry} RigEntry */
 /** @typedef {import("../data/selectors.js").Implement} Implement */
 /** @typedef {import("../types.js").Vehicle} Vehicle */
-/** @typedef {(action: string, value?: number, tool?: number) => Promise<import("../commands.js").CommandResult>} Send */
+/** @typedef {import("../types.js").RigWidth} RigWidth */
+/**
+ * @typedef {(action: string, value?: number, tool?: number, side?: "left"|"right") =>
+ *   Promise<import("../commands.js").CommandResult>} Send
+ */
 
 // a tank this full (of where it stops: its weight limit, else its
 // capacity), or full this soon, asks for a trailer
@@ -163,9 +170,11 @@ export function pickable(el, e, name, send) {
  * One button: what a tap does, the command (with the tool's id), lit or
  * not, unavailable (why: the game's reason, not shown), a value line.
  * value: the state a tap asks for (specs/0008) with the tool's id as tool,
- * or a one-shot's number (the tool's id for Tip side and Detach).
+ * or a one-shot's number (the tool's id for Tip side and Detach); side:
+ * tool.width's (specs/0011).
  * @typedef {{key: string, label: string, icon: string, action: string, value?: number, tool?: number, on: boolean,
- *   unavailable?: boolean, why?: string, moving?: boolean, progressive?: boolean, line?: string}} ToolButton
+ *   side?: "left"|"right", unavailable?: boolean, why?: string, moving?: boolean, progressive?: boolean,
+ *   line?: string}} ToolButton
  */
 
 /** Unavailable while the game says not now, with its words (or the button's own, or ours). */
@@ -179,7 +188,10 @@ const whyNot = (/** @type {RigEntry} */ e, /** @type {string} */ cap, /** @type 
  * "Tip") and asking the tool for that state (specs/0008: tool.lower 0 for
  * Raise); the vehicle's own card has no Detach. The selected tool's other
  * live keys follow, with the game's labels (cover, rotate and the bale
- * counter's among them until their own spec: spec 0003's close).
+ * counter's among them until their own spec: spec 0003's close). The
+ * width (specs/0011) gives four: Left out, Left in, Right in, Right out,
+ * one section each; a side at its limit fades its button (keys "width:…",
+ * shown in the card's width row).
  * @param {RigEntry} e
  * @returns {ToolButton[]}
  */
@@ -217,6 +229,13 @@ export function toolButtons(e) {
   /** @type {ToolButton[]} */
   const out = [];
   for (const cap of can) {
+    if (cap === "width") {
+      for (const b of widthButtons(e, id)) {
+        if (notNow(e, cap)) Object.assign(b, { unavailable: true, why: whyNot(e, cap) });
+        out.push(b);
+      }
+      continue;
+    }
     const b = make[cap]?.();
     if (!b) continue;
     const button = { key: cap, ...b };
@@ -234,6 +253,70 @@ export function toolButtons(e) {
 }
 
 /**
+ * The width's four buttons, always together (as the Cruise row), each side's
+ * at its end of the strip: Left out, Left in, Right in, Right out. In takes
+ * one section off that side (-1), out puts one back (+1), as the game's
+ * width key for that side does.
+ * @param {RigEntry} e
+ * @param {number|undefined} id
+ * @returns {ToolButton[]}
+ */
+function widthButtons(e, id) {
+  const w = e.width;
+  if (!w) return [];
+  /** @type {[string, "left"|"right", number, string][]} */
+  const four = [["Left out", "left", 1, "widthLeftOut"], ["Left in", "left", -1, "widthLeftIn"],
+    ["Right in", "right", -1, "widthRightIn"], ["Right out", "right", 1, "widthRightOut"]];
+  return four.map(([label, side, value, glyph]) => {
+    const now = side === "left" ? w.left : w.right;
+    const max = side === "left" ? w.leftMax : w.rightMax;
+    const atLimit = value < 0 ? now <= 0 : now >= max;
+    return { key: `width:${side}${value < 0 ? "In" : "Out"}`, label, icon: glyph, action: "tool.width", value, tool: id,
+      side, on: false, ...(atLimit ? { unavailable: true } : {}) };
+  });
+}
+
+/**
+ * The strip's sections, left to right as seen from the cab: each true while
+ * on. A side's outer sections go off first; the middle one is always on.
+ * @param {RigWidth} w
+ * @returns {boolean[]}
+ */
+export function widthSegments(w) {
+  const left = Array.from({ length: w.leftMax }, (_, i) => i >= w.leftMax - w.left);
+  const right = Array.from({ length: w.rightMax }, (_, i) => i < w.right);
+  return [...left, ...(w.center ? [true] : []), ...right];
+}
+
+/**
+ * The metres in use and in all, from the game's section widths (one for
+ * each, left to right); undefined without them: never an estimate.
+ * @param {RigWidth} w
+ * @returns {{used: number, all: number}|undefined}
+ */
+export function widthMetres(w) {
+  const on = widthSegments(w);
+  if (!Array.isArray(w.sections) || w.sections.length !== on.length) return undefined;
+  if (!w.sections.every((m) => typeof m === "number" && m >= 0)) return undefined;
+  return { used: w.sections.reduce((sum, m, i) => sum + (on[i] ? m : 0), 0), all: w.sections.reduce((a, b) => a + b, 0) };
+}
+
+/**
+ * "8 / 9 sections · 30 / 33 m" (Vincent, 2026-11-01); the sections alone
+ * until the mod has their widths.
+ * @param {RigWidth} w
+ * @param {import("../data/units.js").Units} units
+ */
+export function widthLine(w, units) {
+  const on = widthSegments(w);
+  const sections = `${on.filter(Boolean).length} / ${on.length} sections`;
+  const m = widthMetres(w);
+  if (!m) return sections;
+  const n = (/** @type {number} */ x) => Math.round(lengthValue(x, units));
+  return `${sections} · ${n(m.used)} / ${n(m.all)} ${lengthUnit(units)}`;
+}
+
+/**
  * A row of buttons kept across renders, so a tap's pending state survives
  * the cab's next update. Each sends its command; pending until the ack,
  * then until its state changes (at most 1.5 s). A failed answer ("Nothing
@@ -245,8 +328,8 @@ export function toolButtons(e) {
  */
 function buttonRow(send, onWhy) {
   const sent = send;
-  send = async (action, value, tool) => {
-    const result = await sent(action, value, tool);
+  send = async (action, value, tool, side) => {
+    const result = await sent(action, value, tool, side);
     if (!result.ok && result.reason) onWhy?.(result.reason);
     return result;
   };
@@ -265,7 +348,7 @@ function buttonRow(send, onWhy) {
           if (shown.has(b.key)) continue;
           const item = { b, ui: /** @type {ReturnType<typeof createControl>} */ (/** @type {unknown} */ (undefined)) };
           item.ui = createControl({ label: b.label, icon: b.icon, progressive: b.progressive },
-            () => send(item.b.action, item.b.value, item.b.tool),
+            () => send(item.b.action, item.b.value, item.b.tool, item.b.side),
             { ms: 1500, key: () => `${item.b.on}:${item.b.label}:${item.b.line ?? ""}` });
           item.ui.el.dataset.control = b.key;
           shown.set(b.key, item);
@@ -297,7 +380,8 @@ export function cardSub(/** @type {RigEntry} */ e, /** @type {Vehicle|undefined}
 /** @typedef {{label: string, value: string, pct?: number, level?: string, title?: string}} Stat */
 
 /**
- * A card's stats: speed against the tool's working limit, working width,
+ * A card's stats: speed against the tool's working limit, working width
+ * (a sprayer's in use, where its sections' widths are known),
  * area this run, and the tool's own wear (not on the vehicle's card: the
  * band has it).
  * @param {RigEntry} e
@@ -318,7 +402,10 @@ export function cardStats(e, v, rates, units) {
     out.push({ label: "Speed", value: `${Math.round(speedValue(kmh, units))} / ${Math.round(speedValue(limit, units))} ${unit}`,
       pct: (100 * kmh) / limit, level: kmh > limit + 0.5 ? "warn" : undefined, title: "Speed / the tool's working limit" });
   } else out.push({ label: "Speed", value: `${fmt(speedValue(kmh, units), 1)} ${unit}` });
-  out.push({ label: "Width", value: typeof d?.workWidth === "number" && d.workWidth > 0 ? lengthText(d.workWidth, units) : "–" });
+  // a sprayer's width in use, from its sections' widths (specs/0011)
+  const inUse = e.width ? widthMetres(e.width)?.used : undefined;
+  const width = inUse ?? (typeof d?.workWidth === "number" && d.workWidth > 0 ? d.workWidth : undefined);
+  out.push({ label: "Width", value: width !== undefined ? lengthText(width, units) : "–" });
   const ha = rates.area(e.depth === 0 ? v?.id : e.id);
   // from a hundredth of a hectare: less shows as 0.00
   out.push({ label: "Area", value: typeof ha === "number" && ha >= 0.01 ? `≈ ${areaText(ha, units)}` : "–",
@@ -378,6 +465,47 @@ function reasonNote() {
 }
 
 /**
+ * The card's working width (specs/0011): the strip, its line and the four
+ * buttons; hidden on a tool without sections.
+ * @param {Send} send
+ * @param {(why: string) => void} onWhy
+ */
+function widthBlock(send, onWhy) {
+  const strip = h("div", { className: "tool-width-strip" });
+  strip.setAttribute("aria-hidden", "true");
+  const line = h("span", { className: "tool-width-line" });
+  const buttons = buttonRow(send, onWhy);
+  const el = h("div", { className: "tool-width" }, h("div", { className: "tool-width-head" }, strip, line), buttons.el);
+  el.hidden = true;
+  let lastStrip = "";
+  return {
+    el,
+    /**
+     * @param {RigWidth|undefined} w
+     * @param {ToolButton[]} four
+     * @param {import("../data/units.js").Units} units
+     */
+    render(w, four, units) {
+      el.hidden = !w;
+      if (!w) return;
+      const on = widthSegments(w);
+      const key = on.join();
+      if (key !== lastStrip) {
+        lastStrip = key;
+        strip.replaceChildren(...on.map((o) => {
+          const seg = h("span", { className: "tool-width-seg" });
+          seg.dataset.on = String(o);
+          return seg;
+        }));
+      }
+      line.textContent = widthLine(w, units);
+      buttons.el.hidden = four.length === 0;
+      buttons.set(four);
+    },
+  };
+}
+
+/**
  * One card, kept for its tool across renders.
  * @param {Send} send
  */
@@ -390,8 +518,9 @@ function toolCard(send) {
   const stats = h("div", { className: "tool-stats" });
   const note = reasonNote();
   const buttons = buttonRow(send, note.show);
+  const width = widthBlock(send, note.show);
   const tanks = h("div", { className: "tool-tanks" });
-  const el = h("section", { className: "tool-card" }, head, stats, buttons.el, tanks, note.el);
+  const el = h("section", { className: "tool-card" }, head, stats, buttons.el, width.el, tanks, note.el);
   // a tap anywhere on the card selects its tool, as the head does; its
   // buttons only press (specs/0010, revision 2)
   el.addEventListener("click", (ev) => {
@@ -408,8 +537,9 @@ function toolCard(send) {
     /**
      * @param {RigEntry} e @param {Vehicle|undefined} v @param {ReturnType<typeof ratesOf>} rates
      * @param {import("../data/units.js").Units} units
+     * @param {boolean} [compact] three or more cards: the width's buttons go
      */
-    render(e, v, rates, units) {
+    render(e, v, rates, units, compact = false) {
       const model = entryModel(e, v) || "Tool";
       el.dataset.id = String(e.id);
       el.dataset.vehicle = String(e.depth === 0);
@@ -437,7 +567,9 @@ function toolCard(send) {
         lastStats = stKey;
         stats.replaceChildren(...st.map(statTile));
       }
-      buttons.set(toolButtons(e));
+      const all = toolButtons(e);
+      buttons.set(all.filter((b) => !b.key.startsWith("width:")));
+      width.render(e.width, compact ? [] : all.filter((b) => b.key.startsWith("width:")), units);
       const rows = tankRows(rigTanks([e], v, rates));
       const tKey = JSON.stringify(rows);
       if (tKey !== lastTanks) {
@@ -487,7 +619,7 @@ export function toolCards(store, opts = {}) {
       list.replaceChildren(...keys.map((key) => /** @type {any} */ (cards.get(key)).el));
     }
     const units = unitsOf(store);
-    shown.forEach((e, i) => cards.get(keys[i])?.render(e, v, rates, units));
+    shown.forEach((e, i) => cards.get(keys[i])?.render(e, v, rates, units, shown.length >= COMPACT_FROM));
   };
   store.subscribe("vehicles", render);
   store.subscribe("cab", render);

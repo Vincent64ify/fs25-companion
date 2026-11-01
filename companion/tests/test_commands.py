@@ -189,6 +189,11 @@ def test_the_file_carries_the_tool(tmp_path):
     assert (a["action"], a["value"], a["tool"]) == ("tool.lower", "1.000", "9")
     writer.submit("2", "beacon.set", 0)
     assert "tool" not in attrs(tmp_path / "cmd" / "2.xml")
+    assert "side" not in attrs(tmp_path / "cmd" / "2.xml")
+    # specs/0011: tool.width's side
+    writer.submit("3", "tool.width", -1, 1031, "left")
+    a = attrs(tmp_path / "cmd" / "3.xml")
+    assert (a["action"], a["value"], a["tool"], a["side"]) == ("tool.width", "-1.000", "1031", "left")
 
 
 def test_every_command_is_written_as_it_comes(tmp_path):

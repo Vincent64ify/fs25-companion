@@ -385,14 +385,17 @@ export function screenRig(v, cab) {
 }
 
 /** A card's buttons come from these, in this order (mod 0.8.7's `can`). */
-export const CAPABILITIES = ["lower", "fold", "turnOn", "tip", "tipSide", "cover", "pipe", "rotate", "bales", "detach"];
+export const CAPABILITIES = ["lower", "fold", "turnOn", "tip", "tipSide", "cover", "pipe", "rotate", "bales", "width",
+  "detach"];
 
 /**
  * The capabilities with a button: the ones confirmed in game (spec 0003's
  * close). Cover, rotate and bales wait for their own spec; until then the
  * mod sends their keys among the selected tool's other keys (mod 0.8.17).
+ * The width (mod 0.12.0, specs/0011): only where the game's width keys are
+ * live; its four buttons have their own row.
  */
-export const BUTTON_CAPABILITIES = ["lower", "fold", "turnOn", "tip", "tipSide", "pipe", "detach"];
+export const BUTTON_CAPABILITIES = ["lower", "fold", "turnOn", "tip", "tipSide", "pipe", "width", "detach"];
 
 /** What a rig member's card has buttons for. @param {import("../types.js").RigEntry} e */
 export const buttonCapsOf = (e) => canOf(e).filter((c) => BUTTON_CAPABILITIES.includes(c));

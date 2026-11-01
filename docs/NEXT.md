@@ -53,4 +53,6 @@ Things to fix next, in no particular order. Longer-term ideas are under
 - **The vehicle's other keys:** with the tractor itself selected, its
   `extraKeys` list every driving key (Accelerate, Steer vehicle, Honk...;
   live 2026-10-31, the Vestrum 100). No card shows them today (a tractor
-  has none), but a self-propelled sprayer's would.
+  has none), but a self-propelled sprayer's would. Built in
+  [spec 0011](../specs/0011-sprayer.md) (mod 0.12.0): the vehicle's own
+  keys leave its driving parts' keys out; its live check confirms it.

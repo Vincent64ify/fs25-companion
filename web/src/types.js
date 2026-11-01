@@ -149,12 +149,22 @@
  * while the game refuses it now; a trailer's tipSide, a plow's rotation,
  * the bale counter; the selected one's other live keys with the game's
  * labels (extraKeys).
+ * A sprayer's working width (mod 0.12.0, specs/0011): how many sections
+ * are on each side, from 0 to its max, whether there's a middle one
+ * (always on), and each section's width in metres left to right when the
+ * game gives them. The `width` capability only where the game's width keys
+ * are live; without it the width is read-only. The vehicle's own entry
+ * (depth 0) leaves its driving keys out of extraKeys.
  * @typedef {SelectedImplement & {id?: number, parent?: number, depth: number, side?: "front"|"rear",
  *   selectable?: boolean, selected?: boolean, pipe?: {out: boolean, moving: boolean}, discharging?: boolean,
  *   trailer?: boolean, cover?: {open: boolean}, can?: string[], canNow?: Record<string, boolean>,
  *   whyNot?: Record<string, string>, tipSide?: {index: number, count: number, name?: string}, tipTo?: "object"|"ground",
- *   plow?: {rotated: boolean}, bales?: {count?: number, total?: number},
+ *   plow?: {rotated: boolean}, bales?: {count?: number, total?: number}, width?: RigWidth,
  *   extraKeys?: {action: string, text: string}[]}} RigEntry
+ */
+
+/**
+ * @typedef {{left: number, leftMax: number, right: number, rightMax: number, center: boolean, sections?: number[]}} RigWidth
  */
 
 /**

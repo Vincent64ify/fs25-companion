@@ -1,12 +1,13 @@
 """Write the dashboard's commands where the mod reads them.
 
-The server hands a viewer's command over as (ref, action, value, tool),
+The server hands a viewer's command over as (ref, action, value, tool, side),
 its shape checked. This module writes it as it is; the mod checks the
 action and its value against its own list (specs/0007):
 
     <profile>/modSettings/FS25_Companion/cmd/<n>.xml
     <command session="<sessionId>" id="<n>" action="beacon.set" ref="<ref>" value="1.000"/>
     <command ... action="tool.lower" ref="<ref>" value="1.000" tool="9"/>
+    <command ... action="tool.width" ref="<ref>" value="-1.000" tool="9" side="left"/>
 
 numbered from 1 per game session (the hello's sessionId), continuing from
 hello.commands.next when the companion starts mid-session. Each file is
@@ -98,9 +99,10 @@ class CommandWriter:
         except OSError:
             pass
 
-    def submit(self, ref: str, action: str, value: Any = None, tool: Optional[int] = None) -> None:
+    def submit(self, ref: str, action: str, value: Any = None, tool: Optional[int] = None,
+               side: Optional[str] = None) -> None:
         """The server checked the shape; the mod checks the action, its
-        value and its tool (specs/0007, 0008)."""
+        value, its tool and its side (specs/0007, 0008, 0011)."""
         if self.cmd_dir is None:
             self.put(ack_envelope(ref, "no game (replay)"))
             return
@@ -112,7 +114,7 @@ class CommandWriter:
             return
         cid = self.next_id
         try:
-            self.write(cid, action, ref, value, tool)
+            self.write(cid, action, ref, value, tool, side)
         except OSError as e:
             log.warning("cannot write command %d: %s", cid, e)
             self.put(ack_envelope(ref, "cannot write the command file"))
@@ -121,7 +123,8 @@ class CommandWriter:
         self._refs[cid] = ref
         self.fast_until = self.clock() + FAST_POLL_S
 
-    def write(self, cid: int, action: str, ref: str, value: Any = None, tool: Optional[int] = None) -> Path:
+    def write(self, cid: int, action: str, ref: str, value: Any = None, tool: Optional[int] = None,
+              side: Optional[str] = None) -> Path:
         assert self.cmd_dir is not None
         self.cmd_dir.mkdir(parents=True, exist_ok=True)
         path = self.cmd_dir / f"{cid}.xml"
@@ -131,6 +134,7 @@ class CommandWriter:
                 f"action={quoteattr(action)} ref={quoteattr(ref)}"
                 + (f' value="{float(value):.3f}"' if value is not None else "")
                 + (f' tool="{int(tool)}"' if tool is not None else "")
+                + (f" side={quoteattr(side)}" if side is not None else "")
                 + "/>\n")
         tmp.write_text(text, encoding="utf-8")
         # read it back once before the rename: the mod's first open is then

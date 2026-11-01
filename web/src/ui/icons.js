@@ -32,6 +32,12 @@ const cloudUp = (dy) => `<g transform="translate(0 ${-dy})">${CLOUD}</g>`;
 // a dial open at the bottom, with ticks
 const DIAL_RIM = '<path d="M6.3 18.7A8 8 0 1 1 17.7 18.7M12 7.5v1M17.5 13h-1M6.5 13h1"/>';
 const DIAL = DIAL_RIM + '<circle cx="12" cy="13" r="1.6" fill="currentColor"/>';
+/** The same markup mirrored left to right. */
+const mirror = (markup) => `<g transform="matrix(-1 0 0 1 24 0)">${markup}</g>`;
+// a boom from behind, its middle post, the other side left as it is
+// (dashed): one side's sections in towards the middle, or out
+const WIDTH_IN = '<path d="M12 5v14M3 12h7M6.5 8.5L10 12l-3.5 3.5"/><path d="M14 12h7" stroke-dasharray="1.6 2"/>';
+const WIDTH_OUT = '<path d="M12 5v14M4 12h6M7.5 8.5L4 12l3.5 3.5"/><path d="M14 12h7" stroke-dasharray="1.6 2"/>';
 
 /** Inner markup of each icon, in the 24 × 24 box. */
 const PATHS = {
@@ -202,6 +208,11 @@ const PATHS = {
   tipSide: '<path d="M5 15.5h14l-2-6H7z"/><path d="M3 19.5h18M9 3.5l-3 3 3 3M15 3.5l3 3-3 3"/>',
   // turning over: a plow's rotate
   rotate: '<path d="M19 12a7 7 0 1 1-2.05-4.95"/><path d="M19.5 3.5v4h-4"/>',
+  // a sprayer's sections, one side in or out (specs/0011)
+  widthLeftIn: WIDTH_IN,
+  widthLeftOut: WIDTH_OUT,
+  widthRightIn: mirror(WIDTH_IN),
+  widthRightOut: mirror(WIDTH_OUT),
   // back to zero: a counter's reset
   reset: '<path d="M4.5 12a7.5 7.5 0 1 0 2.2-5.3"/><path d="M4.5 3.5v3.7h3.7"/><path d="M12 8.5V12l2.5 2"/>',
 };
@@ -220,7 +231,7 @@ export const ICON_GROUPS = {
              "cruiseDown", "cruiseUp", "pto", "hitchUp", "hitchDown", "fold", "hitch", "implementOn",
              "aiWorker", "engineOn", "toolPrev", "toolNext"],
   "Implement screen": ["lowerAll", "pipe", "unload", "cover", "straw", "lock", "workWidth", "area"],
-  "Vehicle page": ["tipSide", "rotate", "reset"],
+  "Vehicle page": ["tipSide", "rotate", "reset", "widthLeftIn", "widthLeftOut", "widthRightIn", "widthRightOut"],
 };
 
 /** @param {string} name */

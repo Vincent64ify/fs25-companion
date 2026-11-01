@@ -35,8 +35,9 @@ class Writer:
         self.got = []
         self.answer = None
 
-    def submit(self, ref, action, value=None, tool=None):
-        self.got.append((ref, action, value) if tool is None else (ref, action, value, tool))
+    def submit(self, ref, action, value=None, tool=None, side=None):
+        got = (ref, action, value) if tool is None else (ref, action, value, tool)
+        self.got.append(got if side is None else (*got, side))
         if self.answer is not None:
             self.hub.put_ack(ack_envelope(ref, self.answer))
 
@@ -198,6 +199,21 @@ def test_a_tool_passes_through(setup):
     command(viewer, "t1", action="tool.fold", value=1, tool=1004)
     assert recv(viewer)["id"] == "t1"
     assert hub.writer.got == [(hub.writer.got[0][0], "tool.fold", 1, 1004)]
+
+
+def test_a_width_command_passes_through_with_its_side(setup):
+    """specs/0011: tool.width goes to the writer with its value, tool and
+    side; an unknown side is refused at once."""
+    client, hub, _ = setup
+    viewer = connect(client)
+    hub.writer.answer = "no game (replay)"
+    command(viewer, "w1", action="tool.width", value=-1, tool=1031, side="left")
+    assert recv(viewer)["id"] == "w1"
+    assert hub.writer.got == [(hub.writer.got[0][0], "tool.width", -1, 1031, "left")]
+    for bad in ("middle", 1, [], {}):
+        command(viewer, "w-bad", action="tool.width", value=1, tool=1031, side=bad)
+        assert recv(viewer) == {"type": "command_ack", "id": "w-bad", "ok": False, "reason": "value not allowed"}
+    assert len(hub.writer.got) == 1
 
 
 def test_any_well_formed_command_reaches_the_writer(setup):

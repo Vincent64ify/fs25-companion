@@ -1338,6 +1338,33 @@ button { font: inherit; color: inherit; }
 /* tanks side by side where the card is wide (a baler's chamber, net, wrap) */
 .tool-tanks { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 8px; min-height: 0; }
 .tool-tanks[hidden] { display: none; }
+/* a sprayer's working width (specs/0011): one row, Left out and Left in, the
+   strip of its sections left to right as seen from the cab over its line,
+   Right in and Right out; the off sections grey with a dashed outline (as an
+   unavailable control, specs/0010). Read-only or compact: the strip alone */
+.tool-width {
+  display: grid;
+  flex: none;
+  grid-template-columns: repeat(2, minmax(56px, 72px)) minmax(96px, 1fr) repeat(2, minmax(56px, 72px));
+  grid-auto-rows: 52px;
+  align-items: center;
+  gap: 6px;
+}
+.tool-width[hidden] { display: none; }
+.tool-width > .tool-buttons { display: contents; }
+.tool-width:has(> .tool-buttons[hidden]) { grid-template-columns: minmax(0, 1fr); grid-auto-rows: auto; }
+.tool-width > .tool-buttons[hidden] { display: none; }
+.tool-width-head { display: flex; flex-direction: column; order: 1; gap: 4px; min-width: 0; padding: 0 4px; }
+.tool-width .control[data-control^="width:right"] { order: 2; }
+.tool-width-strip { display: flex; gap: 3px; min-width: 0; height: 14px; }
+.tool-width-seg { flex: 1; min-width: 4px; border-radius: 4px; background: var(--badge); }
+.tool-width-seg[data-on="false"] { border: 1.5px dashed var(--muted); background: var(--chip-off-bg); }
+.tool-width-line { overflow: hidden; font-size: 13px; font-weight: 700; font-variant-numeric: tabular-nums; text-align: center;
+  text-overflow: ellipsis; white-space: nowrap; }
+/* two cards (a front tank and the sprayer): lower button rows, so the width
+   row and the tank fit at 1180 x 820 */
+.tool-cards[data-count="2"] .tool-card:has(> .tool-width:not([hidden])) { gap: 8px; }
+.tool-cards[data-count="2"] .tool-card:has(> .tool-width:not([hidden])) > .tool-buttons { grid-auto-rows: 64px; }
 /* three or more: the compact form, head, buttons and the main meter */
 .tool-cards[data-compact="true"] .tool-card { gap: 8px; padding: 10px 12px; }
 .tool-cards[data-compact="true"] :is(.tool-stats, .tank:not(:first-child), .tank-foot) { display: none; }
@@ -1349,6 +1376,7 @@ button { font: inherit; color: inherit; }
 .tool-cards[data-compact="true"] .tool-buttons .control .icon { width: 22px; height: 22px; }
 .tool-cards[data-compact="true"] .tool-buttons .control[data-control^="key:"] .control-label { -webkit-line-clamp: 2; line-clamp: 2; }
 .tool-cards[data-compact="true"] .tank { gap: 4px; padding: 6px 10px; }
+.tool-cards[data-compact="true"] .tool-width-strip { height: 10px; }
 .tool-cards[data-compact="true"] .tank-pct { font-size: 17px; }
 
 /* Also attached: one line each, its buttons at the end */

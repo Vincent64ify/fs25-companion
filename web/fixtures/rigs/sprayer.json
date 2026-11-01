@@ -80,7 +80,14 @@
     "selected": true,
     "side": "rear",
     "turnedOn": false,
-    "unfolded": true
+    "unfolded": true,
+    "width": {
+     "center": true,
+     "left": 4,
+     "leftMax": 4,
+     "right": 4,
+     "rightMax": 4
+    }
    }
   ],
   "vehicleId": 1033
@@ -134,6 +141,9 @@
   ],
   "selected": "Vantage 4300",
   "also": [],
-  "all": []
+  "all": [],
+  "width": [
+   "Vantage 4300: ■■■■■■■■■ 9 / 9 sections: "
+  ]
  }
 }

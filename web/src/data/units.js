@@ -65,3 +65,6 @@ const FT_PER_M = 3.28084;
 
 /** A working width: "6.0 m", or "19.7 ft" with miles. @param {number} m @param {Units} u */
 export const lengthText = (m, u) => (u.miles ? `${(m * FT_PER_M).toFixed(1)} ft` : `${m.toFixed(1)} m`);
+/** A length in the player's unit, and the unit: a sprayer's "30 / 33 m" (specs/0011). */
+export const lengthValue = (/** @type {number} */ m, /** @type {Units} */ u) => (u.miles ? m * FT_PER_M : m);
+export const lengthUnit = (/** @type {Units} */ u) => (u.miles ? "ft" : "m");

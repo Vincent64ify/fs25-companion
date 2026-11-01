@@ -164,12 +164,12 @@ function SpikeRigs.register(object, specName, key)
         contextDisplayText = key.text,
         -- the game hides a key it doesn't offer now, active still (spike 0.0.8)
         displayIsVisible = key.visible,
-        callback = function(target, name)
+        callback = function(target, name, value)
             b.pressed[#b.pressed + 1] = { id = target.id, action = name }
             if target.onKey ~= nil then
-                target.onKey(name)
+                target.onKey(name, value)
             else
-                SpikeRigs.act(target, name)
+                SpikeRigs.act(target, name, value)
             end
         end,
     }
@@ -200,12 +200,19 @@ local function lowerable(o)
     return o:getAllowsLowering() or (type(o.spec_foldable) == "table" and o.spec_foldable.foldMiddleAnimTime ~= nil)
 end
 
-function SpikeRigs.act(target, name)
+function SpikeRigs.act(target, name, value)
     local root = target.getRootVehicle ~= nil and target:getRootVehicle() or target
     if root.engineOff or target.stuck then
         return
     end
-    if name == "LOWER_IMPLEMENT" then
+    local width = target.spec_variableWorkWidth
+    if (name == "VARIABLE_WORK_WIDTH_LEFT" or name == "VARIABLE_WORK_WIDTH_RIGHT") and type(width) == "table" then
+        -- which way a press goes is the probe's (specs/0011): here, the
+        -- value's way, one section, within the side's limits
+        local side = name == "VARIABLE_WORK_WIDTH_LEFT" and "left" or "right"
+        local now = width[side .. "Side"] + (value or 1)
+        width[side .. "Side"] = math.max(width.minSideState or 0, math.min(width[side .. "SideMax"], now))
+    elseif name == "LOWER_IMPLEMENT" then
         -- the tractor's key acts on the selected tool (attacher joints)
         local tool = target == root and root:getSelectedVehicle() or target
         if tool ~= nil and tool ~= root and not tool.stuck then
@@ -378,6 +385,13 @@ function SpikeRigs.member(m)
     end
     if m.workWidth ~= nil then
         o.getAIWorkAreaWidth = function() return m.workWidth end
+    end
+    -- the boom's sections (spike 0.0.4's variableWorkWidth: specs/0011)
+    local width = m.variableWorkWidth
+    if width ~= nil then
+        o.spec_variableWorkWidth = { hasSections = width.hasSections, hasCenter = width.hasCenter,
+            leftSide = width.leftSide, leftSideMax = width.leftSideMax, rightSide = width.rightSide,
+            rightSideMax = width.rightSideMax, minSideState = width.minSideState }
     end
     if m.speedLimit ~= nil then
         o.getSpeedLimit = function() return m.speedLimit end

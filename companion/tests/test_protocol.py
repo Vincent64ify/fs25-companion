@@ -83,3 +83,8 @@ def test_commands_are_checked_for_shape_only():
     assert command_refusal("tool.lower", 1, None) is None
     for tool in ("9", True, -1, 1.5, float("nan"), [], {}):
         assert command_refusal("tool.lower", 1, tool) == "value not allowed", tool
+    # a side (specs/0011, tool.width): left or right, or absent
+    assert command_refusal("tool.width", -1, 9, "left") is None
+    assert command_refusal("tool.width", 1, 9, "right") is None
+    for side in ("middle", "", "Left", 1, True, [], {}):
+        assert command_refusal("tool.width", 1, 9, side) == "value not allowed", side

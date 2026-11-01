@@ -1774,7 +1774,8 @@ check("loader pick: when", [pickSteps, menuChoices],
 const vt = await import("./src/widgets/vehicleTools.js");
 const { savedScreen } = await import("./src/themes/registry.js");
 // spike 0.0.4's rigs, as the mod's Cab collector reads them (fixtures/rig_fixtures.py)
-const RIGS = ["mowers", "trailers", "sprayer", "plow", "baler", "weight", "truck", "attach"];
+// (sprayer-width and sprayer-self made from the sprayer's dump until spec 0011's probe)
+const RIGS = ["mowers", "trailers", "sprayer", "sprayer-width", "sprayer-self", "plow", "baler", "weight", "truck", "attach"];
 const rigFix = {};
 for (const name of RIGS) rigFix[name] = await (await fetch(`fixtures/rigs/${name}.json`)).json();
 const noRates = { rate: () => undefined, rising: () => false, area: () => undefined };
@@ -1782,7 +1783,10 @@ const noRates = { rate: () => undefined, rising: () => false, area: () => undefi
 const toolsPage = (vehicles, cab) => {
   const s = createStore();
   const sent = [];
-  const send = (a, v, t) => { sent.push(t === undefined ? [a, v] : [a, v, t]); return Promise.resolve({ ok: true }); };
+  const send = (a, v, t, side) => {
+    sent.push(side !== undefined ? [a, v, t, side] : t === undefined ? [a, v] : [a, v, t]);
+    return Promise.resolve({ ok: true });
+  };
   const cardsEl = vt.toolCards(s, { send, rates: noRates });
   const allEl = vt.toolsAll(s, { send });
   const alsoEl = vt.toolsAlso(s, { send });
@@ -1790,12 +1794,18 @@ const toolsPage = (vehicles, cab) => {
   s.set("vehicles", vehicles);
   s.set("cab", cab);
   const buttons = (el) => [...el.querySelectorAll(".control")].map((b) => `${lbl(b)}:${b.dataset.state}`).join(", ");
+  // specs/0011: a card's working width, "model: ■■□ line: its buttons" (■ on, □ off)
+  const width = () => [...cardsEl.querySelectorAll(".tool-card")].filter((c) => !c.querySelector(".tool-width").hidden)
+    .map((c) => `${q(c, ".tool-name")}: ${[...c.querySelectorAll(".tool-width-seg")]
+      .map((g) => (g.dataset.on === "true" ? "■" : "□")).join("")} ${q(c, ".tool-width-line")}: ${
+      buttons(c.querySelector(".tool-width .tool-buttons"))}`);
   const shown = () => ({
     cards: [...cardsEl.querySelectorAll(".tool-card")].map((c) => `${q(c, ".tool-name")}: ${buttons(c.querySelector(".tool-buttons"))}`),
     selected: cardsEl.querySelector('.tool-card[data-selected="true"] .tool-name')?.textContent ?? null,
     also: alsoEl.hidden ? [] : [...alsoEl.querySelectorAll(".tools-also-row")]
       .map((r) => `${q(r, ".tools-also-text")}: ${buttons(r)}`),
     all: allEl.hidden ? [] : [...allEl.querySelectorAll(".control")].map((b) => `${lbl(b)}:${b.dataset.state}`),
+    ...(width().length ? { width: width() } : {}),
   });
   return { s, sent, cardsEl, allEl, alsoEl, attachEl, shown };
 };
@@ -1931,6 +1941,58 @@ check("tools: the vehicle's own card (a sprayer, the truck): no wear, no Detach;
   seederRig.shown().cards.map((c) => c.split(":")[0]), q(seederRig.cardsEl, ".tank-name")],
   [["Rubicon 9000: Fold:on, Turn off:on"], ["Speed", "Width", "Area"], false, "Hardi · Sprayers",
     ["Arocs 4133 + TECTRUM RS26", ["Speed", "Width", "Area"], false], ["Amazone Cirrus"], "Seeds"]);
+
+// --- Sprayer (specs/0011-sprayer.md) ---------------------------------------------
+
+// the strip left to right as seen from the cab, the outer sections off first;
+// the line in sections, and metres only from the game's section widths
+const berthoud = { left: 4, leftMax: 4, right: 2, rightMax: 4, center: true };
+const widthSegs = (w) => vt.widthSegments(w).map((on) => (on ? "■" : "□")).join("");
+check("sprayer: the strip, outer sections off first; the line, metres only from the section widths", [
+  widthSegs(berthoud), widthSegs({ ...berthoud, left: 1, center: false }),
+  vt.widthLine(berthoud, units.METRIC), vt.widthLine({ ...berthoud, left: 3, right: 4, sections: [4, 4, 4, 4, 1, 4, 4, 4, 4] }, units.METRIC),
+  vt.widthLine({ ...berthoud, sections: [4, 4] }, units.METRIC)],
+  ["■■■■■■■□□", "□□□■■■□□", "7 / 9 sections", "8 / 9 sections · 29 / 33 m", "7 / 9 sections"]);
+// the keys not live (spike 0.0.4): the strip and its line, no width buttons
+const roPage = toolsPage(rigFix.sprayer.vehicles, rigFix.sprayer.cab);
+check("sprayer: width but no width capability: the strip and its line, no width buttons", [
+  roPage.cardsEl.querySelectorAll(".tool-width-seg").length, q(roPage.cardsEl, ".tool-width-line"),
+  roPage.cardsEl.querySelectorAll(".tool-width .control").length],
+  [9, "9 / 9 sections", 0]);
+// each width button presses its side's key: in -1, out +1, with the side
+const widthPage = toolsPage(rigFix["sprayer-width"].vehicles, rigFix["sprayer-width"].cab);
+for (const b of widthPage.cardsEl.querySelectorAll(".tool-width .control")) tap(b);
+await Promise.resolve();
+// compact (three or more cards): the strip and its line stay, the buttons go
+const sw = rigFix["sprayer-width"];
+const swImpls = sw.vehicles.vehicles[0].implements;
+const compactPage = toolsPage({ ...sw.vehicles, vehicles: [{ ...sw.vehicles.vehicles[0], implements: [...swImpls,
+  { id: 2001, name: "Front tank A", depth: 1 }, { id: 2002, name: "Front tank B", depth: 1 }] }] },
+{ ...sw.cab, rig: [...sw.cab.rig, { id: 2001, parent: 1033, depth: 1, side: "front", can: ["fold"], unfolded: true },
+  { id: 2002, parent: 1033, depth: 1, side: "front", can: ["fold"], unfolded: true }] });
+const compactSprayer = compactPage.cardsEl.querySelector('.tool-card[data-id="1031"]');
+// folded: the four faded, with the game's words kept for the mod's answer
+const foldedWidth = vt.toolButtons({ id: 31, depth: 1, can: ["fold", "width"], unfolded: false, width: berthoud,
+  canNow: { width: false }, whyNot: { width: "First unfold the sprayer" } }).filter((b) => b.action === "tool.width");
+// the width in use on the card's Width stat, with the section widths
+const widthStat = (w) => vt.cardStats({ id: 31, depth: 1, width: w }, { id: 1, speed: 8, implements: [{ id: 31, workWidth: 33 }] },
+  noRates, units.METRIC).find((s) => s.label === "Width")?.value;
+check("sprayer: the four width buttons in one row, each its side's key; compact keeps the strip; folded, all faded", [
+  widthPage.sent, compactPage.cardsEl.dataset.compact, compactSprayer?.querySelectorAll(".tool-width-seg").length,
+  q(compactSprayer, ".tool-width-line"), compactSprayer?.querySelectorAll(".tool-width .control").length,
+  foldedWidth.map((b) => `${b.label}:${b.unavailable === true}`),
+  [widthStat(berthoud), widthStat({ ...berthoud, sections: [4, 4, 4, 4, 1, 4, 4, 4, 4] })]],
+  [[["tool.width", -1, 1031, "left"], ["tool.width", -1, 1031, "right"], ["tool.width", 1, 1031, "right"]],
+    "true", 9, "7 / 9 sections", 0, ["Left out:true", "Left in:true", "Right in:true", "Right out:true"],
+    ["33.0 m", "25.0 m"]]);
+// the self-propelled sprayer's own card: no Detach, no wear, no driving keys
+// (the mod leaves them out: fixtures/rig_fixtures.py self_propelled)
+const spPage = toolsPage(rigFix["sprayer-self"].vehicles, rigFix["sprayer-self"].cab);
+const spCard = spPage.cardsEl.querySelector('.tool-card[data-vehicle="true"]');
+check("sprayer: a self-propelled sprayer's own card: no Detach, no wear, no driving keys", [
+  statLabels(spCard), [...spCard.querySelectorAll(".tool-buttons .control")].map(lbl)
+    .filter((l) => ["Detach", "Accelerate", "Steer vehicle", "Honk"].includes(l))],
+  [["Speed", "Width", "Area"], []]);
 
 // the All row: lit while all are on; Turn on all waits while one is folded;
 // tip and cover all carry what they do

@@ -190,11 +190,12 @@ function VehicleState.rig(vehicle)
         e.joint = node.joint
         rig[#rig + 1] = e
     end
-    -- the selected one's other keys (specs/0003)
+    -- the selected one's other keys (specs/0003); the vehicle's without its
+    -- driving keys (specs/0011)
     for i, e in ipairs(rig) do
         if e.selected then
             local object = i == 1 and vehicle or VehicleState.attachedById(vehicle, e.id)
-            local keys = object ~= nil and VehicleState.extraKeys(object, e.can) or {}
+            local keys = object ~= nil and VehicleState.extraKeys(object, e.can, i == 1) or {}
             if #keys > 0 then
                 e.extraKeys = keys
             end

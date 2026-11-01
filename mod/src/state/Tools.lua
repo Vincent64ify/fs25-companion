@@ -140,7 +140,8 @@ end
 -- folding part, Cover with no cover. So each needs what the part holds.
 -- Names seen in spike 0.0.4 (the spec's Data contract) unless marked.
 
-VehicleState.CAPABILITIES = { "lower", "fold", "turnOn", "tip", "tipSide", "cover", "pipe", "rotate", "bales", "detach" }
+VehicleState.CAPABILITIES = { "lower", "fold", "turnOn", "tip", "tipSide", "cover", "pipe", "rotate", "bales", "width",
+    "detach" }
 
 -- the game's own "can't now": a boolean and its warning text
 local function allowed(object, name, ...)
@@ -226,9 +227,62 @@ local function tipToOf(object)
     return nil
 end
 
+-- The working width (specs/0011): a sprayer's sections, which the game's
+-- PARTIAL WIDTH HUD block shows. VariableWorkWidth's fields seen in spike
+-- 0.0.4 (the Berthoud Vantage 4300: 4 + 4 and a centre); each section's
+-- width is unverified. {left, leftMax, right, rightMax, center, sections?},
+-- or nil without sections or when a read fails
+function VehicleState.width(object)
+    local spec = object.spec_variableWorkWidth
+    if type(spec) ~= "table" then
+        return nil
+    end
+    local ok, out = pcall(function()
+        if spec.hasSections ~= true then
+            return nil
+        end
+        local w = { left = spec.leftSide, leftMax = spec.leftSideMax, right = spec.rightSide,
+            rightMax = spec.rightSideMax, center = spec.hasCenter == true }
+        for _, k in ipairs({ "left", "leftMax", "right", "rightMax" }) do
+            if type(w[k]) ~= "number" then
+                return nil
+            end
+        end
+        -- the metres only from the game's own widths, one for each section
+        local sections, widths = spec.sections, {}
+        local count = w.leftMax + w.rightMax + (w.center and 1 or 0)
+        if type(sections) == "table" and #sections == count then
+            for i = 1, count do
+                local section = sections[i]
+                widths[i] = type(section) == "table" and type(section.width) == "number" and section.width or nil
+            end
+            if #widths == count then
+                w.sections = widths
+            end
+        end
+        return w
+    end)
+    return ok and out or nil
+end
+
+-- the tools whose width keys were live once: the game registers them only
+-- while the tool is selected (spike 0.0.4: not even then, which the probe
+-- checks), and its buttons must not come and go with the selection
+local widthKeysSeen = setmetatable({}, { __mode = "k" })
+
+-- the width has buttons only where the game's own keys are live (Vincent,
+-- 2026-11-01: no other way in)
+local function widthKeys(object)
+    if VehicleState.liveKey(object, "VARIABLE_WORK_WIDTH_LEFT") ~= nil
+        or VehicleState.liveKey(object, "VARIABLE_WORK_WIDTH_RIGHT") ~= nil then
+        widthKeysSeen[object] = true
+    end
+    return widthKeysSeen[object] == true
+end
+
 -- sets out.can (the capabilities in CAPABILITIES' order), the state each
 -- goes with (lowered, unfolded, turnedOn, discharging, tipSide, cover,
--- pipe, plow, bales), and out.canNow[cap] = false with out.whyNot[cap] (the
+-- pipe, plow, bales, width), and out.canNow[cap] = false with out.whyNot[cap] (the
 -- game's own words) for what the game refuses now. depth 0: the vehicle.
 function VehicleState.capabilities(object, out, depth)
     local has, canNow, whyNot = {}, {}, {}
@@ -309,6 +363,17 @@ function VehicleState.capabilities(object, out, depth)
         out.bales = { count = type(counter.sessionCounter) == "number" and counter.sessionCounter or nil,
             total = type(counter.lifetimeCounter) == "number" and counter.lifetimeCounter or nil }
     end
+    out.width = VehicleState.width(object)
+    if out.width ~= nil and widthKeys(object) then
+        has.width = true
+        -- folded, the boom has no sections to switch: Foldable's own
+        -- warning (unfoldWarning, unverified)
+        if out.unfolded == false then
+            local foldable = object.spec_foldable
+            refuse("width", false, type(foldable) == "table" and type(foldable.unfoldWarning) == "string"
+                and foldable.unfoldWarning or nil)
+        end
+    end
     out.can = {}
     for _, cap in ipairs(VehicleState.CAPABILITIES) do
         if has[cap] then
@@ -356,6 +421,7 @@ local KEY_CAPS = {
     LOWER_IMPLEMENT = "lower", IMPLEMENT_EXTRA2 = "fold", TOGGLE_TIPSIDE = "tipSide",
     TOGGLE_TIPSTATE = "tip", TOGGLE_TIPSTATE_GROUND = "tip", TOGGLE_COVER = "cover", TOGGLE_PIPE = "pipe",
     DETACH = "detach", BALE_COUNTER_RESET = "bales",
+    VARIABLE_WORK_WIDTH_LEFT = "width", VARIABLE_WORK_WIDTH_RIGHT = "width",
     IMPLEMENT_EXTRA = { spec_turnOnVehicle = "turnOn", spec_plow = "rotate" },
 }
 local NOT_A_TOOL_KEY = { FOLD_ALL_IMPLEMENTS = true, TURN_ON_ALL_IMPLEMENTS = true, LOWER_ALL_IMPLEMENTS = true,
@@ -365,14 +431,32 @@ local NOT_A_TOOL_KEY = { FOLD_ALL_IMPLEMENTS = true, TURN_ON_ALL_IMPLEMENTS = tr
 -- (spec 0003's close). Cover, rotate and bales wait for their own spec;
 -- until then their keys are other keys, with the game's labels
 local BUTTON_CAPS = { lower = true, fold = true, turnOn = true, tip = true, tipSide = true, pipe = true,
-    detach = true }
+    width = true, detach = true }
+
+-- the vehicle's own driving parts: their keys (Accelerate, Steer vehicle,
+-- Honk...; live 2026-10-31, the Vestrum 100) are never a card's
+-- (specs/0011). By the part's own name, a mod's prefix left off
+-- ("FS25_precisionFarming.extendedMotorized"); unverified on a
+-- self-propelled sprayer
+local DRIVING_PARTS = {
+    drivable = true, motorized = true, enterable = true, honk = true, lights = true, wipers = true,
+    crabSteering = true, articulatedAxis = true, reverseDriving = true, dashboard = true,
+    aiDrivable = true, aiFieldWorker = true, aiJobVehicle = true, aiAutomaticSteering = true, aiVehicle = true,
+    extendedMotorized = true, enterableCameraMirrors = true,
+}
+
+-- "spec_drivable" -> "drivable", "spec_FS25_precisionFarming.extendedMotorized" -> "extendedMotorized"
+local function partName(k)
+    return (k:match("([^%.]+)$"):gsub("^spec_", ""))
+end
 
 -- the selected tool's live keys that no button in `can` covers, each
 -- once, by input action: {action, text} ("Allow create fields", "Turn on
 -- automatic drop", a modded tool's own). The turn on key never is: Turn on
 -- comes and goes with the fold and the engine (live, 0.8.7: "Turn on
--- mower" on a folded mower, which only got the game's warning)
-function VehicleState.extraKeys(object, can)
+-- mower" on a folded mower, which only got the game's warning). own: the
+-- vehicle itself, whose driving parts' keys are left out
+function VehicleState.extraKeys(object, can, own)
     local events = type(g_inputBinding) == "table" and g_inputBinding.events or nil
     if type(events) ~= "table" then
         return {}
@@ -384,7 +468,7 @@ function VehicleState.extraKeys(object, can)
     local seen, out = {}, {}
     for k, spec in pairs(object) do
         if type(k) == "string" and k:sub(1, 5) == "spec_" and k ~= "spec_attacherJoints" and type(spec) == "table"
-            and type(spec.actionEvents) == "table" then
+            and type(spec.actionEvents) == "table" and not (own and DRIVING_PARTS[partName(k)]) then
             for action, ev in pairs(spec.actionEvents) do
                 local e = type(ev) == "table" and ev.actionEventId ~= nil and events[ev.actionEventId] or nil
                 local cap = KEY_CAPS[action]

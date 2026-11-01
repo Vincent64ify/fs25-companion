@@ -1,0 +1,107 @@
+{
+ "rig": "sprayer-self",
+ "source": "mod/tests/fixtures/spike0003/sprayer.json (self_propelled, until spec 0011's probe), through the mod's Cab collector",
+ "cab": {
+  "aiActive": false,
+  "engineOn": false,
+  "engineState": "off",
+  "hitched": false,
+  "implements": [],
+  "inVehicle": true,
+  "keys": {
+   "fold": 1060,
+   "turnOn": 1060,
+   "unload": 1060
+  },
+  "lights": {
+   "beacon": false,
+   "hazard": false,
+   "high": false,
+   "left": false,
+   "on": false,
+   "right": false
+  },
+  "rig": [
+   {
+    "can": [
+     "fold",
+     "turnOn"
+    ],
+    "canTurnOn": true,
+    "depth": 0,
+    "discharging": false,
+    "extraKeys": [
+     {
+      "action": "TOGGLE_TIPSTATE",
+      "text": "Dump"
+     },
+     {
+      "action": "TOGGLE_TIPSTATE_GROUND",
+      "text": "Dump on ground"
+     },
+     {
+      "action": "UNLOAD",
+      "text": "Unload"
+     }
+    ],
+    "foldMoving": false,
+    "foldable": true,
+    "id": 1060,
+    "name": "Berthoud Self-propelled 4300",
+    "selectable": true,
+    "selected": true,
+    "turnedOn": false,
+    "unfolded": true,
+    "width": {
+     "center": true,
+     "left": 4,
+     "leftMax": 4,
+     "right": 4,
+     "rightMax": 4
+    }
+   }
+  ],
+  "vehicleId": 1060
+ },
+ "vehicles": {
+  "controlledId": 1060,
+  "vehicles": [
+   {
+    "id": 1060,
+    "name": "Berthoud Self-propelled 4300",
+    "brand": "Berthoud",
+    "category": "sprayers",
+    "categoryTitle": "Sprayers",
+    "typeName": "sprayer",
+    "fills": [
+     {
+      "unit": 1,
+      "level": 4110.0,
+      "capacity": 4300,
+      "fillType": "herbicide",
+      "fillTitle": "Herbicide"
+     }
+    ],
+    "wear": 0.23,
+    "workWidth": 33.0,
+    "speed": 8.4,
+    "engineOn": true,
+    "fuel": 280,
+    "fuelCapacity": 400,
+    "motorized": true,
+    "implements": []
+   }
+  ]
+ },
+ "expect": {
+  "cards": [
+   "Self-propelled 4300: Fold:on, Turn on:off, Dump:off, Dump on ground:off, Unload:off"
+  ],
+  "selected": "Self-propelled 4300",
+  "also": [],
+  "all": [],
+  "width": [
+   "Self-propelled 4300: ■■■■■■■■■ 9 / 9 sections: "
+  ]
+ }
+}
