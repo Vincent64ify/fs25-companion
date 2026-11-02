@@ -23,7 +23,7 @@
 CompanionSpike = {}
 local CS = CompanionSpike
 
-local SPIKE_VERSION = "0.0.8"
+local SPIKE_VERSION = "0.0.9"
 local MOD_DIR = g_currentModDirectory or ""
 
 local LIMITS = {
@@ -1082,6 +1082,7 @@ local function actionEventsOf(o)
                     if type(e) == "table" then
                         entry.active = e.isActive
                         entry.text = e.contextDisplayText
+                        entry.shown = e.displayIsVisible
                     end
                 end
                 list[#list + 1] = entry
@@ -1491,13 +1492,13 @@ end
 
 -- csPress: press a key the way Companion's runInputAction does (mod
 -- 0.8.13): every active handler, from update(), with 8 arguments
-local function pressLikeTheMod(name)
+local function pressLikeTheMod(name, value)
     local events = eventsFor(name)
     local called = 0
     if type(events) == "table" then
         for _, e in pairs(events) do
             if type(e) == "table" and type(e.callback) == "function" and e.isActive ~= false then
-                if pcall(e.callback, e.targetObject, name, 1, e.callbackState, false, false, nil, nil) then
+                if pcall(e.callback, e.targetObject, name, value or 1, e.callbackState, false, false, nil, nil) then
                     called = called + 1
                 end
             end
@@ -1632,6 +1633,190 @@ local function comboFrame(run)
     end
     run.last = now
     return g_time - run.start >= COMBO_MS
+end
+
+---------------------------------------------------------------------------
+-- Card buttons (spike 0.0.9, spec 0012)
+---------------------------------------------------------------------------
+
+-- csParts: for each rig member, what spec 0012 reads to know a tool's
+-- buttons (rule 1: its parts and their load-time settings) and what fades
+-- them now (rule 2), by the names in the game's own scripts
+-- (gameSource.zip: TurnOnVehicle, FillUnit, Plow, Baler, BaleCounter,
+-- Sprayer, VariableWorkWidth, Foldable). csRate: Precision Farming's
+-- sprayer part, whose script isn't readable: its fields, then one press of
+-- a key as the mod does, every change recorded for RATE_MS.
+local RATE_MS = 3000
+local RATE_MAX_CHANGES = 2000
+local RATE_KEY = "PRECISIONFARMING_SPRAY_AMOUNT"
+
+-- the specs whose name contains `part` (a mod's spec carries its mod's
+-- prefix: "spec_FS25_precisionFarming.extendedSprayer"), sorted by name
+local function specsLike(o, part)
+    local names = {}
+    for k, v in pairs(o) do
+        if type(k) == "string" and k:sub(1, 5) == "spec_" and type(v) == "table"
+            and k:lower():find(part:lower(), 1, true) then
+            names[#names + 1] = k
+        end
+    end
+    table.sort(names)
+    return names
+end
+
+-- the methods whose names say rate, amount or Precision Farming
+local RATE_PATTERNS = { "Rate", "Amount", "SprayType", "Nitrogen", "PrecisionFarming", "Doubled" }
+
+local function rateMethods(o)
+    local out = {}
+    for _, name in ipairs(methodsOf(o)) do
+        for _, p in ipairs(RATE_PATTERNS) do
+            if name:find(p, 1, true) then
+                out[#out + 1] = name
+                break
+            end
+        end
+    end
+    return out
+end
+
+-- a getter's first answer, false included (firstOf turns false into nil)
+local function answerOf(obj, name, ...)
+    local r = tryCall(obj, name, ...)
+    if r == nil then
+        return nil
+    end
+    return r[2]
+end
+
+-- one rig member: each part spec 0012 reads, its plain fields, and the
+-- getters that answer "has it" and "can it now"
+local function partsOf(o)
+    local out = { label = objectLabel(o), specs = {} }
+    for k, v in pairs(o) do
+        if type(k) == "string" and k:sub(1, 5) == "spec_" and type(v) == "table" then
+            out.specs[#out.specs + 1] = k
+        end
+    end
+    table.sort(out.specs)
+    out.powered = twoOf(o, "getIsPowered")
+    local joint = firstOf(o, "getActiveInputAttacherJoint") or firstOf(o, "getInputAttacherJoint")
+    if type(joint) == "table" then
+        out.inputJoint = { allowsLowering = joint.allowsLowering, canBeTurnedOn = joint.canBeTurnedOn,
+            jointType = joint.jointType }
+    end
+    if type(o.spec_turnOnVehicle) == "table" then
+        out.turnOn = { fields = flatten(o.spec_turnOnVehicle, "turnOn", 0, {}),
+            canToggle = answerOf(o, "getCanToggleTurnedOn"), canBeTurnedOn = answerOf(o, "getCanBeTurnedOn"),
+            isTurnedOn = answerOf(o, "getIsTurnedOn"), warning = firstOf(o, "getTurnedOnNotAllowedWarning") }
+    end
+    local fold = o.spec_foldable
+    if type(fold) == "table" then
+        out.fold = { parts = type(fold.foldingParts) == "table" and #fold.foldingParts or nil,
+            fields = flatten(fold, "fold", 0, {}), unfolded = answerOf(o, "getIsUnfolded"),
+            allowed = twoOf(o, "getIsFoldAllowed", firstOf(o, "getToggledFoldDirection") or 1, false) }
+    end
+    local fill = o.spec_fillUnit
+    if type(fill) == "table" then
+        out.fillUnit = { unloadingPlaces = type(fill.unloading) == "table" and #fill.unloading or nil,
+            unloading = type(fill.unloading) == "table" and flatten(fill.unloading, "unloading", 1, {}) or nil,
+            running = fill.unloadingFillUnitsRunning, unloadKey = fill.unloadActionEventId ~= nil,
+            fills = fillsOf(o) }
+    end
+    local plow = o.spec_plow
+    if type(plow) == "table" then
+        out.plow = { fields = flatten(plow, "plow", 0, {}), forceLimitToField = answerOf(o, "getPlowForceLimitToField"),
+            limitToField = answerOf(o, "getPlowLimitToField"),
+            rotates = type(plow.rotationPart) == "table" and plow.rotationPart.turnAnimation ~= nil,
+            rotationAllowed = answerOf(o, "getIsPlowRotationAllowed"),
+            createFieldsPermission = answerOf(g_currentMission, "getHasPlayerPermission", "createFields",
+                firstOf(o, "getOwnerConnection")) }
+    end
+    if type(o.spec_baler) == "table" then
+        out.baler = { fields = flatten(o.spec_baler, "baler", 0, {}) }
+    end
+    if type(o.spec_baleCounter) == "table" then
+        out.baleCounter = { fields = flatten(o.spec_baleCounter, "baleCounter", 0, {}) }
+    end
+    if type(o.spec_sprayer) == "table" then
+        local sprayType = firstOf(o, "getActiveSprayType")
+        out.sprayer = { fields = flatten(o.spec_sprayer, "sprayer", 0, {}),
+            activeSprayType = type(sprayType) == "table" and flatten(sprayType, "sprayType", 0, {}) or nil }
+    end
+    if type(o.spec_variableWorkWidth) == "table" then
+        out.width = { fields = flatten(o.spec_variableWorkWidth, "width", 0, {}) }
+    end
+    local pf = specsLike(o, "precisionFarming")
+    if #pf > 0 then
+        out.precisionFarming = {}
+        for _, k in ipairs(pf) do
+            out.precisionFarming[k] = flatten(o[k], k, k:find("Sprayer", 1, true) and 2 or 0, {})
+        end
+        out.rateMethods = rateMethods(o)
+    end
+    out.keys = actionEventsOf(o)
+    return out
+end
+
+local function probeParts(v)
+    local root = firstOf(v, "getRootVehicle") or v
+    local out = { selected = objectLabel(firstOf(root, "getSelectedVehicle")),
+        engineOn = answerOf(root, "getIsMotorStarted"), rig = {} }
+    for i, m in ipairs(rigMembers(root)) do
+        local ok, res = pcall(partsOf, m.o)
+        res = ok and res or { error = tostring(res), label = objectLabel(m.o) }
+        res.depth, res.parent = m.depth, m.parent
+        out.rig[i] = res
+    end
+    return out
+end
+
+-- the sprayer csRate follows: the selected one with a Precision Farming
+-- part, else the first rig member with one
+local function rateTarget(v)
+    local root = firstOf(v, "getRootVehicle") or v
+    local selected = firstOf(root, "getSelectedVehicle")
+    if type(selected) == "table" and #specsLike(selected, "extendedSprayer") > 0 then
+        return selected
+    end
+    for _, m in ipairs(rigMembers(root)) do
+        if #specsLike(m.o, "extendedSprayer") > 0 then
+            return m.o
+        end
+    end
+    return nil
+end
+
+-- what csRate follows: every Precision Farming part's fields two levels
+-- down, the sprayer part's plain fields, the fills
+local function rateState(o)
+    local out = {}
+    for _, k in ipairs(specsLike(o, "precisionFarming")) do
+        flatten(o[k], k, 2, out)
+    end
+    if type(o.spec_sprayer) == "table" then
+        flatten(o.spec_sprayer, "sprayer", 0, out)
+    end
+    for _, f in ipairs(fillsOf(o) or {}) do
+        out["fill." .. f.unit .. ".level"] = round3(f.level)
+    end
+    return out
+end
+
+local function rateFrame(run)
+    local now = rateState(run.o)
+    for path, v in pairs(now) do
+        if run.last[path] ~= v and #run.changes < RATE_MAX_CHANGES then
+            run.changes[#run.changes + 1] = { ms = g_time - run.start, path = path, from = run.last[path], to = v }
+        end
+    end
+    for path, v in pairs(run.last) do
+        if now[path] == nil and #run.changes < RATE_MAX_CHANGES then
+            run.changes[#run.changes + 1] = { ms = g_time - run.start, path = path, from = v }
+        end
+    end
+    run.last = now
+    return g_time - run.start >= RATE_MS
 end
 
 local function vehicleDetail(v)
@@ -1875,6 +2060,10 @@ function CompanionSpike:loadMap(name)
             "consolePress", CompanionSpike)
         addConsoleCommand("csCombo", "Press Lower all and record the attacher joint combo to combo.json",
             "consoleCombo", CompanionSpike)
+        addConsoleCommand("csParts", "Write what each tool's parts say about its buttons to parts.json (csParts NAME: parts-NAME.json)",
+            "consoleParts", CompanionSpike)
+        addConsoleCommand("csRate", "Press Precision Farming's rate key (or KEY, with VALUE) and record its sprayer part to rate-KEY.json",
+            "consoleRate", CompanionSpike)
     end
 end
 
@@ -1953,6 +2142,49 @@ function CompanionSpike:consoleCombo()
         fields, table.concat(res.methods, ", "))
 end
 
+function CompanionSpike:consoleParts(name)
+    local v = getControlledVehicle()
+    if v == nil then
+        return "get in a vehicle first"
+    end
+    local ok, res = pcall(probeParts, v)
+    if not ok then
+        return "parts probe failed: " .. tostring(res)
+    end
+    local file = name ~= nil and name ~= "" and ("parts-" .. tostring(name):gsub("[^%w_-]", "") .. ".json")
+        or "parts.json"
+    ctx.status = writeJson(file, { parts = res }) and ("parts written to " .. file) or "parts: write FAILED"
+    return string.format("%s: %d rig member(s)", ctx.status, #res.rig)
+end
+
+function CompanionSpike:consoleRate(key, value)
+    if ctx.rate ~= nil then
+        return "already recording"
+    end
+    local v = getControlledVehicle()
+    if v == nil then
+        return "get in a vehicle first"
+    end
+    local o = rateTarget(v)
+    if o == nil then
+        return "no Precision Farming sprayer part in this rig"
+    end
+    key = key ~= nil and key ~= "" and key or RATE_KEY
+    local ok, before = pcall(rateState, o)
+    if not ok then
+        return "rate probe failed: " .. tostring(before)
+    end
+    -- pressed on the next frame, recorded from the frame before
+    ctx.rate = { o = o, key = key, value = tonumber(value) or 1, before = before, last = before, changes = {} }
+    ctx.status = "recording " .. key
+    local fields = 0
+    for _ in pairs(before) do
+        fields = fields + 1
+    end
+    return string.format("pressing %s (value %s) on %s and recording %d s; %d field(s)", key, tostring(ctx.rate.value),
+        tostring(objectLabel(o).name), RATE_MS / 1000, fields)
+end
+
 function CompanionSpike:consoleTrace()
     local tr = ctx.trace
     if tr == nil then
@@ -2024,6 +2256,26 @@ function CompanionSpike:update(dt)
                 changes = combo.changes, error = not ok and tostring(done) or nil } }
             ctx.status = writeJson("combo.json", out) and "combo written to combo.json" or "combo: write FAILED"
             log("csCombo: %d change(s) recorded", #combo.changes)
+        end
+    end
+    local rate = ctx.rate
+    if rate ~= nil then
+        local ok, done = pcall(function()
+            if rate.start == nil then
+                rate.start = g_time
+                rate.called = pressLikeTheMod(rate.key, rate.value)
+            end
+            return rateFrame(rate)
+        end)
+        if not ok or done then
+            ctx.rate = nil
+            local file = "rate-" .. rate.key:gsub("[^%w_-]", "") .. (rate.value ~= 1 and ("-" .. tostring(rate.value)) or "")
+                .. ".json"
+            local out = { rate = { target = objectLabel(rate.o), key = rate.key, value = rate.value,
+                handlersCalled = rate.called, before = rate.before, changes = rate.changes,
+                methods = rateMethods(rate.o), keys = actionEventsOf(rate.o), error = not ok and tostring(done) or nil } }
+            ctx.status = writeJson(file, out) and ("rate written to " .. file) or "rate: write FAILED"
+            log("csRate %s: %d change(s) recorded", rate.key, #rate.changes)
         end
     end
     if ctx.pressNext ~= nil then
@@ -2118,6 +2370,8 @@ CS._selectStep = selectStep
 CS._probeKeys = probeKeys
 CS._ctx = ctx
 CS._probeCombo, CS._comboState = probeCombo, comboState
+CS._partsOf, CS._probeParts, CS._rateTarget, CS._rateState, CS._rateFrame = partsOf, probeParts, rateTarget, rateState,
+    rateFrame
 CS._traceWrap, CS._traceUnwrap, CS._traceFrame, CS._newTrace = traceWrap, traceUnwrap, traceFrame, newTrace
 
 if addModEventListener ~= nil then

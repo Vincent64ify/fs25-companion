@@ -160,6 +160,32 @@ NAME` writes `keys-NAME.json`. With a loaded trailer selected: `csKeys
 sale` over a sale point that takes the load, `csKeys ground` on your own
 land.
 
+## Card buttons (spike 0.0.9, spec 0012)
+
+[Spec 0012](../../specs/0012-card-buttons.md) builds a card's buttons from
+what a tool is, read from its parts by the names in the game's own scripts
+(`sdk/debugger/gameSource.zip`). Two console commands check those names
+live:
+
+- `csParts [NAME]`: `parts.json` (`parts-NAME.json`) with, for every rig
+  member, its parts and what spec 0012 reads in each: the turn on part's
+  settings (`isAlwaysTurnedOn`, `turnedOnByAttacherVehicle`) and
+  `getCanToggleTurnedOn()`, the input attacher joint's `allowsLowering`
+  and `canBeTurnedOn`, the fill unit's unloading places, the plow's
+  limit to field and rotation, the baler's automatic drop, the bale
+  counter, the sprayer's doubled rate and active spray type, the width's
+  sections and `isActive`, every Precision Farming part's fields, and
+  each part's keys (active, shown, text).
+- `csRate [KEY] [VALUE]`: on the sprayer with a Precision Farming part
+  (the selected one first), presses KEY (default
+  `PRECISIONFARMING_SPRAY_AMOUNT`) as the mod does, with VALUE (default
+  1), and records every change in its Precision Farming parts, its
+  sprayer part and its tank for 3 s: `rate-KEY.json` (`rate-KEY-VALUE.json`
+  for another value).
+
+The files land in `modSettings/FS25_CompanionSpike/`. The steps are in
+spec 0012's Live check ("Probe first").
+
 ## Command spike (C0)
 
 `FS25_CommandSpike` checks the command channel planned for Controls (see

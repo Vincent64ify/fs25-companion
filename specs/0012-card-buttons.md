@@ -68,13 +68,21 @@ only on a tool whose parts have it (Data contract).
   viewer's browser remembers which cards are open (per tool model,
   `localStorage`, a convenience only). A tool with nothing under More has
   no More row.
+- **Application rate** (Precision Farming, under More): one row like
+  Cruise's, always together: Rate −, Auto, Rate +. Auto is lit while the
+  game sets the rate itself; Rate − and Rate + are faded while Auto is on
+  (the game's rate key does nothing then) and at the ends (1 and 45).
+  The row's line shows the step, "Step 2 / 45" (the game's HUD shows
+  l/ha, which isn't in what we read; Vincent, 2026-11-02).
 - **Compact** (three cards or more, spec 0003): the main row stays; More
   stays closed and keeps its row.
-- **The section strip** (spec 0011) stays as it is; its four width
-  buttons are there on every sprayer with sections, faded while the game
-  has partial width off for this tool (its spray type) or it's folded
-  (Vincent, 2026-11-02: replaces spec 0011's "buttons only where the
-  width keys are live").
+- **The section strip** (spec 0011) stays as it is. Its four width
+  buttons are there on a sprayer with sections and no Precision Farming
+  sprayer part, faded while the game has partial width off for it (its
+  spray type) or it's folded. With Precision Farming's sprayer part the
+  strip is read-only: Precision Farming takes the sections over and the
+  game registers no width key (the probe, 2026-11-02; Vincent: a
+  read-only strip, not four buttons always faded).
 - **The All row** stays (Lower all, Fold all, Turn on all, Tip all, Cover
   all), under the same rules: its buttons come from the rig's tools'
   buttons and don't come and go while the rig is the same.
@@ -90,7 +98,7 @@ with More open and closed.
 - **Mod → companion** (`cab` topic, each rig entry; Protocol v1):
   - `can`: the tool's buttons by rule 1, in `CAPABILITIES`' order, which
     gains `unload`, `createFields`, `autoDrop`, `doubledRate` and
-    `sprayRate` (after the probe); `bales`
+    `sprayRate` (Precision Farming's rate: its three buttons); `bales`
     becomes the reset button. What decides each is in the table below. It
     is read from parts and load-time settings only, never from a live
     "can it now".
@@ -100,8 +108,8 @@ with More open and closed.
     while unloading.
   - The state each label reads: today's, plus `createFields` (boolean,
     on while the plow may make fields), `autoDrop` (boolean),
-    `doubledRate` (boolean), `sprayRate` (what the probe finds: the rate
-    and its unit, or a step). `bales` keeps `{count, total}`.
+    `doubledRate` (boolean), `sprayRate` (`{auto: boolean, step:
+    number, min: number, max: number}`). `bales` keeps `{count, total}`.
   - `extraKeys` goes: no entry carries it (the dashboard ignores it if an
     old mod sends it).
 - **Viewer → companion → mod:** `implement.key` and the command's `key`
@@ -114,7 +122,8 @@ with More open and closed.
   gain the new ones, and a `MORE_CAPABILITIES` list (rotate,
   createFields, autoDrop, bales, doubledRate). `toolButtons` makes the
   main row and the More row from `can` (`MORE_CAPABILITIES` also has
-  `sprayRate`); the other-keys code goes. The
+  `sprayRate`, drawn as one row: Rate −, Auto, Rate +); the other-keys
+  code goes. The
   Map screen's Implement group and its controls (`implementLowered`,
   `fold`, `implementOn` in `controls.js`) go, unless the Harvester
   screen still uses them (it uses its own tiles: checked while building).
@@ -138,8 +147,8 @@ yet:
 | Automatic drop | `spec_baler.toggleableAutomaticDrop` | `getIsPowered` false | `spec_baler.automaticDrop` (`platformAutomaticDrop` with a platform); unverified |
 | Reset bale count | `spec_baleCounter` | | `sessionCounter`; unverified |
 | Doubled rate | `spec_sprayer` (Sprayer registers its doubled amount key on every sprayer, `toggleDoubledAmountInputBinding`) | | `spec_sprayer.doubledAmountIsActive`; unverified |
-| Application rate (Precision Farming) | the probe: Precision Farming's sprayer part (`spec_FS25_precisionFarming.extendedSprayer`, seen in spike 0.0.4 with `PRECISIONFARMING_SPRAY_AMOUNT` "Change application rate") and what it holds | the probe | the probe; its script isn't in the game's readable scripts |
-| Width (4 buttons) | `spec_variableWorkWidth.hasSections` | `spec_variableWorkWidth.isActive` false (Sprayer sets it from the spray type's `supportsVariableWorkWidth`) or folded | unverified: may be why the keys weren't live on the Berthoud (spec 0011) |
+| Application rate (Precision Farming) | Precision Farming's sprayer part (`spec_FS25_precisionFarming.extendedSprayer`) with `sprayAmountAutoModeChangeAllowed` true | Rate − and + while `sprayAmountAutoMode` is true (the game's rate key is inactive then) or at `sprayAmountManualMin` / `Max`; all three while not powered | the probe (2026-11-02, the Rogator 937H, Vincent watched the HUD): `sprayAmountAutoMode` (true: automatic), `sprayAmountManual` 1 to 45 (`sprayAmountManualMin`, `sprayAmountManualMax`); one press of `PRECISIONFARMING_SPRAY_AMOUNT` with value 1 stepped it 1 → 2 (12 → 25 l/ha in the HUD with liquid fertilizer), with -1 back; `PRECISIONFARMING_SPRAY_AMOUNT_MODE` toggles automatic; Precision Farming's own script isn't readable |
+| Width (4 buttons) | `spec_variableWorkWidth.hasSections` and no Precision Farming sprayer part (`spec_FS25_precisionFarming.extendedSprayer`); with one, the strip only | `spec_variableWorkWidth.isActive` false (Sprayer sets it from the spray type's `supportsVariableWorkWidth`) or folded | the probe (2026-11-02): `hasSections` and `isActive` true on the Berthoud, the Rogator 937H and the DINO II, all with Precision Farming, and no width key registered on any; a sprayer without Precision Farming unverified |
 | Detach | every tool (depth 1 and more) | `isDetachAllowed()` false | verified (DONE.md) |
 
 ## Commands
@@ -159,7 +168,8 @@ and what it starts reads back.
 | `tool.autoDrop` (new) | 1 on, 0 off | `IMPLEMENT_EXTRA4` (Baler `actionEventToggleAutomaticDrop`) | `automaticDrop` is the value |
 | `tool.resetBales` (new) | none (one-shot) | `BALE_COUNTER_RESET` | `sessionCounter` is 0 |
 | `tool.doubledRate` (new) | 1 on, 0 off | the sprayer's `toggleDoubledAmountInputBinding` (`DOUBLED_SPRAY_AMOUNT` by default) | `doubledAmountIsActive` is the value |
-| `tool.sprayRate` (new, after the probe) | what the probe finds: a step up or down, or a rate | `PRECISIONFARMING_SPRAY_AMOUNT` (spike 0.0.4) | the rate read back changed |
+| `tool.sprayRate` (new) | -1 or 1: one step down or up (Rate −, Rate +) | `PRECISIONFARMING_SPRAY_AMOUNT`, the value as the key's input (the probe) | `sprayAmountManual` moved by one; refused at once while automatic ("Automatic rate is on") or at its end ("at its limit") |
+| `tool.sprayRateAuto` (new) | 1 automatic, 0 manual | `PRECISIONFARMING_SPRAY_AMOUNT_MODE` (the probe) | `sprayAmountAutoMode` is the value |
 | `implement.key` | goes | | |
 
 A faded button sends nothing. The dashboard shows a button pending until
@@ -215,8 +225,9 @@ Automated (each one a test that exists before the work is called built):
   `isAlwaysTurnedOn` have none; a joint with `canBeTurnedOn` false none.
 - [ ] `mod/tests/run.lua`: each new button from its part (Unload from
   `unloading`, Create fields not when forced, Automatic drop only when
-  toggleable, Reset bale count, Doubled rate, the width with sections),
-  faded as in the table.
+  toggleable, Reset bale count, Doubled rate, the width buttons with
+  sections and no Precision Farming sprayer part, none with one), faded
+  as in the table.
 - [ ] `mod/tests/run.lua`: each new command presses its key on its tool
   (aimed when another is selected, the selection put back), answers by
   its state, `already` when there; `implement.key` and a `key` field are
@@ -239,18 +250,26 @@ Automated (each one a test that exists before the work is called built):
 
 Live check (in game; Solek; livewatch shows each tool's `can` when you get
 in; the engine off first, then on):
-- [ ] Probe first (spike 0.0.9, the Plan): Precision Farming's sprayer
-  part and the turn on settings dumped on the Berthoud, the W 600 and
-  the ARION.
+- [x] Probe first (spike 0.0.9, the Plan; `research/spike/README.md`):
+  1. The ARION 410 with the W 600 and the Berthoud, the engine off:
+     `csParts off`; the engine on: `csParts on`.
+  2. The Berthoud selected, unfolded, liquid in the tank, the engine on:
+     `csRate`, then `csRate PRECISIONFARMING_SPRAY_AMOUNT -1`, then
+     `csRate PRECISIONFARMING_SPRAY_AMOUNT_MODE`, each after the last
+     says "rate written"; what the game's rate display showed after each.
+  3. The Agrio DINO II: `csParts dino`, and `csRate` there.
+  (Vincent, 2026-11-02: step 2 on the Fendt Rogator 937H, twice: first
+  with automatic on, then off, 12 → 25 → 12 l/ha; the Log has what the
+  files said.)
 - [ ] The ARION 410 with the W 600 and the Berthoud: the W 600 has Lower
   and Detach only; the Berthoud Fold, Turn on, Unload, Detach and More ·
   2; the ARION no card. Engine off, folded, unfolded, unloading, selecting
   the tractor in game: no button comes or goes.
 - [ ] The Berthoud: Unload makes pallets with the tractor selected in
   game, answered ok once it started; Doubled rate on and off as the
-  game's HUD shows; Application rate as the game's (Precision Farming);
-  the width buttons faded or not as the game's partial width (and if not
-  faded, one section each).
+  game's HUD shows; Rate −, Auto and Rate + as the game's rate (its HUD's
+  l/ha, the card's step) on the Berthoud and the Rogator 937H;
+  the strip read-only (Precision Farming), with no width buttons.
 - [ ] The Agrio DINO II: its own card, Fold, Turn on, Unload, the strip,
   More · 2, no Detach.
 - [ ] The T7.300 with the KDF 341 S and KDD 941 STH: Lower, Fold, Turn on,
@@ -280,15 +299,16 @@ in; the engine off first, then on):
 - A sprayer's More has the base game's Doubled rate (Sprayer) and
   Precision Farming's Application rate, the second once the probe has
   found its state (Vincent, 2026-11-02).
-- The width buttons are always on a sprayer with sections, faded while
-  partial width is off (Vincent, 2026-11-02).
+- The width buttons are on a sprayer with sections and no Precision
+  Farming sprayer part, faded while partial width is off; with Precision
+  Farming the strip is read-only (Vincent, 2026-11-02, after the probe).
 - Unload answers ok once the unloading started, else "Nothing moved"
   (Vincent, 2026-11-02).
 
 ## Out of scope / open questions
 
-- Open: what the Application rate button shows and does (a step or a
-  rate, its unit) waits on the probe.
+- Open: the l/ha the game's HUD shows for a step (not in what we read;
+  about 12.5 l/ha a step with liquid fertilizer, once).
 - Out of scope: Refill, Dump, the Harvester and Loader screens (their own
   tiles, unchanged), bale size (`TOGGLE_BALE_TYPES`), the baler's own
   unload, the mower's drop (`Mower.actionEventToggleDrop`), modded tools'
@@ -304,3 +324,28 @@ in; the engine off first, then on):
   answered: the width buttons always there, faded; Precision Farming's
   rate probed in this spec; Unload ok once it started.
 - 2026-11-02: approved by Vincent.
+- 2026-11-02: spike 0.0.9 built for the probe (`csParts`, `csRate`; `mod/tests/test_spike_parts.py`) and installed.
+- 2026-11-02: probe, first run (spike 0.0.9; `parts-off`, `parts-on`,
+  `parts-rogator`, `parts-dino`, three `rate-*.json`). Turn on: the
+  Berthoud, the Rogator 937H and the DINO II have `getCanToggleTurnedOn`
+  true (`isAlwaysTurnedOn`, `turnedOnByAttacherVehicle` false); the ARION
+  410 and the W 600 have no turn on part at all (0.12.2's bug read the
+  missing part as "can't now"). Unload: one unloading place and `UNLOAD`
+  on all three sprayers. Lower: the W 600's input joint `allowsLowering`
+  true, the Berthoud's false. Doubled rate: `DOUBLED_SPRAY_AMOUNT`
+  inactive in every dump; the game allows it only for the spray type
+  being applied (`getSprayerDoubledAmountActive`'s second answer, Sprayer
+  `onUpdateTick`). Width: `hasSections` and `isActive` true on all three,
+  and no width key registered on any (Precision Farming's section control,
+  unverified). Precision Farming: `extendedSprayer.sprayAmountAutoMode`
+  (true), `sprayAmountManual` 1 to 45, `PRECISIONFARMING_SPRAY_AMOUNT`
+  inactive while automatic; `PRECISIONFARMING_SPRAY_AMOUNT_MODE` turned
+  automatic off on the Rogator. A second run in manual mode is next.
+- 2026-11-02: the width row with Precision Farming's sprayer part is the
+  read-only strip (Vincent); the four buttons only without it.
+- 2026-11-02: probe, second run (the Rogator 937H, automatic off): one
+  press of `PRECISIONFARMING_SPRAY_AMOUNT` with value 1 stepped
+  `sprayAmountManual` 1 → 2 (12 → 25 l/ha in the HUD), with -1 back to 1;
+  the mode key turned automatic back on and the rate key inactive again.
+  Application rate is one row under More (Rate −, Auto, Rate +) with the
+  step shown, "Step 2 / 45" (Vincent). Probe ticked.
