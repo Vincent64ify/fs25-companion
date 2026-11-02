@@ -70,7 +70,7 @@ def test_invalid_envelopes(raw):
 
 def test_commands_are_checked_for_shape_only():
     # any well-formed action: the mod knows which it runs (specs/0007)
-    for action, value in (("lights.toggle", None), ("cruise.set", 23.5), ("implement.key", 3),
+    for action, value in (("lights.toggle", None), ("cruise.set", 23.5), ("implement.select", 3),
                           ("someday.newButton", None), ("cruise.set", 999)):
         assert command_refusal(action, value) is None, action
     for action in (None, 3, [], {}, True, "", "x" * 41, "lights toggle", "lights.toggle!", "TOGGLE_LIGHTS_1"):
@@ -88,3 +88,8 @@ def test_commands_are_checked_for_shape_only():
     assert command_refusal("tool.width", 1, 9, "right") is None
     for side in ("middle", "", "Left", 1, True, [], {}):
         assert command_refusal("tool.width", 1, 9, side) == "value not allowed", side
+    # a key (specs/0011, implement.key): an input action's name, or absent
+    for key in ("TOGGLE_TIPSTATE_GROUND", "UNLOAD", "FS25_mod.MY_KEY", "x" * 64):
+        assert command_refusal("implement.key", None, None, None, key) is None, key
+    for key in ("", "1KEY", "TIP STATE", "KEY!", "x" * 65, 3, True, [], {}):
+        assert command_refusal("implement.key", None, None, None, key) == "value not allowed", key

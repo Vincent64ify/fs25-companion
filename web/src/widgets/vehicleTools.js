@@ -19,7 +19,7 @@
 
 import {
   allActions, alsoAttached, buttonCapsOf, cabOf, canOf, cardsOf, controlledVehicle, entryModel, fillMax, fillName, fillPct,
-  fillStop, fillsOf, implementById, kindLabel, lowersInRig, screenRig, vehicleKind,
+  fillStop, fillsOf, foldingText, implementById, kindLabel, lowersInRig, screenRig, vehicleKind,
 } from "../data/selectors.js";
 import { areaText, lengthText, lengthUnit, lengthValue, speedUnit, speedValue, unitsOf } from "../data/units.js";
 import { minutesText, ratesOf, timeLeft } from "../data/rates.js";
@@ -34,7 +34,7 @@ import { icon } from "../ui/icons.js";
 /** @typedef {import("../types.js").Vehicle} Vehicle */
 /** @typedef {import("../types.js").RigWidth} RigWidth */
 /**
- * @typedef {(action: string, value?: number, tool?: number, side?: "left"|"right") =>
+ * @typedef {(action: string, value?: number, tool?: number, side?: "left"|"right", key?: string) =>
  *   Promise<import("../commands.js").CommandResult>} Send
  */
 
@@ -79,7 +79,7 @@ export function tileState(e, v) {
   if (e.discharging) parts.push(e.trailer ? "Tipping" : "Unloading");
   else if (e.turnedOn) parts.push("Working");
   if (lowersInRig(e, v)) parts.push(hitchText({ ...detailOf(e, v), lowered: e.lowered }));
-  if (e.foldable && e.foldMoving) parts.push("Folding…");
+  if (e.foldable && e.foldMoving) parts.push(foldingText(e));
   else if (e.foldable && e.unfolded === false) parts.push("Folded");
   if (e.cover?.open) parts.push("Cover open");
   if (!parts.length && e.depth === 0) parts.push(v?.engineOn ? "Engine on" : "Engine off");
@@ -171,9 +171,9 @@ export function pickable(el, e, name, send) {
  * not, unavailable (why: the game's reason, not shown), a value line.
  * value: the state a tap asks for (specs/0008) with the tool's id as tool,
  * or a one-shot's number (the tool's id for Tip side and Detach); side:
- * tool.width's (specs/0011).
+ * tool.width's; inputKey: an other key's input action, by name (specs/0011).
  * @typedef {{key: string, label: string, icon: string, action: string, value?: number, tool?: number, on: boolean,
- *   side?: "left"|"right", unavailable?: boolean, why?: string, moving?: boolean, progressive?: boolean,
+ *   side?: "left"|"right", inputKey?: string, unavailable?: boolean, why?: string, moving?: boolean, progressive?: boolean,
  *   line?: string}} ToolButton
  */
 
@@ -206,7 +206,7 @@ export function toolButtons(e) {
     lower: () => ({ label: e.lowered ? "Raise" : "Lower", icon: e.lowered ? "hitchUp" : "hitchDown",
       action: "tool.lower", ...set(e.lowered !== true), on: e.lowered === true, progressive: true }),
     // value 1: folded
-    fold: () => ({ label: e.foldMoving ? (e.unfolded ? "Folding…" : "Unfolding…") : e.unfolded ? "Fold" : "Unfold",
+    fold: () => ({ label: e.foldMoving ? foldingText(e) : e.unfolded ? "Fold" : "Unfold",
       icon: "fold", action: "tool.fold", ...set(e.unfolded === true), on: e.unfolded === true,
       moving: e.foldMoving === true }),
     turnOn: () => {
@@ -243,11 +243,14 @@ export function toolButtons(e) {
     out.push(button);
   }
   if (e.selected) {
-    (Array.isArray(e.extraKeys) ? e.extraKeys : []).forEach((k, i) => {
-      if (k && typeof k.text === "string") {
-        out.push({ key: `key:${k.action}`, label: k.text, icon: "implement", action: "implement.key", value: i + 1, on: false });
+    // by its input action's name: by number, a key that came and went
+    // shifted the rest (live, 0.12.1: Dump on ground pressed Unload)
+    for (const k of Array.isArray(e.extraKeys) ? e.extraKeys : []) {
+      if (k && typeof k.text === "string" && typeof k.action === "string") {
+        out.push({ key: `key:${k.action}`, label: k.text, icon: "implement", action: "implement.key", inputKey: k.action,
+          on: false });
       }
-    });
+    }
   }
   return out;
 }
@@ -328,8 +331,8 @@ export function widthLine(w, units) {
  */
 function buttonRow(send, onWhy) {
   const sent = send;
-  send = async (action, value, tool, side) => {
-    const result = await sent(action, value, tool, side);
+  send = async (action, value, tool, side, key) => {
+    const result = await sent(action, value, tool, side, key);
     if (!result.ok && result.reason) onWhy?.(result.reason);
     return result;
   };
@@ -348,7 +351,7 @@ function buttonRow(send, onWhy) {
           if (shown.has(b.key)) continue;
           const item = { b, ui: /** @type {ReturnType<typeof createControl>} */ (/** @type {unknown} */ (undefined)) };
           item.ui = createControl({ label: b.label, icon: b.icon, progressive: b.progressive },
-            () => send(item.b.action, item.b.value, item.b.tool, item.b.side),
+            () => send(item.b.action, item.b.value, item.b.tool, item.b.side, item.b.inputKey),
             { ms: 1500, key: () => `${item.b.on}:${item.b.label}:${item.b.line ?? ""}` });
           item.ui.el.dataset.control = b.key;
           shown.set(b.key, item);

@@ -1,7 +1,7 @@
 # 0011: Sprayer
 
 Status: built
-Mod: 0.12.1 · Started: 2026-11-01 · Design: [THEMES.md](../docs/THEMES.md#implement-screen-design-2026-10-24) (the card); spec [0003](0003-implement-screen.md) (moved out at its close)
+Mod: 0.12.4 · Started: 2026-11-01 · Design: [THEMES.md](../docs/THEMES.md#implement-screen-design-2026-10-24) (the card); spec [0003](0003-implement-screen.md) (moved out at its close)
 
 ## Goal
 
@@ -103,12 +103,42 @@ tank and the sprayer) without scrolling.
   - The width keys aren't other keys where the tool has `width`;
     `VARIABLE_WORK_WIDTH_TOGGLE` stays one, with the game's label.
   - `extraKeys` on the vehicle's own entry (depth 0) leaves out the keys
-    of its driving parts.
+    of its driving parts. No card lists `TOGGLE_AI` (fix 3): the dashboard
+    has its own AI worker button.
+  - `foldDirection` ("folding" or "unfolding", mod 0.12.2, fix 4) on
+    every folding entry and on `cab.implement`, only while `foldMoving`,
+    from `spec_foldable.foldMoveDirection` (1 folding, -1 unfolding).
+  - `turnOn` stays in `can` while the tool is unfolded and has no power
+    (`getCanBeTurnedOn` false, `getIsPowered` false), with `canNow.turnOn`
+    false and `whyNot.turnOn` the game's turn on warning, else the
+    engine's words (fix 5), only on a tool the game let turn on this
+    session (`getCanBeTurnedOn` true once, remembered per tool): the CLAAS
+    W 600 and the ARION 410 have the turn on part and never turn on
+    (0.12.3).
+  - `extraKeys` leaves out a key the game hides (`displayIsVisible`
+    false): it isn't offered now and does nothing (spike 0.0.8; live,
+    0.12.2: Dump and Dump on ground on the Berthoud, 0.12.3), and an axis
+    (an input action named `AXIS_...`): it's held, never a button (live,
+    0.12.3: one press of "Raise sprayer arm" took the arm all the way up;
+    0.12.4).
 - **Viewer → companion → mod**: a command gains `side` ("left" or
   "right"), only on `tool.width`: the viewer's message, the companion's
   shape check (`command_refusal`: anything else is "value not allowed")
   and the command file (`side="left"`); the mod refuses a side on any
   other action, and `tool.width` without one.
+- **Viewer → companion → mod** (fix 1, mod 0.12.2): `implement.key`
+  carries `key`, the other key's input action name
+  (`"TOGGLE_TIPSTATE_GROUND"`), and no number: the viewer's message, the
+  companion's shape check (letters, digits, `_` and `.`, from a letter, at
+  most 64), the command file (`key="..."`). The mod refuses a key on any
+  other action and `implement.key` without one, and presses it only while
+  it's among the selected tool's other keys now (the vehicle's own leaving
+  its driving keys out, fix 2), else "no such key". hello's
+  `commands.actions` stays 3: the mod and companion versions move
+  together.
+- **Web** (selectors): a tractor (its category or type says so) is never
+  one of the cards, whatever its entry's `can` (0.12.3); a self-propelled
+  sprayer and the truck still have their own card.
 - **Web** (`web/src/types.js`): `RigEntry.width` (`RigWidth`) and the
   `width` capability in the `can` notes.
 - **Web** (selectors, widgets): `CAPABILITIES` and `BUTTON_CAPABILITIES`
@@ -131,7 +161,9 @@ Game API names used:
 | `spec_foldable.unfoldWarning` (the words while folded) | Foldable.lua | unverified |
 | `VARIABLE_WORK_WIDTH_LEFT`, `_RIGHT`, `_TOGGLE` | inputBinding.xml | LEFT and RIGHT are two-way axes, each shown in Controls as Activate / Deactivate left (right) partial widths, with no default key; TOGGLE on Ctrl+Z (Vincent's inputBinding.xml, 2026-11-01). Not registered on the Berthoud (Precision Farming on), selected, unfolded and on, keys bound: the game did nothing (live, 0.12.0) |
 | `TOGGLE_TIPSTATE` "Dump", `TOGGLE_TIPSTATE_GROUND` "Dump on ground" (Dischargeable), `UNLOAD` "Unload" (FillUnit) | spike 0.0.4's sprayer keys | the keys are live (spike 0.0.4); what they do on a sprayer is unverified |
-| the driving parts' specs (`spec_drivable`, `spec_motorized`, `spec_honk`, ...) to leave out of the vehicle's keys | Drivable.lua and others | unverified on a self-propelled sprayer |
+| the driving parts' specs (`spec_drivable`, `spec_motorized`, `spec_honk`, ...) to leave out of the vehicle's keys | Drivable.lua and others | live (0.12.1, the DINO II): all left out but `TOGGLE_AI`, now left out of every card (fix 3) |
+| `spec_foldable.foldMoveDirection` (1 folding, -1 unfolding, 0 still) | Foldable.lua | seen in spikes 0.0.5 and 0.0.6 and by livewatch on the DINO II and the Berthoud (0.12.1); the label from it unchecked in game |
+| `getIsPowered` (a tool asks its vehicle) for Turn on | Motorized.lua | used for fold and lower since 0.8.8; for Turn on unverified |
 
 ## Commands
 
@@ -151,6 +183,9 @@ Game API names used:
   (Vincent, 2026-11-01).
 - The dashboard shows the width button pending until the ack, then until
   `width` changes (at most 1.5 s), as every card button.
+- **`implement.key`** (mod 0.12.2, fix 1): the other key by its input
+  action's name (`key`), no number; pressed on the selected tool only
+  while it's among its other keys now, else "no such key".
 
 ## Plan
 
@@ -198,6 +233,27 @@ Automated (each one a test that exists before the work is called built):
 - [x] `web/test.html`: compact: strip and width, no width buttons.
 - [x] `web/test.html`: a self-propelled sprayer's own card: no Detach,
   no wear, no driving keys.
+- [x] Fix 1, `mod/tests/run.lua`: `implement.key` by name presses that key
+  on the sprayer while `DOUBLED_SPRAY_AMOUNT` comes and goes before it; a
+  key not live now, a button's key and a number are refused.
+  `companion/tests`: the key passes through and into the command file; a
+  key that isn't a name is refused. `web/test.html`: the commander sends
+  `key`; Dump, Dump on ground and Unload each send their own name.
+- [x] Fix 2 and 3, `mod/tests/run.lua`: on a self-propelled sprayer
+  `implement.key` refuses a driving key and `TOGGLE_AI` ("no such key")
+  and presses its sprayer key; no card lists `TOGGLE_AI`.
+- [x] Fix 4, `mod/tests/run.lua`: `foldDirection` while the fold moves,
+  none when still. `web/test.html`: the card's Fold, its state and the
+  cab's Fold control read "Folding…" or "Unfolding…" by it.
+- [x] Fix 5, `mod/tests/run.lua`: unfolded with no power, `turnOn` stays
+  in `can`, not now, with the engine's words (the turn on warning first);
+  powered and still not now, none. `web/test.html`: that Turn on is
+  faded with the words.
+- [x] 0.12.3, `mod/tests/run.lua`: a weight with the turn on part that
+  never turns on has no Turn on, the engine on or off, nor the tractor
+  itself; a hidden key isn't an other key. `web/test.html`: a tractor
+  never has a card, with `turnOn` or other capabilities.
+- [x] 0.12.4, `mod/tests/run.lua`: an `AXIS_...` key isn't an other key.
 - [x] Replay in the browser pane (`replay-solek` with the sprayer rig
   patched in): the card at 1180×820, day and night.
 
@@ -223,10 +279,12 @@ Live check (in game; Solek, CLAAS ARION 410 with the Berthoud Vantage
   game's PARTIAL WIDTH HUD the same after each press; a side at its limit
   fades its button. (Doesn't apply on the Berthoud or the DINO II: the
   keys aren't live. Left open for a sprayer where they are.)
-- [ ] Dump, Dump on ground, Unload: what each does in game, and whether
-  the label says it (open question 2). (So far: Dump did nothing with
-  nothing in reach, Unload puts the tank into pallets on the ground; Dump
-  on ground untried, as its button pressed Unload: fix 1.)
+- [x] Dump, Dump on ground, Unload: what each does in game, and whether
+  the label says it (open question 2). (Vincent, 2026-11-02, mod 0.12.2
+  and 0.12.3: Dump and Dump on ground pressed their own keys and did
+  nothing, and the game didn't show either then: hidden keys are left
+  out since 0.12.3, and neither showed on the card after. Unload puts the
+  tank into pallets on the ground, the label says it.)
 - [x] The tank's "empty in" while spraying (at x1). (Vincent,
   2026-11-01, mod 0.12.1)
 - [ ] Self-propelled: its card has no driving keys, Fold and Turn on work
@@ -240,10 +298,11 @@ Live check (in game; Solek, CLAAS ARION 410 with the Berthoud Vantage
   if there is one): Fold, Turn on, the strip and the tank as above, no
   Precision Farming keys.
 
-### Fixes from the live check (to build, mod 0.12.2)
+### Fixes from the live check (built, mod 0.12.2)
 
-Found on 2026-11-01 (the Log has the details). Each needs its test first,
-then a recheck in game.
+Found on 2026-11-01 (the Log has the details). Each has its test
+(`mod/tests/run.lua`, `companion/tests`, `web/test.html`); each waits for
+its recheck in game.
 
 1. **Other keys by name, not number.** A card's other key sends its
    number in `extraKeys`, and a key that comes and goes
@@ -384,3 +443,44 @@ Choices made while building that the live check should confirm or change.
   self-propelled card, the selection (shown by livewatch, to confirm),
   Precision Farming off. Five fixes to build first (Fixes from the live
   check), then their rechecks.
+- 2026-11-02: the five fixes built (mod 0.12.2), tests first. 1: an other
+  key goes by its input action's name (`key` on `implement.key`, through
+  the viewer, the companion and the command file; `scripts/rig_check.py`
+  presses by name too). 2: pressing checks the same list the card shows,
+  the vehicle's own without its driving keys. 3: `TOGGLE_AI` is never an
+  other key. 4: `foldDirection` labels a moving fold ("Folding…",
+  "Unfolding…") on the card, the cab's Fold control and the card's state.
+  5: unfolded with no power, Turn on stays, faded, with the game's words
+  (the mowers' test now expects that too). Rechecks open: Dump on ground,
+  the DINO II's card, Fold and Unfold on both, Turn on with the engine
+  off.
+- 2026-11-02: live check, test 1 (mod 0.12.2, the ARION 410 with the W 600
+  and the Berthoud). Fix 1 pressed the keys by name (`via
+  TOGGLE_TIPSTATE_GROUND`, `TOGGLE_TIPSTATE`), and Unload made pallets,
+  but Dump and Dump on ground did nothing: the game didn't show either
+  key then (Vincent), so the card lists hidden keys. With the engine off,
+  fix 5 gave the W 600 and the ARION a faded Turn on, and the ARION a card
+  (livewatch: `can: ["turnOn"]`, my fallback's "Please start the engine
+  first!"): fix 5 kept Turn on on anything with the turn on part. Never
+  wanted (Vincent): a tractor is never a card, a weight never has Turn
+  on. Fixed in 0.12.3 (tests first): Turn on without power only on a
+  tool seen turning on, hidden keys left out, no card for a tractor.
+  Vincent wishes for the game's Refill on the dashboard when it's offered
+  (docs/NEXT.md).
+- 2026-11-02: rechecks on mod 0.12.3 (livewatch and Vincent). The engine
+  off: the ARION 410 has no Turn on and no card, the W 600 only its
+  faded Lower, the Berthoud a faded Turn on with the game's "Attach tool
+  to vehicle with a turned-on motor!" (none at load until the engine ran
+  once, as built). Dump and Dump on ground never on the card; Unload made
+  pallets again. "Raise sprayer arm" (`AXIS_SPRAYER_ARM`) showed as an
+  other key, and one press took the arm all the way up: an axis is never
+  a button (Vincent), left out in 0.12.4. Seen on the way: Fold x4 and
+  Turn on x2 ok once moved; Turn on faded while folded, Detach while
+  folding.
+- 2026-11-02: live check paused. With Unload and Turn on still coming and
+  going (folds, the engine off at load, selection), the card's button
+  model is redone from basics in spec [0012](0012-card-buttons.md): a
+  tool's buttons from what it is, the game's state only fades them. The
+  other keys (fix 1, the hidden and axis filters) and the faded Turn on
+  (fix 5, 0.12.3) are replaced there; the open boxes here are checked
+  again under 0012.

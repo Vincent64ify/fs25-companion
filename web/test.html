@@ -402,6 +402,11 @@ cmd.ack({ id: "t-6", ok: true, already: false });
 check("commands: a set carries its value and tool; already comes back", [sent.slice(-2), await setRun, await beaconRun],
   [[{ type: "command", id: "t-5", action: "tool.lower", value: 1, tool: 9 },
     { type: "command", id: "t-6", action: "beacon.set", value: 0 }], { ok: true, already: true }, { ok: true }]);
+// specs/0011 fix 1: an other key by its input action's name, no number
+const keyRun = cmd.send("implement.key", undefined, undefined, undefined, "TOGGLE_TIPSTATE_GROUND");
+cmd.ack({ id: "t-7", ok: true });
+check("commands: an other key carries its name", [sent.at(-1), await keyRun],
+  [{ type: "command", id: "t-7", action: "implement.key", key: "TOGGLE_TIPSTATE_GROUND" }, { ok: true }]);
 
 const ccs = createStore();
 /** @type {((r: any) => void)[]} */
@@ -657,6 +662,10 @@ check("labels: \"Folding…\" through the fold, then \"Unfold\"", [folding, lbl(
   [["Folding…", "pending"], "Unfold", "off"]);
 ls.set("cab", lsCab({ unfolded: false, foldMoving: true }));
 check("labels: a fold started by the key in game", lbl(foldBtn), "Unfolding…");
+// specs/0011 fix 4: getIsUnfolded turns false as the fold starts; the
+// mod's direction says which way it goes
+const foldWay = (foldDirection) => { ls.set("cab", lsCab({ unfolded: false, foldMoving: true, foldDirection })); return lbl(foldBtn); };
+check("labels: a moving fold by its direction", [foldWay("folding"), foldWay("unfolding")], ["Folding…", "Unfolding…"]);
 
 const ids = Object.keys(CONTROLS);
 check("C2: one button per toggle, no on/off pairs", ids.filter((id) => /Raised|Off$/.test(id)), []);
@@ -1783,8 +1792,8 @@ const noRates = { rate: () => undefined, rising: () => false, area: () => undefi
 const toolsPage = (vehicles, cab) => {
   const s = createStore();
   const sent = [];
-  const send = (a, v, t, side) => {
-    sent.push(side !== undefined ? [a, v, t, side] : t === undefined ? [a, v] : [a, v, t]);
+  const send = (a, v, t, side, key) => {
+    sent.push(key !== undefined ? [a, key] : side !== undefined ? [a, v, t, side] : t === undefined ? [a, v] : [a, v, t]);
     return Promise.resolve({ ok: true });
   };
   const cardsEl = vt.toolCards(s, { send, rates: noRates });
@@ -1907,7 +1916,7 @@ check("tools: every confirmed capability's button, labelled with what a tap does
   ["Raise|tool.lower|0|9|true|false|", "Unfold|tool.fold|0|9|false|false|", "Turn on|tool.turnOn|1|9|false|true|",
     "Stop|tool.tip|0|9|true|false|", "Tip side|implement.tipSide|9||false|false|Left",
     "Pipe in|tool.pipe|0|9|true|false|", "Detach|implement.detach|9||false|false|",
-    "Allow create fields|implement.key|1||false|false|"]);
+    "Allow create fields|implement.key|||false|false|"]);
 // spec 0003 revision 3: the label says where the load goes, as the key the game shows
 check("tools: Tip says Unload here off a sale point, Tip over one, Stop while tipping", [
   { tipTo: "ground", discharging: false }, { tipTo: "object", discharging: false }, { discharging: false },
@@ -1941,6 +1950,16 @@ check("tools: the vehicle's own card (a sprayer, the truck): no wear, no Detach;
   seederRig.shown().cards.map((c) => c.split(":")[0]), q(seederRig.cardsEl, ".tank-name")],
   [["Rubicon 9000: Fold:on, Turn off:on"], ["Speed", "Width", "Area"], false, "Hardi · Sprayers",
     ["Arocs 4133 + TECTRUM RS26", ["Speed", "Width", "Area"], false], ["Amazone Cirrus"], "Seeds"]);
+// live (0.12.2): with the engine off the ARION 410 had a card for a faded
+// Turn on; a tractor is never one of the cards, whatever it says it can do
+const tractorRig = (can) => toolsPage({ controlledId: 1, vehicles: [{ id: 1, name: "CLAAS ARION 410", category: "tractorsM",
+  typeName: "tractor", motorized: true, implements: [{ id: 2, name: "Berthoud Vantage 4300", category: "sprayers" }] }] },
+{ inVehicle: true, rig: [{ id: 1, depth: 0, selectable: true, can, turnedOn: false, canNow: { turnOn: false } },
+  { id: 2, depth: 1, can: ["fold", "turnOn", "detach"], unfolded: true }] });
+const tractorCards = (can) => { const p = tractorRig(can);
+  return [p.cardsEl.querySelectorAll(".tool-card").length, p.cardsEl.querySelectorAll('.tool-card[data-vehicle="true"]').length]; };
+check("tools: never a card for the tractor (cards, the vehicle's own)", [tractorCards(["turnOn"]), tractorCards(["fold", "pipe"])],
+  [[1, 0], [1, 0]]);
 
 // --- Sprayer (specs/0011-sprayer.md) ---------------------------------------------
 
@@ -1993,6 +2012,29 @@ check("sprayer: a self-propelled sprayer's own card: no Detach, no wear, no driv
   statLabels(spCard), [...spCard.querySelectorAll(".tool-buttons .control")].map(lbl)
     .filter((l) => ["Detach", "Accelerate", "Steer vehicle", "Honk"].includes(l))],
   [["Speed", "Width", "Area"], []]);
+// specs/0011 fix 1: each other key sends its input action's name (by
+// number, a key that came and went shifted the rest: Dump on ground
+// pressed Unload)
+const keyPage = toolsPage(rigFix.sprayer.vehicles, rigFix.sprayer.cab);
+const keyButtons = [...keyPage.cardsEl.querySelectorAll('.tool-card[data-id="1031"] .tool-buttons .control')]
+  .filter((b) => ["Dump", "Dump on ground", "Unload"].includes(lbl(b)));
+for (const b of keyButtons) tap(b);
+await Promise.resolve();
+check("sprayer: an other key sends its name, not its place in the list", [keyButtons.map(lbl), keyPage.sent],
+  [["Dump", "Dump on ground", "Unload"], [["implement.key", "TOGGLE_TIPSTATE"],
+    ["implement.key", "TOGGLE_TIPSTATE_GROUND"], ["implement.key", "UNLOAD"]]]);
+// specs/0011 fix 4: Fold's label and the card's state follow the fold's direction
+const moving = (foldDirection) => ({ id: 31, depth: 1, can: ["fold"], foldable: true, unfolded: false, foldMoving: true,
+  foldDirection });
+check("sprayer: a moving fold says which way by its direction", [
+  vt.toolButtons(moving("folding"))[0].label, vt.toolButtons(moving("unfolding"))[0].label,
+  vt.tileState(moving("unfolding"), undefined)],
+  ["Folding…", "Unfolding…", "Unfolding…"]);
+// specs/0011 fix 5: unfolded with the engine off, Turn on stays, faded with the game's words
+const offTurnOn = vt.toolButtons({ id: 31, depth: 1, can: ["fold", "turnOn"], unfolded: true, turnedOn: false,
+  canNow: { turnOn: false }, whyNot: { turnOn: "Please start the engine first!" } }).find((b) => b.action === "tool.turnOn");
+check("sprayer: the engine off, Turn on faded with the game's words", [offTurnOn?.label, offTurnOn?.unavailable, offTurnOn?.why],
+  ["Turn on", true, "Please start the engine first!"]);
 
 // the All row: lit while all are on; Turn on all waits while one is folded;
 // tip and cover all carry what they do

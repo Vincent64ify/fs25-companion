@@ -9,6 +9,7 @@
 --     <command ... action="cruise.set" ref="..." value="23.000"/>   (km/h)
 --     <command ... action="tool.lower" ref="..." value="1.000" tool="9"/>   (a rig id)
 --     <command ... action="tool.width" ref="..." value="-1.000" tool="9" side="left"/>
+--     <command ... action="implement.key" ref="..." key="TOGGLE_TIPSTATE_GROUND"/>
 --
 -- (a temp file, read back once, then renamed, so it appears whole). Every
 -- frame the mod checks whether the next number exists (fileExists costs
@@ -727,21 +728,24 @@ local function lightsJob(vehicle, want, stages)
     return job
 end
 
--- the selected tool's other key (VehicleState.extraKeys), by its number in
--- that list; returns the input action to press on it
-local function selectedKey(vehicle, index)
+-- the selected tool's other key (VehicleState.extraKeys), by its input
+-- action's name: pressed only while it's in that list now, as the card
+-- shows it (the vehicle's own leaves its driving keys out). By number, a key
+-- that came and went shifted the ones after it (live, 0.12.1: "Dump on
+-- ground" pressed Unload; specs/0011)
+local function selectedKey(vehicle, action)
     local root = VehicleState.rootOf(vehicle)
     local selected = Api.tryCall(root, "getSelectedVehicle")
     if type(selected) ~= "table" then
         return nil, "nothing selected"
     end
     local depth = selected == vehicle and 0 or 1
-    local keys = VehicleState.extraKeys(selected, capsOf(selected, depth).can)
-    local key = type(index) == "number" and keys[index] or nil
-    if key == nil then
-        return nil, "no such key"
+    for _, key in ipairs(VehicleState.extraKeys(selected, capsOf(selected, depth).can, depth == 0)) do
+        if key.action == action then
+            return selected, action
+        end
     end
-    return selected, key.action
+    return nil, "no such key"
 end
 
 -- Attach: only while the game has something in reach (its prompt is up)
@@ -779,7 +783,8 @@ end
 --              when the command has none
 --   job        function(vehicle, value) -> a job over several tools, or
 --              ALREADY
---   key        the selected tool's other key, by its number in extraKeys
+--   key        the selected tool's other key, by its input action's name
+--              (the command's key; specs/0011)
 --   width      with a tool's id and a side ("left", "right"): the only
 --              action with a side (specs/0011)
 --   values     { min, max }: the command's number and its range; without
@@ -837,7 +842,7 @@ Commands.ACTIONS = {
     ["implement.tipSide"] = { aim = AIMED.TOGGLE_TIPSIDE, aimOnly = true, values = TOOL_ID, optional = true },
     ["implement.rotate"] = { aim = AIMED.ROTATE_PLOW, aimOnly = true, values = TOOL_ID, optional = true },
     ["implement.baleReset"] = { aim = AIMED.RESET_BALE_COUNTER, aimOnly = true, values = TOOL_ID, optional = true },
-    ["implement.key"] = { key = true, values = { 1, 64 } },
+    ["implement.key"] = { key = true },
     -- the All row, each with the state it asks for (specs/0008; value 1:
     -- lowered, folded, on, tipping, open): the game's own key where it
     -- gives that state, else each tool's own (fold all raises what's
@@ -863,8 +868,20 @@ end
 
 local SIDES = { left = true, right = true }
 
--- whether the command's number, tool and side fit its action
-local function valueFits(spec, value, tool, side)
+-- an input action's name ("TOGGLE_TIPSTATE_GROUND", a mod's own)
+local function keyName(key)
+    return type(key) == "string" and #key <= 64 and key:match("^[%a][%w_%.]*$") ~= nil
+end
+
+-- whether the command's number, tool, side and key fit its action
+local function valueFits(spec, value, tool, side, key)
+    if spec.key then
+        if not keyName(key) then
+            return false
+        end
+    elseif key ~= nil then
+        return false
+    end
     if spec.width then
         if not SIDES[side] or value == 0 then
             return false
@@ -888,7 +905,7 @@ local function valueFits(spec, value, tool, side)
     return inRange(spec.values, value)
 end
 
-local ATTRIBUTES = { "session", "id", "action", "ref", "value", "tool", "side" }
+local ATTRIBUTES = { "session", "id", "action", "ref", "value", "tool", "side", "key" }
 
 function Commands.new(dir, sessionId, log)
     local self = setmetatable({}, Commands)
@@ -971,13 +988,13 @@ end
 
 -- returns ok, reason, via, or a job (specs/0003) as the fourth, or
 -- already (specs/0008) as the fifth; value: the command's number, if it has
--- one; tool: its tool's id; side: tool.width's
-local function run(actionName, value, tool, side)
+-- one; tool: its tool's id; side: tool.width's; key: implement.key's
+local function run(actionName, value, tool, side, key)
     local spec = Commands.ACTIONS[actionName]
     if spec == nil then
         return false, "action not allowed"
     end
-    if not valueFits(spec, value, tool, side) then
+    if not valueFits(spec, value, tool, side, key) then
         return false, "value not allowed"
     end
     local vehicle = Api.controlledVehicle()
@@ -1033,7 +1050,7 @@ local function run(actionName, value, tool, side)
         return nil, nil, nil, job
     end
     if spec.key then
-        local object, action = selectedKey(vehicle, value)
+        local object, action = selectedKey(vehicle, key)
         if object == nil then
             return false, action
         end
@@ -1309,7 +1326,7 @@ function Commands:poll()
     end
     self.nextId = id + 1
     local ran, reason, via, job, already
-    ok, ran, reason, via, job, already = pcall(run, cmd.action, tonumber(cmd.value), tonumber(cmd.tool), cmd.side)
+    ok, ran, reason, via, job, already = pcall(run, cmd.action, tonumber(cmd.value), tonumber(cmd.tool), cmd.side, cmd.key)
     if ok and job ~= nil then
         job.ack = { id = id, ref = cmd.ref, action = cmd.action }
         self.job = job

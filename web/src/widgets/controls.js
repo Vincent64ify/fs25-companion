@@ -19,8 +19,8 @@
 // shows pending (a fold running) until the game reports the end state.
 
 import { createControl } from "../ui/control.js";
-import { cabOf, controlledVehicle, cruiseOf, entryModel, implementById, implementsOf, isLoaderGear, keyTool, lightsOf,
-  liveTool, lowersInRig, ptoOf, rigOf, selectedInRig } from "../data/selectors.js";
+import { cabOf, controlledVehicle, cruiseOf, entryModel, foldingText, implementById, implementsOf, isLoaderGear, keyTool,
+  lightsOf, liveTool, lowersInRig, ptoOf, rigOf, selectedInRig } from "../data/selectors.js";
 import { sendCommand } from "../connection.js";
 import { speedToKmh, speedUnit, speedValue, unitsOf } from "../data/units.js";
 import { h } from "../ui/dom.js";
@@ -366,8 +366,7 @@ export const CONTROLS = {
   send: (v, cab) => ({ value: toolFor("fold")(v, cab)?.unfolded ? 1 : 0, tool: toolIdFor("fold", cab) }),
   labels: (v, cab) => {
     const i = toolFor("fold")(v, cab);
-    // a fold started in game: which way it goes is a guess from where it was
-    if (i?.foldMoving) return { label: i.unfolded ? "Folding…" : "Unfolding…" };
+    if (i?.foldMoving) return { label: foldingText(i) };
     return { label: i?.unfolded ? "Fold" : "Unfold" };
   } },
   implementOn: { label: "Work", icon: "implementOn", action: "tool.turnOn", read: (v, cab) => {
@@ -462,7 +461,7 @@ export const TILES = {
   fold: { control: "fold", caption: "Fold", lit: false, shown: (v, cab) => toolFor("fold")(v, cab)?.foldable === true,
     state: (v, cab) => {
       const i = toolFor("fold")(v, cab);
-      return i?.foldMoving ? "Folding…" : i?.unfolded ? "Unfolded" : "Folded";
+      return i?.foldMoving ? foldingText(i) : i?.unfolded ? "Unfolded" : "Folded";
     } },
 };
 

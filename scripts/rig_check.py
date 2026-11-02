@@ -212,11 +212,11 @@ class Check:
         print(f"{verdict:<5} {name:<36} {answer(ack):<44} {via:<22} {shown}", flush=True)
         self.results.append((name, verdict))
 
-    async def press(self, name: str, action: str, value: Any, judge) -> Ack:
+    async def press(self, name: str, action: str, value: Any, judge, key: Optional[str] = None) -> Ack:
         await self.rig.settle()
         before = self.rig.cab
         self.rig.seen = []
-        ack = await self.rig.press(action, value)
+        ack = await self.rig.press(action, value, key)
         await self.rig.settle()
         after = self.rig.cab
         verdict, shown = judge(before, after, ack)
@@ -275,14 +275,14 @@ class Check:
                 continue
             for n in (1, 2):
                 now = by_id(self.rig.cab, e["id"]) or {}
-                index = next((i + 1 for i, x in enumerate(now.get("extraKeys") or []) if x.get("action") == action),
-                             None)
-                if index is None:
+                if key_text(now, action) is None:
                     print(f"LOOK  {e.get('name')}: {text} is gone after the first press", flush=True)
                     self.results.append((f"{e.get('name')}: {text}", "LOOK"))
                     break
-                await self.press(f"{e.get('name')}: {key_text(now, action)} ({n})", "implement.key", index,
-                                 lambda b, a, ack: judge_key(action, by_id(b, e["id"]) or {}, by_id(a, e["id"]), ack))
+                # by its input action's name (specs/0011)
+                await self.press(f"{e.get('name')}: {key_text(now, action)} ({n})", "implement.key", None,
+                                 lambda b, a, ack: judge_key(action, by_id(b, e["id"]) or {}, by_id(a, e["id"]), ack),
+                                 key=action)
         if back and back.get("id") != e["id"]:
             await self.rig.press("implement.select", back["id"])
             await self.rig.settle()
@@ -380,9 +380,9 @@ class Viewer(Rig):
                 self.note("ack", msg)
                 self.acks[msg["id"]] = msg
 
-    async def press(self, action: str, value: Any = None) -> Ack:
-        self.note("press", {"action": action, "value": value})
-        return await super().press(action, value)
+    async def press(self, action: str, value: Any = None, key: Optional[str] = None) -> Ack:
+        self.note("press", {"action": action, "value": value, **({"key": key} if key is not None else {})})
+        return await super().press(action, value, key)
 
     async def settle(self) -> None:
         end = time.monotonic() + 30.0

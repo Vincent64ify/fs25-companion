@@ -56,7 +56,13 @@ Things to fix next, in no particular order. Longer-term ideas are under
   has none), but a self-propelled sprayer's would. Built in
   [spec 0011](../specs/0011-sprayer.md) (mod 0.12.0): the vehicle's own
   keys leave its driving parts' keys out. Live (the Agrio DINO II):
-  all but "Toggle AI Worker", spec 0011's fix 3.
+  all but "Toggle AI Worker", left out since mod 0.12.2 (spec 0011's fix
+  3; to recheck).
+- **Refill on the dashboard** (Vincent, spec 0011's live check,
+  2026-11-02): at a fill station the game offers Refill for the sprayer;
+  a button for it when the game shows it. It isn't one of the tool's
+  keys (it comes from the station, the game's activatable objects; names
+  unverified), so it needs its own spec.
 - **The mod's version in hello** (spec 0011's live check, 2026-11-01):
   `Companion.VERSION` in `mod/src/Companion.lua` still says 0.9.1, so
   hello's `modVersion` is wrong since 0.9.1 (the game ran 0.12.1). Read it

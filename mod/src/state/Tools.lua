@@ -74,8 +74,12 @@ function VehicleState.implement(object)
     return out
 end
 
--- an object that folds (a tool, or a combine itself): sets unfolded and
--- foldMoving on out and returns true; false when it doesn't fold
+-- an object that folds (a tool, or a combine itself): sets unfolded,
+-- foldMoving and, while it moves, foldDirection ("folding", "unfolding") on
+-- out and returns true; false when it doesn't fold. getIsUnfolded turns
+-- false as soon as a fold starts (live, 0.12.1), so only the direction says
+-- which way it goes (foldMoveDirection, spikes 0.0.5 and 0.0.6: 1 folding,
+-- -1 unfolding, 0 still)
 function VehicleState.fold(object, out)
     local foldable = object.spec_foldable
     if foldable == nil or (type(foldable.foldingParts) == "table" and next(foldable.foldingParts) == nil) then
@@ -86,6 +90,10 @@ function VehicleState.fold(object, out)
         out.unfolded = unfolded
     end
     out.foldMoving = foldMoving(object, foldable)
+    local direction = foldable.foldMoveDirection
+    if out.foldMoving and type(direction) == "number" and direction ~= 0 then
+        out.foldDirection = direction > 0 and "folding" or "unfolding"
+    end
     return true
 end
 
@@ -259,6 +267,11 @@ end
 -- checks), and its buttons must not come and go with the selection
 local widthKeysSeen = setmetatable({}, { __mode = "k" })
 
+-- the tools the game let turn on once (getCanBeTurnedOn true): only those
+-- keep a faded Turn on without power. The CLAAS W 600 (a weight) and the
+-- ARION 410 have the turn on part and never turn on (live, 0.12.2)
+local turnsOnSeen = setmetatable({}, { __mode = "k" })
+
 -- the width has buttons only where the game's own keys are live (Vincent,
 -- 2026-11-01: no other way in)
 local function widthKeys(object)
@@ -309,14 +322,22 @@ function VehicleState.capabilities(object, out, depth)
         end
     end
     -- getCanBeTurnedOn is also false while folded or with the engine off
-    -- (live, 0.8.7); folded, Turn on stays, unavailable, with the game's
-    -- warning (Foldable's, unverified)
+    -- (live, 0.8.7 and 0.12.1); then Turn on stays, unavailable, with the
+    -- game's warning (Foldable's, unverified), else the engine's. Without
+    -- power, only on a tool the game let turn on before
     local canTurnOn = object.spec_turnOnVehicle ~= nil and Api.tryCall(object, "getCanBeTurnedOn")
-    if canTurnOn == false and out.unfolded == false then
+    if canTurnOn == true then
+        turnsOnSeen[object] = true
+    end
+    local power, noPower
+    if canTurnOn == false and turnsOnSeen[object] then
+        power, noPower = VehicleState.powered(object)
+    end
+    if canTurnOn == false and (out.unfolded == false or power == false) then
         has.turnOn = true
         out.turnedOn = Api.tryCall(object, "getIsTurnedOn") == true
         local why = Api.tryCall(object, "getTurnedOnNotAllowedWarning")
-        refuse("turnOn", false, type(why) == "string" and why or nil)
+        refuse("turnOn", false, type(why) == "string" and why or power == false and noPower or nil)
     elseif object.spec_turnOnVehicle ~= nil and canTurnOn ~= false then
         has.turnOn = true
         out.turnedOn = Api.tryCall(object, "getIsTurnedOn") == true
@@ -413,8 +434,11 @@ local KEY_CAPS = {
     VARIABLE_WORK_WIDTH_LEFT = "width", VARIABLE_WORK_WIDTH_RIGHT = "width",
     IMPLEMENT_EXTRA = { spec_turnOnVehicle = "turnOn", spec_plow = "rotate" },
 }
+-- The AI worker's key (TOGGLE_AI) comes from an AI part not among the
+-- driving parts (live, 0.12.1: the DINO II, the ARION) and has the
+-- dashboard's own button (specs/0011)
 local NOT_A_TOOL_KEY = { FOLD_ALL_IMPLEMENTS = true, TURN_ON_ALL_IMPLEMENTS = true, LOWER_ALL_IMPLEMENTS = true,
-    ATTACH = true, DETACH = true }
+    ATTACH = true, DETACH = true, TOGGLE_AI = true }
 
 -- the capabilities a card has a button for: the ones confirmed in game
 -- (spec 0003's close). Cover, rotate and bales wait for their own spec;
@@ -464,7 +488,13 @@ function VehicleState.extraKeys(object, can, own)
                 if type(cap) == "table" then
                     cap = cap[k]
                 end
+                -- a key the game hides isn't offered now, and does nothing
+                -- (spike 0.0.8; live, 0.12.2: Dump and Dump on ground); an
+                -- axis is held, never a button (live, 0.12.3: one press of
+                -- AXIS_SPRAYER_ARM took the arm all the way up; the game's
+                -- AXIS_ prefix, inputBinding.xml)
                 if type(action) == "string" and type(e) == "table" and e.isActive ~= false
+                    and e.displayIsVisible ~= false and action:sub(1, 5) ~= "AXIS_"
                     and type(e.contextDisplayText) == "string" and e.contextDisplayText ~= ""
                     and not NOT_A_TOOL_KEY[action] and not (cap ~= nil and (covered[cap] or cap == "turnOn"))
                     and not seen[action] then

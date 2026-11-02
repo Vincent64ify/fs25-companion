@@ -66,13 +66,17 @@ up to date until the live check.
   on 2026-11-01), and a tap anywhere on a card selects it. Confirmed in
   game on 2026-11-01.
 - The sprayer is built (spec [0011](../specs/0011-sprayer.md), mod
-  0.12.1): Fold and Turn on on a trailed and a self-propelled sprayer, the
+  0.12.4): Fold and Turn on on a trailed and a self-propelled sprayer, the
   boom's sections as a strip (read-only: the game's width keys aren't live
   on the Berthoud or the DINO II), no driving keys on a vehicle's own
   card. Its live check is under way: the probe, Fold, Turn on and "empty
-  in" are confirmed (2026-11-01); five fixes it found come first, starting
-  with other keys sent by name (a key that comes and goes shifted the
-  numbers, and Dump on ground pressed Unload).
+  in" are confirmed (2026-11-01). The five fixes it found are built (mod
+  0.12.2, 2026-11-02): other keys sent by name (a key that comes and goes
+  shifted the numbers, and Dump on ground pressed Unload), no Toggle AI
+  Worker on a card, Fold's label by the fold's direction, Turn on faded
+  with the engine off; their rechecks are under way (0.12.3: no Turn on
+  on a weight or tractor, no card for a tractor, hidden keys left out,
+  confirmed; 0.12.4: no axis keys as buttons).
 - The code review of 2026-10-30 ([REVIEW-2026-10-30.md](REVIEW-2026-10-30.md))
   found seven issues. F5 to F7 are fixed (mod 0.8.12), and F1 is fixed and
   confirmed in game (spec [0004](../specs/0004-acks-survive-rotation.md),

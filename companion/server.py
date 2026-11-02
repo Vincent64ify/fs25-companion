@@ -1,11 +1,12 @@
 """The dashboard's server: its files, /ws for viewers, the map images.
 
     viewer -> server:  {"type": "command", "id": str, "action": str, "value"?: number,
-                        "tool"?: int, "side"?: "left" | "right"}
+                        "tool"?: int, "side"?: "left" | "right", "key"?: str}
                        a tap on a control: the state it wants ("beacon.set"
                        with 1; "cruise.set" with km/h; "tool.lower" with 1
                        and the tool's rig id, specs/0008; "tool.width" with
-                       -1 or 1, the tool's id and a side, specs/0011). Only its shape is
+                       -1 or 1, the tool's id and a side; "implement.key"
+                       with the key's input action name, specs/0011). Only its shape is
                        checked here (protocol.command_refusal); the mod
                        knows its actions and their values (specs/0007).
                        Anything else a viewer sends is ignored.
@@ -189,8 +190,9 @@ class Hub:
         if not isinstance(viewer_id, str) or not 0 < len(viewer_id) <= MAX_COMMAND_ID:
             return
 
-        action, value, tool, side = msg.get("action"), msg.get("value"), msg.get("tool"), msg.get("side")
-        refusal = command_refusal(action, value, tool, side)
+        action, value, tool, side, key = (msg.get("action"), msg.get("value"), msg.get("tool"), msg.get("side"),
+                                          msg.get("key"))
+        refusal = command_refusal(action, value, tool, side, key)
         if refusal is not None:
             await safe_send(ws, {"type": "command_ack", "id": viewer_id, "ok": False, "reason": refusal})
             return
@@ -199,10 +201,8 @@ class Hub:
         self.commands[ref] = (ws, viewer_id)
         while len(self.commands) > MAX_PENDING_COMMANDS:
             self.commands.popitem(last=False)
-        if side is None:
-            self.writer.submit(ref, action, value, tool)
-        else:
-            self.writer.submit(ref, action, value, tool, side)
+        extra = {name: x for name, x in (("side", side), ("key", key)) if x is not None}
+        self.writer.submit(ref, action, value, tool, **extra)
         await self.flush()
 
     # viewers

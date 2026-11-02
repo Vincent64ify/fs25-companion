@@ -160,7 +160,7 @@ def test_the_file_carries_the_dashboards_action_and_value(tmp_path):
     """specs/0007: no list here; the mod checks the action and its value."""
     writer, acks, _ = make(tmp_path)
     sent = [("cruise.set", 23.5), ("implement.select", 5), ("implement.next", None),
-            ("implement.key", 2), ("implement.tipAll", 1), ("someday.newButton", None)]
+            ("implement.tipSide", 2), ("implement.tipAll", 1), ("someday.newButton", None)]
     for n, (action, value) in enumerate(sent, start=1):
         writer.submit(str(n), action, value)
         a = attrs(tmp_path / "cmd" / f"{n}.xml")
@@ -194,6 +194,12 @@ def test_the_file_carries_the_tool(tmp_path):
     writer.submit("3", "tool.width", -1, 1031, "left")
     a = attrs(tmp_path / "cmd" / "3.xml")
     assert (a["action"], a["value"], a["tool"], a["side"]) == ("tool.width", "-1.000", "1031", "left")
+    assert "key" not in a
+    # specs/0011 fix 1: implement.key's key, by its input action's name
+    writer.submit("4", "implement.key", None, None, None, "TOGGLE_TIPSTATE_GROUND")
+    a = attrs(tmp_path / "cmd" / "4.xml")
+    assert (a["action"], a["key"]) == ("implement.key", "TOGGLE_TIPSTATE_GROUND")
+    assert "value" not in a and "tool" not in a and "side" not in a
 
 
 def test_every_command_is_written_as_it_comes(tmp_path):

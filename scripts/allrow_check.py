@@ -135,11 +135,13 @@ class Rig:
         if cab != self.cab:
             self.cab, self.changed = cab, time.monotonic()
 
-    async def press(self, action: str, value: Any = None) -> Optional[Dict[str, Any]]:
+    async def press(self, action: str, value: Any = None, key: Optional[str] = None) -> Optional[Dict[str, Any]]:
         cid = f"check-{next(self.ids)}"
         msg = {"type": "command", "id": cid, "action": action}
         if value is not None:
             msg["value"] = value
+        if key is not None:
+            msg["key"] = key
         await self.ws.send(json.dumps(msg))
         end = time.monotonic() + ACK_TIMEOUT_S
         while cid not in self.acks and time.monotonic() < end:

@@ -59,12 +59,17 @@ export const KIND_LABELS = /** @type {Record<string, string>} */ ({
  * @param {{category?: string, typeName?: string, motorized?: boolean}|undefined} v
  */
 export function vehicleKind(v) {
+  return namedKind(v) ?? (v?.motorized === false ? "implement" : "tractor");
+}
+
+/** The kind its category or type names, else undefined (no guess). */
+function namedKind(/** @type {{category?: string, typeName?: string}|undefined} */ v) {
   for (const name of [v?.category, v?.typeName]) {
     if (typeof name !== "string") continue;
     const found = KINDS.find(([re]) => re.test(name.toUpperCase()));
     if (found) return found[1];
   }
-  return v?.motorized === false ? "implement" : "tractor";
+  return undefined;
 }
 
 /** The shop's category name ("Tractors M"), else the kind's ("Tractor"). */
@@ -293,6 +298,15 @@ export function keyTool(cab, key) {
 }
 
 /** The rig entry with this id. @param {import("../types.js").Cab|undefined} cab @param {number|undefined} id */
+/**
+ * A moving fold's label: which way it goes by the mod's direction (specs/0011:
+ * getIsUnfolded turns false as soon as the fold starts), else a guess from
+ * where it was.
+ * @param {{unfolded?: boolean|null, foldDirection?: "folding"|"unfolding"}} i
+ */
+export const foldingText = (i) =>
+  (i.foldDirection ? i.foldDirection === "folding" : i.unfolded === true) ? "Folding…" : "Unfolding…";
+
 export const rigEntry = (cab, id) => (id === undefined ? undefined : rigOf(cab).find((e) => e.id === id));
 
 /** The vehicles topic's implement with this id. @param {Vehicle|undefined} v @param {number|undefined} id */
@@ -431,6 +445,10 @@ const carriedIds = (v) => new Set((Array.isArray(/** @type {any} */ (v)?.carried
  * @param {Vehicle|undefined} v
  */
 export function isWorkingThing(e, v) {
+  // a tractor is never one of the cards, whatever its parts say (live,
+  // 0.12.2: the ARION 410 had a card for a faded Turn on); a self-propelled
+  // sprayer ("sprayers") or the truck are
+  if (e.depth === 0 && namedKind(v) === "tractor") return false;
   const impl = e.depth === 0 ? undefined : implementById(v, e.id);
   if (e.depth > 0 && (isLoaderGear(e, impl) || carriedIds(v).has(e.id))) return false;
   if (canOf(e).some((c) => c !== "lower" && c !== "detach")) return true;

@@ -703,13 +703,14 @@ local function commandStubs(dir)
             }
         end,
     }
-    return function(id, session, action, ref, value, tool, side)
+    return function(id, session, action, ref, value, tool, side, key)
         local f = assert(io.open(string.format("%s%d.xml", dir, id), "w"))
-        f:write(string.format('<command session="%s" id="%d" action="%s" ref="%s"%s%s%s/>',
+        f:write(string.format('<command session="%s" id="%d" action="%s" ref="%s"%s%s%s%s/>',
             session, id, action, ref or ("r" .. id),
             value ~= nil and string.format(' value="%.3f"', value) or "",
             tool ~= nil and string.format(' tool="%d"', tool) or "",
-            side ~= nil and string.format(' side="%s"', side) or ""))
+            side ~= nil and string.format(' side="%s"', side) or "",
+            key ~= nil and string.format(' key="%s"', key) or ""))
         f:close()
     end
 end
@@ -951,9 +952,9 @@ test("commands: keyed by the dashboard's name, each checks its value (specs/0007
     local vehicle = c2Tractor()
     g_inputBinding = nil
     local n = 0
-    local function send(action, value, tool)
+    local function send(action, value, tool, key)
         n = n + 1
-        write(n, "S9", action, nil, value, tool)
+        write(n, "S9", action, nil, value, tool, nil, key)
         return commands:poll()
     end
     -- the old game names and the old toggles are not actions any more
@@ -981,8 +982,12 @@ test("commands: keyed by the dashboard's name, each checks its value (specs/0007
     eq(send("cruise.set", 251).reason, "value not allowed")
     eq(send("cruise.set", 30).ok, true)
     eq(vehicle.spec_drivable.cruiseControl.speed, 30)
-    eq(send("implement.key", 0).reason, "value not allowed")
-    eq(send("implement.key", 65).reason, "value not allowed")
+    -- an other key by its input action's name (specs/0011 fix 1), never a number
+    eq(send("implement.key").reason, "value not allowed", "the key's name is needed")
+    eq(send("implement.key", 1).reason, "value not allowed", "not by number")
+    eq(send("implement.key", 1, nil, "UNLOAD").reason, "value not allowed")
+    eq(send("implement.key", nil, nil, "UNLOAD bad").reason, "value not allowed", "an input action's name")
+    eq(send("beacon.set", 1, nil, "UNLOAD").reason, "value not allowed", "a key only on implement.key")
     eq(send("implement.tipAll", 2).reason, "value not allowed")
     eq(send("implement.select", -1).reason, "value not allowed")
     eq(send("implement.detach").reason, "value not allowed", "detach needs its tool")
@@ -2285,16 +2290,23 @@ test("capabilities: spike 0.0.4's rigs give each member its buttons, can't-now r
     eq(rear.canNow.turnOn, false)
     eq(rear.whyNot.turnOn, "First unfold the tool", "the game's warning")
     eq(rear.extraKeys, nil, "its turn on key isn't an other key")
-    -- the engine off: no Turn on (nothing to say why), and still no key
+    -- the engine off: Turn on stays, faded with the engine's words
+    -- (specs/0011 fix 5), and still no key
     byId[996]:setFoldState(-1)
+    byId[996].getTurnedOnNotAllowedWarning = nil
+    VS.rig(root)
+    root.engineOff = true
     byId[996].engineOff = true
     for _, e in ipairs(VS.rig(root)) do
         if e.id == 996 then
             rear = e
         end
     end
-    eq(joined(rear.can), "lower,fold,detach", "engine off")
+    eq(joined(rear.can), "lower,fold,turnOn,detach", "engine off")
+    eq(rear.canNow.turnOn, false)
+    eq(rear.whyNot.turnOn, SpikeRigs.START_ENGINE)
     eq(rear.extraKeys, nil, "its turn on key isn't an other key")
+    root.engineOff = nil
     -- live (0.8.8): the engine off, the fold keys only got the game's
     -- warning, while getIsFoldAllowed said yes
     byId[996].engineOff = nil
@@ -2346,9 +2358,9 @@ local function spikeCommands(name)
         return commands:poll()
     end
     -- the ack and how many frames it took
-    local function run(action, value, tool, side)
+    local function run(action, value, tool, side, key)
         n = n + 1
-        write(n, "S7", action, nil, value, tool, side)
+        write(n, "S7", action, nil, value, tool, side, key)
         -- room for the check's wait (spec 0003 revision 2)
         for i = 1, 300 do
             local ack = frame()
@@ -2432,16 +2444,19 @@ test("commands, aimed: a tool's id selects it, presses its key, puts the selecti
     eq(ack.already, true)
     eq(frames, 1)
     eq(pressed(), "")
-    -- the selected tool's other keys, by number: Rotate plow, then Allow
-    -- create fields (rotate has no button yet: spec 0003's close)
+    -- the selected tool's other keys, by their input action's name: Rotate
+    -- plow, then Allow create fields (rotate has no button yet: spec 0003's
+    -- close)
     run, root, byId, pressed = spikeCommands("plow")
-    ack = run("implement.key", 1)
+    ack = run("implement.key", nil, nil, nil, "IMPLEMENT_EXTRA")
     eq(ack.via, "IMPLEMENT_EXTRA", "Rotate plow")
     eq(pressed(), "1037:IMPLEMENT_EXTRA")
-    ack = run("implement.key", 2)
+    ack = run("implement.key", nil, nil, nil, "IMPLEMENT_EXTRA3")
     eq(ack.via, "IMPLEMENT_EXTRA3", "Allow create fields")
     eq(pressed(), "1037:IMPLEMENT_EXTRA3")
-    eq(run("implement.key", 3).reason, "no such key")
+    eq(run("implement.key", nil, nil, nil, "IMPLEMENT_EXTRA4").reason, "no such key")
+    eq(run("implement.key", nil, nil, nil, "LOWER_IMPLEMENT").reason, "no such key", "a button's key isn't an other key")
+    eq(pressed(), "")
     ack = run("implement.rotate")
     eq(ack.via, "IMPLEMENT_EXTRA", "rotate: the selected plow")
     eq(pressed(), "1037:IMPLEMENT_EXTRA")
@@ -3091,11 +3106,178 @@ test("sprayer: the vehicle's own other keys leave out its driving parts' keys", 
     SpikeRigs.register(o, "honk", { action = "HONK", text = "Honk" })
     SpikeRigs.register(o, "FS25_precisionFarming.extendedMotorized", { action = "PRECISIONFARMING_TOGGLE_X", text = "Motor info" })
     SpikeRigs.register(o, "sprayer", { action = "DOUBLED_SPRAY_AMOUNT", text = "Activate doubled application rate" })
+    -- the AI worker's key comes from an AI part not among the driving parts
+    -- (live, the DINO II and the ARION): never a card's, the dashboard has
+    -- its own AI worker button (specs/0011 fix 3)
+    SpikeRigs.register(o, "aiImplement", { action = "TOGGLE_AI", text = "Toggle AI Worker" })
     local rig = VS.rig(o)
     eq(rig[1].selected, true, "the vehicle selected")
     eq(joined(rig[1].extraKeys), "Activate doubled application rate")
-    -- a tool's keys stay as they were
-    eq(#VS.extraKeys(o, {}), 5)
+    -- a tool's keys stay as they were, the AI worker's and the axes
+    -- (Accelerate, Steer vehicle) left out there too
+    eq(#VS.extraKeys(o, {}), 3)
+    -- pressing checks the same list (specs/0011 fix 2): no driving key, no
+    -- AI worker, by name
+    if TMP_DIR ~= nil then
+        g_localPlayer = { getCurrentVehicle = function() return o end }
+        local dir = TMP_DIR .. "/c0011own_"
+        local write = commandStubs(dir)
+        local commands = Companion.Commands.new(dir, "S11", function() end)
+        local n = 0
+        local function key(name)
+            n = n + 1
+            write(n, "S11", "implement.key", nil, nil, nil, nil, name)
+            return commands:poll()
+        end
+        eq(key("HONK").reason, "no such key", "a driving key")
+        eq(key("TOGGLE_AI").reason, "no such key", "the AI worker's")
+        eq(#g_inputBinding.pressed, 0)
+        local ack = key("DOUBLED_SPRAY_AMOUNT")
+        eq(ack.ok, true)
+        eq(ack.via, "DOUBLED_SPRAY_AMOUNT")
+        eq(g_inputBinding.pressed[1].action, "DOUBLED_SPRAY_AMOUNT")
+        g_localPlayer = nil
+    end
+    g_inputBinding = nil
+end)
+
+-- live (0.12.1): "Dump on ground" pressed Unload, as Activate doubled
+-- application rate came and went before it in the list (21 times in one
+-- session)
+test("commands, sprayer: an other key by name presses that key whatever came and went before it (specs/0011 fix 1)", function()
+    if TMP_DIR == nil then
+        return
+    end
+    local VS = Companion.VehicleState
+    local run, root, byId, pressed = spikeCommands("sprayer")
+    local doubled = g_inputBinding.actionEvents[g_inputBinding.nameActions.DOUBLED_SPRAY_AMOUNT][1]
+    local function keys()
+        for _, e in ipairs(VS.rig(root)) do
+            if e.id == 1031 then
+                return joined(e.extraKeys)
+            end
+        end
+    end
+    doubled.isActive = true
+    eq(keys(), "Activate doubled application rate,Dump,Dump on ground,Unload", "the card's list")
+    doubled.isActive = false
+    eq(keys(), "Dump,Dump on ground,Unload", "gone by the press")
+    local ack = run("implement.key", nil, nil, nil, "TOGGLE_TIPSTATE_GROUND")
+    eq(ack.ok, true, "dump on ground: " .. tostring(ack.reason))
+    eq(ack.via, "TOGGLE_TIPSTATE_GROUND")
+    eq(pressed(), "1031:TOGGLE_TIPSTATE_GROUND", "Dump on ground, on the sprayer")
+    -- a key that went: refused, nothing pressed
+    eq(run("implement.key", nil, nil, nil, "DOUBLED_SPRAY_AMOUNT").reason, "no such key")
+    eq(pressed(), "")
+    doubled.isActive = true
+    eq(run("implement.key", nil, nil, nil, "DOUBLED_SPRAY_AMOUNT").via, "DOUBLED_SPRAY_AMOUNT", "back")
+    eq(pressed(), "1031:DOUBLED_SPRAY_AMOUNT")
+    -- the fold key has its button: not an other key
+    eq(run("implement.key", nil, nil, nil, "IMPLEMENT_EXTRA2").reason, "no such key")
+    eq(pressed(), "")
+    g_inputBinding = nil
+end)
+
+-- live (0.12.1): getIsUnfolded turns false as the fold starts, so a moving
+-- fold always read "Unfolding…"; the direction it moves (spikes 0.0.5,
+-- 0.0.6: foldMoveDirection 1 folding, -1 unfolding, 0 still) says which
+test("sprayer: a moving fold sends its direction; still, none (specs/0011 fix 4)", function()
+    local VS = Companion.VehicleState
+    local o = sectionSprayer(4, false)
+    o.spec_foldable.foldAnimTime = 0.5
+    o.spec_foldable.foldMoveDirection = 1
+    o.unfolded = false
+    local e = VS.capabilities(o, {}, 1)
+    eq(e.foldMoving, true)
+    eq(e.foldDirection, "folding")
+    o.spec_foldable.foldMoveDirection = -1
+    eq(VS.capabilities(o, {}, 1).foldDirection, "unfolding")
+    -- still, or no direction to read: none
+    o.spec_foldable.foldMoveDirection = 0
+    eq(VS.capabilities(o, {}, 1).foldDirection, nil, "no direction")
+    o.spec_foldable.foldAnimTime = 1
+    o.spec_foldable.foldMoveDirection = 1
+    eq(VS.capabilities(o, {}, 1).foldMoving, false)
+    eq(VS.capabilities(o, {}, 1).foldDirection, nil, "not moving")
+    o.spec_foldable.foldAnimTime = 0.5
+    o.spec_foldable.foldMoveDirection = "up"
+    eq(VS.capabilities(o, {}, 1).foldDirection, nil, "not a number")
+    g_inputBinding = nil
+end)
+
+-- live (0.12.1): the boom unfolded and the engine off, getCanBeTurnedOn is
+-- false and Turn on went from the card; it stays, faded, as when folded
+test("sprayer: unfolded with the engine off, Turn on stays, faded with the game's words (specs/0011 fix 5)", function()
+    local VS = Companion.VehicleState
+    local o = sectionSprayer(4, false)
+    -- the engine on first: it turns on, so it's a tool that turns on
+    eq(joined(VS.capabilities(o, {}, 1).can), "fold,turnOn,detach")
+    o.getIsPowered = function() return false, "Please start the engine first!" end
+    o.getCanBeTurnedOn = function() return false end
+    local e = VS.capabilities(o, {}, 1)
+    eq(joined(e.can), "fold,turnOn,detach")
+    eq(e.canNow.turnOn, false)
+    eq(e.whyNot.turnOn, "Please start the engine first!", "the engine's words")
+    eq(e.turnedOn, false)
+    -- the turn on part's own warning first, where it has one
+    o.getTurnedOnNotAllowedWarning = function() return "Start the engine to turn on the sprayer" end
+    eq(VS.capabilities(o, {}, 1).whyNot.turnOn, "Start the engine to turn on the sprayer")
+    -- powered and still not now: as before, no Turn on
+    o.getIsPowered = function() return true end
+    eq(joined(VS.capabilities(o, {}, 1).can), "fold,detach")
+    g_inputBinding = nil
+end)
+
+-- live (0.12.2): the CLAAS W 600 (a weight) and the ARION 410 have the turn
+-- on part, and the game never lets them turn on; with the engine off fix 5
+-- gave both a faded Turn on, and the tractor a card
+test("turn on: never on what the game never let turn on, the engine off or on (specs/0011 fix 5)", function()
+    local VS = Companion.VehicleState
+    local function weight()
+        local o = { id = 600, typeName = "weight", spec_turnOnVehicle = {} }
+        o.getFullName = function() return "CLAAS W 600" end
+        o.getCanBeTurnedOn = function() return false end
+        o.getIsTurnedOn = function() return false end
+        return o
+    end
+    local w = weight()
+    eq(VS.capabilities(w, {}, 1).can[1] ~= "turnOn", true, "the engine on: no Turn on")
+    w.getIsPowered = function() return false, "Please start the engine first!" end
+    local e = VS.capabilities(w, {}, 1)
+    eq(joined(e.can), joined(VS.capabilities(weight(), {}, 1).can), "the engine off: no Turn on either")
+    eq(e.canNow and e.canNow.turnOn, nil)
+    -- loaded with the engine off: none until the game lets it turn on
+    local fresh = weight()
+    fresh.getIsPowered = function() return false, "Please start the engine first!" end
+    eq(VS.capabilities(fresh, {}, 0).can[1], nil, "the tractor itself: nothing")
+    g_inputBinding = nil
+end)
+
+-- live (0.12.2): Dump and Dump on ground were on the Berthoud's card while
+-- the game didn't show them, and did nothing: the game hides a key it
+-- doesn't offer now, active still (spike 0.0.8, displayIsVisible false)
+test("other keys: a key the game hides isn't one", function()
+    local VS = Companion.VehicleState
+    SpikeRigs.binding()
+    local o = { id = 41, typeName = "sprayer" }
+    SpikeRigs.register(o, "dischargeable", { action = "TOGGLE_TIPSTATE_GROUND", text = "Dump on ground", visible = false })
+    SpikeRigs.register(o, "dischargeable", { action = "TOGGLE_TIPSTATE", text = "Dump", visible = false })
+    SpikeRigs.register(o, "fillUnit", { action = "UNLOAD", text = "Unload", visible = true })
+    SpikeRigs.register(o, "sprayer", { action = "DOUBLED_SPRAY_AMOUNT", text = "Activate doubled application rate" })
+    eq(joined(VS.extraKeys(o, {})), "Activate doubled application rate,Unload")
+    g_inputBinding = nil
+end)
+
+-- live (0.12.3): "Raise sprayer arm" (AXIS_SPRAYER_ARM) on the Berthoud's
+-- card; one press took the arm all the way up. An axis is held, never a
+-- button (Vincent)
+test("other keys: an axis (AXIS_...) isn't one", function()
+    local VS = Companion.VehicleState
+    SpikeRigs.binding()
+    local o = { id = 42, typeName = "sprayer" }
+    SpikeRigs.register(o, "sprayer", { action = "AXIS_SPRAYER_ARM", text = "Raise sprayer arm" })
+    SpikeRigs.register(o, "fillUnit", { action = "UNLOAD", text = "Unload" })
+    eq(joined(VS.extraKeys(o, {})), "Unload")
     g_inputBinding = nil
 end)
 

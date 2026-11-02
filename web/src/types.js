@@ -169,7 +169,9 @@
 
 /**
  * The selected implement (cab.implement). unfolded is undefined when the
- * game doesn't say; foldMoving while a fold animation runs.
+ * game doesn't say; foldMoving while a fold animation runs, and
+ * foldDirection which way (mod 0.12.2, specs/0011; getIsUnfolded turns
+ * false as soon as a fold starts).
  * @typedef {Object} SelectedImplement
  * @property {string} [name]
  * @property {boolean} [lowered]
@@ -179,6 +181,7 @@
  * @property {boolean} [foldable]
  * @property {boolean|null} [unfolded]
  * @property {boolean} [foldMoving]
+ * @property {"folding"|"unfolding"} [foldDirection]
  */
 
 /**
