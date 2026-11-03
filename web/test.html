@@ -355,19 +355,18 @@ check("alerts: none when fine, none on foot", [sel.alerts({ fuel: 90, fuelCapaci
 const { controlGroup, CONTROLS } = await import("./src/widgets/controls.js");
 const cs = createStore();
 const lightsGroup = controlGroup({ label: "Lights", controls: ["lights", "beacon", "hazard"] }, cs);
-const implGroup = controlGroup({ label: "Implement", implementName: true,
-  controls: ["implementLowered", "fold", "implementOn", "pto"] }, cs);
+const implGroup = controlGroup({ label: "Implement", controls: ["implementLowered", "fold", "pto"] }, cs);
 const states = (g) => [...g.querySelectorAll(".control")].map((b) => b.dataset.state);
 check("controls: unavailable on foot", [states(lightsGroup), states(implGroup)],
-  [["unavailable", "unavailable", "unavailable"], ["unavailable", "unavailable", "unavailable", "unavailable"]]);
+  [["unavailable", "unavailable", "unavailable"], ["unavailable", "unavailable", "unavailable"]]);
 cs.set("vehicles", { controlledId: 1, vehicles: [{ id: 1, lights: { on: true, beacon: false, hazard: true },
   implements: [{ name: "Seeder", lowered: true, turnedOn: false }] }] });
 check("controls: state from the game", [states(lightsGroup), states(implGroup)],
-  [["on", "off", "on"], ["on", "unavailable", "off", "unavailable"]]);
-check("controls: implement's name in the label, aria", [implGroup.querySelector("h2").textContent,
+  [["on", "off", "on"], ["on", "unavailable", "unavailable"]]);
+check("controls: the group's label, aria", [implGroup.querySelector("h2").textContent,
   lightsGroup.querySelector(".control").getAttribute("aria-label"),
   lightsGroup.querySelector(".control").getAttribute("aria-pressed")],
-  ["Implement · Seeder", "Lights, on", "true"]);
+  ["Implement", "Lights, on", "true"]);
 
 // Controls C1: commands and the cab topic
 const { createCommander, COMMAND_TIMEOUT_MS } = await import("./src/commands.js");
@@ -402,11 +401,14 @@ cmd.ack({ id: "t-6", ok: true, already: false });
 check("commands: a set carries its value and tool; already comes back", [sent.slice(-2), await setRun, await beaconRun],
   [[{ type: "command", id: "t-5", action: "tool.lower", value: 1, tool: 9 },
     { type: "command", id: "t-6", action: "beacon.set", value: 0 }], { ok: true, already: true }, { ok: true }]);
-// specs/0011 fix 1: an other key by its input action's name, no number
-const keyRun = cmd.send("implement.key", undefined, undefined, undefined, "TOGGLE_TIPSTATE_GROUND");
+// specs/0012: a one-shot carries its tool alone; no command carries a key
+const unloadRun = cmd.send("tool.unload", undefined, 530);
 cmd.ack({ id: "t-7", ok: true });
-check("commands: an other key carries its name", [sent.at(-1), await keyRun],
-  [{ type: "command", id: "t-7", action: "implement.key", key: "TOGGLE_TIPSTATE_GROUND" }, { ok: true }]);
+const widthRun = cmd.send("tool.width", -1, 31, "left");
+cmd.ack({ id: "t-8", ok: true });
+check("commands: a one-shot carries its tool, a width its side, none a key", [sent.slice(-2), await unloadRun, await widthRun],
+  [[{ type: "command", id: "t-7", action: "tool.unload", tool: 530 },
+    { type: "command", id: "t-8", action: "tool.width", value: -1, tool: 31, side: "left" }], { ok: true }, { ok: true }]);
 
 const ccs = createStore();
 /** @type {((r: any) => void)[]} */
@@ -477,22 +479,21 @@ const c2 = createStore();
 const sentC2 = [];
 const c2send = (action) => { sentC2.push(action); return Promise.resolve({ ok: true }); };
 const drive = controlGroup({ label: "Drive", controls: ["cruiseDown", "cruise", "cruiseUp", "engineOn", "aiWorker"] }, c2, c2send);
-const impl = controlGroup({ label: "Implement", implementName: true,
-  controls: ["implementLowered", "fold", "implementOn", "attach"] }, c2, c2send);
+const impl = controlGroup({ label: "Hitch", controls: ["implementLowered", "fold", "attach"] }, c2, c2send);
 const c2cab = (extra) => ({ inVehicle: true, vehicleId: 3, engineOn: true, aiActive: false, hitched: true, attachable: true,
   cruise: { state: "on", speed: 15 }, lights: { on: false }, implements: [],
   implement: { name: "Rubin 12", lowered: false, canLower: true, turnedOn: false, canTurnOn: false,
     foldable: true, unfolded: false, foldMoving: false }, ...extra });
 c2.set("cab", c2cab({}));
-check("C2: drive and implement state from the cab", [states(drive), states(impl), impl.querySelector("h2").textContent],
-  [["off", "on", "off", "on", "off"], ["off", "off", "unavailable", "off"], "Implement · Rubin 12"]);
+check("C2: drive and implement state from the cab", [states(drive), states(impl)],
+  [["off", "on", "off", "on", "off"], ["off", "off", "off"]]);
 c2.set("cab", c2cab({ implement: { ...c2cab({}).implement, foldMoving: true } }));
 check("C2: a running fold shows pending", states(impl)[1], "pending");
 c2.set("cab", c2cab({ implement: { ...c2cab({}).implement, unfolded: true } }));
 check("C2: then the end state", states(impl)[1], "on");
 c2.set("cab", c2cab({ hitched: false, implement: undefined }));
-check("C2: nothing attached: Attach (something in reach) off, implement controls unavailable, plain label",
-  [states(impl), impl.querySelector("h2").textContent], [["unavailable", "unavailable", "unavailable", "off"], "Implement"]);
+check("C2: nothing attached: Attach (something in reach) off, implement controls unavailable",
+  states(impl), ["unavailable", "unavailable", "off"]);
 c2.set("cab", c2cab({ cruise: undefined }));
 check("C2: cruise steps need cruise control", states(drive).slice(0, 3), ["unavailable", "unavailable", "unavailable"]);
 c2.set("cab", c2cab({}));
@@ -511,7 +512,7 @@ const s8send = (a, v, t) => { sent8.push(t === undefined ? [a, v] : [a, v, t]); 
 const s8groups = [
   controlGroup({ label: "Lights", controls: ["lights", "highBeam", "beacon", "hazard", "turnLeft", "turnRight"] }, s8, s8send),
   controlGroup({ label: "Drive", controls: ["cruise", "engineOn", "aiWorker"] }, s8, s8send),
-  controlGroup({ label: "Implement", controls: ["implementLowered", "fold", "implementOn"] }, s8, s8send)];
+  controlGroup({ label: "Header", controls: ["implementLowered", "fold"] }, s8, s8send)];
 const s8cab = (extra) => ({ ...c2cab({ lights: { on: true, high: true, beacon: false, hazard: false, left: true, right: false,
   stage: 2, stages: 3 }, canTurnOn: true,
   rig: [{ id: 3, depth: 0 }, { id: 9, depth: 1, selected: true, lowered: true, canLower: true, foldable: true,
@@ -536,7 +537,7 @@ check("specs/0008: each button asks for the state it shows next, a tool's with i
   sentLast.slice(6, 9), sentNoStages],
   [[["lights.set", 3], ["highBeam.set", 0], ["beacon.set", 1], ["hazard.set", 1], ["turnLeft.set", 0], ["turnRight.set", 1],
     ["cruiseOn.set", 0], ["engine.set", 0], ["ai.set", 1],
-    ["tool.lower", 0, 9], ["tool.fold", 1, 9], ["tool.turnOn", 1, 9]],
+    ["tool.lower", 0, 9], ["tool.fold", 1, 9]],
     [["lights.set", 0]], [["cruiseOn.set", 1], ["engine.set", 1], ["ai.set", 0]], ["lights.set", 1]]);
 // an answer that it was there already ends pending at once, even where the
 // button waits for the game (Engine: up to 10 s)
@@ -907,24 +908,23 @@ const c3Rig = (selected, keys) => ({ inVehicle: true, hitched: true, implements:
   ] });
 const c3s = createStore();
 c3s.set("vehicles", { controlledId: 3, vehicles: [{ id: 3, implements: [{ id: 9, brand: "Pöttinger" }] }] });
-const c3Group = controlGroup({ label: "Implement", implementName: true,
-  controls: ["implementLowered", "fold", "implementOn"] }, c3s, () => Promise.resolve({ ok: true }));
-const [c3Low, c3Fold, c3On] = c3Group.querySelectorAll(".control");
+const c3Group = controlGroup({ label: "Header", controls: ["implementLowered", "fold"] }, c3s,
+  () => Promise.resolve({ ok: true }));
+const [c3Low, c3Fold] = c3Group.querySelectorAll(".control");
 const c3val = (b) => (b.dataset.value !== undefined ? b.querySelector(".control-value").textContent : "");
 c3s.set("cab", c3Rig(5, { fold: 9 }));
 check("C3: a key acts on its tool, named by its model when it isn't the selected one",
-  [q(c3Group, "h2"), c3Fold.dataset.state, lbl(c3Fold), c3val(c3Fold), c3Low.dataset.state, c3On.dataset.state],
-  ["Implement · Loader", "on", "Fold", "TERRIA 6040", "unavailable", "unavailable"]);
+  [c3Fold.dataset.state, lbl(c3Fold), c3val(c3Fold), c3Low.dataset.state],
+  ["on", "Fold", "TERRIA 6040", "unavailable"]);
 c3s.set("cab", c3Rig(9, { lower: 9, fold: 9 }));
 check("C3: the tool selected: no name under the button",
-  [q(c3Group, "h2"), c3Low.dataset.state, lbl(c3Low), c3val(c3Low), c3val(c3Fold)],
-  ["Implement · PÖTTINGER TERRIA 6040", "off", "Lower", "", ""]);
+  [c3Low.dataset.state, lbl(c3Low), c3val(c3Low), c3val(c3Fold)],
+  ["off", "Lower", "", ""]);
 c3s.set("cab", { ...c3Rig(5, { lower: 3 }), implement: { name: "Loader", canLower: true, lowered: true } });
 check("C3: no tool named for a key (on the vehicle itself, or none): the selected implement, as in C2",
   [c3Low.dataset.state, c3val(c3Low)], ["on", ""]);
 c3s.set("cab", { inVehicle: true, implement: { name: "Rubin", canLower: true, lowered: true } });
-check("C3: a mod without the rig: the selected implement", [c3Low.dataset.state, q(c3Group, "h2")],
-  ["on", "Implement · Rubin"]);
+check("C3: a mod without the rig: the selected implement", c3Low.dataset.state, "on");
 
 
 // rows: a tap selects in game, the selected one has Detach
@@ -1402,6 +1402,14 @@ check("theme: the Harvester screen's slots and its column", [
   [...harvScreen.querySelectorAll(".control-tile")].map((t) => t.dataset.tile)],
   [[true, true, true, false, false, false], ["Lights", "Drive"], ["Cruise −", "Cruise", "Cruise +", "Engine", "AI worker"], 0,
     ["thresher", "pipe", "straw", "header", "fold"]]);
+// specs/0012: the Map screen's column has Lights and Drive; the Implement
+// group went (a tool is worked from its card)
+const mapGroups = [...appI.querySelectorAll('.screen[data-screen="map"] .control-column .control-group')];
+check("theme: the Map screen's controls: Lights and Drive, no Implement group", [
+  mapGroups.map((g) => q(g, ".control-group-label")),
+  [...appI.querySelectorAll('.control-column .control[data-control="implementOn"], .control-column .control[data-control="implementLowered"], .control-column .control[data-control="fold"]')].length,
+  THEMES[0].chrome.controls.map((g) => g.label), "implementOn" in CONTROLS],
+  [["Lights", "Drive"], 0, ["Lights", "Drive"], false]);
 check("theme check: an added group's controls are checked",
   checkTheme({ id: "x", palettes: [], css: "", screens: [{ id: "a", label: "A",
     slots: [{ controls: true, add: [{ label: "g", controls: ["nope"] }] }] }] }), ['screen a: adds no control "nope"']);
@@ -1782,9 +1790,11 @@ check("loader pick: when", [pickSteps, menuChoices],
 
 const vt = await import("./src/widgets/vehicleTools.js");
 const { savedScreen } = await import("./src/themes/registry.js");
-// spike 0.0.4's rigs, as the mod's Cab collector reads them (fixtures/rig_fixtures.py)
-// (sprayer-width and sprayer-self made from the sprayer's dump until spec 0011's probe)
-const RIGS = ["mowers", "trailers", "sprayer", "sprayer-width", "sprayer-self", "plow", "baler", "weight", "truck", "attach"];
+// spike 0.0.4's rigs and spike 0.0.9's (spec 0012's probe), as the mod's Cab
+// collector reads them (fixtures/rig_fixtures.py); sprayer-width is the
+// Berthoud without Precision Farming, its right side at 2 of 4
+const RIGS = ["mowers", "trailers", "sprayer", "sprayer-width", "plow", "baler", "weight", "truck", "attach",
+  "arion-off", "arion-on", "dino", "rogator"];
 const rigFix = {};
 for (const name of RIGS) rigFix[name] = await (await fetch(`fixtures/rigs/${name}.json`)).json();
 const noRates = { rate: () => undefined, rising: () => false, area: () => undefined };
@@ -1792,8 +1802,8 @@ const noRates = { rate: () => undefined, rising: () => false, area: () => undefi
 const toolsPage = (vehicles, cab) => {
   const s = createStore();
   const sent = [];
-  const send = (a, v, t, side, key) => {
-    sent.push(key !== undefined ? [a, key] : side !== undefined ? [a, v, t, side] : t === undefined ? [a, v] : [a, v, t]);
+  const send = (a, v, t, side) => {
+    sent.push(side !== undefined ? [a, v, t, side] : t === undefined ? [a, v] : [a, v, t]);
     return Promise.resolve({ ok: true });
   };
   const cardsEl = vt.toolCards(s, { send, rates: noRates });
@@ -1808,6 +1818,10 @@ const toolsPage = (vehicles, cab) => {
     .map((c) => `${q(c, ".tool-name")}: ${[...c.querySelectorAll(".tool-width-seg")]
       .map((g) => (g.dataset.on === "true" ? "■" : "□")).join("")} ${q(c, ".tool-width-line")}: ${
       buttons(c.querySelector(".tool-width .tool-buttons"))}`);
+  // specs/0012: each card's More, "model: its buttons" (open or not); its
+  // tile is the main row's last
+  const more = () => [...cardsEl.querySelectorAll(".tool-card")].filter((c) => c.querySelector(".tool-more-toggle"))
+    .map((c) => `${q(c, ".tool-name")}: ${buttons(c.querySelector(".tool-more .tool-buttons"))}`);
   const shown = () => ({
     cards: [...cardsEl.querySelectorAll(".tool-card")].map((c) => `${q(c, ".tool-name")}: ${buttons(c.querySelector(".tool-buttons"))}`),
     selected: cardsEl.querySelector('.tool-card[data-selected="true"] .tool-name')?.textContent ?? null,
@@ -1815,6 +1829,7 @@ const toolsPage = (vehicles, cab) => {
       .map((r) => `${q(r, ".tools-also-text")}: ${buttons(r)}`),
     all: allEl.hidden ? [] : [...allEl.querySelectorAll(".control")].map((b) => `${lbl(b)}:${b.dataset.state}`),
     ...(width().length ? { width: width() } : {}),
+    ...(more().length ? { more: more() } : {}),
   });
   return { s, sent, cardsEl, allEl, alsoEl, attachEl, shown };
 };
@@ -1827,7 +1842,7 @@ for (const name of RIGS) {
   fixShown[name] = { ...page.shown(), ...(f.expect.attach ? { attach: page.attachEl.dataset.state === "off" ? "available" : "faded" } : {}) };
   fixWant[name] = f.expect;
 }
-check("tools: rig fixtures: the cards, each card's buttons, Also attached and the All row", fixShown, fixWant);
+check("tools: rig fixtures: the cards, each card's buttons and More, Also attached and the All row", fixShown, fixWant);
 
 // an older mod (the Solek replay): implements with no id and no cab rig; a
 // lone row's order once joined to "" and was never built (NEXT.md)
@@ -1905,18 +1920,38 @@ check("tools: the engine off, Unfold all and Lower all are faded with the game's
   [offAll?.label, offAll?.unavailable, offAll?.note], [loweredAll?.label, loweredAll?.unavailable === true],
   [lowerOff?.label, lowerOff?.unavailable, lowerOff?.note]],
   [["Unfold all", true, "Please start the engine first"], ["Fold all", false], ["Lower all", true, "Please start the engine first"]]);
-// cover, rotate and bales have no button until their own spec (spec 0003's close)
-check("tools: every confirmed capability's button, labelled with what a tap does; cover, rotate and bales none", vt.toolButtons({ id: 9, depth: 1, selected: true,
-  can: ["lower", "fold", "turnOn", "tip", "tipSide", "cover", "pipe", "rotate", "bales", "detach"], lowered: true, unfolded: false,
-  turnedOn: false, discharging: true, tipSide: { index: 2, count: 3, name: "Left" }, cover: { open: false },
-  pipe: { out: true, moving: false }, plow: { rotated: false }, bales: { count: 12 },
+// specs/0012: our fixed list, each in its row's order, the main row then
+// More's; an older mod's other keys are ignored
+check("tools: every capability's button in its row's order, labelled with what a tap does; More's after", vt.toolButtons({
+  id: 9, depth: 1, selected: true,
+  can: ["lower", "fold", "turnOn", "unload", "tip", "tipSide", "cover", "pipe", "rotate", "createFields", "autoDrop", "bales",
+    "doubledRate", "sprayRate", "detach"], lowered: true, unfolded: false, turnedOn: false, discharging: true,
+  tipSide: { index: 2, count: 3, name: "Left" }, cover: { open: false }, pipe: { out: true, moving: false },
+  plow: { rotated: false }, createFields: true, autoDrop: false, bales: { count: 12 }, doubledRate: false,
+  sprayRate: { auto: false, step: 2, min: 1, max: 45 },
   extraKeys: [{ action: "IMPLEMENT_EXTRA3", text: "Allow create fields" }] })
-  .map((b) => [b.label, b.action, b.value, b.tool ?? "", b.on, b.unavailable === true, b.line ?? ""].join("|")),
-  // specs/0008: the state a tap asks for, with the tool's id
-  ["Raise|tool.lower|0|9|true|false|", "Unfold|tool.fold|0|9|false|false|", "Turn on|tool.turnOn|1|9|false|true|",
-    "Stop|tool.tip|0|9|true|false|", "Tip side|implement.tipSide|9||false|false|Left",
-    "Pipe in|tool.pipe|0|9|true|false|", "Detach|implement.detach|9||false|false|",
-    "Allow create fields|implement.key|||false|false|"]);
+  .map((b) => [b.label, b.action, b.value ?? "", b.tool ?? "", b.on, b.unavailable === true, b.line ?? "", b.more ? "more" : ""]
+    .join("|")),
+  // specs/0008: the state a tap asks for, with the tool's id; a one-shot its tool alone
+  ["Raise|tool.lower|0|9|true|false||", "Unfold|tool.fold|0|9|false|false||", "Turn on|tool.turnOn|1|9|false|true||",
+    "Unload|tool.unload||9|false|false||", "Stop|tool.tip|0|9|true|false||",
+    "Tip side|implement.tipSide|9||false|false|Left|", "Uncover|implement.cover|9||false|false||",
+    "Pipe in|tool.pipe|0|9|true|false||", "Detach|implement.detach|9||false|false||",
+    "Rotate|tool.rotate|1|9|false|false||more", "Create fields off|tool.createFields|0|9|true|false||more",
+    "Automatic drop on|tool.autoDrop|1|9|false|false||more", "Reset bale count|tool.resetBales||9|false|false|12 bales|more",
+    "Doubled rate on|tool.doubledRate|1|9|false|false||more", "Rate −|tool.sprayRate|-1|9|false|false||more",
+    "Auto|tool.sprayRateAuto|1|9|false|false|Step 2 / 45|more", "Rate +|tool.sprayRate|1|9|false|false||more"]);
+// Application rate (Precision Farming): Rate − and + faded while automatic
+// and at the ends; Auto lit while automatic; the step only while manual
+const rateRow = (rate, extra = {}) => vt.toolButtons({ id: 530, depth: 1, can: ["sprayRate"], sprayRate: rate, ...extra })
+  .map((b) => `${b.label}:${b.unavailable ? "unavailable" : b.on ? "on" : "off"}${b.line ? ` (${b.line})` : ""}`).join(", ");
+check("tools: the Application rate row: Rate −, Auto, Rate +, faded by automatic and the ends", [
+  rateRow({ auto: true, step: 1, min: 1, max: 45 }), rateRow({ auto: false, step: 1, min: 1, max: 45 }),
+  rateRow({ auto: false, step: 45, min: 1, max: 45 }), rateRow({ auto: false, step: 2, min: 1, max: 45 },
+    { canNow: { sprayRate: false }, whyNot: { sprayRate: "Please start the engine first!" } })],
+  ["Rate −:unavailable, Auto:on, Rate +:unavailable", "Rate −:unavailable, Auto:off (Step 1 / 45), Rate +:off",
+    "Rate −:off, Auto:off (Step 45 / 45), Rate +:unavailable",
+    "Rate −:unavailable, Auto:unavailable (Step 2 / 45), Rate +:unavailable"]);
 // spec 0003 revision 3: the label says where the load goes, as the key the game shows
 check("tools: Tip says Unload here off a sale point, Tip over one, Stop while tipping", [
   { tipTo: "ground", discharging: false }, { tipTo: "object", discharging: false }, { discharging: false },
@@ -2004,25 +2039,80 @@ check("sprayer: the four width buttons in one row, each its side's key; compact 
   [[["tool.width", -1, 1031, "left"], ["tool.width", -1, 1031, "right"], ["tool.width", 1, 1031, "right"]],
     "true", 9, "7 / 9 sections", 0, ["Left out:true", "Left in:true", "Right in:true", "Right out:true"],
     ["33.0 m", "25.0 m"]]);
-// the self-propelled sprayer's own card: no Detach, no wear, no driving keys
-// (the mod leaves them out: fixtures/rig_fixtures.py self_propelled)
-const spPage = toolsPage(rigFix["sprayer-self"].vehicles, rigFix["sprayer-self"].cab);
+// the self-propelled sprayer's own card (the DINO II, spike 0.0.9): no
+// Detach, no wear, no driving keys, the strip read-only (Precision Farming)
+const spPage = toolsPage(rigFix.dino.vehicles, rigFix.dino.cab);
 const spCard = spPage.cardsEl.querySelector('.tool-card[data-vehicle="true"]');
 check("sprayer: a self-propelled sprayer's own card: no Detach, no wear, no driving keys", [
-  statLabels(spCard), [...spCard.querySelectorAll(".tool-buttons .control")].map(lbl)
-    .filter((l) => ["Detach", "Accelerate", "Steer vehicle", "Honk"].includes(l))],
-  [["Speed", "Width", "Area"], []]);
-// specs/0011 fix 1: each other key sends its input action's name (by
-// number, a key that came and went shifted the rest: Dump on ground
-// pressed Unload)
-const keyPage = toolsPage(rigFix.sprayer.vehicles, rigFix.sprayer.cab);
-const keyButtons = [...keyPage.cardsEl.querySelectorAll('.tool-card[data-id="1031"] .tool-buttons .control')]
-  .filter((b) => ["Dump", "Dump on ground", "Unload"].includes(lbl(b)));
-for (const b of keyButtons) tap(b);
+  statLabels(spCard), [...spCard.querySelectorAll(".tool-buttons .control")].map(lbl)],
+  [["Speed", "Width", "Area"], ["Fold", "Turn on", "Unload", "More · 1", "Rate −", "Auto", "Rate +"]]);
+// specs/0012: a tap on Unload sends its tool alone; Rate + its step
+const unloadPage = toolsPage(rigFix["arion-on"].vehicles, rigFix["arion-on"].cab);
+const berthoudCard = unloadPage.cardsEl.querySelector('.tool-card[data-id="530"]');
+tap([...berthoudCard.querySelectorAll(".tool-buttons .control")].find((b) => lbl(b) === "Unload"));
+tap([...berthoudCard.querySelectorAll(".tool-more .control")].find((b) => lbl(b) === "Auto"));
 await Promise.resolve();
-check("sprayer: an other key sends its name, not its place in the list", [keyButtons.map(lbl), keyPage.sent],
-  [["Dump", "Dump on ground", "Unload"], [["implement.key", "TOGGLE_TIPSTATE"],
-    ["implement.key", "TOGGLE_TIPSTATE_GROUND"], ["implement.key", "UNLOAD"]]]);
+check("sprayer: Unload sends the tool's id, Auto the state it asks for", unloadPage.sent,
+  [["tool.unload", undefined, 530], ["tool.sprayRateAuto", 0, 530]]);
+
+// --- Card buttons (specs/0012-card-buttons.md) -----------------------------------
+
+// the same card with the engine off, then on (two cab messages): the same
+// buttons in the same order, only the faded ones differ
+const engPage = toolsPage(rigFix["arion-off"].vehicles, rigFix["arion-off"].cab);
+const engButtons = () => [...engPage.cardsEl.querySelectorAll('.tool-card[data-id="530"] .control')]
+  .map((b) => [b.dataset.control, lbl(b), b.dataset.state]);
+const engOff = engButtons();
+engPage.s.set("cab", rigFix["arion-on"].cab);
+const engOn = engButtons();
+check("buttons: the engine off and on, the same buttons; only the faded ones differ", [
+  engOff.map((b) => `${b[0]}:${b[1]}`).join(", ") === engOn.map((b) => `${b[0]}:${b[1]}`).join(", "),
+  engOff.filter((b, i) => b[2] !== engOn[i][2]).map((b) => `${b[1]}:${b[2]}->${engOn.find((x) => x[0] === b[0])[2]}`)],
+  [true, ["Fold:unavailable->on", "Turn on:unavailable->off", "Auto:unavailable->on"]]);
+// More: the main row's last tile, closed, with how many are in it; a tap
+// opens it on that card, lit, its buttons a row under the main row; the
+// browser remembers it by the tool's model; nothing under More, no tile
+const MORE_STORE = "fs25companion.moreOpen";
+let moreSaved = null;
+try { moreSaved = localStorage.getItem(MORE_STORE); localStorage.removeItem(MORE_STORE); } catch { /* none */ }
+const plowPage = toolsPage(rigFix.plow.vehicles, rigFix.plow.cab);
+const plowMore = plowPage.cardsEl.querySelector(".tool-card");
+const moreState = (card) => {
+  const t = card.querySelector(".tool-more-toggle");
+  return [t === card.querySelector(".tool-buttons").lastElementChild, lbl(t), t.dataset.state,
+    t.getAttribute("aria-expanded"), card.querySelector(".tool-more").hidden];
+};
+const moreClosed = moreState(plowMore);
+plowMore.querySelector(".tool-more-toggle").click();
+const moreOpened = moreState(plowMore);
+const plowAgain = toolsPage(rigFix.plow.vehicles, rigFix.plow.cab).cardsEl.querySelector(".tool-card");
+const moreRemembered = moreState(plowAgain);
+plowMore.querySelector(".tool-more-toggle").click();
+const moreShut = moreState(plowMore);
+const mowerCard = toolsPage(rigFix.mowers.vehicles, rigFix.mowers.cab).cardsEl.querySelector(".tool-card");
+const mowerMore = [mowerCard.querySelector(".tool-more-toggle"), mowerCard.querySelector(".tool-more").hidden];
+// a tap on More doesn't select the tool in game (the card's tap does)
+const moreSelects = plowPage.sent.some((x) => x[0] === "implement.select");
+check("buttons: More closed with its count, opens and closes, remembered per model; none without anything under it", [
+  moreClosed, moreOpened, moreRemembered, moreShut, mowerMore, moreSelects],
+  [[true, "More · 2", "off", "false", true], [true, "More · 2", "on", "true", false],
+    [true, "More · 2", "on", "true", false], [true, "More · 2", "off", "false", true], [null, true], false]);
+// compact (three cards or more): the main row stays; More keeps its row, closed
+plowMore.querySelector(".tool-more-toggle").click();
+const pl = rigFix.plow;
+const compactPlow = toolsPage({ ...pl.vehicles, vehicles: [{ ...pl.vehicles.vehicles[0], implements: [
+  ...pl.vehicles.vehicles[0].implements, { id: 2001, name: "Front tank A", depth: 1 }, { id: 2002, name: "Front tank B", depth: 1 }] }] },
+{ ...pl.cab, rig: [...pl.cab.rig, { id: 2001, parent: 1035, depth: 1, side: "front", can: ["fold"], unfolded: true },
+  { id: 2002, parent: 1035, depth: 1, side: "front", can: ["fold"], unfolded: true }] });
+const compactMore = compactPlow.cardsEl.querySelector('.tool-card[data-id="1037"]');
+compactMore.querySelector(".tool-more-toggle").click();
+check("buttons: compact keeps the main row and More's tile, faded and closed", [compactPlow.cardsEl.dataset.compact,
+  q(compactMore, ".tool-buttons").length > 0, moreState(compactMore)],
+  ["true", true, [true, "More · 2", "unavailable", "false", true]]);
+try {
+  if (moreSaved === null) localStorage.removeItem(MORE_STORE);
+  else localStorage.setItem(MORE_STORE, moreSaved);
+} catch { /* none */ }
 // specs/0011 fix 4: Fold's label and the card's state follow the fold's direction
 const moving = (foldDirection) => ({ id: 31, depth: 1, can: ["fold"], foldable: true, unfolded: false, foldMoving: true,
   foldDirection });
@@ -2037,7 +2127,8 @@ check("sprayer: the engine off, Turn on faded with the game's words", [offTurnOn
   ["Turn on", true, "Please start the engine first!"]);
 
 // the All row: lit while all are on; Turn on all waits while one is folded;
-// tip and cover all carry what they do
+// tip and cover all carry what they do (Cover all since cover has its
+// button: specs/0012)
 const pair = (a, b) => toolsPage({ controlledId: 1, vehicles: [{ id: 1, name: "T7", implements: [{ id: 2, name: "A" },
   { id: 3, name: "B" }] }] }, { inVehicle: true, rig: [{ id: 1, depth: 0, can: [] },
   { id: 2, depth: 1, side: "front", can: ["lower", "fold", "turnOn", "tip", "cover", "detach"], ...a },
@@ -2055,13 +2146,13 @@ check("tools: the All row: lit while all are on, labelled with what a tap does; 
   // faded with no reason at all: no line, no title, no note on a tap (2026-11-01)
   ...allShown, [allButtons[2].querySelector(".control-value")?.textContent || "", allButtons[2].title,
     mixed.allEl.querySelector(".tool-note")?.hidden], mixed.sent, allOn.sent],
-  [["Fold all:on", "Raise all:on", "Turn off all:on", "Stop all:on"],
+  [["Fold all:on", "Raise all:on", "Turn off all:on", "Stop all:on", "Cover all:on"],
     // one folded, one not: Fold all, as the game's key does (spike 0.0.5, revision 2)
-    // no Cover all until cover has its own spec (spec 0003's close)
-    ["Fold all:off", "Lower all:off", "Turn on all:unavailable", "Tip all:off"], ["", "", true],
+    ["Fold all:off", "Lower all:off", "Turn on all:unavailable", "Tip all:off", "Uncover all:off"], ["", "", true],
     // specs/0008: each asks for the state its label names
-    [["implement.foldAll", 1], ["implement.lowerAll", 1], ["implement.tipAll", 1]],
-    [["implement.foldAll", 1], ["implement.lowerAll", 0], ["implement.turnOnAll", 0], ["implement.tipAll", 0]]]);
+    [["implement.foldAll", 1], ["implement.lowerAll", 1], ["implement.tipAll", 1], ["implement.coverAll", 1]],
+    [["implement.foldAll", 1], ["implement.lowerAll", 0], ["implement.turnOnAll", 0], ["implement.tipAll", 0],
+      ["implement.coverAll", 0]]]);
 check("tools: one working thing: no All row; nothing attached; on foot", [
   rigFix.sprayer && toolsPage(rigFix.sprayer.vehicles, rigFix.sprayer.cab).allEl.hidden,
   q(toolsPage(rigFix.attach.vehicles, rigFix.attach.cab).cardsEl, ".tool-none"),
@@ -2149,33 +2240,50 @@ const madeRig = (n) => {
 };
 const layouts = [...RIGS.map((name) => [name, rigFix[name]]), ...[1, 2, 3, 4, 5, 6].map((n) => [`${n} tools`, madeRig(n)])];
 const layoutIssues = [];
+const layoutCheck = (/** @type {string} */ label) => {
+  const screen = /** @type {HTMLElement} */ (lapp.querySelector('.screen[data-screen="vehicle"]'));
+  if (screen.hidden) { layoutIssues.push(`${label}: not on the Vehicle page`); return; }
+  if (screen.scrollHeight > screen.clientHeight + 1) layoutIssues.push(`${label}: the page scrolls`);
+  const box = screen.getBoundingClientRect();
+  for (const el of screen.querySelectorAll(".tool-card, .tools-all, .tools-also-row, .veh-band")) {
+    if (/** @type {HTMLElement} */ (el).offsetParent === null) continue;
+    const what = `${label}: ${el.className} ${el.querySelector(".tool-name")?.textContent ?? ""}`.trim();
+    if (el.scrollHeight > el.clientHeight + 1 || el.scrollWidth > el.clientWidth + 1) layoutIssues.push(`${what} overflows`);
+    const r = el.getBoundingClientRect();
+    if (r.bottom > box.bottom + 1 || r.right > box.right + 1) layoutIssues.push(`${what} is off the page`);
+  }
+  for (const b of screen.querySelectorAll(".slot-group .control, .control-column .control")) {
+    const r = b.getBoundingClientRect();
+    if (r.width > 0 && (r.width < 48 || r.height < 48)) {
+      layoutIssues.push(`${label}: ${lbl(b)} is ${Math.round(r.width)} × ${Math.round(r.height)}`);
+    }
+  }
+};
+let layoutMoreSaved = null;
+try { layoutMoreSaved = localStorage.getItem("fs25companion.moreOpen"); } catch { /* none */ }
+let layoutOpened = 0;
 for (const palette of ["day", "night"]) {
   ldoc.documentElement.dataset.palette = palette;
   for (const [name, f] of layouts) {
     lstore.set("vehicles", f.vehicles);
     lstore.set("cab", f.cab);
-    const label = `${name} (${palette})`;
-    const screen = /** @type {HTMLElement} */ (lapp.querySelector('.screen[data-screen="vehicle"]'));
-    if (screen.hidden) { layoutIssues.push(`${label}: not on the Vehicle page`); continue; }
-    if (screen.scrollHeight > screen.clientHeight + 1) layoutIssues.push(`${label}: the page scrolls`);
-    const box = screen.getBoundingClientRect();
-    for (const el of screen.querySelectorAll(".tool-card, .tools-all, .tools-also-row, .veh-band")) {
-      if (/** @type {HTMLElement} */ (el).offsetParent === null) continue;
-      const what = `${label}: ${el.className} ${el.querySelector(".tool-name")?.textContent ?? ""}`.trim();
-      if (el.scrollHeight > el.clientHeight + 1 || el.scrollWidth > el.clientWidth + 1) layoutIssues.push(`${what} overflows`);
-      const r = el.getBoundingClientRect();
-      if (r.bottom > box.bottom + 1 || r.right > box.right + 1) layoutIssues.push(`${what} is off the page`);
-    }
-    for (const b of screen.querySelectorAll(".slot-group .control, .control-column .control")) {
-      const r = b.getBoundingClientRect();
-      if (r.width > 0 && (r.width < 48 || r.height < 48)) {
-        layoutIssues.push(`${label}: ${lbl(b)} is ${Math.round(r.width)} × ${Math.round(r.height)}`);
-      }
-    }
+    layoutCheck(`${name} (${palette})`);
+    // specs/0012: with each card's More open too (compact keeps it closed)
+    const toggles = [...lapp.querySelectorAll('.screen[data-screen="vehicle"] .tool-more-toggle')]
+      .filter((t) => t.getAttribute("aria-expanded") === "false" && t.getAttribute("aria-disabled") !== "true");
+    if (!toggles.length) continue;
+    toggles.forEach((t) => t.click());
+    layoutOpened += toggles.filter((t) => t.getAttribute("aria-expanded") === "true").length;
+    layoutCheck(`${name}, More open (${palette})`);
+    toggles.forEach((t) => t.click());
   }
 }
-check("tools: layout at 1180 × 820, day and night: every fixture and 1 to 6 tools fit, no scrolling, buttons 48 px or more",
-  layoutIssues, []);
+try {
+  if (layoutMoreSaved === null) localStorage.removeItem("fs25companion.moreOpen");
+  else localStorage.setItem("fs25companion.moreOpen", layoutMoreSaved);
+} catch { /* none */ }
+check("tools: layout at 1180 × 820, day and night: every fixture and 1 to 6 tools fit, More open and closed, no scrolling, buttons 48 px or more",
+  [layoutIssues, layoutOpened > 0], [[], true]);
 
 // specs/0010: states, surfaces and motion, read from the theme's CSS
 const { createControl: tidyControl } = await import("./src/ui/control.js");

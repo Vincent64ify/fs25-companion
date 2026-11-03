@@ -9,8 +9,8 @@ described once, in web/src/types.js, and the dashboard ignores what it
 doesn't know. Breaking changes bump ``v``. A command is checked for its
 shape only: its actions and values are the mod's list (Commands.lua,
 specs/0007); a tool's id, where it names one, is a rig id (specs/0008),
-tool.width's side is left or right and implement.key's key an input
-action's name (specs/0011).
+tool.width's side is left or right (specs/0011), and no command carries
+a key (specs/0012: the card's buttons are a fixed list).
 """
 
 import math
@@ -70,9 +70,6 @@ def parse_envelope(raw: Any) -> Dict[str, Any]:
 
 # a side (specs/0011: tool.width, one section in or out on that side)
 SIDES = {"left", "right"}
-# a key (specs/0011: implement.key, the selected tool's other key by its
-# input action's name, "TOGGLE_TIPSTATE_GROUND" or a mod's own)
-KEY_RE = re.compile(r"^[A-Za-z][A-Za-z0-9_.]{0,63}$")
 
 
 def command_refusal(action: Any, value: Any, tool: Any = None, side: Any = None,
@@ -80,7 +77,7 @@ def command_refusal(action: Any, value: Any, tool: Any = None, side: Any = None,
     """Why a viewer's command is refused before it reaches the mod, or None:
     the action must be a short dotted name, the value a number or absent,
     the tool a whole number from 0 or absent, the side left, right or
-    absent, the key an input action's name or absent."""
+    absent, and a key absent (specs/0012: implement.key went)."""
     if not isinstance(action, str) or not ACTION_RE.match(action):
         return "action not allowed"
     if value is not None and not _number(value):
@@ -89,6 +86,6 @@ def command_refusal(action: Any, value: Any, tool: Any = None, side: Any = None,
         return "value not allowed"
     if side is not None and not (isinstance(side, str) and side in SIDES):
         return "value not allowed"
-    if key is not None and not (isinstance(key, str) and KEY_RE.match(key)):
+    if key is not None:
         return "value not allowed"
     return None

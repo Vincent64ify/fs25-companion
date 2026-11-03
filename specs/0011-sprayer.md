@@ -52,17 +52,19 @@ the vehicle's own card, with no Detach and no wear (the band has both).
     them live on that tool (the game registers a tool's keys only while
     it's selected, so the buttons don't come and go with the selection).
     Never live, the strip and the line are read-only, with no buttons
-    (Vincent, 2026-11-01).
+    (Vincent, 2026-11-01). Since spec [0012](0012-card-buttons.md) (mod
+    0.13.0) the four buttons come from what the sprayer is: sections and no
+    Precision Farming sprayer part; with one, the strip is read-only (the
+    probe: the game registers no width key then).
   - Folded, the four are faded; the mod refuses with the game's words.
   - In the compact form (three or more cards), the strip and the line
     stay and the four buttons go: the card's other buttons need the room.
   - With two cards at 1180×820 (a front tank and the sprayer), the card's
     button rows are 64 px instead of 80 so the width row and the tank fit.
-- **The other keys** (the selected sprayer's, with the game's labels) stay
-  as they are: "Dump", "Dump on ground" and "Unload" (Vincent,
-  2026-11-01). The game's own "Activate doubled application rate" and
-  Precision Farming's keys ("Change application rate" and the rest) show
-  the same way when they're live.
+- **The other keys** went with spec [0012](0012-card-buttons.md) (mod
+  0.13.0): a card's buttons are a fixed list (Unload, Doubled rate on a
+  slurry tanker or manure spreader, Precision Farming's application rate
+  under More); Dump and Dump on ground have none.
 - **With or without Precision Farming**, the card is the same: nothing
   in it reads Precision Farming (see "Precision Farming" below).
 - **The Width stat**: the width in use where the section widths are
@@ -70,14 +72,9 @@ the vehicle's own card, with no Detach and no wear (the band has both).
 - **The tank**: "Herbicide · 96%", litres, and "empty in" once the level
   falls while spraying, as every tank (`data/rates.js`). The time it
   shows ignores the game's time scale until that spec (NEXT.md).
-- **The vehicle's own card** (self-propelled): its other keys leave out
-  the driving keys (Accelerate, Steer vehicle, Honk, and every other key
-  from the vehicle's driving parts), so only the sprayer's own keys show.
-  The driving parts, by name: drivable, motorized, enterable, honk,
-  lights, wipers, crabSteering, articulatedAxis, reverseDriving,
-  dashboard, aiDrivable, aiFieldWorker, aiJobVehicle, aiAutomaticSteering,
-  aiVehicle, extendedMotorized (Precision Farming's) and
-  enterableCameraMirrors (a mod's prefix left off).
+- **The vehicle's own card** (self-propelled): its buttons come from its
+  parts like any tool's (spec [0012](0012-card-buttons.md)), so no driving
+  key ever shows.
 
 Day and Night as every card; at 1180×820 a trailed sprayer's card is
 full width (one card), and the width strip fits a two-card rig (a front
@@ -95,47 +92,35 @@ tank and the sprayer) without scrolling.
     the game gives them (absent until verified: the line shows sections
     alone then). Absent when the tool has no sections or a read fails.
   - `can` gains `width` (after `bales`, before `detach`) for a tool with
-    sections whose width keys the mod has seen live (`VARIABLE_WORK_WIDTH_LEFT`
-    or `_RIGHT` registered on it, remembered per tool). The All row ignores it.
+    sections and no Precision Farming sprayer part (spec
+    [0012](0012-card-buttons.md); until mod 0.12.4: once its width keys
+    were seen live). The All row ignores it.
   - `canNow.width` false while folded, with `whyNot.width` Foldable's
     `unfoldWarning` (unverified). Not turned on: added if the probe shows
     the game refuses then.
-  - The width keys aren't other keys where the tool has `width`;
-    `VARIABLE_WORK_WIDTH_TOGGLE` stays one, with the game's label.
-  - `extraKeys` on the vehicle's own entry (depth 0) leaves out the keys
-    of its driving parts. No card lists `TOGGLE_AI` (fix 3): the dashboard
-    has its own AI worker button.
+  - `extraKeys` went in mod 0.13.0 (spec [0012](0012-card-buttons.md)):
+    no card lists the keys the game registered, so none lists a driving
+    key or `TOGGLE_AI` (fix 3).
   - `foldDirection` ("folding" or "unfolding", mod 0.12.2, fix 4) on
     every folding entry and on `cab.implement`, only while `foldMoving`,
     from `spec_foldable.foldMoveDirection` (1 folding, -1 unfolding).
-  - `turnOn` stays in `can` while the tool is unfolded and has no power
-    (`getCanBeTurnedOn` false, `getIsPowered` false), with `canNow.turnOn`
-    false and `whyNot.turnOn` the game's turn on warning, else the
-    engine's words (fix 5), only on a tool the game let turn on this
-    session (`getCanBeTurnedOn` true once, remembered per tool): the CLAAS
-    W 600 and the ARION 410 have the turn on part and never turn on
-    (0.12.3).
-  - `extraKeys` leaves out a key the game hides (`displayIsVisible`
-    false): it isn't offered now and does nothing (spike 0.0.8; live,
-    0.12.2: Dump and Dump on ground on the Berthoud, 0.12.3), and an axis
-    (an input action named `AXIS_...`): it's held, never a button (live,
-    0.12.3: one press of "Raise sprayer arm" took the arm all the way up;
-    0.12.4).
+  - `turnOn` (fix 5, replaced in mod 0.13.0 by spec
+    [0012](0012-card-buttons.md)): in `can` where the turn on part's
+    settings let it be toggled, whatever it can do now; `canNow.turnOn`
+    false with `whyNot.turnOn` the game's warning, else the engine's
+    words, while `getCanBeTurnedOn` is false. The W 600 and the ARION 410
+    have no turn on part at all (the probe).
+  - The hidden and axis filters on `extraKeys` (0.12.3, 0.12.4) went with
+    it (spec 0012).
 - **Viewer → companion → mod**: a command gains `side` ("left" or
   "right"), only on `tool.width`: the viewer's message, the companion's
   shape check (`command_refusal`: anything else is "value not allowed")
   and the command file (`side="left"`); the mod refuses a side on any
   other action, and `tool.width` without one.
-- **Viewer → companion → mod** (fix 1, mod 0.12.2): `implement.key`
-  carries `key`, the other key's input action name
-  (`"TOGGLE_TIPSTATE_GROUND"`), and no number: the viewer's message, the
-  companion's shape check (letters, digits, `_` and `.`, from a letter, at
-  most 64), the command file (`key="..."`). The mod refuses a key on any
-  other action and `implement.key` without one, and presses it only while
-  it's among the selected tool's other keys now (the vehicle's own leaving
-  its driving keys out, fix 2), else "no such key". hello's
-  `commands.actions` stays 3: the mod and companion versions move
-  together.
+- **Viewer → companion → mod** (fix 1, mod 0.12.2 to 0.12.4):
+  `implement.key` and its `key` went in mod 0.13.0 (spec
+  [0012](0012-card-buttons.md)): a key on any command is refused ("value
+  not allowed").
 - **Web** (selectors): a tractor (its category or type says so) is never
   one of the cards, whatever its entry's `can` (0.12.3); a self-propelled
   sprayer and the truck still have their own card.
@@ -183,9 +168,8 @@ Game API names used:
   (Vincent, 2026-11-01).
 - The dashboard shows the width button pending until the ack, then until
   `width` changes (at most 1.5 s), as every card button.
-- **`implement.key`** (mod 0.12.2, fix 1): the other key by its input
-  action's name (`key`), no number; pressed on the selected tool only
-  while it's among its other keys now, else "no such key".
+- **`implement.key`** (mod 0.12.2, fix 1): went in mod 0.13.0 (spec
+  [0012](0012-card-buttons.md)).
 
 ## Plan
 
@@ -484,3 +468,7 @@ Choices made while building that the live check should confirm or change.
   other keys (fix 1, the hidden and axis filters) and the faded Turn on
   (fix 5, 0.12.3) are replaced there; the open boxes here are checked
   again under 0012.
+- 2026-11-03: spec [0012](0012-card-buttons.md) built (mod 0.13.0): the
+  other keys and `implement.key` went, Turn on comes from the turn on
+  part's settings, the width buttons from sections without Precision
+  Farming's sprayer part. Behaviour and Data contract point there.

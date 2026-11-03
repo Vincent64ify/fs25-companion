@@ -1,15 +1,16 @@
 """The dashboard's server: its files, /ws for viewers, the map images.
 
     viewer -> server:  {"type": "command", "id": str, "action": str, "value"?: number,
-                        "tool"?: int, "side"?: "left" | "right", "key"?: str}
+                        "tool"?: int, "side"?: "left" | "right"}
                        a tap on a control: the state it wants ("beacon.set"
                        with 1; "cruise.set" with km/h; "tool.lower" with 1
                        and the tool's rig id, specs/0008; "tool.width" with
-                       -1 or 1, the tool's id and a side; "implement.key"
-                       with the key's input action name, specs/0011). Only its shape is
-                       checked here (protocol.command_refusal); the mod
-                       knows its actions and their values (specs/0007).
-                       Anything else a viewer sends is ignored.
+                       -1 or 1, the tool's id and a side, specs/0011;
+                       "tool.unload" with its tool alone, specs/0012). Only
+                       its shape is checked here (protocol.command_refusal:
+                       a "key" is refused, specs/0012); the mod knows its
+                       actions and their values (specs/0007). Anything else
+                       a viewer sends is ignored.
 
     server -> viewer:  {"type": "snapshot", "topics": {topic: envelope}}
                        on connect, and again when a new game session starts
@@ -201,7 +202,7 @@ class Hub:
         self.commands[ref] = (ws, viewer_id)
         while len(self.commands) > MAX_PENDING_COMMANDS:
             self.commands.popitem(last=False)
-        extra = {name: x for name, x in (("side", side), ("key", key)) if x is not None}
+        extra = {"side": side} if side is not None else {}
         self.writer.submit(ref, action, value, tool, **extra)
         await self.flush()
 

@@ -1360,6 +1360,27 @@ button { font: inherit; color: inherit; }
 .tool-width-seg[data-on="false"] { border: 1.5px dashed var(--muted); background: var(--chip-off-bg); }
 .tool-width-line { overflow: hidden; font-size: 13px; font-weight: 700; font-variant-numeric: tabular-nums; text-align: center;
   text-overflow: ellipsis; white-space: nowrap; }
+/* More (specs/0012): the main row's last tile, "More · 2" over a chevron,
+   lit while open; open, its buttons a lower row under the main row, and the
+   card shows its compact body (no stats, the main tank's meter) so they
+   fit at 1180 x 820. Compact keeps the tile, faded */
+.tool-more { flex: none; }
+.tool-more[hidden] { display: none; }
+.tool-more .tool-buttons { grid-auto-rows: 64px; }
+.tool-more-toggle .tool-more-chevron { display: grid; place-items: center; }
+.tool-more-toggle .tool-more-chevron::after {
+  content: "";
+  width: 10px;
+  height: 10px;
+  margin-bottom: 5px;
+  border-right: 2.5px solid currentColor;
+  border-bottom: 2.5px solid currentColor;
+  transform: rotate(45deg);
+  transition: transform var(--t-fast) var(--ease);
+}
+.tool-more-toggle[aria-expanded="true"] .tool-more-chevron::after { margin: 5px 0 0; transform: rotate(-135deg); }
+@media (prefers-reduced-motion: reduce) { .tool-more-toggle .tool-more-chevron::after { transition: none; } }
+.tool-card:has(> .tool-more:not([hidden])) :is(.tool-stats, .tank:not(:first-child), .tank-foot) { display: none; }
 /* two cards (a front tank and the sprayer): lower button rows, so the width
    row and the tank fit at 1180 x 820 */
 .tool-cards[data-count="2"] .tool-card:has(> .tool-width:not([hidden])) { gap: 8px; }

@@ -144,23 +144,31 @@
  * hanging on it. Tools also carry the SelectedImplement fields.
  * The Implement screen's (mod 0.8.0), on the vehicle too: pipe (out, and
  * moving), discharging (tipping or unloading), trailer, cover (open).
- * The Vehicle page's cards (mod 0.8.7, specs/0003): can, what the game's
- * parts on it allow; canNow[cap] false (whyNot[cap], the game's words)
- * while the game refuses it now; a trailer's tipSide, a plow's rotation,
- * the bale counter; the selected one's other live keys with the game's
- * labels (extraKeys).
+ * The Vehicle page's cards (mod 0.8.7, specs/0003; mod 0.13.0, specs/0012):
+ * can, the tool's buttons, read from what it is (its parts and the
+ * settings they were loaded with), the same whatever the game does now:
+ * lower, fold, turnOn, unload, tip, tipSide, cover, pipe, rotate,
+ * createFields, autoDrop, bales (Reset bale count), doubledRate,
+ * sprayRate (Precision Farming's rate: Rate −, Auto, Rate +), width,
+ * detach. canNow[cap] false (whyNot[cap], the game's words) while the game
+ * refuses it now: it fades the button, never takes it away. The state each
+ * label reads: a trailer's tipSide, a plow's rotation (plow) and whether
+ * it makes fields (createFields), a baler's autoDrop, the bale counter, a
+ * slurry tanker's doubledRate, Precision Farming's sprayRate {auto, step,
+ * min, max}. An older mod's extraKeys are ignored.
  * A sprayer's working width (mod 0.12.0, specs/0011): how many sections
  * are on each side, from 0 to its max, whether there's a middle one
  * (always on), and each section's width in metres left to right when the
- * game gives them. The `width` capability only where the game's width keys
- * are live; without it the width is read-only. The vehicle's own entry
- * (depth 0) leaves its driving keys out of extraKeys.
+ * game gives them. The `width` capability (its four buttons) on a sprayer
+ * with sections and no Precision Farming sprayer part; with one, the width
+ * is read-only (specs/0012).
  * @typedef {SelectedImplement & {id?: number, parent?: number, depth: number, side?: "front"|"rear",
  *   selectable?: boolean, selected?: boolean, pipe?: {out: boolean, moving: boolean}, discharging?: boolean,
  *   trailer?: boolean, cover?: {open: boolean}, can?: string[], canNow?: Record<string, boolean>,
  *   whyNot?: Record<string, string>, tipSide?: {index: number, count: number, name?: string}, tipTo?: "object"|"ground",
- *   plow?: {rotated: boolean}, bales?: {count?: number, total?: number}, width?: RigWidth,
- *   extraKeys?: {action: string, text: string}[]}} RigEntry
+ *   plow?: {rotated: boolean}, createFields?: boolean, autoDrop?: boolean, bales?: {count?: number, total?: number},
+ *   doubledRate?: boolean, sprayRate?: {auto: boolean, step?: number, min?: number, max?: number},
+ *   width?: RigWidth}} RigEntry
  */
 
 /**

@@ -1,6 +1,6 @@
 # 0012: Card buttons: what a tool has, what it can do now
 
-Status: approved
+Status: built
 Mod: 0.13.0 · Started: 2026-11-02 · Design: [THEMES.md](../docs/THEMES.md#implement-screen-design-2026-10-24) (the card); specs [0003](0003-implement-screen.md) and [0011](0011-sprayer.md) (the buttons this replaces)
 
 ## Goal
@@ -40,13 +40,13 @@ it (Vincent, 2026-11-02):
 
 | Tool | Main row | More |
 |---|---|---|
-| Sprayer, trailed (the Berthoud Vantage 4300) | Fold, Turn on, Unload, Detach; the section strip | Doubled rate, Application rate (Precision Farming) |
-| Sprayer, self-propelled (the Agrio DINO II): its own card | Fold, Turn on, Unload; the section strip | Doubled rate, Application rate (Precision Farming) |
+| Sprayer, trailed (the Berthoud Vantage 4300) | Fold, Turn on, Unload, Detach; the section strip | Application rate (Precision Farming); Doubled rate on a slurry tanker or a manure spreader |
+| Sprayer, self-propelled (the Agrio DINO II): its own card | Fold, Turn on, Unload; the section strip | Application rate (Precision Farming); Doubled rate on a slurry tanker or a manure spreader |
 | Mower | Lower, Fold, Turn on, Detach | |
 | Seeder or planter | Lower, Fold, Turn on, Detach | |
 | Trailer | Tip (Unload here off a sale point), Tip side, Cover, Detach | |
 | Plow | Lower, Fold if it folds, Detach | Rotate, Create fields |
-| Baler | Lower pickup, Turn on, Detach | Automatic drop, Reset bale count |
+| Baler | Lower (its pickup), Turn on, Detach | Automatic drop, Reset bale count |
 | Front weight (the CLAAS W 600) | Lower, Detach | |
 | Combine | its Harvester screen, unchanged (spec 0001) | |
 | Tractor | never a card (since mod 0.12.3) | |
@@ -57,25 +57,32 @@ gets Unload). Each button is in its row's order whatever the tool, and
 only on a tool whose parts have it (Data contract).
 
 - **Faded:** with the reason the game gives (folded, the engine off,
-  lowered, while a fold moves, nothing to unload, this spray type has no
-  partial width...). A tap on a faded button does nothing (spec 0010).
+  lowered, while a fold moves...), or ours where it has none ("Nothing to
+  unload", "This spray type has no partial width"); the reason only
+  reaches the mod's answer. A tap on a faded button does nothing (spec
+  0010).
 - **The labels** say what a tap does, from the tool's state: Lower /
-  Raise, Fold / Unfold, Turn on / Turn off, Rotate, Create fields on /
-  off, Automatic drop on / off, Doubled rate on / off; Folding… /
-  Unfolding… while a fold moves (spec 0011 fix 4).
-- **More:** a "More" row under the main buttons, closed, with how many
-  are in it ("More · 2"); a tap opens or closes it on that card, and the
-  viewer's browser remembers which cards are open (per tool model,
-  `localStorage`, a convenience only). A tool with nothing under More has
-  no More row.
+  Raise, Fold / Unfold, Turn on / Turn off, Unload, Uncover / Cover (lit
+  while open), Rotate, Create fields on / off, Automatic drop on / off,
+  Reset bale count (its count under it, "12 bales"), Doubled rate on /
+  off; Folding… / Unfolding… while a fold moves (spec 0011 fix 4).
+- **More:** the main row's last button, "More · 2" (how many are under
+  it) over a chevron, closed (Vincent, 2026-11-03: a button, not a row of
+  its own, so a card fits at 1180×820). A tap opens or closes it on that
+  card: lit while open, its buttons a row under the main row, and the
+  card shows its compact body meanwhile (no stats, the main tank's meter
+  alone) so they fit. The viewer's browser remembers which are open (per
+  tool model, `localStorage`, a convenience only). A tool with nothing
+  under More has no More button.
 - **Application rate** (Precision Farming, under More): one row like
   Cruise's, always together: Rate −, Auto, Rate +. Auto is lit while the
   game sets the rate itself; Rate − and Rate + are faded while Auto is on
   (the game's rate key does nothing then) and at the ends (1 and 45).
-  The row's line shows the step, "Step 2 / 45" (the game's HUD shows
-  l/ha, which isn't in what we read; Vincent, 2026-11-02).
-- **Compact** (three cards or more, spec 0003): the main row stays; More
-  stays closed and keeps its row.
+  Auto's line shows the step while the player sets it, "Step 2 / 45"
+  (the game's HUD shows l/ha, which isn't in what we read; Vincent,
+  2026-11-02); none while automatic.
+- **Compact** (three cards or more, spec 0003): the main row stays, with
+  More's button faded and closed.
 - **The section strip** (spec 0011) stays as it is. Its four width
   buttons are there on a sprayer with sections and no Precision Farming
   sprayer part, faded while the game has partial width off for it (its
@@ -85,10 +92,14 @@ only on a tool whose parts have it (Data contract).
   read-only strip, not four buttons always faded).
 - **The All row** stays (Lower all, Fold all, Turn on all, Tip all, Cover
   all), under the same rules: its buttons come from the rig's tools'
-  buttons and don't come and go while the rig is the same.
+  buttons and don't come and go while the rig is the same. Cover all is
+  back with Cover's button (Uncover all, lit while all are open).
 - **The Map screen's Implement group** (Lower, Fold, Work, acting on the
   tool the game's key would act on) goes: the cab keeps Lights and Drive.
-  A tool is worked from its card.
+  A tool is worked from its card. The Harvester screen's Header and Fold
+  tiles still read and send through the lower and fold controls
+  (`implementLowered`, `fold`); Work (`implementOn`) and the group's
+  label with the selected tool's name went.
 
 Day and Night as today; 1180×820 with one, two and three cards (compact),
 with More open and closed.
@@ -96,8 +107,10 @@ with More open and closed.
 ## Data contract
 
 - **Mod → companion** (`cab` topic, each rig entry; Protocol v1):
-  - `can`: the tool's buttons by rule 1, in `CAPABILITIES`' order, which
-    gains `unload`, `createFields`, `autoDrop`, `doubledRate` and
+  - `can`: the tool's buttons by rule 1, in `CAPABILITIES`' order
+    (lower, fold, turnOn, unload, tip, tipSide, cover, pipe, rotate,
+    createFields, autoDrop, bales, doubledRate, sprayRate, width, detach),
+    which gains `unload`, `createFields`, `autoDrop`, `doubledRate` and
     `sprayRate` (Precision Farming's rate: its three buttons); `bales`
     becomes the reset button. What decides each is in the table below. It
     is read from parts and load-time settings only, never from a live
@@ -120,13 +133,13 @@ with More open and closed.
   capabilities and their state fields; `extraKeys` is removed.
 - **Web** (selectors, widgets): `CAPABILITIES` and `BUTTON_CAPABILITIES`
   gain the new ones, and a `MORE_CAPABILITIES` list (rotate,
-  createFields, autoDrop, bales, doubledRate). `toolButtons` makes the
-  main row and the More row from `can` (`MORE_CAPABILITIES` also has
-  `sprayRate`, drawn as one row: Rate −, Auto, Rate +); the other-keys
-  code goes. The
-  Map screen's Implement group and its controls (`implementLowered`,
-  `fold`, `implementOn` in `controls.js`) go, unless the Harvester
-  screen still uses them (it uses its own tiles: checked while building).
+  createFields, autoDrop, bales, doubledRate, sprayRate) with
+  `moreCount`. `toolButtons` makes the main row, then More's buttons
+  (`more: true`; `sprayRate` drawn as one row: Rate −, Auto, Rate +);
+  the other-keys code goes. The Map screen's Implement group goes, and
+  with it `implementOn` and the group's `implementName`; `implementLowered`
+  and `fold` stay in `controls.js`: the Harvester screen's Header and Fold
+  tiles use them (checked while building). The All row gains Cover all.
 
 What decides each button, and what fades it. Every name was read in the
 game's own scripts (`sdk/debugger/gameSource.zip` in the install, read
@@ -135,20 +148,20 @@ yet:
 
 | Button | Has it (rule 1) | Faded now (rule 2) | State |
 |---|---|---|---|
-| Lower | the tool's input attacher joint `allowsLowering` (`getActiveInputAttacherJoint`), or it lowers through its fold (`spec_foldable.foldMiddleAnimTime`); no more `getAllowsLowering` here (it's a "now": false on a mower folded for transport) | `getAllowsLowering` / `getIsFoldMiddleAllowed` false, `getIsPowered` false | verified (DONE.md, tools on the Vehicle page), but the joint's `allowsLowering` alone is unverified |
+| Lower | the tool's input attacher joint `allowsLowering` (`getActiveInputAttacherJoint`), or it lowers through its fold (`spec_foldable.foldMiddleAnimTime`), or a pickup that lowers itself (`spec_pickup.animationName` set: Pickup registers its own `LOWER_IMPLEMENT` then, the baler's "Lower pickup"); no more `getAllowsLowering` here (it's a "now": false on a mower folded for transport) | `getAllowsLowering` (the joint) / `getIsFoldMiddleAllowed` (the fold) false, `getIsPowered` false; a pickup only by power (`getCanChangePickupState` is always true) | verified (DONE.md, tools on the Vehicle page), but the joint's `allowsLowering` alone and the pickup are unverified |
 | Fold | `spec_foldable.foldingParts` not empty | `getIsFoldAllowed` false, `getIsPowered` false | verified (DONE.md) |
-| Turn on | `spec_turnOnVehicle` and `getCanToggleTurnedOn()` true: false when the tool is always on (`isAlwaysTurnedOn`) or turned on by its tractor (`turnedOnByAttacherVehicle`), XML settings fixed at load; and its input attacher joint's `canBeTurnedOn` isn't false. The game registers the turn on key only then (TurnOnVehicle `onRegisterActionEvents`) | `getCanBeTurnedOn()` false (folded: Foldable's limits; no power), with `getTurnedOnNotAllowedWarning()` (Foldable's `unfoldWarning`, else "warning_attachToPower") | `getCanBeTurnedOn`, `getTurnedOnNotAllowedWarning` verified (DONE.md); `getCanToggleTurnedOn` as "has" unverified: the W 600 and the ARION should answer false |
-| Unload | `spec_fillUnit.unloading` set (the tool's unloading places, FillUnit `onRegisterActionEvents` registers `UNLOAD` only then) | while `spec_fillUnit.unloadingFillUnitsRunning`, and empty (no fill level): unverified which the game refuses | unverified |
+| Turn on | `spec_turnOnVehicle` and `getCanToggleTurnedOn()` true: false when the tool is always on (`isAlwaysTurnedOn`) or turned on by its tractor (`turnedOnByAttacherVehicle`), XML settings fixed at load; and its input attacher joint's `canBeTurnedOn` isn't false. The game registers the turn on key only then (TurnOnVehicle `onRegisterActionEvents`). The mod reads the two settings as fields (Sprayer's own `getCanToggleTurnedOn` also asks its tank, a "now"), `getCanToggleTurnedOn()` only where they can't be read | `getCanBeTurnedOn()` false (folded: Foldable's limits; no power), with `getTurnedOnNotAllowedWarning()` (Foldable's `unfoldWarning`, else "warning_attachToPower"), else the engine's words | `getCanBeTurnedOn`, `getTurnedOnNotAllowedWarning` verified (DONE.md); the settings as "has" seen in the probe (the three sprayers false and false; the W 600 and the ARION have no turn on part) |
+| Unload | `spec_fillUnit.unloading` set (the tool's unloading places, FillUnit `onRegisterActionEvents` registers `UNLOAD` only then) | while `spec_fillUnit.unloadingFillUnitsRunning` (FillUnit.unloadFillUnits does nothing then), and with nothing to unload ("Nothing to unload": no fill unit with `canBeUnloaded`, a level and a pallet, FillUnit.updateUnloadActionDisplay): unverified which the game shows | unloading places seen in the probe (one on each sprayer); the rest unverified |
 | Tip, Tip side | `spec_trailer.tipSideCount` ≥ 1, ≥ 2 | as today | verified (DONE.md, a trailer's tip keys) |
 | Cover | `spec_cover.hasCovers` | as today | as today (no button since spec 0003's close: back in the main row; unverified) |
 | Pipe | `spec_pipe.hasMovablePipe` | as today | verified (spec 0001) |
-| Rotate | `spec_plow.rotationPart.turnAnimation` | `getIsPlowRotationAllowed()` false | `rotationMax` seen in spike 0.0.4; unverified live |
+| Rotate | `spec_plow.rotationPart.turnAnimation` | `getCanTogglePlowRotation()` false (Plow.actionEventTurn: the fold's limits, lowered, power), else `getIsPlowRotationAllowed()` false; `getIsPowered` false | `rotationMax` seen in spike 0.0.4; unverified live |
 | Create fields | `spec_plow` and not `getPlowForceLimitToField()` (forced, or the platform can't create fields); the player's `createFields` permission (`g_currentMission:getHasPlayerPermission`) fades it | without the permission | `spec_plow.limitToField` (false: makes fields); unverified |
-| Automatic drop | `spec_baler.toggleableAutomaticDrop` | `getIsPowered` false | `spec_baler.automaticDrop` (`platformAutomaticDrop` with a platform); unverified |
-| Reset bale count | `spec_baleCounter` | | `sessionCounter`; unverified |
-| Doubled rate | `spec_sprayer` (Sprayer registers its doubled amount key on every sprayer, `toggleDoubledAmountInputBinding`) | | `spec_sprayer.doubledAmountIsActive`; unverified |
+| Automatic drop | `spec_baler.toggleableAutomaticDrop` (else `spec_baleWrapper`'s: a baler-wrapper has the key twice, one press toggles both) | `getIsPowered` false (a powered key) | `spec_baler.automaticDrop` (`platformAutomaticDrop` with a platform); unverified |
+| Reset bale count | `spec_baleCounter` | `getIsPowered` false (a powered key) | `sessionCounter`; unverified |
+| Doubled rate | `spec_sprayer.isFertilizerSprayer` false: a slurry tanker or a manure spreader. Sprayer registers its key on every sprayer but never allows it on a fertilizer sprayer (`getSprayerDoubledAmountActive`'s second answer; Vincent, 2026-11-03) | `getSprayerDoubledAmountActive(workAreaParameters.sprayType)`'s second answer false (not for this spray type) | `spec_sprayer.doubledAmountIsActive`; the key inactive on the three fertilizer sprayers in the probe; unverified on a slurry tanker |
 | Application rate (Precision Farming) | Precision Farming's sprayer part (`spec_FS25_precisionFarming.extendedSprayer`) with `sprayAmountAutoModeChangeAllowed` true | Rate − and + while `sprayAmountAutoMode` is true (the game's rate key is inactive then) or at `sprayAmountManualMin` / `Max`; all three while not powered | the probe (2026-11-02, the Rogator 937H, Vincent watched the HUD): `sprayAmountAutoMode` (true: automatic), `sprayAmountManual` 1 to 45 (`sprayAmountManualMin`, `sprayAmountManualMax`); one press of `PRECISIONFARMING_SPRAY_AMOUNT` with value 1 stepped it 1 → 2 (12 → 25 l/ha in the HUD with liquid fertilizer), with -1 back; `PRECISIONFARMING_SPRAY_AMOUNT_MODE` toggles automatic; Precision Farming's own script isn't readable |
-| Width (4 buttons) | `spec_variableWorkWidth.hasSections` and no Precision Farming sprayer part (`spec_FS25_precisionFarming.extendedSprayer`); with one, the strip only | `spec_variableWorkWidth.isActive` false (Sprayer sets it from the spray type's `supportsVariableWorkWidth`) or folded | the probe (2026-11-02): `hasSections` and `isActive` true on the Berthoud, the Rogator 937H and the DINO II, all with Precision Farming, and no width key registered on any; a sprayer without Precision Farming unverified |
+| Width (4 buttons) | `spec_variableWorkWidth.hasSections` and no Precision Farming sprayer part (`spec_FS25_precisionFarming.extendedSprayer`); with one, the strip only | `spec_variableWorkWidth.isActive` false ("This spray type has no partial width": Sprayer sets it from the spray type's `supportsVariableWorkWidth`) or folded (Foldable's `unfoldWarning`) | the probe (2026-11-02): `hasSections` and `isActive` true on the Berthoud, the Rogator 937H and the DINO II, all with Precision Farming, and no width key registered on any; a sprayer without Precision Farming unverified |
 | Detach | every tool (depth 1 and more) | `isDetachAllowed()` false | verified (DONE.md) |
 
 ## Commands
@@ -166,11 +179,11 @@ and what it starts reads back.
 | `tool.rotate` (replaces `implement.rotate`) | 1 rotated, 0 back | the plow's `IMPLEMENT_EXTRA` | `rotationMax` is the value |
 | `tool.createFields` (new) | 1 on, 0 off | `IMPLEMENT_EXTRA3` (Plow `actionEventLimitToField`) | `limitToField` is the opposite of the value |
 | `tool.autoDrop` (new) | 1 on, 0 off | `IMPLEMENT_EXTRA4` (Baler `actionEventToggleAutomaticDrop`) | `automaticDrop` is the value |
-| `tool.resetBales` (new) | none (one-shot) | `BALE_COUNTER_RESET` | `sessionCounter` is 0 |
+| `tool.resetBales` (new, replaces `implement.baleReset`) | none (one-shot) | `BALE_COUNTER_RESET` | `sessionCounter` is 0 |
 | `tool.doubledRate` (new) | 1 on, 0 off | the sprayer's `toggleDoubledAmountInputBinding` (`DOUBLED_SPRAY_AMOUNT` by default) | `doubledAmountIsActive` is the value |
 | `tool.sprayRate` (new) | -1 or 1: one step down or up (Rate −, Rate +) | `PRECISIONFARMING_SPRAY_AMOUNT`, the value as the key's input (the probe) | `sprayAmountManual` moved by one; refused at once while automatic ("Automatic rate is on") or at its end ("at its limit") |
 | `tool.sprayRateAuto` (new) | 1 automatic, 0 manual | `PRECISIONFARMING_SPRAY_AMOUNT_MODE` (the probe) | `sprayAmountAutoMode` is the value |
-| `implement.key` | goes | | |
+| `implement.key`, `implement.baleReset` | go | | |
 
 A faded button sends nothing. The dashboard shows a button pending until
 the answer, then until its state changes (at most 1.5 s), as every card
@@ -203,7 +216,10 @@ button.
   `widgets/controls.js` and `themes/newholland/theme.js` (the Implement
   group goes), `commands.js` / `connection.js` (no `key`).
 - **Fixtures:** `fixtures/rig_fixtures.py` and `web/fixtures/rigs/*.json`
-  remade from the spike dumps with the new `can` (no `extraKeys`).
+  remade from the spike dumps with the new `can` (no `extraKeys`); the
+  probe's dumps slimmed to `mod/tests/fixtures/spike0012/` by
+  `research/spike/slim_parts.py` (the ARION rig engine off and on, the
+  DINO II, the Rogator 937H), new rig fixtures from them.
 - **Docs:** spec 0011's other keys (fix 1, the hidden and axis keys) and
   the faded Turn on (fix 5, 0.12.3) point here; THEMES.md's card section
   gets the More row and loses the Implement group; NEXT.md's "vehicle's
@@ -216,36 +232,36 @@ button.
 ## Acceptance
 
 Automated (each one a test that exists before the work is called built):
-- [ ] `mod/tests/run.lua`: a card's `can` is the same with the engine on
+- [x] `mod/tests/run.lua`: a card's `can` is the same with the engine on
   and off, folded and unfolded, selected and not, unloading and not, on
   the spike rigs (mowers, trailers, sprayer, plow, baler) and the
   self-propelled sprayer; only `canNow` and `whyNot` change.
-- [ ] `mod/tests/run.lua`: Turn on only where `getCanToggleTurnedOn` is
+- [x] `mod/tests/run.lua`: Turn on only where `getCanToggleTurnedOn` is
   true: a weight with `turnedOnByAttacherVehicle` and a tractor with
   `isAlwaysTurnedOn` have none; a joint with `canBeTurnedOn` false none.
-- [ ] `mod/tests/run.lua`: each new button from its part (Unload from
+- [x] `mod/tests/run.lua`: each new button from its part (Unload from
   `unloading`, Create fields not when forced, Automatic drop only when
   toggleable, Reset bale count, Doubled rate, the width buttons with
   sections and no Precision Farming sprayer part, none with one), faded
   as in the table.
-- [ ] `mod/tests/run.lua`: each new command presses its key on its tool
+- [x] `mod/tests/run.lua`: each new command presses its key on its tool
   (aimed when another is selected, the selection put back), answers by
   its state, `already` when there; `implement.key` and a `key` field are
   refused; `tool.rotate` replaces `implement.rotate`.
-- [ ] `mod/tests/run.lua`: no rig entry has `extraKeys`.
-- [ ] `companion/tests`: a `key` field is refused ("value not allowed");
+- [x] `mod/tests/run.lua`: no rig entry has `extraKeys`.
+- [x] `companion/tests`: a `key` field is refused ("value not allowed");
   the new actions pass through with their tool.
-- [ ] `web/test.html`: each tool in the table gets its main row and More
+- [x] `web/test.html`: each tool in the table gets its main row and More
   in order, from the rig fixtures; a faded button stays with its label;
   a tool with nothing under More has no More row; More opens and closes,
   remembered.
-- [ ] `web/test.html`: the same card's buttons with the engine on and
+- [x] `web/test.html`: the same card's buttons with the engine on and
   off (two cab messages): the same keys, only faded ones differ.
-- [ ] `web/test.html`: the Map screen's controls have Lights and Drive,
+- [x] `web/test.html`: the Map screen's controls have Lights and Drive,
   no Implement group.
-- [ ] `tests/test_golden.py` unchanged (the Solek replay has no tool
+- [x] `tests/test_golden.py` unchanged (the Solek replay has no tool
   buttons that change), or rewritten on purpose with the reason in the Log.
-- [ ] Replay in the browser pane (`replay-solek`): the Map screen and the
+- [x] Replay in the browser pane (`replay-solek`): the Map screen and the
   Vehicle page at 1180×820, day and night, with the rig fixtures.
 
 Live check (in game; Solek; livewatch shows each tool's `can` when you get
@@ -263,23 +279,30 @@ in; the engine off first, then on):
   files said.)
 - [ ] The ARION 410 with the W 600 and the Berthoud: the W 600 has Lower
   and Detach only; the Berthoud Fold, Turn on, Unload, Detach and More ·
-  2; the ARION no card. Engine off, folded, unfolded, unloading, selecting
-  the tractor in game: no button comes or goes.
+  1 (Application rate); the ARION no card. Engine off, folded, unfolded,
+  unloading, selecting the tractor in game: no button comes or goes
+  (livewatch's `in` line has each one's `can`; any change is a `cab`
+  line).
 - [ ] The Berthoud: Unload makes pallets with the tractor selected in
-  game, answered ok once it started; Doubled rate on and off as the
-  game's HUD shows; Rate −, Auto and Rate + as the game's rate (its HUD's
-  l/ha, the card's step) on the Berthoud and the Rogator 937H;
-  the strip read-only (Precision Farming), with no width buttons.
+  game, answered ok once it started; Rate −, Auto and Rate + as the
+  game's rate (its HUD's l/ha, the card's step) on the Berthoud and the
+  Rogator 937H; the strip read-only (Precision Farming), with no width
+  buttons; More opens and closes, and stays open after a reload.
 - [ ] The Agrio DINO II: its own card, Fold, Turn on, Unload, the strip,
-  More · 2, no Detach.
+  More · 1, no Detach.
+- [ ] A slurry tanker or a manure spreader (from the shop): Doubled rate
+  under More, on and off as the game's HUD shows; none on the Berthoud.
 - [ ] The T7.300 with the KDF 341 S and KDD 941 STH: Lower, Fold, Turn on,
   Detach on both, unchanged from spec 0003.
 - [ ] The Vestrum 100 with two EDK 650: Tip, Tip side, Detach (Cover if
-  the game has covers on it), unchanged from spec 0003.
+  the game has covers on it, and Cover all), unchanged from spec 0003.
+  `python scripts/rig_check.py --server http://localhost:8125` presses
+  each card's buttons there and back on any of these rigs.
 - [ ] A plow (from the shop if none on the farm): Rotate and Create
   fields under More, each as the game does.
 - [ ] A baler (the G-1 F125 Kombi from spike 0.0.4 if on the farm):
-  Automatic drop and Reset bale count under More.
+  Lower (its pickup) in the main row; Automatic drop and Reset bale count
+  under More.
 - [ ] The Valtra S 286 with the Väderstad FH 2200 and the Aerosem: each
   tool's buttons by the table, none coming and going.
 - [ ] The Map screen: Lights and Drive, no Implement group.
@@ -304,6 +327,14 @@ in; the engine off first, then on):
   Farming the strip is read-only (Vincent, 2026-11-02, after the probe).
 - Unload answers ok once the unloading started, else "Nothing moved"
   (Vincent, 2026-11-02).
+- Doubled rate only where the game ever allows it: a slurry tanker or a
+  manure spreader (`isFertilizerSprayer` false, set at load). The
+  Berthoud, the DINO II and the Rogator have More · 1 (Vincent,
+  2026-11-03, after reading Sprayer's `getSprayerDoubledAmountActive`).
+- More is the main row's last button, not a row of its own: the
+  Berthoud's card on the ARION rig (the W 600 under Also attached) was 17
+  px too tall at 1180×820 with the row (Vincent, 2026-11-03). Open, the
+  card shows its compact body so More's buttons fit.
 
 ## Out of scope / open questions
 
@@ -349,3 +380,22 @@ in; the engine off first, then on):
   the mode key turned automatic back on and the rate key inactive again.
   Application rate is one row under More (Rate −, Auto, Rate +) with the
   step shown, "Step 2 / 45" (Vincent). Probe ticked.
+- 2026-11-03: built (mod 0.13.0). The has-signals checked in the game's
+  own scripts (TurnOnVehicle, FillUnit, Plow, Baler, BaleWrapper,
+  BaleCounter, Sprayer, Pickup), which changed four things from the
+  draft: Doubled rate only on a slurry tanker or a manure spreader
+  (Vincent); Turn on read from the turn on part's two settings as fields
+  (Sprayer's `getCanToggleTurnedOn` also asks its tank); the baler's Lower
+  from its pickup; Rotate faded by `getCanTogglePlowRotation`, Automatic
+  drop and Reset bale count by power (their keys are powered ones). More
+  became the main row's last button (Vincent), and an open More shows the
+  card's compact body. `implement.baleReset` went with `implement.key`;
+  Cover all is back with Cover's button. The Harvester screen's tiles
+  keep `implementLowered` and `fold`. The probe's dumps are test fixtures
+  (`spike0012`), `scripts/rig_check.py` sends today's commands (it still
+  sent the `implement.*` names from before mod 0.10.0) and presses Unload
+  only with `--unload`, livewatch prints each tool's `can`. Tests: 64 Lua,
+  117 pytest, `web/test.html` 290 green; the golden file unchanged. Seen
+  in the browser pane at 1180×820, day and night: the ARION rig engine on
+  and off, More open and closed, the plow's More · 2, three cards
+  compact.

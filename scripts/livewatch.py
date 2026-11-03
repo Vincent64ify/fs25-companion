@@ -9,7 +9,8 @@ Tails log.txt and the mod's stream.ndjson and prints, one line each:
 * log    the mod's own lines ([FS25_Companion]), errors and Lua call stacks;
 * ack    every command_ack in full;
 * cab    what changed in the cab message (rig, tools, keys), field by field;
-* in     the vehicle and its tools when you get in.
+* in     the vehicle and its tools when you get in, each with its buttons
+         (`can`, specs/0012: a change to one later shows as a cab line).
 
 Both files start over when the game restarts or the stream rotates; the
 watcher notices and reads the new file from its top. Ctrl+C stops it.
@@ -112,7 +113,9 @@ class StreamWatch:
         if vehicle != self.vehicle:
             self.vehicle = vehicle
             if data.get("inVehicle"):
-                names = [str(m.get("name")) for m in data.get("rig") or [] if isinstance(m, dict)]
+                # each one's buttons (specs/0012): they never change after this
+                names = [f"{m.get('name')} [{', '.join(str(c) for c in m.get('can') or [])}]"
+                         for m in data.get("rig") or [] if isinstance(m, dict)]
                 emit("in", f"vehicle {vehicle}: {' | '.join(names) or '(no rig)'}")
             else:
                 emit("in", "on foot")

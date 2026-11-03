@@ -1,0 +1,112 @@
+{
+ "rig": "dino",
+ "source": "mod/tests/fixtures/spike0012/dino.json, through the mod's Cab collector",
+ "cab": {
+  "aiActive": false,
+  "engineOn": false,
+  "engineState": "off",
+  "hitched": false,
+  "implements": [],
+  "inVehicle": true,
+  "keys": {
+   "fold": 528,
+   "turnOn": 528,
+   "unload": 528
+  },
+  "lights": {
+   "beacon": false,
+   "hazard": false,
+   "high": false,
+   "left": false,
+   "on": false,
+   "right": false
+  },
+  "rig": [
+   {
+    "can": [
+     "fold",
+     "turnOn",
+     "unload",
+     "sprayRate"
+    ],
+    "canNow": {
+     "fold": false,
+     "sprayRate": false,
+     "turnOn": false
+    },
+    "canTurnOn": true,
+    "depth": 0,
+    "foldMoving": false,
+    "foldable": true,
+    "id": 528,
+    "name": "Agrio DINO II",
+    "selectable": true,
+    "selected": true,
+    "sprayRate": {
+     "auto": true,
+     "max": 45,
+     "min": 1,
+     "step": 1
+    },
+    "turnedOn": false,
+    "unfolded": true,
+    "whyNot": {
+     "fold": "Please start the engine first!",
+     "sprayRate": "Please start the engine first!",
+     "turnOn": "Attach tool to vehicle with a turned-on motor!"
+    },
+    "width": {
+     "center": true,
+     "left": 4,
+     "leftMax": 4,
+     "right": 4,
+     "rightMax": 4
+    }
+   }
+  ],
+  "vehicleId": 528
+ },
+ "vehicles": {
+  "controlledId": 528,
+  "vehicles": [
+   {
+    "id": 528,
+    "name": "Agrio DINO II",
+    "brand": "Agrio",
+    "category": "sprayers",
+    "categoryTitle": "Sprayers",
+    "typeName": "selfPropelledSprayer",
+    "fills": [
+     {
+      "unit": 1,
+      "level": 6600,
+      "capacity": 6600,
+      "fillType": "herbicide",
+      "fillTitle": "Herbicide"
+     }
+    ],
+    "wear": 0.23,
+    "speed": 8.4,
+    "engineOn": false,
+    "fuel": 280,
+    "fuelCapacity": 400,
+    "motorized": true,
+    "implements": []
+   }
+  ]
+ },
+ "expect": {
+  "cards": [
+   "DINO II: Fold:unavailable, Turn on:unavailable, Unload:off, More · 1:off"
+  ],
+  "selected": "DINO II",
+  "also": [],
+  "all": [],
+  "width": [
+   "DINO II: ■■■■■■■■■ 9 / 9 sections: "
+  ],
+  "more": [
+   "DINO II: Rate −:unavailable, Auto:unavailable, Rate +:unavailable"
+  ]
+ }
+}

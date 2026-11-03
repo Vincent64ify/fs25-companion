@@ -6,9 +6,11 @@
 //   (Unfold all, Lower all, Turn on all, Tip all).
 // - toolCards: a card per working thing in driving order, the vehicle in
 //   its place when it works by itself (a sprayer, a tipper truck). A card
-//   has a button for each capability the mod sends (`can`, read from the
-//   game's parts), never one per tool type, and the selected tool's other
-//   live keys with the game's own labels. Three or more cards go compact.
+//   has a button for each capability the mod sends (`can`, read from what
+//   the tool is: specs/0012), from our fixed list, never one per tool type;
+//   the game's "not now" only fades one. The main row, then a collapsed
+//   More (a plow's Rotate, a baler's drop, the application rate...). Three
+//   or more cards go compact.
 // - toolsAlso: each tool with no card (a weight), one line, Lower and Detach.
 // A sprayer's card shows its working width (specs/0011-sprayer.md): a strip
 // of its sections and how many are on, with Left / Right in / out where the
@@ -18,8 +20,8 @@
 // Estimates come from data/rates.js.
 
 import {
-  allActions, alsoAttached, buttonCapsOf, cabOf, canOf, cardsOf, controlledVehicle, entryModel, fillMax, fillName, fillPct,
-  fillStop, fillsOf, foldingText, implementById, kindLabel, lowersInRig, screenRig, vehicleKind,
+  MORE_CAPABILITIES, allActions, alsoAttached, buttonCapsOf, cabOf, canOf, cardsOf, controlledVehicle, entryModel, fillMax,
+  fillName, fillPct, fillStop, fillsOf, foldingText, implementById, kindLabel, lowersInRig, moreCount, screenRig, vehicleKind,
 } from "../data/selectors.js";
 import { areaText, lengthText, lengthUnit, lengthValue, speedUnit, speedValue, unitsOf } from "../data/units.js";
 import { minutesText, ratesOf, timeLeft } from "../data/rates.js";
@@ -34,7 +36,7 @@ import { icon } from "../ui/icons.js";
 /** @typedef {import("../types.js").Vehicle} Vehicle */
 /** @typedef {import("../types.js").RigWidth} RigWidth */
 /**
- * @typedef {(action: string, value?: number, tool?: number, side?: "left"|"right", key?: string) =>
+ * @typedef {(action: string, value?: number, tool?: number, side?: "left"|"right") =>
  *   Promise<import("../commands.js").CommandResult>} Send
  */
 
@@ -46,6 +48,9 @@ const CALL_TRAILER_MIN = 3;
 const COMPACT_FROM = 3;
 // how long a failed answer's reason stays on its card
 const NOTE_SHOWN_MS = 3000;
+// the tool models whose More is open, in this browser (specs/0012: a
+// convenience only)
+const MORE_STORE = "fs25companion.moreOpen";
 
 /** The vehicles topic's side of an entry: its implement, or the vehicle itself. */
 export const detailOf = (/** @type {RigEntry} */ e, /** @type {Vehicle|undefined} */ v) =>
@@ -170,11 +175,12 @@ export function pickable(el, e, name, send) {
  * One button: what a tap does, the command (with the tool's id), lit or
  * not, unavailable (why: the game's reason, not shown), a value line.
  * value: the state a tap asks for (specs/0008) with the tool's id as tool,
- * or a one-shot's number (the tool's id for Tip side and Detach); side:
- * tool.width's; inputKey: an other key's input action, by name (specs/0011).
+ * or a one-shot's number (the tool's id for Tip side, Cover and Detach;
+ * none for Unload and Reset bale count, their tool alone); side:
+ * tool.width's; more: under the card's More (specs/0012).
  * @typedef {{key: string, label: string, icon: string, action: string, value?: number, tool?: number, on: boolean,
- *   side?: "left"|"right", inputKey?: string, unavailable?: boolean, why?: string, moving?: boolean, progressive?: boolean,
- *   line?: string}} ToolButton
+ *   side?: "left"|"right", unavailable?: boolean, why?: string, moving?: boolean, progressive?: boolean,
+ *   line?: string, more?: boolean}} ToolButton
  */
 
 /** Unavailable while the game says not now, with its words (or the button's own, or ours). */
@@ -183,15 +189,17 @@ const whyNot = (/** @type {RigEntry} */ e, /** @type {string} */ cap, /** @type 
   e.whyNot?.[cap] || own || "Not now";
 
 /**
- * A card's buttons: one for each confirmed capability in `can`, in the
- * mod's order, labelled with what a tap does ("Raise", "Fold", "Turn off",
- * "Tip") and asking the tool for that state (specs/0008: tool.lower 0 for
- * Raise); the vehicle's own card has no Detach. The selected tool's other
- * live keys follow, with the game's labels (cover, rotate and the bale
- * counter's among them until their own spec: spec 0003's close). The
- * width (specs/0011) gives four: Left out, Left in, Right in, Right out,
- * one section each; a side at its limit fades its button (keys "width:…",
- * shown in the card's width row).
+ * A card's buttons (specs/0012): one for each capability in `can`, from our
+ * fixed list in the mod's order, labelled with what a tap does ("Raise",
+ * "Fold", "Turn off", "Tip", "Create fields on") and asking the tool for
+ * that state (specs/0008: tool.lower 0 for Raise); the vehicle's own card
+ * has no Detach. The main row first, then More's (`more`: Rotate, Create
+ * fields, Automatic drop, Reset bale count, Doubled rate, and the
+ * application rate's Rate −, Auto, Rate +, always together). The game's
+ * "not now" only fades a button. The width (specs/0011) gives four: Left
+ * out, Left in, Right in, Right out, one section each; a side at its limit
+ * fades its button (keys "width:…", shown in the card's width row). An
+ * older mod's other keys (extraKeys) have no button (rule 4).
  * @param {RigEntry} e
  * @returns {ToolButton[]}
  */
@@ -201,6 +209,9 @@ export function toolButtons(e) {
   const folded = can.includes("fold") && e.unfolded === false;
   /** @type {(asked: boolean) => {value: number, tool: number|undefined}} the state a tap asks for */
   const set = (asked) => ({ value: asked ? 1 : 0, tool: id });
+  /** @type {(on: boolean|undefined, what: string) => string} "Create fields on" while off: what a tap does */
+  const onOff = (on, what) => `${what} ${on ? "off" : "on"}`;
+  const count = e.bales?.count;
   /** @type {Record<string, () => Omit<ToolButton, "key">|undefined>} */
   const make = {
     lower: () => ({ label: e.lowered ? "Raise" : "Lower", icon: e.lowered ? "hitchUp" : "hitchDown",
@@ -215,24 +226,41 @@ export function toolButtons(e) {
       // a folded tool can't turn on (Vincent, 2026-10-26)
       return folded && !e.turnedOn ? { ...b, unavailable: true, why: "Unfold first" } : b;
     },
+    // a one-shot: pallets of what's in the tank (FillUnit), its tool alone
+    unload: () => ({ label: "Unload", icon: "unload", action: "tool.unload", tool: id, on: false }),
     // where the load goes, as the key the game shows (spec 0003 revision 3):
     // Ctrl+I's "Unload here" off a sale point, else Tip into it
     tip: () => ({ label: e.discharging ? "Stop" : e.tipTo === "ground" ? "Unload here" : "Tip", icon: "unload",
       action: "tool.tip", ...set(e.discharging !== true), on: e.discharging === true }),
     tipSide: () => ({ label: "Tip side", icon: "tipSide", action: "implement.tipSide", value: id, on: false,
       line: e.tipSide?.name || (e.tipSide ? `${e.tipSide.index} / ${e.tipSide.count}` : undefined) }),
+    // a one-shot by the tool's id (the game's cover key steps it); lit while open
+    cover: () => ({ label: e.cover?.open ? "Cover" : "Uncover", icon: "cover", action: "implement.cover", value: id,
+      on: e.cover?.open === true }),
     pipe: () => ({ label: e.pipe?.out ? "Pipe in" : "Pipe out", icon: "pipe", action: "tool.pipe",
       ...set(e.pipe?.out !== true), on: e.pipe?.out === true, moving: e.pipe?.moving === true }),
+    rotate: () => ({ label: "Rotate", icon: "rotate", action: "tool.rotate", ...set(e.plow?.rotated !== true), on: false }),
+    createFields: () => ({ label: onOff(e.createFields, "Create fields"), icon: "area", action: "tool.createFields",
+      ...set(e.createFields !== true), on: e.createFields === true }),
+    autoDrop: () => ({ label: onOff(e.autoDrop, "Automatic drop"), icon: "unload", action: "tool.autoDrop",
+      ...set(e.autoDrop !== true), on: e.autoDrop === true }),
+    bales: () => ({ label: "Reset bale count", icon: "reset", action: "tool.resetBales", tool: id, on: false,
+      line: typeof count === "number" ? `${count} ${count === 1 ? "bale" : "bales"}` : undefined }),
+    doubledRate: () => ({ label: onOff(e.doubledRate, "Doubled rate"), icon: "fill", action: "tool.doubledRate",
+      ...set(e.doubledRate !== true), on: e.doubledRate === true }),
     detach: () => (e.depth === 0 ? undefined
       : { label: "Detach", icon: "hitch", action: "implement.detach", value: id, on: false }),
   };
   /** @type {ToolButton[]} */
-  const out = [];
+  const main = [];
+  /** @type {ToolButton[]} */
+  const more = [];
   for (const cap of can) {
-    if (cap === "width") {
-      for (const b of widthButtons(e, id)) {
+    const into = MORE_CAPABILITIES.includes(cap) ? more : main;
+    if (cap === "width" || cap === "sprayRate") {
+      for (const b of cap === "width" ? widthButtons(e, id) : rateButtons(e, id)) {
         if (notNow(e, cap)) Object.assign(b, { unavailable: true, why: whyNot(e, cap) });
-        out.push(b);
+        into.push(b);
       }
       continue;
     }
@@ -240,19 +268,39 @@ export function toolButtons(e) {
     if (!b) continue;
     const button = { key: cap, ...b };
     if (notNow(e, cap)) Object.assign(button, { unavailable: true, why: whyNot(e, cap, button.why) });
-    out.push(button);
+    into.push(button);
   }
-  if (e.selected) {
-    // by its input action's name: by number, a key that came and went
-    // shifted the rest (live, 0.12.1: Dump on ground pressed Unload)
-    for (const k of Array.isArray(e.extraKeys) ? e.extraKeys : []) {
-      if (k && typeof k.text === "string" && typeof k.action === "string") {
-        out.push({ key: `key:${k.action}`, label: k.text, icon: "implement", action: "implement.key", inputKey: k.action,
-          on: false });
-      }
-    }
-  }
-  return out;
+  return [...main, ...more.map((b) => ({ ...b, more: true }))];
+}
+
+/**
+ * Precision Farming's application rate (specs/0012): one row like
+ * Cruise's, always together: Rate −, Auto, Rate +. Auto is lit while the
+ * game sets the rate itself; Rate − and + are faded then (the game's rate
+ * key does nothing) and at the ends. Auto's line is the step while the
+ * player sets it ("Step 2 / 45"; the HUD's l/ha isn't in what the mod reads).
+ * @param {RigEntry} e
+ * @param {number|undefined} id
+ * @returns {ToolButton[]}
+ */
+function rateButtons(e, id) {
+  const r = e.sprayRate;
+  if (!r) return [];
+  const step = typeof r.step === "number" ? r.step : undefined;
+  const end = (/** @type {number|undefined} */ limit, /** @type {-1|1} */ dir) =>
+    step === undefined || (typeof limit === "number" && (dir < 0 ? step <= limit : step >= limit));
+  /** @type {(dir: -1|1) => ToolButton} */
+  const stepButton = (dir) => {
+    const atEnd = r.auto === true || end(dir < 0 ? r.min : r.max, dir);
+    return { key: dir < 0 ? "rate:down" : "rate:up", label: dir < 0 ? "Rate −" : "Rate +",
+      icon: dir < 0 ? "cruiseDown" : "cruiseUp", action: "tool.sprayRate", value: dir, tool: id, on: false,
+      ...(atEnd ? { unavailable: true } : {}) };
+  };
+  return [stepButton(-1),
+    { key: "rate:auto", label: "Auto", icon: "cruise", action: "tool.sprayRateAuto", value: r.auto ? 0 : 1, tool: id,
+      on: r.auto === true,
+      line: r.auto || step === undefined ? undefined : `Step ${step}${typeof r.max === "number" ? ` / ${r.max}` : ""}` },
+    stepButton(1)];
 }
 
 /**
@@ -331,8 +379,8 @@ export function widthLine(w, units) {
  */
 function buttonRow(send, onWhy) {
   const sent = send;
-  send = async (action, value, tool, side, key) => {
-    const result = await sent(action, value, tool, side, key);
+  send = async (action, value, tool, side) => {
+    const result = await sent(action, value, tool, side);
     if (!result.ok && result.reason) onWhy?.(result.reason);
     return result;
   };
@@ -342,23 +390,26 @@ function buttonRow(send, onWhy) {
   let order = "";
   return {
     el,
-    /** @param {ToolButton[]} buttons */
-    set(buttons) {
-      const keys = buttons.map((b) => `${b.key}:${b.icon}`).join("|");
+    /**
+     * @param {ToolButton[]} buttons
+     * @param {HTMLElement} [tail] one more tile at the row's end (the card's More)
+     */
+    set(buttons, tail) {
+      const keys = buttons.map((b) => `${b.key}:${b.icon}`).join("|") + (tail ? "|tail" : "");
       if (keys !== order) {
         order = keys;
         for (const b of buttons) {
           if (shown.has(b.key)) continue;
           const item = { b, ui: /** @type {ReturnType<typeof createControl>} */ (/** @type {unknown} */ (undefined)) };
           item.ui = createControl({ label: b.label, icon: b.icon, progressive: b.progressive },
-            () => send(item.b.action, item.b.value, item.b.tool, item.b.side, item.b.inputKey),
+            () => send(item.b.action, item.b.value, item.b.tool, item.b.side),
             { ms: 1500, key: () => `${item.b.on}:${item.b.label}:${item.b.line ?? ""}` });
           item.ui.el.dataset.control = b.key;
           shown.set(b.key, item);
         }
         for (const key of [...shown.keys()]) if (!buttons.some((b) => b.key === key)) shown.delete(key);
-        el.replaceChildren(...buttons.map((b) => /** @type {any} */ (shown.get(b.key)).ui.el));
-        el.style.setProperty("--cols", String(buttons.length));
+        el.replaceChildren(...buttons.map((b) => /** @type {any} */ (shown.get(b.key)).ui.el), ...(tail ? [tail] : []));
+        el.style.setProperty("--cols", String(buttons.length + (tail ? 1 : 0)));
       }
       for (const b of buttons) {
         const item = /** @type {{ui: ReturnType<typeof createControl>, b: ToolButton}} */ (shown.get(b.key));
@@ -508,6 +559,86 @@ function widthBlock(send, onWhy) {
   };
 }
 
+/** The tool models whose More is open, from this browser's storage. */
+function openMores() {
+  try {
+    const list = JSON.parse(localStorage.getItem(MORE_STORE) || "[]");
+    return new Set(Array.isArray(list) ? list.filter((m) => typeof m === "string") : []);
+  } catch {
+    return new Set();
+  }
+}
+
+/** Whether this tool model's More is open in this browser. @param {string} model */
+export const moreOpen = (model) => openMores().has(model);
+
+/** Remember this tool model's More open or closed (a convenience: storage may fail). */
+function rememberMore(/** @type {string} */ model, /** @type {boolean} */ open) {
+  const set = openMores();
+  if (open) set.add(model);
+  else set.delete(model);
+  try {
+    localStorage.setItem(MORE_STORE, JSON.stringify([...set]));
+  } catch { /* the page works without it */ }
+}
+
+/**
+ * A card's More (specs/0012): the last tile of the main row, "More · 2",
+ * closed (Vincent, 2026-11-03: a tile, not a row of its own, so a card
+ * fits at 1180 × 820); a tap opens or closes it on that card, lit while
+ * open, its buttons a row under the main row, remembered by the tool's
+ * model in this browser. Compact (three cards or more) keeps the tile,
+ * faded and closed. None on a tool with nothing under More.
+ * @param {Send} send
+ * @param {(why: string) => void} onWhy
+ */
+function moreBlock(send, onWhy) {
+  const label = h("span", { className: "control-label" });
+  const toggle = /** @type {HTMLButtonElement} */ (h("button", { className: "control tool-more-toggle" },
+    h("span", { className: "icon tool-more-chevron" }), label));
+  toggle.type = "button";
+  toggle.dataset.control = "more";
+  const buttons = buttonRow(send, onWhy);
+  const el = h("div", { className: "tool-more" }, buttons.el);
+  el.hidden = true;
+  let model = "";
+  let compact = false;
+  let count = 0;
+  const paint = () => {
+    const open = count > 0 && !compact && moreOpen(model);
+    el.hidden = !open;
+    toggle.dataset.state = compact ? "unavailable" : open ? "on" : "off";
+    toggle.setAttribute("aria-expanded", String(open));
+    if (compact) toggle.setAttribute("aria-disabled", "true");
+    else toggle.removeAttribute("aria-disabled");
+  };
+  toggle.addEventListener("click", () => {
+    if (compact) return;
+    rememberMore(model, !moreOpen(model));
+    paint();
+  });
+  return {
+    el,
+    /** the tile for the main row, or undefined with nothing under More */
+    tile: () => (count > 0 ? toggle : undefined),
+    /**
+     * @param {string} toolModel the tool's model, what the browser remembers
+     * @param {number} n how many things are under it
+     * @param {ToolButton[]} list its buttons
+     * @param {boolean} isCompact
+     */
+    render(toolModel, n, list, isCompact) {
+      model = toolModel;
+      count = n;
+      compact = isCompact;
+      label.textContent = `More · ${n}`;
+      toggle.setAttribute("aria-label", `More, ${n}`);
+      buttons.set(list);
+      paint();
+    },
+  };
+}
+
 /**
  * One card, kept for its tool across renders.
  * @param {Send} send
@@ -522,8 +653,9 @@ function toolCard(send) {
   const note = reasonNote();
   const buttons = buttonRow(send, note.show);
   const width = widthBlock(send, note.show);
+  const more = moreBlock(send, note.show);
   const tanks = h("div", { className: "tool-tanks" });
-  const el = h("section", { className: "tool-card" }, head, stats, buttons.el, width.el, tanks, note.el);
+  const el = h("section", { className: "tool-card" }, head, stats, buttons.el, more.el, width.el, tanks, note.el);
   // a tap anywhere on the card selects its tool, as the head does; its
   // buttons only press (specs/0010, revision 2)
   el.addEventListener("click", (ev) => {
@@ -540,7 +672,7 @@ function toolCard(send) {
     /**
      * @param {RigEntry} e @param {Vehicle|undefined} v @param {ReturnType<typeof ratesOf>} rates
      * @param {import("../data/units.js").Units} units
-     * @param {boolean} [compact] three or more cards: the width's buttons go
+     * @param {boolean} [compact] three or more cards: the width's buttons go, More stays closed
      */
     render(e, v, rates, units, compact = false) {
       const model = entryModel(e, v) || "Tool";
@@ -571,7 +703,8 @@ function toolCard(send) {
         stats.replaceChildren(...st.map(statTile));
       }
       const all = toolButtons(e);
-      buttons.set(all.filter((b) => !b.key.startsWith("width:")));
+      more.render(model, moreCount(e), all.filter((b) => b.more), compact);
+      buttons.set(all.filter((b) => !b.more && !b.key.startsWith("width:")), more.tile());
       width.render(e.width, compact ? [] : all.filter((b) => b.key.startsWith("width:")), units);
       const rows = tankRows(rigTanks([e], v, rates));
       const tKey = JSON.stringify(rows);
@@ -660,7 +793,7 @@ export function toolsAll(store, opts = {}) {
 }
 
 const ALL_ICONS = /** @type {Record<string, string>} */ ({
-  fold: "fold", lower: "lowerAll", turnOn: "implementOn", tip: "unload",
+  fold: "fold", lower: "lowerAll", turnOn: "implementOn", tip: "unload", cover: "cover",
 });
 
 /** "1,500 kg · Fendt · Weights · Front · Raised": an Also attached line. */

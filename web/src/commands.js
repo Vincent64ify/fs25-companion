@@ -2,8 +2,7 @@
 // Commands to the game (docs/PLAN.md, Controls): a control sends the state
 // it wants, {"type":"command","id":"<unique>","action":"beacon.set",
 // "value":1} (and "tool", a rig id, for one tool's: specs/0008; "side",
-// left or right, for tool.width, and "key", an input action's name, for
-// implement.key: specs/0011) over the
+// left or right, for tool.width: specs/0011; no key: specs/0012) over the
 // viewer's WebSocket, and the companion answers with
 // {"type":"command_ack","id","ok","reason"} once the mod ran it, with
 // "already": true when the game was in that state and nothing ran. The new
@@ -56,20 +55,18 @@ export function createCommander(transmit, opts = {}) {
      *   the stage; "cruise.set": km/h)
      * @param {number} [tool] the rig id of the tool it acts on ("tool.lower")
      * @param {"left"|"right"} [side] tool.width's side (specs/0011)
-     * @param {string} [key] implement.key's input action ("UNLOAD", specs/0011)
      * @returns {Promise<CommandResult>}
      */
-    send(action, value, tool, side, key) {
+    send(action, value, tool, side) {
       const id = `${prefix}-${++seq}`;
       return new Promise((resolve) => {
         const timer = setTimeout(() => settle(id, { ok: false, reason: "no answer" }), timeoutMs);
         pending.set(id, { resolve, timer, sent: now() });
-        /** @type {{type: string, id: string, action: string, value?: number, tool?: number, side?: string, key?: string}} */
+        /** @type {{type: string, id: string, action: string, value?: number, tool?: number, side?: string}} */
         const msg = { type: "command", id, action };
         if (value !== undefined) msg.value = value;
         if (tool !== undefined) msg.tool = tool;
         if (side !== undefined) msg.side = side;
-        if (key !== undefined) msg.key = key;
         if (!transmit(msg)) {
           settle(id, { ok: false, reason: "not connected" });
         }

@@ -1,7 +1,7 @@
 -- state/Tools.lua
 -- What each tool shows and can do: lower, fold, turn on, the Implement
--- screen's extras, the capabilities (specs/0003) and the selected tool's
--- keys. All guarded.
+-- screen's extras and the capabilities, what it has and what it can do now
+-- (specs/0003, 0012). All guarded.
 
 Companion = Companion or {}
 
@@ -140,16 +140,20 @@ function VehicleState.extras(object, out)
     return out
 end
 
--- Capabilities (specs/0003) -------------------------------------------------
--- What each rig member can do, read from the game's own parts, so a tool
--- the dashboard has never seen gets a button for each thing it does. A part
--- being there isn't enough: spike 0.0.4's census found Foldable on 178 of
--- 196 vehicle types, and trailers, weights and balers with Foldable but no
+-- Capabilities (specs/0003, 0012) ---------------------------------------------
+-- A card's buttons come from what a tool is (specs/0012, rule 1): read from
+-- its parts and the settings they were loaded with, never from what the
+-- game allows this frame, so a button never comes and goes. A part being
+-- there isn't enough: spike 0.0.4's census found Foldable on 178 of 196
+-- vehicle types, and trailers, weights and balers with Foldable but no
 -- folding part, Cover with no cover. So each needs what the part holds.
--- Names seen in spike 0.0.4 (the spec's Data contract) unless marked.
+-- The game's live answers only fade a button (rule 2): canNow false, with
+-- whyNot the game's words. Names from the game's own scripts (the SDK's
+-- gameSource.zip) and the probes, as in the spec's Data contract; the
+-- unverified ones guarded.
 
-VehicleState.CAPABILITIES = { "lower", "fold", "turnOn", "tip", "tipSide", "cover", "pipe", "rotate", "bales", "width",
-    "detach" }
+VehicleState.CAPABILITIES = { "lower", "fold", "turnOn", "unload", "tip", "tipSide", "cover", "pipe", "rotate",
+    "createFields", "autoDrop", "bales", "doubledRate", "sprayRate", "width", "detach" }
 
 -- the game's own "can't now": a boolean and its warning text
 local function allowed(object, name, ...)
@@ -179,18 +183,66 @@ function VehicleState.foldLowers(object)
     return type(spec) == "table" and type(spec.foldMiddleAnimTime) == "number"
 end
 
--- the attacher joint lowers it: the input joint's allowsLowering
--- (unverified), else getAllowsLowering as today, which also says "not now"
--- (a mower folded for transport: false, while it still lowers); or its fold
-local function lowers(object, out)
+-- how it lowers, or nil: "fold" (its fold's middle position), "pickup" (a
+-- pickup with its own animation lowers itself: Pickup registers its own
+-- LOWER_IMPLEMENT then), "joint" (its input attacher joint's allowsLowering:
+-- the probe read it on the W 600 and the Berthoud; unverified on others).
+-- No getAllowsLowering here: it's a "now" (false on a mower folded for
+-- transport)
+local function lowersBy(object)
     if VehicleState.foldLowers(object) then
-        return true
+        return "fold"
+    end
+    local pickup = object.spec_pickup
+    if type(pickup) == "table" and type(pickup.animationName) == "string" and pickup.animationName ~= "" then
+        return "pickup"
     end
     local joint = Api.tryCall(object, "getActiveInputAttacherJoint")
-    if type(joint) == "table" and type(joint.allowsLowering) == "boolean" then
-        return joint.allowsLowering
+    if type(joint) == "table" and joint.allowsLowering == true then
+        return "joint"
     end
-    return Api.tryCall(object, "getAllowsLowering") ~= false or out.lowered == true
+    return nil
+end
+
+-- whether it has a turn on key: TurnOnVehicle registers it only where
+-- getCanToggleTurnedOn, false on a tool always on (isAlwaysTurnedOn) or
+-- turned on by its tractor (turnedOnByAttacherVehicle), settings fixed at
+-- load (the probe, 2026-11-02: the W 600 and the ARION have no turn on part
+-- at all). Read as fields: a sprayer's own getCanToggleTurnedOn asks its
+-- tank too. And not where its joint never turns it on (canBeTurnedOn)
+local function turnsOn(object, depth)
+    local spec = object.spec_turnOnVehicle
+    if type(spec) ~= "table" then
+        return false
+    end
+    local always, byTractor = spec.isAlwaysTurnedOn, spec.turnedOnByAttacherVehicle
+    if type(always) == "boolean" or type(byTractor) == "boolean" then
+        if always == true or byTractor == true then
+            return false
+        end
+    elseif Api.tryCall(object, "getCanToggleTurnedOn") == false then
+        return false
+    end
+    local joint = depth > 0 and Api.tryCall(object, "getActiveInputAttacherJoint") or nil
+    return not (type(joint) == "table" and joint.canBeTurnedOn == false)
+end
+
+-- whether it has something to unload into pallets now: a fill unit that
+-- can be unloaded (canBeUnloaded, true unless its XML says) with a level
+-- and a pallet for it (FillUnit.updateUnloadActionDisplay); nil when they
+-- can't be read
+local function hasToUnload(object, spec)
+    if type(spec.fillUnits) ~= "table" then
+        return nil
+    end
+    local palletOf = type(object.getFillUnitUnloadPalletFilename) == "function"
+    for i, unit in ipairs(spec.fillUnits) do
+        if type(unit) == "table" and unit.canBeUnloaded ~= false and type(unit.fillLevel) == "number"
+            and unit.fillLevel > 0 and (not palletOf or Api.tryCall(object, "getFillUnitUnloadPalletFilename", i) ~= nil) then
+            return true
+        end
+    end
+    return false
 end
 
 -- a trailer's tip side: its index, how many, its name when the game's
@@ -262,91 +314,76 @@ function VehicleState.width(object)
     return ok and out or nil
 end
 
--- the tools whose width keys were live once: the game registers them only
--- while the tool is selected (spike 0.0.4: not even then, which the probe
--- checks), and its buttons must not come and go with the selection
-local widthKeysSeen = setmetatable({}, { __mode = "k" })
-
--- the tools the game let turn on once (getCanBeTurnedOn true): only those
--- keep a faded Turn on without power. The CLAAS W 600 (a weight) and the
--- ARION 410 have the turn on part and never turn on (live, 0.12.2)
-local turnsOnSeen = setmetatable({}, { __mode = "k" })
-
--- the width has buttons only where the game's own keys are live (Vincent,
--- 2026-11-01: no other way in)
-local function widthKeys(object)
-    if VehicleState.liveKey(object, "VARIABLE_WORK_WIDTH_LEFT") ~= nil
-        or VehicleState.liveKey(object, "VARIABLE_WORK_WIDTH_RIGHT") ~= nil then
-        widthKeysSeen[object] = true
+-- the part with this name, a mod's prefix left off:
+-- "spec_FS25_precisionFarming.extendedSprayer" is "extendedSprayer"
+local function partNamed(object, name)
+    for k, spec in pairs(object) do
+        if type(k) == "string" and type(spec) == "table" and k:sub(1, 5) == "spec_"
+            and (k:match("([^%.]+)$"):gsub("^spec_", "")) == name then
+            return spec
+        end
     end
-    return widthKeysSeen[object] == true
+    return nil
 end
 
--- sets out.can (the capabilities in CAPABILITIES' order), the state each
--- goes with (lowered, unfolded, turnedOn, discharging, tipSide, cover,
--- pipe, plow, bales, width), and out.canNow[cap] = false with out.whyNot[cap] (the
--- game's own words) for what the game refuses now. depth 0: the vehicle.
-function VehicleState.capabilities(object, out, depth)
-    local has, canNow, whyNot = {}, {}, {}
-    local function refuse(cap, can, why)
-        if can == false then
-            canNow[cap] = false
-            whyNot[cap] = why
+-- Precision Farming's sprayer part (the probe, 2026-11-02, the Rogator
+-- 937H: sprayAmountAutoMode true while automatic, sprayAmountManual 1 to
+-- 45 between sprayAmountManualMin and Max). Its own script isn't readable:
+-- all guarded
+function VehicleState.precisionSprayer(object)
+    return partNamed(object, "extendedSprayer")
+end
+
+-- the rate the Application rate row reads: {auto, step, min, max}
+local function sprayRateOf(pf)
+    local out = { auto = pf.sprayAmountAutoMode == true }
+    for k, field in pairs({ step = "sprayAmountManual", min = "sprayAmountManualMin", max = "sprayAmountManualMax" }) do
+        if type(pf[field]) == "number" then
+            out[k] = pf[field]
         end
     end
+    return out
+end
+
+-- a baler's automatic drop where it toggles (toggleableAutomaticDrop, fixed
+-- at load): the platform's own setting where it has one
+-- (Baler.setBalerAutomaticDrop); a baler-wrapper's wrapper has its own
+-- (BaleWrapper), toggled by the same key. Returns its state, and whether
+-- it toggles
+local function dropOf(object)
+    local baler, wrapper = object.spec_baler, object.spec_baleWrapper
+    local on, toggles = nil, false
+    if type(baler) == "table" and baler.toggleableAutomaticDrop == true then
+        on, toggles = baler.automaticDrop, true
+        if baler.hasPlatform == true then
+            on = baler.platformAutomaticDrop
+        end
+    elseif type(wrapper) == "table" and wrapper.toggleableAutomaticDrop == true then
+        on, toggles = wrapper.automaticDrop, true
+    end
+    if type(on) ~= "boolean" then
+        on = nil
+    end
+    return on, toggles
+end
+
+-- Rule 1: what a member has, and the state each label reads. depth 0: the
+-- vehicle (no Lower, no Detach)
+local function hasOf(object, out, depth)
+    local has = {}
     if depth > 0 then
         out.lowered = Api.tryCall(object, "getIsLowered", true) == true
-        if lowers(object, out) then
-            has.lower = true
-            -- it says whether it may lower: raising stays allowed. Through
-            -- the fold, getAllowsLowering is always false: Foldable's own
-            -- getIsFoldMiddleAllowed (unverified) says
-            if not out.lowered then
-                refuse("lower", allowed(object, VehicleState.foldLowers(object) and "getIsFoldMiddleAllowed"
-                    or "getAllowsLowering"))
-            end
-            -- either way, it needs power
-            if canNow.lower == nil then
-                refuse("lower", VehicleState.powered(object))
-            end
-        end
+        has.lower = lowersBy(object) ~= nil
         has.detach = true
-        refuse("detach", allowed(object, "isDetachAllowed"))
     end
-    if VehicleState.fold(object, out) then
-        has.fold = true
-        refuse("fold", allowed(object, "getIsFoldAllowed", Api.tryCall(object, "getToggledFoldDirection") or 1, false))
-        -- it needs power too, while getIsFoldAllowed says yes (live, 0.8.8)
-        if canNow.fold == nil then
-            refuse("fold", VehicleState.powered(object))
-        end
-    end
-    -- getCanBeTurnedOn is also false while folded or with the engine off
-    -- (live, 0.8.7 and 0.12.1); then Turn on stays, unavailable, with the
-    -- game's warning (Foldable's, unverified), else the engine's. Without
-    -- power, only on a tool the game let turn on before
-    local canTurnOn = object.spec_turnOnVehicle ~= nil and Api.tryCall(object, "getCanBeTurnedOn")
-    if canTurnOn == true then
-        turnsOnSeen[object] = true
-    end
-    local power, noPower
-    if canTurnOn == false and turnsOnSeen[object] then
-        power, noPower = VehicleState.powered(object)
-    end
-    if canTurnOn == false and (out.unfolded == false or power == false) then
+    has.fold = VehicleState.fold(object, out)
+    if turnsOn(object, depth) then
         has.turnOn = true
         out.turnedOn = Api.tryCall(object, "getIsTurnedOn") == true
-        local why = Api.tryCall(object, "getTurnedOnNotAllowedWarning")
-        refuse("turnOn", false, type(why) == "string" and why or power == false and noPower or nil)
-    elseif object.spec_turnOnVehicle ~= nil and canTurnOn ~= false then
-        has.turnOn = true
-        out.turnedOn = Api.tryCall(object, "getIsTurnedOn") == true
-        -- getIsTurnedOnAllowed isn't in FS25; what these answer is unverified
-        if Api.tryCall(object, "getCanToggleTurnedOn") == false then
-            local why = Api.tryCall(object, "getTurnedOnNotAllowedWarning")
-            refuse("turnOn", false, type(why) == "string" and why or nil)
-        end
     end
+    -- FillUnit registers UNLOAD only where it has unloading places
+    local fillUnit = object.spec_fillUnit
+    has.unload = type(fillUnit) == "table" and type(fillUnit.unloading) == "table" and next(fillUnit.unloading) ~= nil
     local trailer = object.spec_trailer
     if type(trailer) == "table" and type(trailer.tipSideCount) == "number" and trailer.tipSideCount >= 1 then
         has.tip = true
@@ -359,49 +396,165 @@ function VehicleState.capabilities(object, out, depth)
     has.cover = out.cover ~= nil
     has.pipe = out.pipe ~= nil
     local plow = object.spec_plow
-    if type(plow) == "table" and type(plow.rotationPart) == "table" and plow.rotationPart.turnAnimation ~= nil then
-        has.rotate = true
-        out.plow = { rotated = plow.rotationMax == true }
-        if Api.tryCall(object, "getIsPlowRotationAllowed") == false then
-            refuse("rotate", false)
+    if type(plow) == "table" then
+        if type(plow.rotationPart) == "table" and plow.rotationPart.turnAnimation ~= nil then
+            has.rotate = true
+            out.plow = { rotated = plow.rotationMax == true }
+        end
+        -- Plow registers its limit to field key on every plow; forced
+        -- (forceLimitToField, or the platform can't create fields), the
+        -- key does nothing
+        local forced = Api.tryCall(object, "getPlowForceLimitToField")
+        if forced == nil then
+            forced = plow.forceLimitToField == true
+        end
+        if forced ~= true then
+            has.createFields = true
+            if type(plow.limitToField) == "boolean" then
+                out.createFields = not plow.limitToField
+            end
         end
     end
-    -- the game's own bale count (BaleCounter.lua; its fields are unverified)
+    local drop, toggles = dropOf(object)
+    if toggles then
+        has.autoDrop = true
+        out.autoDrop = drop
+    end
+    -- the game's own bale count (BaleCounter.lua)
     local counter = object.spec_baleCounter
     if type(counter) == "table" then
         has.bales = true
         out.bales = { count = type(counter.sessionCounter) == "number" and counter.sessionCounter or nil,
             total = type(counter.lifetimeCounter) == "number" and counter.lifetimeCounter or nil }
     end
+    -- Sprayer allows a doubled rate only on a slurry tanker or a manure
+    -- spreader (getSprayerDoubledAmountActive; isFertilizerSprayer is set
+    -- at load; Vincent, 2026-11-03)
+    local sprayer = object.spec_sprayer
+    if type(sprayer) == "table" and sprayer.isFertilizerSprayer == false then
+        has.doubledRate = true
+        out.doubledRate = sprayer.doubledAmountIsActive == true
+    end
+    local pf = VehicleState.precisionSprayer(object)
+    if type(pf) == "table" and pf.sprayAmountAutoModeChangeAllowed == true then
+        has.sprayRate = true
+        out.sprayRate = sprayRateOf(pf)
+    end
+    -- the sections' strip always; their buttons only without Precision
+    -- Farming's sprayer part, which takes the sections over and leaves the
+    -- game no width key (the probe; Vincent, 2026-11-02)
     out.width = VehicleState.width(object)
-    if out.width ~= nil and widthKeys(object) then
-        has.width = true
-        -- folded, the boom has no sections to switch: Foldable's own
-        -- warning (unfoldWarning, unverified)
+    has.width = out.width ~= nil and pf == nil
+    return has
+end
+
+-- Rule 2: what the game refuses now, with its words: canNow[cap] false and
+-- whyNot[cap], the first refusal for each
+local function nowOf(object, out, has)
+    local canNow, whyNot = {}, {}
+    local function refuse(cap, can, why)
+        if has[cap] and can == false and canNow[cap] == nil then
+            canNow[cap] = false
+            whyNot[cap] = why
+        end
+    end
+    local power, noPower = VehicleState.powered(object)
+    -- it says whether it may lower: raising stays allowed. Through the
+    -- fold, getAllowsLowering is always false: Foldable's own
+    -- getIsFoldMiddleAllowed (unverified) says; a pickup lowers whenever
+    -- (Pickup.getCanChangePickupState). Either way, it needs power
+    if has.lower and not out.lowered then
+        local by = lowersBy(object)
+        if by == "fold" then
+            refuse("lower", allowed(object, "getIsFoldMiddleAllowed"))
+        elseif by == "joint" then
+            refuse("lower", allowed(object, "getAllowsLowering"))
+        end
+    end
+    refuse("lower", power, noPower)
+    refuse("detach", allowed(object, "isDetachAllowed"))
+    refuse("fold", allowed(object, "getIsFoldAllowed", Api.tryCall(object, "getToggledFoldDirection") or 1, false))
+    -- it needs power too, while getIsFoldAllowed says yes (live, 0.8.8)
+    refuse("fold", power, noPower)
+    -- getCanBeTurnedOn is false while folded or with the engine off (live,
+    -- 0.8.7 and 0.12.1): the game's warning (TurnOnVehicle without power,
+    -- Foldable folded), else the engine's
+    if has.turnOn and Api.tryCall(object, "getCanBeTurnedOn") == false then
+        local why = Api.tryCall(object, "getTurnedOnNotAllowedWarning")
+        refuse("turnOn", false, type(why) == "string" and why or power == false and noPower or nil)
+    end
+    -- FillUnit.unloadFillUnits does nothing while it runs, nor without a
+    -- level to unload (which of the two the game shows: unverified)
+    if has.unload then
+        local fillUnit = object.spec_fillUnit
+        refuse("unload", fillUnit.unloadingFillUnitsRunning ~= true)
+        refuse("unload", hasToUnload(object, fillUnit), "Nothing to unload")
+    end
+    -- Plow.actionEventTurn asks getCanTogglePlowRotation (the fold's
+    -- limits, lowered, power); else getIsPlowRotationAllowed (the fold's)
+    if has.rotate then
+        local can = Api.tryCall(object, "getCanTogglePlowRotation")
+        if can == nil then
+            can = Api.tryCall(object, "getIsPlowRotationAllowed")
+        end
+        refuse("rotate", can)
+        refuse("rotate", power, noPower)
+    end
+    -- Plow.onUpdate: the player's createFields permission
+    if has.createFields and type(g_currentMission) == "table" then
+        refuse("createFields", Api.tryCall(g_currentMission, "getHasPlayerPermission", "createFields",
+            Api.tryCall(object, "getOwnerConnection")))
+    end
+    -- powered keys (addPoweredActionEvent): Baler's drop, BaleCounter's reset
+    refuse("autoDrop", power, noPower)
+    refuse("bales", power, noPower)
+    -- Sprayer.onUpdateTick: its key is active only for the spray type in it
+    if has.doubledRate then
+        local params = object.spec_sprayer.workAreaParameters
+        local _, ok = Api.tryCallAll(object, "getSprayerDoubledAmountActive",
+            type(params) == "table" and params.sprayType or nil)
+        refuse("doubledRate", ok)
+    end
+    -- the rate's three buttons need power; Rate - and + fade by sprayRate
+    -- too (automatic on, at an end)
+    refuse("sprayRate", power, noPower)
+    -- the width: Sprayer sets isActive from the spray type's
+    -- supportsVariableWorkWidth (the probe read it true); folded, the boom
+    -- has no sections to switch: Foldable's own warning (unfoldWarning)
+    if has.width then
+        refuse("width", object.spec_variableWorkWidth.isActive ~= false, "This spray type has no partial width")
         if out.unfolded == false then
             local foldable = object.spec_foldable
             refuse("width", false, type(foldable) == "table" and type(foldable.unfoldWarning) == "string"
                 and foldable.unfoldWarning or nil)
         end
     end
+    if next(canNow) ~= nil then
+        out.canNow, out.whyNot = canNow, next(whyNot) ~= nil and whyNot or nil
+    end
+end
+
+-- sets out.can (what it has, in CAPABILITIES' order: rule 1), the state
+-- each goes with (lowered, unfolded, turnedOn, tipTo, tipSide, cover, pipe,
+-- plow, createFields, autoDrop, bales, doubledRate, sprayRate, width), and
+-- out.canNow[cap] = false with out.whyNot[cap] for what the game refuses
+-- now (rule 2). depth 0: the vehicle.
+function VehicleState.capabilities(object, out, depth)
+    local has = hasOf(object, out, depth)
     out.can = {}
     for _, cap in ipairs(VehicleState.CAPABILITIES) do
         if has[cap] then
             out.can[#out.can + 1] = cap
         end
     end
-    if next(canNow) ~= nil then
-        out.canNow, out.whyNot = canNow, next(whyNot) ~= nil and whyNot or nil
-    end
+    nowOf(object, out, has)
     return out
 end
 
--- The selected tool's keys (specs/0003): each spec's actionEvents, keyed by
--- input action, and the input binding's events[id] with isActive and the
--- game's own label (contextDisplayText). The game registers a tool's keys
--- only while it is selected (spike 0.0.4).
-
--- an object's registered key for this input action: {action, text, active}
+-- an object's registered key for this input action: {action, text, active,
+-- spec, shown}. The game registers a tool's keys only while it's selected
+-- (spike 0.0.4): Tip's way and the tip side's name read them while they're
+-- there; no button comes from them (specs/0012)
 function VehicleState.liveKey(object, action)
     local events = type(g_inputBinding) == "table" and g_inputBinding.events or nil
     if type(events) ~= "table" then
@@ -420,92 +573,6 @@ function VehicleState.liveKey(object, action)
         end
     end
     return nil
-end
-
--- the input actions a capability's button presses, by the spec that
--- registers them where one action does different things (IMPLEMENT_EXTRA:
--- turn on, a plow's rotate). The all-tools keys, Attach and Detach are the
--- All row's, the column's and every card's; the vehicle's attacher joints'
--- keys (Lower plow, Detach tool) act on its tools, which have their cards.
-local KEY_CAPS = {
-    LOWER_IMPLEMENT = "lower", IMPLEMENT_EXTRA2 = "fold", TOGGLE_TIPSIDE = "tipSide",
-    TOGGLE_TIPSTATE = "tip", TOGGLE_TIPSTATE_GROUND = "tip", TOGGLE_COVER = "cover", TOGGLE_PIPE = "pipe",
-    DETACH = "detach", BALE_COUNTER_RESET = "bales",
-    VARIABLE_WORK_WIDTH_LEFT = "width", VARIABLE_WORK_WIDTH_RIGHT = "width",
-    IMPLEMENT_EXTRA = { spec_turnOnVehicle = "turnOn", spec_plow = "rotate" },
-}
--- The AI worker's key (TOGGLE_AI) comes from an AI part not among the
--- driving parts (live, 0.12.1: the DINO II, the ARION) and has the
--- dashboard's own button (specs/0011)
-local NOT_A_TOOL_KEY = { FOLD_ALL_IMPLEMENTS = true, TURN_ON_ALL_IMPLEMENTS = true, LOWER_ALL_IMPLEMENTS = true,
-    ATTACH = true, DETACH = true, TOGGLE_AI = true }
-
--- the capabilities a card has a button for: the ones confirmed in game
--- (spec 0003's close). Cover, rotate and bales wait for their own spec;
--- until then their keys are other keys, with the game's labels
-local BUTTON_CAPS = { lower = true, fold = true, turnOn = true, tip = true, tipSide = true, pipe = true,
-    width = true, detach = true }
-
--- the vehicle's own driving parts: their keys (Accelerate, Steer vehicle,
--- Honk...; live 2026-10-31, the Vestrum 100) are never a card's
--- (specs/0011). By the part's own name, a mod's prefix left off
--- ("FS25_precisionFarming.extendedMotorized"); unverified on a
--- self-propelled sprayer
-local DRIVING_PARTS = {
-    drivable = true, motorized = true, enterable = true, honk = true, lights = true, wipers = true,
-    crabSteering = true, articulatedAxis = true, reverseDriving = true, dashboard = true,
-    aiDrivable = true, aiFieldWorker = true, aiJobVehicle = true, aiAutomaticSteering = true, aiVehicle = true,
-    extendedMotorized = true, enterableCameraMirrors = true,
-}
-
--- "spec_drivable" -> "drivable", "spec_FS25_precisionFarming.extendedMotorized" -> "extendedMotorized"
-local function partName(k)
-    return (k:match("([^%.]+)$"):gsub("^spec_", ""))
-end
-
--- the selected tool's live keys that no button in `can` covers, each
--- once, by input action: {action, text} ("Allow create fields", "Turn on
--- automatic drop", a modded tool's own). The turn on key never is: Turn on
--- comes and goes with the fold and the engine (live, 0.8.7: "Turn on
--- mower" on a folded mower, which only got the game's warning). own: the
--- vehicle itself, whose driving parts' keys are left out
-function VehicleState.extraKeys(object, can, own)
-    local events = type(g_inputBinding) == "table" and g_inputBinding.events or nil
-    if type(events) ~= "table" then
-        return {}
-    end
-    local covered = {}
-    for _, cap in ipairs(can or {}) do
-        covered[cap] = BUTTON_CAPS[cap] == true
-    end
-    local seen, out = {}, {}
-    for k, spec in pairs(object) do
-        if type(k) == "string" and k:sub(1, 5) == "spec_" and k ~= "spec_attacherJoints" and type(spec) == "table"
-            and type(spec.actionEvents) == "table" and not (own and DRIVING_PARTS[partName(k)]) then
-            for action, ev in pairs(spec.actionEvents) do
-                local e = type(ev) == "table" and ev.actionEventId ~= nil and events[ev.actionEventId] or nil
-                local cap = KEY_CAPS[action]
-                if type(cap) == "table" then
-                    cap = cap[k]
-                end
-                -- a key the game hides isn't offered now, and does nothing
-                -- (spike 0.0.8; live, 0.12.2: Dump and Dump on ground); an
-                -- axis is held, never a button (live, 0.12.3: one press of
-                -- AXIS_SPRAYER_ARM took the arm all the way up; the game's
-                -- AXIS_ prefix, inputBinding.xml)
-                if type(action) == "string" and type(e) == "table" and e.isActive ~= false
-                    and e.displayIsVisible ~= false and action:sub(1, 5) ~= "AXIS_"
-                    and type(e.contextDisplayText) == "string" and e.contextDisplayText ~= ""
-                    and not NOT_A_TOOL_KEY[action] and not (cap ~= nil and (covered[cap] or cap == "turnOn"))
-                    and not seen[action] then
-                    seen[action] = true
-                    out[#out + 1] = { action = action, text = e.contextDisplayText }
-                end
-            end
-        end
-    end
-    table.sort(out, function(a, b) return a.action < b.action end)
-    return out
 end
 
 -- whether the game has something in reach to attach (its Attach prompt is

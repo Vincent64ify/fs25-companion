@@ -88,8 +88,13 @@ def test_commands_are_checked_for_shape_only():
     assert command_refusal("tool.width", 1, 9, "right") is None
     for side in ("middle", "", "Left", 1, True, [], {}):
         assert command_refusal("tool.width", 1, 9, side) == "value not allowed", side
-    # a key (specs/0011, implement.key): an input action's name, or absent
-    for key in ("TOGGLE_TIPSTATE_GROUND", "UNLOAD", "FS25_mod.MY_KEY", "x" * 64):
-        assert command_refusal("implement.key", None, None, None, key) is None, key
-    for key in ("", "1KEY", "TIP STATE", "KEY!", "x" * 65, 3, True, [], {}):
+    # specs/0012: no command carries a key (implement.key went): any key,
+    # even an input action's name, is refused
+    for key in ("TOGGLE_TIPSTATE_GROUND", "UNLOAD", "", 3, True, [], {}):
         assert command_refusal("implement.key", None, None, None, key) == "value not allowed", key
+        assert command_refusal("tool.lower", 1, 9, None, key) == "value not allowed", key
+    # the new tool actions: a state, a step, or a one-shot with its tool alone
+    for action, value in (("tool.rotate", 1), ("tool.createFields", 0), ("tool.autoDrop", 1), ("tool.doubledRate", 1),
+                          ("tool.sprayRateAuto", 0), ("tool.sprayRate", -1), ("tool.unload", None),
+                          ("tool.resetBales", None)):
+        assert command_refusal(action, value, 1031) is None, action

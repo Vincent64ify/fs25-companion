@@ -20,8 +20,7 @@ export default {
     controls: [
       { label: "Lights", controls: ["lights", "highBeam", "beacon", "hazard", "turnLeft", "turnRight"] },
       { label: "Drive", controls: ["cruiseDown", "cruise", "cruiseUp", "engineOn", "aiWorker"] },
-      { label: "Implement", implementName: true,
-        controls: ["implementLowered", "fold", "implementOn"] },
+      // no Implement group: a tool is worked from its card (specs/0012)
     ],
   },
   screens: [
@@ -52,7 +51,7 @@ export default {
           { widget: "toolCards" },
           { widget: "toolsAlso" },
         ] },
-        { controls: true, omit: ["implementLowered", "fold", "implementOn"] },
+        { controls: true },
       ],
     },
     {
@@ -67,7 +66,7 @@ export default {
           { widget: "loadCard" },
           { widget: "targetCard" },
         ] },
-        { controls: true, omit: ["implementLowered", "fold", "implementOn"] },
+        { controls: true },
       ],
     },
     {
@@ -83,7 +82,7 @@ export default {
           { widget: "headerCard" },
         ] },
         // the header's buttons are on its card; Attach is on Vehicle
-        { controls: true, omit: ["implementLowered", "fold", "implementOn"] },
+        { controls: true },
       ],
     },
   ],

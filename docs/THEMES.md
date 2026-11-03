@@ -832,8 +832,9 @@ Done on 2026-10-23. Choose it in Settings, or with `?theme=newholland`.
   right (`lights`), engine (`engineOn`), AI worker (`isAI`), raise, lower
   and work (`implements`); cruise and PTO show as unavailable until T6
   sends them. On foot, everything is unavailable. The Implement group's
-  label adds the first implement's name. Fold and "next tool" from the
-  artboard wait for data and icons.
+  label adds the first implement's name (the group went with
+  [specs/0012](../specs/0012-card-buttons.md)). Fold and "next tool" from
+  the artboard wait for data and icons.
 - **New widgets and variants:** `dayClock` (the centre pill: season, day,
   time), `weatherNow` (weather icon and the day's temperatures), `alerts`
   (chips from `alerts()` in `selectors.js`: fuel under 15 % warns and
@@ -1105,6 +1106,15 @@ PLAN.md, Open checks). A wrong guess leaves the value out, nothing breaks.
 > Vehicle page, a card per tool with a button for each thing its parts
 > allow: [specs/0003](../specs/0003-implement-screen.md). What follows is
 > the history of the tab as it was.
+>
+> The card's buttons since mod 0.13.0 ([specs/0012](../specs/0012-card-buttons.md)):
+> a fixed list, read from what the tool is and only faded by the game's
+> "not now". The main row, its last button **More · n** (how many are
+> under it, a chevron), lit while open; open, More's buttons are a lower
+> row (64 px) under the main row, and the card shows its compact body (no
+> stats, the main tank's meter alone) so they fit at 1180 × 820. Compact
+> cards keep More's button, faded. The Map screen's Implement group went:
+> a tool is worked from its card.
 
 Approved by Vincent on 2026-10-24 in the Claude Design canvas
 "FS25 Companion: Implement screen" (board C · Hybrid, private, on

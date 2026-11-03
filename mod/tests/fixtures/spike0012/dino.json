@@ -1,0 +1,457 @@
+{
+ "spikeVersion": "0.0.9",
+ "engineOn": false,
+ "selectedId": 528,
+ "selectable": [
+  528
+ ],
+ "members": [
+  {
+   "id": 528,
+   "name": "Agrio DINO II",
+   "typeName": "selfPropelledSprayer",
+   "depth": 0,
+   "specs": [
+    "FS25_interactiveControl.interactiveControl",
+    "FS25_precisionFarming.cropSensor",
+    "FS25_precisionFarming.extendedMotorized",
+    "FS25_precisionFarming.extendedSprayer",
+    "FS25_precisionFarming.extendedSprayerEffects",
+    "FS25_precisionFarming.extendedWearable",
+    "FS25_precisionFarming.manureSensor",
+    "FS25_precisionFarming.precisionFarmingStatistic",
+    "FS25_precisionFarming.weedSpotSpray",
+    "additionalToolConnections",
+    "aiAutomaticSteering",
+    "aiDrivable",
+    "aiFieldWorker",
+    "aiImplement",
+    "aiJobVehicle",
+    "aiModeSelection",
+    "aiVehicle",
+    "aiVehicleObstacle",
+    "animatedVehicle",
+    "articulatedAxis",
+    "attacherJoints",
+    "attacherJointsCompControl",
+    "baseMaterial",
+    "bunkerSiloCompacter",
+    "connectedAttributes",
+    "connectionHoses",
+    "cover",
+    "crabSteering",
+    "crawlers",
+    "cylindered",
+    "cylinderedFoldable",
+    "dashboard",
+    "dischargeable",
+    "drivable",
+    "dynamicallyLoadedParts",
+    "enterable",
+    "enterablePassenger",
+    "externalVehicleControl",
+    "fillUnit",
+    "fillVolume",
+    "foldable",
+    "foliageBending",
+    "frontloaderAttacher",
+    "groundAdjustedNodes",
+    "groundReference",
+    "handToolHolders",
+    "headlandAnimation",
+    "honk",
+    "hudInfoTrigger",
+    "ikChains",
+    "interactiveControl",
+    "licensePlates",
+    "lights",
+    "motorized",
+    "mountable",
+    "pdlc_daimlerTruckPack.enterableCameraMirrors",
+    "pdlc_pumpsAndHosesPack.pfExtendedSprayer",
+    "pdlc_strawHarvestPack.strawHarvestPelletizerMotor",
+    "powerConsumer",
+    "powerTakeOffs",
+    "realDirtColor",
+    "ropes",
+    "shallowWaterObstacles",
+    "slopeCompensation",
+    "speedRotatingParts",
+    "sprayer",
+    "strawHarvestPelletizerMotor",
+    "suspensions",
+    "tensionBeltObject",
+    "testAreas",
+    "tipOccluder",
+    "tireTracks",
+    "turnOnVehicle",
+    "variableWorkWidth",
+    "vehicleSettings",
+    "washable",
+    "wearable",
+    "wheels",
+    "winch",
+    "windBending",
+    "wipers",
+    "workArea",
+    "workParticles"
+   ],
+   "noPower": "Please start the engine first!",
+   "fold": {
+    "allowed": [
+     true
+    ],
+    "parts": 1,
+    "toggledDirection": 1,
+    "animTime": 0,
+    "moveDirection": 0,
+    "unfoldWarning": "You first need to unfold the tool (sprayer)!"
+   },
+   "turnOn": {
+    "canBeTurnedOn": false,
+    "isAlwaysTurnedOn": false,
+    "turnedOnByAttacherVehicle": false,
+    "warning": "Attach tool to vehicle with a turned-on motor!"
+   },
+   "fills": [
+    {
+     "unit": 1,
+     "name": "HERBICIDE",
+     "level": 6600,
+     "capacity": 6600,
+     "showOnHud": true
+    },
+    {
+     "unit": 2,
+     "name": "DIESEL",
+     "level": 274,
+     "capacity": 275,
+     "showOnHud": false
+    },
+    {
+     "unit": 3,
+     "name": "DEF",
+     "level": 43,
+     "capacity": 43,
+     "showOnHud": false
+    }
+   ],
+   "unloading": 1,
+   "sprayer": {
+    "isFertilizerSprayer": true,
+    "isSlurryTanker": false,
+    "isManureSpreader": false,
+    "doubledAmountIsActive": false
+   },
+   "variableWorkWidth": {
+    "hasSections": true,
+    "hasCenter": true,
+    "isActive": true,
+    "leftSide": 4,
+    "leftSideMax": 4,
+    "rightSide": 4,
+    "rightSideMax": 4,
+    "minSideState": 0
+   },
+   "precisionFarming": {
+    "sprayAmountAutoMode": true,
+    "sprayAmountAutoModeChangeAllowed": true,
+    "sprayAmountManual": 1,
+    "sprayAmountManualMin": 1,
+    "sprayAmountManualMax": 45
+   },
+   "keys": {
+    "FS25_precisionFarming.extendedSprayer": [
+     {
+      "action": "PRECISIONFARMING_SPRAY_AMOUNT",
+      "active": false,
+      "text": "Change application rate",
+      "visible": true
+     },
+     {
+      "action": "TOGGLE_SEEDS",
+      "active": false,
+      "text": "Change Nitrogen reference value",
+      "visible": true
+     },
+     {
+      "action": "PRECISIONFARMING_SPRAY_AMOUNT_MODE",
+      "active": false,
+      "text": "Deactivate automatic application rate",
+      "visible": true
+     }
+    ],
+    "aiAutomaticSteering": [
+     {
+      "action": "TOGGLE_AI_STEERING",
+      "active": false,
+      "text": "Toggle Steering Assist",
+      "visible": true
+     },
+     {
+      "action": "TOGGLE_AI_STEERING_LINES",
+      "active": true,
+      "text": "Toggle Steering Assist Line Visibility",
+      "visible": false
+     }
+    ],
+    "aiModeSelection": [
+     {
+      "action": "TOGGLE_AI",
+      "active": true,
+      "text": "Toggle AI Worker",
+      "visible": true
+     }
+    ],
+    "attacherJoints": [
+     {
+      "action": "DETACH",
+      "active": true,
+      "text": "Detach tool",
+      "visible": false
+     },
+     {
+      "action": "ATTACH",
+      "active": true,
+      "text": "",
+      "visible": false
+     }
+    ],
+    "crabSteering": [
+     {
+      "action": "TOGGLE_CRABSTEERING_BACK",
+      "active": true,
+      "text": "Toggle steering mode (Reverse)",
+      "visible": false
+     },
+     {
+      "action": "TOGGLE_CRABSTEERING",
+      "active": true,
+      "text": "Toggle steering mode",
+      "visible": true
+     }
+    ],
+    "cylindered": [
+     {
+      "action": "AXIS_SPRAYER_ARM",
+      "active": true,
+      "text": "Raise sprayer arm",
+      "visible": true
+     }
+    ],
+    "dischargeable": [
+     {
+      "action": "TOGGLE_TIPSTATE_GROUND",
+      "active": true,
+      "text": "Dump on ground",
+      "visible": false
+     },
+     {
+      "action": "TOGGLE_TIPSTATE",
+      "active": true,
+      "text": "Dump",
+      "visible": false
+     }
+    ],
+    "drivable": [
+     {
+      "action": "AXIS_BRAKE_VEHICLE",
+      "active": true,
+      "text": "Brake",
+      "visible": false
+     },
+     {
+      "action": "AXIS_ACCELERATE_VEHICLE",
+      "active": true,
+      "text": "Accelerate",
+      "visible": false
+     },
+     {
+      "action": "AXIS_CRUISE_CONTROL",
+      "active": true,
+      "text": "Change cruise control speed",
+      "visible": true
+     },
+     {
+      "action": "TOGGLE_CRUISE_CONTROL",
+      "active": true,
+      "text": "Toggle cruise control",
+      "visible": true
+     },
+     {
+      "action": "AXIS_MOVE_SIDE_VEHICLE",
+      "active": true,
+      "text": "Steer vehicle",
+      "visible": false
+     }
+    ],
+    "enterable": [
+     {
+      "action": "CAMERA_ZOOM_IN_OUT",
+      "active": true,
+      "text": "Camera zoom in",
+      "visible": false
+     },
+     {
+      "action": "RESET_HEAD_TRACKING",
+      "active": true,
+      "text": "Reset head tracking",
+      "visible": false
+     },
+     {
+      "action": "ENTER",
+      "active": true,
+      "text": "Enter",
+      "visible": false
+     },
+     {
+      "action": "CAMERA_SWITCH",
+      "active": true,
+      "text": "Select camera",
+      "visible": true
+     }
+    ],
+    "fillUnit": [
+     {
+      "action": "UNLOAD",
+      "active": true,
+      "text": "Unload",
+      "visible": true
+     }
+    ],
+    "foldable": [
+     {
+      "action": "FOLD_ALL_IMPLEMENTS",
+      "active": true,
+      "text": "Fold all tools",
+      "visible": false
+     },
+     {
+      "action": "IMPLEMENT_EXTRA2",
+      "active": true,
+      "text": "Fold sprayer",
+      "visible": true
+     }
+    ],
+    "honk": [
+     {
+      "action": "HONK",
+      "active": true,
+      "text": "Honk",
+      "visible": true
+     }
+    ],
+    "lights": [
+     {
+      "action": "TOGGLE_HIGH_BEAM_LIGHT",
+      "active": true,
+      "text": "High beam light",
+      "visible": false
+     },
+     {
+      "action": "TOGGLE_WORK_LIGHT_BACK",
+      "active": true,
+      "text": "Work light back",
+      "visible": false
+     },
+     {
+      "action": "TOGGLE_TURNLIGHT_HAZARD",
+      "active": true,
+      "text": "Hazard lights",
+      "visible": false
+     },
+     {
+      "action": "TOGGLE_LIGHTS",
+      "active": true,
+      "text": "Toggle light",
+      "visible": false
+     },
+     {
+      "action": "TOGGLE_BEACON_LIGHTS",
+      "active": true,
+      "text": "Toggle beacon lights",
+      "visible": false
+     },
+     {
+      "action": "TOGGLE_TURNLIGHT_RIGHT",
+      "active": true,
+      "text": "Turn signal right",
+      "visible": false
+     },
+     {
+      "action": "TOGGLE_LIGHTS_BACK",
+      "active": true,
+      "text": "Toggle light (Reverse)",
+      "visible": false
+     },
+     {
+      "action": "TOGGLE_WORK_LIGHT_FRONT",
+      "active": true,
+      "text": "Work light front",
+      "visible": false
+     },
+     {
+      "action": "TOGGLE_TURNLIGHT_LEFT",
+      "active": true,
+      "text": "Turn signal left",
+      "visible": false
+     },
+     {
+      "action": "TOGGLE_LIGHT_FRONT",
+      "active": true,
+      "text": "Light front",
+      "visible": false
+     }
+    ],
+    "motorized": [
+     {
+      "action": "TOGGLE_MOTOR_STATE",
+      "active": true,
+      "text": "Start engine",
+      "visible": true
+     },
+     {
+      "action": "MOTOR_STATE_ON",
+      "active": true,
+      "text": "Motorstate On",
+      "visible": false
+     },
+     {
+      "action": "MOTOR_STATE_OFF",
+      "active": true,
+      "text": "Motorstate Off",
+      "visible": false
+     },
+     {
+      "action": "MOTOR_STATE_IGNITION",
+      "active": true,
+      "text": "Motorstate Ignition",
+      "visible": false
+     }
+    ],
+    "sprayer": [
+     {
+      "action": "DOUBLED_SPRAY_AMOUNT",
+      "active": false,
+      "text": "Activate doubled application rate",
+      "visible": true
+     }
+    ],
+    "turnOnVehicle": [
+     {
+      "action": "TURN_ON_ALL_IMPLEMENTS",
+      "active": true,
+      "text": "Turn on/off all tools",
+      "visible": false
+     },
+     {
+      "action": "IMPLEMENT_EXTRA",
+      "active": true,
+      "text": "Turn on sprayer",
+      "visible": true
+     }
+    ]
+   }
+  }
+ ]
+}

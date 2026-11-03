@@ -30,13 +30,15 @@
 -- name the pipe's, unloading's, the cover's and lower all's tool. Since the
 -- Vehicle screen (0.8.5) a tool's entry carries joint, its coupling's type
 -- name as the game registered it ("implement", "frontloader"). Since the
--- Vehicle page's cards (0.8.7, specs/0003) every entry carries `can`, what
--- the game's parts on it allow (lower, fold, turnOn, tip, tipSide, cover,
--- pipe, rotate, bales, detach), the states that go with them (tipSide
--- {index, count, name}, plow {rotated}, bales {count}), canNow / whyNot for
--- what the game refuses now and why, and the selected one its other live
--- keys (extraKeys [{action, text}]); cab.attachable is true while
--- something is in reach to attach.
+-- Vehicle page's cards (0.8.7, specs/0003) every entry carries `can`, its
+-- buttons, read from what it is (since 0.13.0, specs/0012: lower, fold,
+-- turnOn, unload, tip, tipSide, cover, pipe, rotate, createFields,
+-- autoDrop, bales, doubledRate, sprayRate, width, detach), the states that
+-- go with them (tipSide {index, count, name}, plow {rotated},
+-- createFields, autoDrop, bales {count}, doubledRate, sprayRate {auto,
+-- step, min, max}), and canNow / whyNot for what the game refuses now and
+-- why; no list of the keys the game registered. cab.attachable is true
+-- while something is in reach to attach.
 --
 -- On foot: {"inVehicle":false}.
 

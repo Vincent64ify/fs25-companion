@@ -195,11 +195,13 @@ def test_the_file_carries_the_tool(tmp_path):
     a = attrs(tmp_path / "cmd" / "3.xml")
     assert (a["action"], a["value"], a["tool"], a["side"]) == ("tool.width", "-1.000", "1031", "left")
     assert "key" not in a
-    # specs/0011 fix 1: implement.key's key, by its input action's name
-    writer.submit("4", "implement.key", None, None, None, "TOGGLE_TIPSTATE_GROUND")
+    # specs/0012: a one-shot on its tool, no value; no command has a key
+    writer.submit("4", "tool.unload", None, 1031)
     a = attrs(tmp_path / "cmd" / "4.xml")
-    assert (a["action"], a["key"]) == ("implement.key", "TOGGLE_TIPSTATE_GROUND")
-    assert "value" not in a and "tool" not in a and "side" not in a
+    assert (a["action"], a["tool"]) == ("tool.unload", "1031")
+    assert "value" not in a and "side" not in a and "key" not in a
+    with pytest.raises(TypeError):
+        writer.submit("5", "implement.key", None, None, None, "TOGGLE_TIPSTATE_GROUND")
 
 
 def test_every_command_is_written_as_it_comes(tmp_path):

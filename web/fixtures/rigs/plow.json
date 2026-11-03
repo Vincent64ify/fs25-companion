@@ -51,21 +51,13 @@
      "lower",
      "fold",
      "rotate",
+     "createFields",
      "detach"
     ],
     "canLower": true,
     "canTurnOn": false,
+    "createFields": false,
     "depth": 1,
-    "extraKeys": [
-     {
-      "action": "IMPLEMENT_EXTRA",
-      "text": "Rotate plow"
-     },
-     {
-      "action": "IMPLEMENT_EXTRA3",
-      "text": "Allow create fields"
-     }
-    ],
     "foldMoving": false,
     "foldable": true,
     "id": 1037,
@@ -121,10 +113,13 @@
  },
  "expect": {
   "cards": [
-   "SERVO T 6000 P: Lower:off, Fold:on, Detach:off, Rotate plow:off, Allow create fields:off"
+   "SERVO T 6000 P: Lower:off, Fold:on, Detach:off, More · 2:off"
   ],
   "selected": "SERVO T 6000 P",
   "also": [],
-  "all": []
+  "all": [],
+  "more": [
+   "SERVO T 6000 P: Rotate:off, Create fields on:off"
+  ]
  }
 }

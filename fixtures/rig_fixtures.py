@@ -1,18 +1,19 @@
-"""The web's rig fixtures (specs/0003): spike 0.0.4's rig dumps run through
-the mod's own Lua.
+"""The web's rig fixtures (specs/0003, 0012): the spikes' rig dumps run
+through the mod's own Lua.
 
-Each dump in mod/tests/fixtures/spike0003/ becomes mock game objects
-(mod/tests/spike_rigs.lua), the mod's Cab collector reads them as it reads
-the game, and its `cab` goes to web/fixtures/rigs/<rig>.json with a
-`vehicles` topic made from the same dump (brands and categories, which the
-dumps don't have, from the table below) and what the Vehicle page must show
-for it (`expect`, checked by web/test.html "rig fixtures").
+Each dump in mod/tests/fixtures/spike0003/ (spike 0.0.4) and
+mod/tests/fixtures/spike0012/ (spike 0.0.9, spec 0012's probe: the ARION
+410 with the W 600 and the Berthoud, the engine off and on; the DINO II;
+the Rogator 937H) becomes mock game objects (mod/tests/spike_rigs.lua), the
+mod's Cab collector reads them as it reads the game, and its `cab` goes to
+web/fixtures/rigs/<rig>.json with a `vehicles` topic made from the same
+dump (brands and categories, which the dumps don't have, from the table
+below) and what the Vehicle page must show for it (`expect`, checked by
+web/test.html "rig fixtures").
 
-Two are made from the sprayer's dump until spec 0011's probe dumps the real
-ones (VARIANTS): the width keys live and the right side at 2 of 4, and a
-self-propelled sprayer (the tractor and the Berthoud as one vehicle, with
-the driving keys a vehicle registers; their labels as seen live on the
-Vestrum 100, 2026-10-31).
+One is made from spike 0.0.4's sprayer (VARIANTS): the Berthoud without
+Precision Farming, so the width has its buttons (with it, the game
+registers no width key: the probe), its right side at 2 of 4.
 
     python fixtures/rig_fixtures.py          # write the fixtures
     python fixtures/rig_fixtures.py --check  # fail if they're out of date
@@ -26,6 +27,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 SPIKE = ROOT / "mod" / "tests" / "fixtures" / "spike0003"
+PROBE = ROOT / "mod" / "tests" / "fixtures" / "spike0012"
 OUT = ROOT / "web" / "fixtures" / "rigs"
 
 # what the dumps don't say: each member's shop brand, category and its
@@ -46,13 +48,19 @@ SHOP = {
     1044: ("Fendt", "weights", "Weights", "front"),
     1051: ("Fliegl", "containerTrailers", "Container trailers"),
     1053: ("Mercedes-Benz Trucks", "trucks", "Trucks"),
-    1060: ("Berthoud", "sprayers", "Sprayers"),
+    # spike 0.0.9
+    504: ("CLAAS", "weights", "Weights", "front"),
+    528: ("Agrio", "sprayers", "Sprayers"),
+    529: ("Fendt", "sprayers", "Sprayers"),
+    530: ("Berthoud", "sprayers", "Sprayers"),
+    531: ("CLAAS", "tractorsM", "Tractors M"),
 }
 
 # what the Vehicle page must show for each rig: the cards in driving order,
 # each "model: button:state, ..." (unavailable: the game says not now);
 # Also attached, each "line: buttons"; the All row; the plain tractor's
-# Attach
+# Attach; each card's More, "model: buttons" (specs/0012), its tile the
+# main row's last
 EXPECT = {
     "mowers": {
         "cards": ["XT 390: Raise:on, Fold:on, Turn on:off, Detach:unavailable",
@@ -67,41 +75,38 @@ EXPECT = {
         "also": [],
         "all": ["Tip all:off"],
     },
-    # spike 0.0.4: sections, no width keys live: the strip read-only (specs/0011)
+    # spike 0.0.4's Berthoud with Precision Farming: its sections, no width
+    # keys (the probe): the strip read-only (specs/0011, 0012); its
+    # Precision Farming part read nothing of the rate then: no More
     "sprayer": {
-        "cards": ["Vantage 4300: Fold:on, Turn on:off, Detach:off, Dump:off, Dump on ground:off, Unload:off"],
+        "cards": ["Vantage 4300: Fold:on, Turn on:off, Unload:off, Detach:off"],
         "selected": "Vantage 4300",
         "also": [],
         "all": [],
         "width": ["Vantage 4300: ■■■■■■■■■ 9 / 9 sections: "],
     },
     "sprayer-width": {
-        "cards": ["Vantage 4300: Fold:on, Turn on:off, Detach:off, Dump:off, Dump on ground:off, Unload:off"],
+        "cards": ["Vantage 4300: Fold:on, Turn on:off, Unload:off, Detach:off"],
         "selected": "Vantage 4300",
         "also": [],
         "all": [],
         "width": ["Vantage 4300: ■■■■■■■□□ 7 / 9 sections: Left out:unavailable, Left in:off, Right in:off,"
                   " Right out:off"],
     },
-    "sprayer-self": {
-        "cards": ["Self-propelled 4300: Fold:on, Turn on:off, Dump:off, Dump on ground:off, Unload:off"],
-        "selected": "Self-propelled 4300",
-        "also": [],
-        "all": [],
-        "width": ["Self-propelled 4300: ■■■■■■■■■ 9 / 9 sections: "],
-    },
     "plow": {
-        "cards": ["SERVO T 6000 P: Lower:off, Fold:on, Detach:off, Rotate plow:off, Allow create fields:off"],
+        "cards": ["SERVO T 6000 P: Lower:off, Fold:on, Detach:off, More · 2:off"],
         "selected": "SERVO T 6000 P",
         "also": [],
         "all": [],
+        "more": ["SERVO T 6000 P: Rotate:off, Create fields on:off"],
     },
+    # the pickup lowers itself; the drop on, its count 0
     "baler": {
-        "cards": ["G-1 F125 Kombi: Turn on:off, Detach:off, Reset bale counter:off, Turn on automatic drop:off,"
-                  " Lower pickup:off"],
+        "cards": ["G-1 F125 Kombi: Lower:off, Turn on:off, Detach:off, More · 2:off"],
         "selected": "G-1 F125 Kombi",
         "also": [],
         "all": [],
+        "more": ["G-1 F125 Kombi: Automatic drop off:on, Reset bale count:off"],
     },
     "weight": {
         "cards": [],
@@ -123,6 +128,40 @@ EXPECT = {
         "all": [],
         "attach": "available",
     },
+    # spike 0.0.9: the ARION has no card, the W 600 Lower and Detach; the
+    # engine off fades, never takes away (specs/0012)
+    "arion-off": {
+        "cards": ["Vantage 4300: Fold:unavailable, Turn on:unavailable, Unload:off, Detach:off, More · 1:off"],
+        "selected": None,
+        "also": ["W 600 · CLAAS · Weights · Front · Raised: Lower:unavailable, Detach:off"],
+        "all": [],
+        "width": ["Vantage 4300: ■■■■■■■■■ 9 / 9 sections: "],
+        "more": ["Vantage 4300: Rate −:unavailable, Auto:unavailable, Rate +:unavailable"],
+    },
+    "arion-on": {
+        "cards": ["Vantage 4300: Fold:on, Turn on:off, Unload:off, Detach:off, More · 1:off"],
+        "selected": None,
+        "also": ["W 600 · CLAAS · Weights · Front · Raised: Lower:off, Detach:off"],
+        "all": [],
+        "width": ["Vantage 4300: ■■■■■■■■■ 9 / 9 sections: "],
+        "more": ["Vantage 4300: Rate −:unavailable, Auto:on, Rate +:unavailable"],
+    },
+    "dino": {
+        "cards": ["DINO II: Fold:unavailable, Turn on:unavailable, Unload:off, More · 1:off"],
+        "selected": "DINO II",
+        "also": [],
+        "all": [],
+        "width": ["DINO II: ■■■■■■■■■ 9 / 9 sections: "],
+        "more": ["DINO II: Rate −:unavailable, Auto:unavailable, Rate +:unavailable"],
+    },
+    "rogator": {
+        "cards": ["Rogator 937H: Fold:on, Turn on:off, Unload:off, More · 1:off"],
+        "selected": "Rogator 937H",
+        "also": [],
+        "all": [],
+        "width": ["Rogator 937H: ■■■■■■■■■ 9 / 9 sections: "],
+        "more": ["Rogator 937H: Rate −:unavailable, Auto:on, Rate +:unavailable"],
+    },
 }
 
 
@@ -134,42 +173,37 @@ def fix_name(name):
         return name
 
 
+def source_of(rig):
+    """Where a rig's dump is: spike 0.0.9's probe, else spike 0.0.4's."""
+    probe = PROBE / f"{rig}.json"
+    return probe if probe.exists() else SPIKE / f"{rig}.json"
+
+
 def load_dump(rig):
-    dump = json.loads((SPIKE / f"{rig}.json").read_text(encoding="utf-8"))
+    dump = json.loads(source_of(rig).read_text(encoding="utf-8"))
     for m in dump["members"]:
         m["name"] = fix_name(m["name"])
     return dump
 
 
-# the width keys as the probe may find them (their labels made up)
+# the width keys as they may be live without Precision Farming (unverified;
+# their labels made up)
 WIDTH_KEYS = [{"action": "VARIABLE_WORK_WIDTH_LEFT", "active": True, "text": "Partial width left"},
               {"action": "VARIABLE_WORK_WIDTH_RIGHT", "active": True, "text": "Partial width right"}]
-# the driving keys a vehicle registers on its own parts
-DRIVING_KEYS = {
-    "drivable": [{"action": "AXIS_ACCELERATE_VEHICLE", "active": True, "text": "Accelerate"},
-                 {"action": "AXIS_MOVE_SIDE_VEHICLE", "active": True, "text": "Steer vehicle"}],
-    "honk": [{"action": "HONK", "active": True, "text": "Honk"}],
-}
+PF_SPRAYER = "FS25_precisionFarming.extendedSprayer"
 
 
-def with_width_keys(dump):
+def without_precision_farming(dump):
     sprayer = dump["members"][1]
+    sprayer["specs"] = [s for s in sprayer["specs"] if s != PF_SPRAYER]
+    sprayer["keys"].pop(PF_SPRAYER, None)
     sprayer["keys"]["variableWorkWidth"] = WIDTH_KEYS
     sprayer["variableWorkWidth"]["rightSide"] = 2
     return dump
 
 
-def self_propelled(dump):
-    tractor, sprayer = dump["members"]
-    one = {**sprayer, "id": 1060, "depth": 0, "name": "Berthoud Self-propelled 4300",
-           "specs": sorted(set(tractor["specs"]) | set(sprayer["specs"]) - {"attachable"}),
-           "keys": {**sprayer["keys"], **DRIVING_KEYS}, "selected": 1060}
-    del one["parent"], one["detach"]
-    return {**dump, "selectedId": 1060, "selectable": [1060], "members": [one]}
-
-
 # rig -> (the dump it's made from, how)
-VARIANTS = {"sprayer-width": ("sprayer", with_width_keys), "sprayer-self": ("sprayer", self_propelled)}
+VARIANTS = {"sprayer-width": ("sprayer", without_precision_farming)}
 
 
 def fills_of(member):
@@ -200,8 +234,8 @@ def vehicles_of(dump):
 
     members = dump["members"]
     head = next(m for m in members if m["depth"] == 0)
-    vehicle = {**info(head), "speed": 8.4, "engineOn": True, "fuel": 280, "fuelCapacity": 400, "wear": 0.23,
-               "motorized": True, "implements": []}
+    vehicle = {**info(head), "speed": 8.4, "engineOn": dump.get("engineOn", True), "fuel": 280, "fuelCapacity": 400,
+               "wear": 0.23, "motorized": True, "implements": []}
     for m in members:
         if m["depth"] > 0:
             vehicle["implements"].append({**info(m), "depth": m["depth"]})
@@ -240,8 +274,8 @@ def fixtures():
             dump = made(dump)
         out[rig] = {
             "rig": rig,
-            "source": f"mod/tests/fixtures/spike0003/{base}.json"
-                      + (f" ({made.__name__}, until spec 0011's probe)" if made else "")
+            "source": source_of(base).relative_to(ROOT).as_posix()
+                      + (f" ({made.__name__})" if made else "")
                       + ", through the mod's Cab collector",
             "cab": cab_of(lua, dump),
             "vehicles": vehicles_of(dump),

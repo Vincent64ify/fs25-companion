@@ -35,10 +35,9 @@ class Writer:
         self.got = []
         self.answer = None
 
-    def submit(self, ref, action, value=None, tool=None, side=None, key=None):
+    def submit(self, ref, action, value=None, tool=None, side=None):
         got = (ref, action, value) if tool is None else (ref, action, value, tool)
-        got = got if side is None else (*got, side)
-        self.got.append(got if key is None else (*got, key))
+        self.got.append(got if side is None else (*got, side))
         if self.answer is not None:
             self.hub.put_ack(ack_envelope(ref, self.answer))
 
@@ -217,19 +216,23 @@ def test_a_width_command_passes_through_with_its_side(setup):
     assert len(hub.writer.got) == 1
 
 
-def test_an_other_key_passes_through_with_its_name(setup):
-    """specs/0011 fix 1: implement.key goes to the writer with its key, the
-    input action's name; one that isn't a name is refused at once."""
+def test_a_key_is_refused_and_the_card_buttons_pass_through(setup):
+    """specs/0012: no command carries a key (implement.key went): refused at
+    once, nothing written; the new tool actions go to the writer with their
+    tool."""
     client, hub, _ = setup
     viewer = connect(client)
     hub.writer.answer = "no game (replay)"
-    command(viewer, "k1", action="implement.key", key="TOGGLE_TIPSTATE_GROUND")
-    assert recv(viewer)["id"] == "k1"
-    assert hub.writer.got == [(hub.writer.got[0][0], "implement.key", None, "TOGGLE_TIPSTATE_GROUND")]
-    for bad in ("TIP STATE", "", 2, [], {}):
-        command(viewer, "k-bad", action="implement.key", key=bad)
-        assert recv(viewer) == {"type": "command_ack", "id": "k-bad", "ok": False, "reason": "value not allowed"}
-    assert len(hub.writer.got) == 1
+    for i, (action, key) in enumerate((("implement.key", "TOGGLE_TIPSTATE_GROUND"), ("tool.lower", "LOWER_IMPLEMENT"))):
+        command(viewer, f"k{i}", action=action, value=1, tool=9, key=key)
+        assert recv(viewer) == {"type": "command_ack", "id": f"k{i}", "ok": False, "reason": "value not allowed"}
+    assert hub.writer.got == []
+    sent = [("tool.unload", None), ("tool.rotate", 1), ("tool.createFields", 0), ("tool.autoDrop", 1),
+            ("tool.resetBales", None), ("tool.doubledRate", 1), ("tool.sprayRate", -1), ("tool.sprayRateAuto", 0)]
+    for i, (action, value) in enumerate(sent):
+        command(viewer, f"b{i}", action=action, value=value, tool=1031)
+        assert recv(viewer)["id"] == f"b{i}"
+    assert [g[1:] for g in hub.writer.got] == [(action, value, 1031) for action, value in sent]
 
 
 def test_any_well_formed_command_reaches_the_writer(setup):

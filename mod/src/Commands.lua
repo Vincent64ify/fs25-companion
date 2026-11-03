@@ -9,7 +9,7 @@
 --     <command ... action="cruise.set" ref="..." value="23.000"/>   (km/h)
 --     <command ... action="tool.lower" ref="..." value="1.000" tool="9"/>   (a rig id)
 --     <command ... action="tool.width" ref="..." value="-1.000" tool="9" side="left"/>
---     <command ... action="implement.key" ref="..." key="TOGGLE_TIPSTATE_GROUND"/>
+--     <command ... action="tool.unload" ref="..." tool="9"/>   (a one-shot: no value)
 --
 -- (a temp file, read back once, then renamed, so it appears whole). Every
 -- frame the mod checks whether the next number exists (fileExists costs
@@ -238,21 +238,45 @@ local function drivingOrder(vehicle)
     return out
 end
 
--- each one-tool action: the capability it needs, its keys (lower: the key is the tool's own, or the one it hangs on acts on it
--- while it's selected, as the game's attacher joints do)
+-- the sprayer's doubled rate key: its own (toggleDoubledAmountInputBinding,
+-- from its XML), else the game's default (Sprayer.onLoad)
+local function doubledRateKeys(object)
+    local spec = object.spec_sprayer
+    local own = type(spec) == "table" and spec.toggleDoubledAmountInputBinding or nil
+    if type(own) == "string" and own ~= "DOUBLED_SPRAY_AMOUNT" then
+        return { own, "DOUBLED_SPRAY_AMOUNT" }
+    end
+    return { "DOUBLED_SPRAY_AMOUNT" }
+end
+
+-- each one-tool action: the capability it needs, its keys (a list, or
+-- function(tool) -> list; lower: the key is the tool's own, or the one it
+-- hangs on acts on it while it's selected, as the game's attacher joints
+-- do), and what its answer checks (`check`: the readings' kind; specs/0012)
 local AIMED = {
-    LOWER_IMPLEMENT = { cap = "lower", inputs = { "LOWER_IMPLEMENT" }, attacherKey = true },
-    FOLD_IMPLEMENT = { cap = "fold", inputs = { "IMPLEMENT_EXTRA2" } },
-    TURN_ON_IMPLEMENT = { cap = "turnOn", inputs = { "IMPLEMENT_EXTRA" } },
-    TOGGLE_DISCHARGE = { cap = "tip", inputs = { "TOGGLE_TIPSTATE", "TOGGLE_TIPSTATE_GROUND" } },
+    LOWER_IMPLEMENT = { cap = "lower", inputs = { "LOWER_IMPLEMENT" }, attacherKey = true, check = "lower" },
+    FOLD_IMPLEMENT = { cap = "fold", inputs = { "IMPLEMENT_EXTRA2" }, check = "fold" },
+    TURN_ON_IMPLEMENT = { cap = "turnOn", inputs = { "IMPLEMENT_EXTRA" }, check = "turnOn" },
+    TOGGLE_DISCHARGE = { cap = "tip", inputs = { "TOGGLE_TIPSTATE", "TOGGLE_TIPSTATE_GROUND" }, check = "tip" },
     TOGGLE_COVER = { cap = "cover", inputs = { "TOGGLE_COVER" } },
     TOGGLE_PIPE = { cap = "pipe", inputs = { "TOGGLE_PIPE" } },
     TOGGLE_TIPSIDE = { cap = "tipSide", inputs = { "TOGGLE_TIPSIDE" } },
-    ROTATE_PLOW = { cap = "rotate", inputs = { "IMPLEMENT_EXTRA" } },
-    RESET_BALE_COUNTER = { cap = "bales", inputs = { "BALE_COUNTER_RESET" } },
     -- specs/0011: the width keys, one per side (inputBinding.xml; unverified)
     WIDTH_LEFT = { cap = "width", inputs = { "VARIABLE_WORK_WIDTH_LEFT" } },
     WIDTH_RIGHT = { cap = "width", inputs = { "VARIABLE_WORK_WIDTH_RIGHT" } },
+    -- specs/0012, from the game's scripts: FillUnit's UNLOAD, the plow's
+    -- IMPLEMENT_EXTRA (Plow.actionEventTurn) and IMPLEMENT_EXTRA3
+    -- (actionEventLimitToField), the baler's IMPLEMENT_EXTRA4
+    -- (actionEventToggleAutomaticDrop), BaleCounter's reset; Precision
+    -- Farming's rate keys as the probe pressed them
+    UNLOAD = { cap = "unload", inputs = { "UNLOAD" }, check = "unload" },
+    ROTATE_PLOW = { cap = "rotate", inputs = { "IMPLEMENT_EXTRA" }, check = "rotate" },
+    LIMIT_TO_FIELD = { cap = "createFields", inputs = { "IMPLEMENT_EXTRA3" }, check = "createFields" },
+    AUTO_DROP = { cap = "autoDrop", inputs = { "IMPLEMENT_EXTRA4" }, check = "autoDrop" },
+    RESET_BALE_COUNTER = { cap = "bales", inputs = { "BALE_COUNTER_RESET" }, check = "resetBales" },
+    DOUBLED_RATE = { cap = "doubledRate", inputs = doubledRateKeys, check = "doubledRate" },
+    SPRAY_RATE = { cap = "sprayRate", inputs = { "PRECISIONFARMING_SPRAY_AMOUNT" }, check = "sprayRate" },
+    SPRAY_RATE_AUTO = { cap = "sprayRate", inputs = { "PRECISIONFARMING_SPRAY_AMOUNT_MODE" }, check = "sprayRateAuto" },
 }
 
 -- the first of these inputs with an active event on this object, one the
@@ -353,13 +377,30 @@ local function comboNext(root)
     return nil
 end
 
+-- the checks the All row's jobs make, by the readings' kind
 local CHECKED = { lower = true, fold = true, turnOn = true, tip = true }
+
+-- the levels a tool could unload, summed (FillUnit's fillUnits)
+local function unloadLevel(object)
+    local spec = object.spec_fillUnit
+    local sum = 0
+    for _, unit in ipairs(type(spec) == "table" and type(spec.fillUnits) == "table" and spec.fillUnits or {}) do
+        if type(unit) == "table" and unit.canBeUnloaded ~= false and type(unit.fillLevel) == "number" then
+            sum = sum + unit.fillLevel
+        end
+    end
+    return sum
+end
 
 -- what the check reads of a tool; the fold's time and direction seen live
 -- (spikes 0.0.5, 0.0.6: the time grows while folding, foldMoveDirection 1
 -- folding, -1 unfolding, 0 still)
 local function readings(object)
     local fold = object.spec_foldable
+    local e = VehicleState.extras(object, {})
+    VehicleState.capabilities(object, e, 1)
+    local fillUnit = object.spec_fillUnit
+    local plow, rate = e.plow or {}, e.sprayRate or {}
     return {
         lowered = Api.tryCall(object, "getIsLowered", true) == true,
         on = Api.tryCall(object, "getIsTurnedOn") == true,
@@ -367,11 +408,27 @@ local function readings(object)
         foldTime = Api.tryCall(object, "getFoldAnimTime") or (type(fold) == "table" and fold.foldAnimTime or nil),
         foldDirection = type(fold) == "table" and fold.foldMoveDirection or nil,
         -- revision 3: Tip, as the cab reads it
-        discharging = VehicleState.extras(object, {}).discharging,
+        discharging = e.discharging,
         -- specs/0011: the sections on each side
         width = VehicleState.width(object),
+        -- specs/0012: the card's states, as the cab reads them; Unload
+        -- started (FillUnit) or the tank's level dropped
+        rotated = plow.rotated,
+        createFields = e.createFields,
+        autoDrop = e.autoDrop,
+        doubledRate = e.doubledRate,
+        rateAuto = rate.auto,
+        rateStep = rate.step,
+        bales = e.bales ~= nil and e.bales.count or nil,
+        unloading = type(fillUnit) == "table" and fillUnit.unloadingFillUnitsRunning == true,
+        unloadLevel = unloadLevel(object),
     }
 end
+
+-- specs/0012: the readings each switch's state is (what it asks for:
+-- want), and what a one-shot starts
+local SWITCHES = { rotate = "rotated", createFields = "createFields", autoDrop = "autoDrop",
+    doubledRate = "doubledRate", sprayRateAuto = "rateAuto" }
 
 -- the fold moves toward folded (sign 1) or unfolded (-1)
 local function foldMoves(before, now, sign)
@@ -399,14 +456,23 @@ local function moved(t, now)
         return now.discharging == t.want
     elseif t.kind == "width" then
         return now.width ~= nil and now.width[t.side] == t.want
+    elseif SWITCHES[t.kind] ~= nil then
+        return now[SWITCHES[t.kind]] == t.want
+    elseif t.kind == "sprayRate" then
+        return now.rateStep == t.want
+    elseif t.kind == "resetBales" then
+        return now.bales == 0
+    elseif t.kind == "unload" then
+        return now.unloading or now.unloadLevel < t.before.unloadLevel
     end
     return now.on == t.want
 end
 
--- what to check on a tool: kind (lower, fold, turnOn), want (lowered,
--- folded, on), its readings now
-local function checkOf(object, depth, kind, want)
-    return { object = object, depth = depth, kind = kind, want = want, before = readings(object) }
+-- what to check on a tool: kind (lower, fold, turnOn, ... the readings'),
+-- want (lowered, folded, on...; nil for a one-shot), its readings now; cap:
+-- the capability whose words a refusal gives (kind by default)
+local function checkOf(object, depth, kind, want, cap)
+    return { object = object, depth = depth, kind = kind, want = want, cap = cap or kind, before = readings(object) }
 end
 
 -- whether a tool is in the asked state, or on its way there (specs/0008):
@@ -434,6 +500,12 @@ local function isThere(kind, object, e, want)
         return e.pipe ~= nil and e.pipe.out == want
     elseif kind == "tip" then
         return e.discharging == want
+    elseif kind == "rotate" then
+        return e.plow ~= nil and e.plow.rotated == want
+    elseif kind == "sprayRateAuto" then
+        return e.sprayRate ~= nil and e.sprayRate.auto == want
+    elseif kind == "createFields" or kind == "autoDrop" or kind == "doubledRate" then
+        return e[kind] == want
     end
     return false
 end
@@ -456,16 +528,17 @@ local function hasLive(name)
 end
 
 -- a one-tool command: its job, or why not, or nil, nil, true when the tool
--- is in the asked state already (want: a set; nil: a one-shot); lower,
--- fold, turn on and tip checked
+-- is in the asked state already (want: a set; nil: a one-shot); checked
+-- where its aim says what to read (specs/0003 revision 2, 0012)
 local function aimed(vehicle, aim, id, want)
     local object, depth = memberById(vehicle, id)
     if object == nil then
         return nil, "not attached"
     end
+    local kind = aim.check or aim.cap
     if want ~= nil then
         local e = capsOf(object, depth)
-        if hasCap(e, aim.cap) and isThere(aim.cap, object, e, want) then
+        if hasCap(e, aim.cap) and isThere(kind, object, e, want) then
             return nil, nil, true
         end
     end
@@ -474,9 +547,39 @@ local function aimed(vehicle, aim, id, want)
         return nil, reason
     end
     local job = newJob(vehicle, { step })
-    if CHECKED[aim.cap] and want ~= nil then
-        job.check = { checkOf(object, depth, aim.cap, want) }
+    if aim.check ~= nil then
+        job.check = { checkOf(object, depth, kind, want, aim.cap) }
     end
+    return job
+end
+
+-- specs/0012: Precision Farming's rate one step down (-1) or up (1), its
+-- value the key's input (the probe: one press with 1 stepped it 1 -> 2),
+-- checked: ok once the step moved by one. The rate key does nothing while
+-- automatic (inactive: the probe) or past an end: refused at once
+local function rateJob(vehicle, id, value)
+    local object, depth = memberById(vehicle, id)
+    if object == nil then
+        return nil, "not attached"
+    end
+    local step, reason = stepFor(object, depth, AIMED.SPRAY_RATE)
+    if step == nil then
+        return nil, reason
+    end
+    local rate = capsOf(object, depth).sprayRate
+    if rate.auto then
+        return nil, "Automatic rate is on"
+    end
+    if type(rate.step) ~= "number" then
+        return nil, "no rate to read"
+    end
+    local want = rate.step + value
+    if (type(rate.min) == "number" and want < rate.min) or (type(rate.max) == "number" and want > rate.max) then
+        return nil, "at its limit"
+    end
+    step.value = value
+    local job = newJob(vehicle, { step })
+    job.check = { checkOf(object, depth, "sprayRate", want) }
     return job
 end
 
@@ -728,26 +831,6 @@ local function lightsJob(vehicle, want, stages)
     return job
 end
 
--- the selected tool's other key (VehicleState.extraKeys), by its input
--- action's name: pressed only while it's in that list now, as the card
--- shows it (the vehicle's own leaves its driving keys out). By number, a key
--- that came and went shifted the ones after it (live, 0.12.1: "Dump on
--- ground" pressed Unload; specs/0011)
-local function selectedKey(vehicle, action)
-    local root = VehicleState.rootOf(vehicle)
-    local selected = Api.tryCall(root, "getSelectedVehicle")
-    if type(selected) ~= "table" then
-        return nil, "nothing selected"
-    end
-    local depth = selected == vehicle and 0 or 1
-    for _, key in ipairs(VehicleState.extraKeys(selected, capsOf(selected, depth).can, depth == 0)) do
-        if key.action == action then
-            return selected, action
-        end
-    end
-    return nil, "no such key"
-end
-
 -- Attach: only while the game has something in reach (its prompt is up)
 local function attachInReach(vehicle)
     if VehicleState.attachable(vehicle) then
@@ -783,13 +866,16 @@ end
 --              when the command has none
 --   job        function(vehicle, value) -> a job over several tools, or
 --              ALREADY
---   key        the selected tool's other key, by its input action's name
---              (the command's key; specs/0011)
 --   width      with a tool's id and a side ("left", "right"): the only
 --              action with a side (specs/0011)
+--   rate       with a tool's id: Precision Farming's rate a step down or
+--              up (specs/0012)
 --   values     { min, max }: the command's number and its range; without
---              it the command carries none; whole: a whole number
+--              it the command carries none (a tool's one-shot); whole: a
+--              whole number; step: not 0
 --   optional   the number may be left out (a tool's id: the key's own tool)
+-- No command carries a key: the dashboard has a fixed list of buttons, no
+-- list of the keys the game registered (specs/0012, rule 4)
 local TOOL_ID = { 0, 2 ^ 31 }
 -- a state: 1 on, 0 off
 local SET = { 0, 1, whole = true }
@@ -823,7 +909,19 @@ Commands.ACTIONS = {
     ["tool.pipe"] = { tool = true, aim = AIMED.TOGGLE_PIPE, values = SET },
     ["tool.tip"] = { tool = true, aim = AIMED.TOGGLE_DISCHARGE, values = SET },
     -- one section in (-1) or out (1) on one side (specs/0011)
-    ["tool.width"] = { tool = true, width = true, values = { -1, 1, whole = true } },
+    ["tool.width"] = { tool = true, width = true, values = { -1, 1, whole = true, step = true } },
+    -- specs/0012, each on its tool by its id: a plow's rotation (1 rotated)
+    -- and create fields (1 on), a baler's automatic drop (1 on), a slurry
+    -- tanker's doubled rate (1 on), Precision Farming's automatic rate (1
+    -- automatic) and its step (-1, 1); one-shots: Unload, Reset bale count
+    ["tool.unload"] = { tool = true, aim = AIMED.UNLOAD },
+    ["tool.rotate"] = { tool = true, aim = AIMED.ROTATE_PLOW, values = SET },
+    ["tool.createFields"] = { tool = true, aim = AIMED.LIMIT_TO_FIELD, values = SET },
+    ["tool.autoDrop"] = { tool = true, aim = AIMED.AUTO_DROP, values = SET },
+    ["tool.resetBales"] = { tool = true, aim = AIMED.RESET_BALE_COUNTER },
+    ["tool.doubledRate"] = { tool = true, aim = AIMED.DOUBLED_RATE, values = SET },
+    ["tool.sprayRate"] = { tool = true, rate = true, values = { -1, 1, whole = true, step = true } },
+    ["tool.sprayRateAuto"] = { tool = true, aim = AIMED.SPRAY_RATE_AUTO, values = SET },
     -- Attach (specs/0003): the attach key (Q), only while the game has
     -- something in reach; detaching is each card's Detach. (C2's first try
     -- ran DETACH for an attached implement, which isn't what Q does.)
@@ -837,12 +935,8 @@ Commands.ACTIONS = {
     -- the cover (N): a one-shot, its rigs not confirmed (specs/0003)
     ["implement.cover"] = { inputs = { "TOGGLE_COVER" }, aim = AIMED.TOGGLE_COVER,
         values = TOOL_ID, optional = true },
-    -- the Vehicle page's cards (specs/0003): one tool's tip side, a plow's
-    -- rotate, the bale counter's reset; the selected tool's other keys
+    -- the Vehicle page's cards (specs/0003): one tool's tip side
     ["implement.tipSide"] = { aim = AIMED.TOGGLE_TIPSIDE, aimOnly = true, values = TOOL_ID, optional = true },
-    ["implement.rotate"] = { aim = AIMED.ROTATE_PLOW, aimOnly = true, values = TOOL_ID, optional = true },
-    ["implement.baleReset"] = { aim = AIMED.RESET_BALE_COUNTER, aimOnly = true, values = TOOL_ID, optional = true },
-    ["implement.key"] = { key = true },
     -- the All row, each with the state it asks for (specs/0008; value 1:
     -- lowered, folded, on, tipping, open): the game's own key where it
     -- gives that state, else each tool's own (fold all raises what's
@@ -863,23 +957,16 @@ Commands.ACTIONS = {
 local function inRange(range, value)
     -- value ~= value: NaN
     return value == value and value >= range[1] and value <= range[2]
-        and (not range.whole or value == math.floor(value))
+        and (not range.whole or value == math.floor(value)) and not (range.step and value == 0)
 end
 
 local SIDES = { left = true, right = true }
 
--- an input action's name ("TOGGLE_TIPSTATE_GROUND", a mod's own)
-local function keyName(key)
-    return type(key) == "string" and #key <= 64 and key:match("^[%a][%w_%.]*$") ~= nil
-end
-
--- whether the command's number, tool, side and key fit its action
+-- whether the command's number, tool and side fit its action; a key fits
+-- none (specs/0012: implement.key went, an older companion may still write
+-- one)
 local function valueFits(spec, value, tool, side, key)
-    if spec.key then
-        if not keyName(key) then
-            return false
-        end
-    elseif key ~= nil then
+    if key ~= nil then
         return false
     end
     if spec.width then
@@ -988,7 +1075,7 @@ end
 
 -- returns ok, reason, via, or a job (specs/0003) as the fourth, or
 -- already (specs/0008) as the fifth; value: the command's number, if it has
--- one; tool: its tool's id; side: tool.width's; key: implement.key's
+-- one; tool: its tool's id; side: tool.width's; key: refused (specs/0012)
 local function run(actionName, value, tool, side, key)
     local spec = Commands.ACTIONS[actionName]
     if spec == nil then
@@ -1013,15 +1100,25 @@ local function run(actionName, value, tool, side, key)
     if spec.state ~= nil and spec.state(vehicle) == value then
         return true, nil, nil, nil, true
     end
-    if spec.width then
-        local job, why = widthJob(vehicle, tool, side, value)
+    if spec.width or spec.rate then
+        local job, why
+        if spec.width then
+            job, why = widthJob(vehicle, tool, side, value)
+        else
+            job, why = rateJob(vehicle, tool, value)
+        end
         if job == nil then
             return false, why
         end
         return nil, nil, nil, job
     end
     if spec.tool then
-        local job, why, already = aimed(vehicle, spec.aim, tool, value == 1)
+        -- a set asks for a state (1 or 0); a one-shot carries no value
+        local want = nil
+        if spec.values ~= nil then
+            want = value == 1
+        end
+        local job, why, already = aimed(vehicle, spec.aim, tool, want)
         if already then
             return true, nil, nil, nil, true
         end
@@ -1048,16 +1145,6 @@ local function run(actionName, value, tool, side, key)
     end
     if job ~= nil then
         return nil, nil, nil, job
-    end
-    if spec.key then
-        local object, action = selectedKey(vehicle, key)
-        if object == nil then
-            return false, action
-        end
-        if runInputAction(action, 1, object) > 0 then
-            return true, nil, action
-        end
-        return false, "not available now"
     end
     local reason
     if spec.direct ~= nil then
@@ -1096,8 +1183,12 @@ local function press(step, root)
     if step.aim.attacherKey and Api.tryCall(root, "getSelectedVehicle") == step.object then
         targets[#targets + 1] = Api.tryCall(step.object, "getAttacherVehicle")
     end
+    local inputs = step.aim.inputs
+    if type(inputs) == "function" then
+        inputs = inputs(step.object)
+    end
     for _, target in ipairs(targets) do
-        local name = type(target) == "table" and liveInputFor(target, step.aim.inputs) or nil
+        local name = type(target) == "table" and liveInputFor(target, inputs) or nil
         if name ~= nil and runInputAction(name, step.value or 1, target) > 0 then
             return name
         end
@@ -1166,7 +1257,7 @@ local function unmovedOf(job)
     for _, t in ipairs(job.check) do
         if not t.moved then
             local e = capsOf(t.object, t.depth)
-            local why = e.whyNot ~= nil and e.whyNot[t.kind] or "Nothing moved"
+            local why = e.whyNot ~= nil and e.whyNot[t.cap or t.kind] or "Nothing moved"
             out[#out + 1] = { id = t.object.id, name = nameOf(t.object), why = why }
             reasons[#reasons + 1] = #job.check > 1 and (nameOf(t.object) .. ": " .. why) or why
         end

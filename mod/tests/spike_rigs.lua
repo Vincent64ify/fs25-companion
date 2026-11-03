@@ -1,7 +1,8 @@
 -- spike_rigs.lua
 -- Test helpers for spec 0003 (a card per tool): a JSON decoder (plain Lua
 -- has none), and mock game objects built from spike 0.0.4's dumps in
--- mod/tests/fixtures/spike0003/: a rig member from what the spike read off
+-- mod/tests/fixtures/spike0003/ and spike 0.0.9's (spec 0012's probe) in
+-- mod/tests/fixtures/spike0012/: a rig member from what the spike read off
 -- it, a whole rig with its selection and the selected tool's keys, and an
 -- object for a census type from its specialization names.
 --
@@ -169,9 +170,10 @@ function SpikeRigs.register(object, specName, key)
             if target.onKey ~= nil then
                 target.onKey(name, value)
             else
-                SpikeRigs.act(target, name, value)
+                SpikeRigs.act(target, name, value, shortName(specName))
             end
         end,
+        part = shortName(specName),
     }
     table.insert(b.actionEvents[action], event)
     b.events[nextEventId] = event
@@ -200,9 +202,47 @@ local function lowerable(o)
     return o:getAllowsLowering() or (type(o.spec_foldable) == "table" and o.spec_foldable.foldMiddleAnimTime ~= nil)
 end
 
-function SpikeRigs.act(target, name, value)
+-- part: the spec that registered the key (a baler-wrapper has the drop key
+-- twice, the baler's and the wrapper's: one press runs both, as in game)
+function SpikeRigs.act(target, name, value, part)
     local root = target.getRootVehicle ~= nil and target:getRootVehicle() or target
     if root.engineOff or target.stuck then
+        return
+    end
+    -- spec 0012's buttons: each key does what its part's script does
+    -- (gameSource.zip: FillUnit, Plow, Baler, BaleWrapper, BaleCounter,
+    -- Sprayer; Precision Farming's as the probe saw it)
+    local pf = target.spec_extendedSprayer
+    if name == "UNLOAD" and type(target.spec_fillUnit) == "table" then
+        target.spec_fillUnit.unloadingFillUnitsRunning = true
+        return
+    elseif name == "IMPLEMENT_EXTRA" and part == "plow" then
+        if target:getIsPlowRotationAllowed() then
+            target.spec_plow.rotationMax = not target.spec_plow.rotationMax
+        end
+        return
+    elseif name == "IMPLEMENT_EXTRA3" and part == "plow" then
+        target.spec_plow.limitToField = not target.spec_plow.limitToField
+        return
+    elseif name == "IMPLEMENT_EXTRA4" and (part == "baler" or part == "baleWrapper") then
+        local spec = target["spec_" .. part]
+        spec.automaticDrop = not spec.automaticDrop
+        return
+    elseif name == "BALE_COUNTER_RESET" and type(target.spec_baleCounter) == "table" then
+        target.spec_baleCounter.sessionCounter = 0
+        return
+    elseif name == "DOUBLED_SPRAY_AMOUNT" and type(target.spec_sprayer) == "table" then
+        target.spec_sprayer.doubledAmountIsActive = not target.spec_sprayer.doubledAmountIsActive
+        return
+    elseif name == "PRECISIONFARMING_SPRAY_AMOUNT" and type(pf) == "table" then
+        -- the value's way, one step, within its ends (the probe: 1 -> 2 with 1)
+        if not pf.sprayAmountAutoMode then
+            pf.sprayAmountManual = math.max(pf.sprayAmountManualMin, math.min(pf.sprayAmountManualMax,
+                pf.sprayAmountManual + (value or 1)))
+        end
+        return
+    elseif name == "PRECISIONFARMING_SPRAY_AMOUNT_MODE" and type(pf) == "table" then
+        pf.sprayAmountAutoMode = not pf.sprayAmountAutoMode
         return
     end
     local width = target.spec_variableWorkWidth
@@ -308,11 +348,12 @@ function SpikeRigs.member(m)
         o["spec_" .. shortName(s)] = {}
     end
     o.getFullName = function() return m.name end
-    -- the vehicle answers for its tools: no power with the engine off
+    -- the vehicle answers for its tools: no power with the engine off, in
+    -- the words the probe read where it read them (spike 0.0.9)
     o.getIsPowered = function(self)
         local root = self.getRootVehicle ~= nil and self:getRootVehicle() or self
         if root.engineOff then
-            return false, SpikeRigs.START_ENGINE
+            return false, m.noPower or SpikeRigs.START_ENGINE
         end
         return true
     end
@@ -343,10 +384,27 @@ function SpikeRigs.member(m)
     if m.turnOn ~= nil then
         o.spec_turnOnVehicle = o.spec_turnOnVehicle or {}
         o.on = false
-        -- false while folded or with the engine off (live, 0.8.7)
-        o.getCanBeTurnedOn = function(self)
-            return m.turnOn.canBeTurnedOn == true and (self.getIsUnfolded == nil or self:getIsUnfolded())
-                and not self.engineOff
+        local t = m.turnOn
+        if t.isAlwaysTurnedOn ~= nil then
+            -- spike 0.0.9 read its settings and the game's warning: as
+            -- TurnOnVehicle (gameSource.zip), Foldable's limits on top
+            o.spec_turnOnVehicle.isAlwaysTurnedOn = t.isAlwaysTurnedOn
+            o.spec_turnOnVehicle.turnedOnByAttacherVehicle = t.turnedOnByAttacherVehicle
+            o.getCanBeTurnedOn = function(self)
+                return not t.isAlwaysTurnedOn and self:getIsPowered() and (self.getIsUnfolded == nil or self:getIsUnfolded())
+            end
+            o.getTurnedOnNotAllowedWarning = function(self)
+                if not self:getIsPowered() then
+                    return t.warning
+                end
+                return m.fold ~= nil and not self:getIsUnfolded() and m.fold.unfoldWarning or nil
+            end
+        else
+            -- false while folded or with the engine off (live, 0.8.7)
+            o.getCanBeTurnedOn = function(self)
+                return t.canBeTurnedOn == true and (self.getIsUnfolded == nil or self:getIsUnfolded())
+                    and not self.engineOff
+            end
         end
         o.getIsTurnedOn = function(self) return self.on end
         o.setIsTurnedOn = function(self, on) self.on = on end
@@ -359,7 +417,66 @@ function SpikeRigs.member(m)
     o.lowered = lower ~= nil and lower.lowered == true
     o.getAllowsLowering = function() return lower ~= nil and lower.allows == true end
     o.getIsLowered = function(self) return self.lowered end
-    o.getActiveInputAttacherJoint = function() return { allowsLowering = lower ~= nil and lower.allows == true } end
+    o.getActiveInputAttacherJoint = function()
+        return { allowsLowering = lower ~= nil and lower.allows == true,
+            canBeTurnedOn = m.inputJoint ~= nil and m.inputJoint.canBeTurnedOn or nil }
+    end
+    -- what the game registers a key for only when the part has it (spec
+    -- 0012's has-signals): spike 0.0.4 saw the key, not the setting. A
+    -- pickup that lowers itself (Pickup: animationName set), unloading
+    -- places (FillUnit: unloading), a toggleable automatic drop (Baler,
+    -- BaleWrapper: toggleableAutomaticDrop)
+    local keys = m.keys or {}
+    local function hasKey(spec, action)
+        for _, k in ipairs(keys[spec] or {}) do
+            if k.action == action then
+                return true
+            end
+        end
+        return false
+    end
+    if hasKey("pickup", "LOWER_IMPLEMENT") then
+        o.spec_pickup = o.spec_pickup or {}
+        o.spec_pickup.animationName = "pickup"
+    end
+    if m.fills ~= nil or m.unloading ~= nil or hasKey("fillUnit", "UNLOAD") then
+        o.spec_fillUnit = o.spec_fillUnit or {}
+        o.spec_fillUnit.fillUnits = {}
+        for i, f in ipairs(m.fills or {}) do
+            o.spec_fillUnit.fillUnits[i] = { fillLevel = f.level, capacity = f.capacity, canBeUnloaded = true }
+        end
+        if (m.unloading or 0) > 0 or hasKey("fillUnit", "UNLOAD") then
+            o.spec_fillUnit.unloading = {}
+            for i = 1, m.unloading or 1 do
+                o.spec_fillUnit.unloading[i] = {}
+            end
+            o.spec_fillUnit.unloadingFillUnitsRunning = false
+        end
+    end
+    for _, part in ipairs({ "baler", "baleWrapper" }) do
+        if hasKey(part, "IMPLEMENT_EXTRA4") then
+            o["spec_" .. part] = o["spec_" .. part] or {}
+            o["spec_" .. part].toggleableAutomaticDrop = true
+            o["spec_" .. part].automaticDrop = m.baler ~= nil and m.baler.automaticDrop == true
+        end
+    end
+    if m.sprayer ~= nil then
+        o.spec_sprayer = o.spec_sprayer or {}
+        for k, v in pairs(m.sprayer) do
+            o.spec_sprayer[k] = v
+        end
+        -- Sprayer: never on a fertilizer sprayer, else for its spray type
+        o.getSprayerDoubledAmountActive = function(self)
+            return self.spec_sprayer.doubledAmountIsActive, self.spec_sprayer.isFertilizerSprayer == false
+        end
+    end
+    -- Precision Farming's sprayer part (the probe, 2026-11-02)
+    if m.precisionFarming ~= nil then
+        o.spec_extendedSprayer = o.spec_extendedSprayer or {}
+        for k, v in pairs(m.precisionFarming) do
+            o.spec_extendedSprayer[k] = v
+        end
+    end
     if m.detach ~= nil then
         o.isDetachAllowed = function() return m.detach[1], m.detach[2] end
     end
@@ -378,6 +495,7 @@ function SpikeRigs.member(m)
     if m.plow ~= nil then
         o.spec_plow = { rotationMax = m.plow.rotationMax, limitToField = m.plow.limitToField,
             rotationPart = { turnAnimation = m.plow.turnAnimation } }
+        o.getIsPlowRotationAllowed = function() return true end
     end
     if m.baler ~= nil and o.spec_baleCounter ~= nil then
         -- the counter's fields are unverified: the spike didn't read them
@@ -391,7 +509,7 @@ function SpikeRigs.member(m)
     if width ~= nil then
         o.spec_variableWorkWidth = { hasSections = width.hasSections, hasCenter = width.hasCenter,
             leftSide = width.leftSide, leftSideMax = width.leftSideMax, rightSide = width.rightSide,
-            rightSideMax = width.rightSideMax, minSideState = width.minSideState }
+            rightSideMax = width.rightSideMax, minSideState = width.minSideState, isActive = width.isActive }
     end
     if m.speedLimit ~= nil then
         o.getSpeedLimit = function() return m.speedLimit end
@@ -472,6 +590,8 @@ function SpikeRigs.rig(dump, sides)
     root.spec_attacherJoints = root.spec_attacherJoints or {}
     root.spec_attacherJoints.attachableInfo = dump.attachInReach and { attachable = {} } or {}
     root.members = byId
+    -- spike 0.0.9 says whether the engine ran
+    root.engineOff = dump.engineOn == false or nil
     SpikeRigs.registerKeys(root)
     g_localPlayer = { getCurrentVehicle = function() return root end }
     return root, byId
@@ -498,6 +618,25 @@ function SpikeRigs.registerKeys(root)
         end
     end
     root.keysDue = false
+    SpikeRigs.liven(root)
+end
+
+-- Precision Farming's rate keys as the probe saw them: the mode key while
+-- powered, the rate key only while automatic is off (2026-11-02)
+local PF_KEYS = { PRECISIONFARMING_SPRAY_AMOUNT = "rate", PRECISIONFARMING_SPRAY_AMOUNT_MODE = "mode" }
+
+function SpikeRigs.liven(root)
+    local b = g_inputBinding
+    for name, which in pairs(PF_KEYS) do
+        local action = b.nameActions[name]
+        for _, event in ipairs(action ~= nil and b.actionEvents[action] or {}) do
+            local o = event.targetObject
+            local pf = o.spec_extendedSprayer
+            if type(pf) == "table" and pf.sprayAmountAutoMode ~= nil then
+                event.isActive = o:getIsPowered() == true and (which == "mode" or pf.sprayAmountAutoMode ~= true)
+            end
+        end
+    end
 end
 
 -- one game frame: keys follow the selection
@@ -505,6 +644,7 @@ function SpikeRigs.frame(root)
     if root.keysDue then
         SpikeRigs.registerKeys(root)
     end
+    SpikeRigs.liven(root)
 end
 
 -- Census -------------------------------------------------------------------
@@ -522,6 +662,8 @@ function SpikeRigs.censusObject(specNames, full)
     end
     if o.spec_turnOnVehicle then
         o.getCanBeTurnedOn = function() return full end
+        -- an empty turn on part: always on, no key (TurnOnVehicle)
+        o.spec_turnOnVehicle.isAlwaysTurnedOn = not full
     end
     if o.spec_trailer then
         o.spec_trailer.tipSideCount = full and 3 or 0
@@ -537,6 +679,7 @@ function SpikeRigs.censusObject(specNames, full)
     end
     if o.spec_plow then
         o.spec_plow.rotationPart = full and { turnAnimation = "turn" } or {}
+        o.spec_plow.limitToField = true
     end
     if o.spec_attachable then
         o.getActiveInputAttacherJoint = function() return { allowsLowering = full } end

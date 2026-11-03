@@ -1,0 +1,174 @@
+{
+ "rig": "arion-on",
+ "source": "mod/tests/fixtures/spike0012/arion-on.json, through the mod's Cab collector",
+ "cab": {
+  "aiActive": false,
+  "engineOn": false,
+  "engineState": "off",
+  "hitched": true,
+  "implement": {
+   "canLower": true,
+   "canTurnOn": false,
+   "foldable": false,
+   "lowered": false,
+   "name": "CLAAS W 600",
+   "turnedOn": false
+  },
+  "implements": [
+   {
+    "lowered": false,
+    "turnedOn": false
+   },
+   {
+    "lowered": false,
+    "turnedOn": false
+   }
+  ],
+  "inVehicle": true,
+  "keys": {
+   "lower": 531,
+   "lowerAll": 531
+  },
+  "lights": {
+   "beacon": false,
+   "hazard": false,
+   "high": false,
+   "left": false,
+   "on": false,
+   "right": false
+  },
+  "rig": [
+   {
+    "can": [],
+    "depth": 0,
+    "id": 531,
+    "name": "CLAAS ARION 410",
+    "selectable": true,
+    "selected": false
+   },
+   {
+    "can": [
+     "fold",
+     "turnOn",
+     "unload",
+     "sprayRate",
+     "detach"
+    ],
+    "canLower": false,
+    "canTurnOn": true,
+    "depth": 1,
+    "foldMoving": false,
+    "foldable": true,
+    "id": 530,
+    "lowered": false,
+    "name": "Berthoud Vantage 4300",
+    "parent": 531,
+    "selectable": true,
+    "selected": false,
+    "side": "rear",
+    "sprayRate": {
+     "auto": true,
+     "max": 45,
+     "min": 1,
+     "step": 1
+    },
+    "turnedOn": false,
+    "unfolded": true,
+    "width": {
+     "center": true,
+     "left": 4,
+     "leftMax": 4,
+     "right": 4,
+     "rightMax": 4
+    }
+   },
+   {
+    "can": [
+     "lower",
+     "detach"
+    ],
+    "canLower": true,
+    "canTurnOn": false,
+    "depth": 1,
+    "foldable": false,
+    "id": 504,
+    "lowered": false,
+    "name": "CLAAS W 600",
+    "parent": 531,
+    "selectable": true,
+    "selected": true,
+    "side": "front",
+    "turnedOn": false
+   }
+  ],
+  "vehicleId": 531
+ },
+ "vehicles": {
+  "controlledId": 531,
+  "vehicles": [
+   {
+    "id": 531,
+    "name": "CLAAS ARION 410",
+    "brand": "CLAAS",
+    "category": "tractorsM",
+    "categoryTitle": "Tractors M",
+    "typeName": "tractor",
+    "fills": [],
+    "wear": 0.23,
+    "speed": 8.4,
+    "engineOn": true,
+    "fuel": 280,
+    "fuelCapacity": 400,
+    "motorized": true,
+    "implements": [
+     {
+      "id": 530,
+      "name": "Berthoud Vantage 4300",
+      "brand": "Berthoud",
+      "category": "sprayers",
+      "categoryTitle": "Sprayers",
+      "typeName": "sprayer",
+      "fills": [
+       {
+        "unit": 1,
+        "level": 3703.8,
+        "capacity": 4300,
+        "fillType": "herbicide",
+        "fillTitle": "Herbicide"
+       }
+      ],
+      "wear": 0.12,
+      "depth": 1
+     },
+     {
+      "id": 504,
+      "name": "CLAAS W 600",
+      "brand": "CLAAS",
+      "category": "weights",
+      "categoryTitle": "Weights",
+      "typeName": "implement",
+      "fills": [],
+      "wear": 0.12,
+      "depth": 1
+     }
+    ]
+   }
+  ]
+ },
+ "expect": {
+  "cards": [
+   "Vantage 4300: Fold:on, Turn on:off, Unload:off, Detach:off, More · 1:off"
+  ],
+  "selected": null,
+  "also": [
+   "W 600 · CLAAS · Weights · Front · Raised: Lower:off, Detach:off"
+  ],
+  "all": [],
+  "width": [
+   "Vantage 4300: ■■■■■■■■■ 9 / 9 sections: "
+  ],
+  "more": [
+   "Vantage 4300: Rate −:unavailable, Auto:on, Rate +:unavailable"
+  ]
+ }
+}

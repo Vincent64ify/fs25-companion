@@ -9,14 +9,15 @@
 // One button per switch (Controls C2): it shows the game's state and a tap
 // sends the state it shows next (specs/0008: lights on, the next light
 // stage, this tool raised), never a pair of on and off buttons; already
-// there, the mod does nothing. The implement controls
-// act as their keys do: on the tool the key's live event belongs to
-// (cab.keys, Controls C3), which is usually the one selected in game (the
-// group's label names it), but the game keeps an action only one tool has
-// live whatever is selected (fold stays with the cultivator while the
-// loader is selected), and the button then names that tool, by its model
-// alone ("TERRIA 6040"). A control whose `moving` is true
-// shows pending (a fold running) until the game reports the end state.
+// there, the mod does nothing. The lower and fold controls (the Harvester
+// screen's Header and Fold tiles; the Map screen's Implement group went
+// with specs/0012: a tool is worked from its card) act as their keys do:
+// on the tool the key's live event belongs to (cab.keys, Controls C3),
+// usually the one selected in game, but the game keeps an action only one
+// tool has live whatever is selected (fold stays with the cultivator while
+// the loader is selected), and the button then names that tool, by its
+// model alone ("TERRIA 6040"). A control whose `moving` is true shows
+// pending (a fold running) until the game reports the end state.
 
 import { createControl } from "../ui/control.js";
 import { cabOf, controlledVehicle, cruiseOf, entryModel, foldingText, implementById, implementsOf, isLoaderGear, keyTool,
@@ -165,13 +166,6 @@ const lowerKeyOnLoader = (/** @type {any} */ v, /** @type {any} */ cab) => {
   return !!entry && isLoaderGear(/** @type {any} */ (entry), implementById(v, /** @type {any} */ (entry).id));
 };
 
-/** the name the Implement group's label shows: the game's selection */
-export function selectedName(/** @type {any} */ v, /** @type {any} */ cab) {
-  const selected = selectedInRig(cab);
-  if (selected) return selected.name;
-  return selectedImplement(v, cab)?.name;
-}
-
 /** a switch: the other state from the one it shows (1 on, 0 off) */
 const flip = (/** @type {ControlDef["read"]} */ read) =>
   (/** @type {any} */ v, /** @type {any} */ cab) => ({ value: read(v, cab) ? 0 : 1 });
@@ -188,7 +182,7 @@ export function nextLightStage(/** @type {any} */ v, /** @type {any} */ cab) {
 }
 
 /** the rig id of the tool an implement key acts on, else the selected one */
-const toolIdFor = (/** @type {"lower"|"fold"|"turnOn"} */ key, /** @type {any} */ cab) =>
+const toolIdFor = (/** @type {"lower"|"fold"} */ key, /** @type {any} */ cab) =>
   keyTool(cab, key)?.id ?? selectedInRig(cab)?.id;
 
 /** the cab's value, or the vehicles topic's without the cab */
@@ -345,7 +339,7 @@ export const CONTROLS = {
   aiWorker: { label: "AI worker", icon: "aiWorker", action: "ai.set",
     read: (v, cab) => either(v, cab, (src) => (cab ? bool(src.aiActive) : src.isAI === true)),
     send: (v, cab) => ({ value: CONTROLS.aiWorker.read(v, cab) ? 0 : 1 }) },
-  // the selected implement
+  // the tool the lower and fold keys act on (the Harvester screen's tiles)
   // the label is what a tap will do, as the game's help says it; lit: the
   // state ("Raise", lit, while lowered)
   implementLowered: { label: "Lower", icon: "hitchDown", action: "tool.lower", progressive: true,
@@ -369,11 +363,6 @@ export const CONTROLS = {
     if (i?.foldMoving) return { label: foldingText(i) };
     return { label: i?.unfolded ? "Fold" : "Unfold" };
   } },
-  implementOn: { label: "Work", icon: "implementOn", action: "tool.turnOn", read: (v, cab) => {
-    const i = toolFor("turnOn")(v, cab);
-    return i && (!cab || i.canTurnOn) ? i.turnedOn === true : undefined;
-  }, value: toolNote("turnOn"),
-  send: (v, cab) => ({ value: toolFor("turnOn")(v, cab)?.turnedOn ? 0 : 1, tool: toolIdFor("turnOn", cab) }) },
   // Attach (specs/0003): the attach key (Q), faded until the game has
   // something in reach (its own Attach prompt is up), then it attaches
   // that; pending until what's attached changes. Detaching is each card's.
@@ -518,7 +507,6 @@ export function controlTiles(ids, store, send = sendCommand) {
  * @typedef {Object} ControlGroup
  * @property {string} label "Lights"
  * @property {string[]} controls ids in CONTROLS
- * @property {boolean} [implementName] add the selected implement's name to the label
  */
 
 /**
@@ -581,10 +569,6 @@ export function controlGroup(group, store, send = sendCommand) {
         if (l) ui.setLabel(l.label, l.icon);
       }
       ui.set(on === undefined ? "unavailable" : moving ? "pending" : on ? "on" : "off");
-    }
-    if (group.implementName) {
-      const name = selectedName(v, cab);
-      title.textContent = name ? `${group.label} · ${name}` : group.label;
     }
   };
   store.subscribe("vehicles", update);

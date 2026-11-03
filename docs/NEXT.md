@@ -50,14 +50,23 @@ Things to fix next, in no particular order. Longer-term ideas are under
   client only, live-checked); F3 and F4 matter before a hosted relay. F1 is fixed
   ([spec 0004](../specs/0004-acks-survive-rotation.md), mod 0.8.13,
   live-checked); F5 (mod 0.8.12), F6 and F7 are fixed (2026-10-30).
-- **The vehicle's other keys:** with the tractor itself selected, its
-  `extraKeys` list every driving key (Accelerate, Steer vehicle, Honk...;
-  live 2026-10-31, the Vestrum 100). No card shows them today (a tractor
-  has none), but a self-propelled sprayer's would. Built in
-  [spec 0011](../specs/0011-sprayer.md) (mod 0.12.0): the vehicle's own
-  keys leave its driving parts' keys out. Live (the Agrio DINO II):
-  all but "Toggle AI Worker", left out since mod 0.12.2 (spec 0011's fix
-  3; to recheck).
+- **The vehicle's other keys:** closed by
+  [spec 0012](../specs/0012-card-buttons.md) (mod 0.13.0): no card lists
+  the keys the game registered any more (`extraKeys` went), so no driving
+  key or "Toggle AI Worker" can show.
+- **The rig strip's names** (seen building spec 0012, 2026-11-03): the
+  Vehicle page band's strip is rebuilt only when its key changes
+  (`vehicleScreen.js`), and the key leaves out the model's name, which
+  comes from the `vehicles` topic. Getting into another vehicle, the cab
+  arrives first (every frame) and the vehicles topic up to 500 ms later,
+  so the vehicle's tile can keep the last vehicle's name. Add
+  `entryModel(e, v)` to the key.
+- **`scripts/allrow_check.py`** still sends `implement.lower`,
+  `implement.fold`, `implement.turnOn` and `engine.toggle`, gone since
+  mod 0.10.0 ([spec 0008](../specs/0008-commands-say-the-state.md)): its
+  per-tool steps answer "action not allowed". `rig_check.py` sends
+  today's commands since spec 0012; move `allrow_check.py`'s to
+  `tool.*` with the state asked for and the tool's id.
 - **Refill on the dashboard** (Vincent, spec 0011's live check,
   2026-11-02): at a fill station the game offers Refill for the sprayer;
   a button for it when the game shows it. It isn't one of the tool's
@@ -71,4 +80,5 @@ Things to fix next, in no particular order. Longer-term ideas are under
 - **The design system artifact** needs a refresh (THEMES.md): spec 0011
   added four icons (`widthLeftIn`, `widthLeftOut`, `widthRightIn`,
   `widthRightOut`) and the width strip, and the selected tool card lost
-  its tint (2026-11-01).
+  its tint (2026-11-01); spec 0012 added the card's More button and its
+  open row (no new icon, 2026-11-03).

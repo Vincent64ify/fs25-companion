@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
-"""Spec 0003's live check on any rig: press every button its cards offer, as
-the dashboard does, and judge each answer against what the cab shows after.
+"""The live check on any rig (specs 0003, 0012): press every button its cards
+offer, as the dashboard does, and judge each answer against what the cab
+shows after.
 
     python scripts/rig_check.py                        # the companion, 8123
     python scripts/rig_check.py --server http://localhost:8125 --attach
@@ -8,17 +9,17 @@ the dashboard does, and judge each answer against what the cab shows after.
 With the game, the companion and a rig (trailers, a sprayer, a plow, a baler, a
 weight, a truck...): it connects as a viewer, prints what the dashboard
 reads of each tool (to hold against the game's HUD), then for each tool and
-each button of its card presses it there and back:
+each button of its card (its `can`, specs/0012) presses it there and back,
+sending what the card sends:
 
-* Fold, Lower, Turn on, Tip, Cover, Pipe, Rotate: an ok means the cab
-  turned the asked way; a button the card fades (canNow) must be refused
-  and nothing may change; a plow rotates raised and lowered;
+* Fold, Lower, Turn on, Tip, Cover, Pipe, Rotate, Create fields,
+  Automatic drop, Doubled rate, Auto (the application rate): an ok means
+  the cab turned the asked way; a button the card fades (canNow) must be
+  refused and nothing may change; a plow rotates raised and lowered;
+* Rate + and Rate −: a step each way, refused while automatic or at an end;
 * Tip side: one press per side, each a step on, back at the first;
-* Reset count: the bale count goes to 0;
-* the tool's other keys (it selects each tool for them, as the game
-  registers them only then): pressed twice; a label that turns passes, one
-  that stays is LOOK (Vincent says what the game did). Keys that empty a
-  tool (Dump, Unload) are skipped unless --keys all;
+* Reset bale count: the count goes to 0;
+* Unload makes pallets of the tank: only with --unload;
 * Tip all, Cover all with two tools or more;
 * after every press the game's selection is the one it was;
 * --attach: Attach with nothing in reach is refused; then back up to a tool
@@ -33,7 +34,6 @@ running, trailers loaded), then let it run.
 import argparse
 import asyncio
 import json
-import re
 import sys
 import time
 from pathlib import Path
@@ -49,14 +49,21 @@ Verdict = Tuple[str, str]
 
 # what each toggle reads in the cab, and the command its card button sends
 READ = {"lower": ("lowered",), "fold": ("unfolded",), "turnOn": ("turnedOn",), "tip": ("discharging",),
-        "cover": ("cover", "open"), "pipe": ("pipe", "out"), "rotate": ("plow", "rotated")}
-ACTION = {"lower": "implement.lower", "fold": "implement.fold", "turnOn": "implement.turnOn",
-          "tip": "implement.unload", "cover": "implement.cover", "pipe": "implement.pipe",
-          "rotate": "implement.rotate", "tipSide": "implement.tipSide", "bales": "implement.baleReset"}
-# the order a player would go: unfold before lowering, lower before turning on
-ORDER = ("fold", "lower", "turnOn", "rotate", "tipSide", "tip", "cover", "pipe", "bales")
+        "cover": ("cover", "open"), "pipe": ("pipe", "out"), "rotate": ("plow", "rotated"),
+        "createFields": ("createFields",), "autoDrop": ("autoDrop",), "doubledRate": ("doubledRate",),
+        "sprayRateAuto": ("sprayRate", "auto")}
+ACTION = {"lower": "tool.lower", "fold": "tool.fold", "turnOn": "tool.turnOn", "tip": "tool.tip",
+          "cover": "implement.cover", "pipe": "tool.pipe", "rotate": "tool.rotate", "createFields": "tool.createFields",
+          "autoDrop": "tool.autoDrop", "doubledRate": "tool.doubledRate", "sprayRateAuto": "tool.sprayRateAuto",
+          "tipSide": "implement.tipSide", "bales": "tool.resetBales", "unload": "tool.unload"}
+# one-shots by the tool's id as their value, or with their tool alone
+BY_ID = {"cover", "tipSide"}
+ONE_SHOTS = {"bales", "unload"}
+# the order a player would go: unfold before lowering, lower before turning
+# on; a can's sprayRate is its Auto, then a step each way
+ORDER = ("fold", "lower", "turnOn", "rotate", "createFields", "autoDrop", "doubledRate", "sprayRate", "tipSide", "tip",
+         "cover", "pipe", "bales", "unload")
 ALL = {"tip": "implement.tipAll", "cover": "implement.coverAll"}
-EMPTIES = re.compile(r"\b(dump|unload)", re.IGNORECASE)
 ATTACH_WAIT_S = 180.0
 
 
@@ -77,7 +84,18 @@ def read(e: Entry, cap: str) -> Optional[bool]:
 
 
 def faded(e: Entry, cap: str) -> bool:
-    return (e.get("canNow") or {}).get(cap) is False
+    return (e.get("canNow") or {}).get("sprayRate" if cap == "sprayRateAuto" else cap) is False
+
+
+def sent_for(e: Entry, cap: str) -> Tuple[str, Any, Any]:
+    """What the card's button sends (specs/0008, 0012): (action, value, tool)."""
+    if cap in BY_ID:
+        return ACTION[cap], e.get("id"), None
+    if cap in ONE_SHOTS:
+        return ACTION[cap], None, e.get("id")
+    # the other state; fold's value says folded, the cab says unfolded
+    now = bool(read(e, cap))
+    return ACTION[cap], int(now) if cap == "fold" else int(not now), e.get("id")
 
 
 def answer(ack: Ack) -> str:
@@ -150,24 +168,36 @@ def judge_selection(before: Cab, after: Cab) -> Optional[str]:
     return f"the selection moved from {(was or {}).get('name')} to {(now or {}).get('name')}"
 
 
-def key_text(e: Optional[Entry], action: str) -> Optional[str]:
-    return next((k.get("text") for k in (e or {}).get("extraKeys") or [] if k.get("action") == action), None)
+def step_of(e: Optional[Entry]) -> Any:
+    return ((e or {}).get("sprayRate") or {}).get("step")
 
 
-def judge_key(action: str, before: Entry, after: Optional[Entry], ack: Ack) -> Verdict:
-    if ack is None or not ack.get("ok"):
-        return "FAIL", answer(ack)
-    was, now = key_text(before, action), key_text(after, action)
-    if now is None:
-        return "LOOK", f"{was} -> the key went: what did the game do?"
-    if now != was:
-        return "PASS", f"{was} -> {now}"
-    return "LOOK", f"the label stayed {was}: did the game act?"
+def judge_rate(value: int, before: Entry, after: Optional[Entry], ack: Ack) -> Verdict:
+    """Rate - or + (specs/0012): a step that way, or refused while automatic
+    or at an end, nothing moved."""
+    if ack is None or after is None:
+        return "FAIL", "no answer" if ack is None else "the tool is gone"
+    was, now = step_of(before), step_of(after)
+    rate = before.get("sprayRate") or {}
+    end = rate.get("min") if value < 0 else rate.get("max")
+    refused = rate.get("auto") or faded(before, "sprayRate") or (was is not None and was == end)
+    if refused:
+        if ack.get("ok") or now != was:
+            return "FAIL", f"should be refused, but {answer(ack)}, step {was} -> {now}"
+        return "PASS", f"refused: {ack.get('reason')}"
+    if ack.get("ok") and isinstance(was, int) and now == was + value:
+        return "PASS", f"step {was} -> {now}"
+    return "FAIL", f"{answer(ack)}, step {was} -> {now}"
 
 
-def skip_key(text: Optional[str]) -> bool:
-    """Keys that empty a tool on the ground: only with --keys all."""
-    return bool(EMPTIES.search(text or ""))
+def judge_unload(before: Entry, after: Optional[Entry], ack: Ack) -> Verdict:
+    """Unload: the mod answers ok once it started (specs/0012); the pallets
+    are for Vincent to see."""
+    if ack is None or after is None:
+        return "FAIL", "no answer" if ack is None else "the tool is gone"
+    if faded(before, "unload"):
+        return refusal(before, "unload", ack, False)
+    return ("LOOK", "ok: pallets on the ground?") if ack.get("ok") else ("FAIL", answer(ack))
 
 
 def judge_bales(before: Entry, after: Optional[Entry], ack: Ack) -> Verdict:
@@ -212,11 +242,11 @@ class Check:
         print(f"{verdict:<5} {name:<36} {answer(ack):<44} {via:<22} {shown}", flush=True)
         self.results.append((name, verdict))
 
-    async def press(self, name: str, action: str, value: Any, judge, key: Optional[str] = None) -> Ack:
+    async def press(self, name: str, action: str, value: Any, judge, tool: Any = None) -> Ack:
         await self.rig.settle()
         before = self.rig.cab
         self.rig.seen = []
-        ack = await self.rig.press(action, value, key)
+        ack = await self.rig.press(action, value, tool)
         await self.rig.settle()
         after = self.rig.cab
         verdict, shown = judge(before, after, ack)
@@ -226,66 +256,72 @@ class Check:
         self.say(verdict, name, ack, shown)
         return ack
 
+    async def send(self, name: str, e: Entry, cap: str, judge) -> Ack:
+        """The card's button for cap, as the card sends it."""
+        action, value, tool = sent_for(by_id(self.rig.cab, e["id"]) or e, cap)
+        return await self.press(name, action, value, judge, tool)
+
     async def toggle(self, e: Entry, cap: str, note: str = "") -> None:
         for _ in range(2):
             now = by_id(self.rig.cab, e["id"]) or e
             to = f" to {now.get('tipTo')}" if cap == "tip" else ""
             label = f"{e.get('name')}: {cap}{note} ({read(now, cap)}){to}"
-            await self.press(label, ACTION[cap], e["id"],
-                             lambda b, a, ack: judge_toggle(cap, by_id(b, e["id"]) or {}, by_id(a, e["id"]), ack,
-                                                            [x for c in self.rig.seen if (x := by_id(c, e["id"]))]))
+            await self.send(label, e, cap,
+                            lambda b, a, ack: judge_toggle(cap, by_id(b, e["id"]) or {}, by_id(a, e["id"]), ack,
+                                                           [x for c in self.rig.seen if (x := by_id(c, e["id"]))]))
 
-    async def tool(self, e: Entry, keys: str) -> None:
+    async def rate(self, e: Entry) -> None:
+        """Auto off, a step up and down, Auto as it was (specs/0012)."""
+        auto = read(by_id(self.rig.cab, e["id"]) or e, "sprayRateAuto")
+        for value in (1, -1):
+            await self.press(f"{e.get('name')}: rate {value:+d} (automatic {auto})", "tool.sprayRate", value,
+                             lambda b, a, ack, v=value: judge_rate(v, by_id(b, e["id"]) or {}, by_id(a, e["id"]), ack),
+                             e["id"])
+        await self.toggle(e, "sprayRateAuto")
+        if auto is not False:
+            # automatic off now (the toggle went there and back): off once more
+            await self.send(f"{e.get('name')}: automatic off", e, "sprayRateAuto",
+                            lambda b, a, ack: judge_toggle("sprayRateAuto", by_id(b, e["id"]) or {},
+                                                           by_id(a, e["id"]), ack))
+            for value in (1, -1):
+                await self.press(f"{e.get('name')}: rate {value:+d} (manual)", "tool.sprayRate", value,
+                                 lambda b, a, ack, v=value: judge_rate(v, by_id(b, e["id"]) or {},
+                                                                       by_id(a, e["id"]), ack), e["id"])
+            await self.send(f"{e.get('name')}: automatic back on", e, "sprayRateAuto",
+                            lambda b, a, ack: judge_toggle("sprayRateAuto", by_id(b, e["id"]) or {},
+                                                           by_id(a, e["id"]), ack))
+
+    async def tool(self, e: Entry, unload: bool) -> None:
         caps = [c for c in ORDER if c in e["can"]]
         for cap in caps:
             if cap in READ:
                 await self.toggle(e, cap)
             if cap == "rotate" and "lower" in caps:
                 # rotate raised (above) and lowered: which the game allows
-                await self.press(f"{e.get('name')}: lower for rotate", "implement.lower", e["id"],
-                                 lambda b, a, ack: judge_toggle("lower", by_id(b, e["id"]) or {},
-                                                                by_id(a, e["id"]), ack))
+                await self.send(f"{e.get('name')}: lower for rotate", e, "lower",
+                                lambda b, a, ack: judge_toggle("lower", by_id(b, e["id"]) or {},
+                                                               by_id(a, e["id"]), ack))
                 await self.toggle(e, "rotate", " lowered")
-                await self.press(f"{e.get('name')}: raise again", "implement.lower", e["id"],
-                                 lambda b, a, ack: judge_toggle("lower", by_id(b, e["id"]) or {},
-                                                                by_id(a, e["id"]), ack))
+                await self.send(f"{e.get('name')}: raise again", e, "lower",
+                                lambda b, a, ack: judge_toggle("lower", by_id(b, e["id"]) or {},
+                                                               by_id(a, e["id"]), ack))
+            elif cap == "sprayRate":
+                await self.rate(e)
             elif cap == "tipSide":
                 count = ((by_id(self.rig.cab, e["id"]) or e).get("tipSide") or {}).get("count") or 1
                 for n in range(count):
-                    await self.press(f"{e.get('name')}: tip side {n + 1}", ACTION[cap], e["id"],
-                                     lambda b, a, ack: judge_tip_side(by_id(b, e["id"]) or {},
-                                                                      by_id(a, e["id"]), ack))
+                    await self.send(f"{e.get('name')}: tip side {n + 1}", e, cap,
+                                    lambda b, a, ack: judge_tip_side(by_id(b, e["id"]) or {},
+                                                                     by_id(a, e["id"]), ack))
             elif cap == "bales":
-                await self.press(f"{e.get('name')}: reset count", ACTION[cap], e["id"],
-                                 lambda b, a, ack: judge_bales(by_id(b, e["id"]) or {}, by_id(a, e["id"]), ack))
-        if keys != "none" and e.get("depth", 0) > 0:
-            await self.other_keys(e, keys)
-
-    async def other_keys(self, e: Entry, keys: str) -> None:
-        """Select the tool (its keys are registered only then), press each
-        twice, put the selection back."""
-        back = selected(self.rig.cab)
-        await self.rig.press("implement.select", e["id"])
-        await asyncio.sleep(1.0)
-        await self.rig.settle()
-        for k in list((by_id(self.rig.cab, e["id"]) or {}).get("extraKeys") or []):
-            action, text = k.get("action"), k.get("text")
-            if keys != "all" and skip_key(text):
-                print(f"skip  {e.get('name')}: {text} (empties the tool; --keys all presses it)", flush=True)
-                continue
-            for n in (1, 2):
-                now = by_id(self.rig.cab, e["id"]) or {}
-                if key_text(now, action) is None:
-                    print(f"LOOK  {e.get('name')}: {text} is gone after the first press", flush=True)
-                    self.results.append((f"{e.get('name')}: {text}", "LOOK"))
-                    break
-                # by its input action's name (specs/0011)
-                await self.press(f"{e.get('name')}: {key_text(now, action)} ({n})", "implement.key", None,
-                                 lambda b, a, ack: judge_key(action, by_id(b, e["id"]) or {}, by_id(a, e["id"]), ack),
-                                 key=action)
-        if back and back.get("id") != e["id"]:
-            await self.rig.press("implement.select", back["id"])
-            await self.rig.settle()
+                await self.send(f"{e.get('name')}: reset count", e, cap,
+                                lambda b, a, ack: judge_bales(by_id(b, e["id"]) or {}, by_id(a, e["id"]), ack))
+            elif cap == "unload":
+                if not unload:
+                    print(f"skip  {e.get('name')}: Unload (makes pallets of the tank; --unload presses it)", flush=True)
+                    continue
+                await self.send(f"{e.get('name')}: unload", e, cap,
+                                lambda b, a, ack: judge_unload(by_id(b, e["id"]) or {}, by_id(a, e["id"]), ack))
 
     async def all_row(self) -> None:
         for cap, action in ALL.items():
@@ -327,15 +363,14 @@ def readings(cab: Cab, vehicles: Dict[str, Any]) -> None:
     print("readings (hold them against the game's HUD):")
     for e in cab.get("rig") or []:
         states = {k: e[k] for k in ("lowered", "unfolded", "turnedOn", "discharging", "tipSide", "cover", "pipe",
-                                    "plow", "bales", "tipTo") if k in e}
+                                    "plow", "createFields", "autoDrop", "bales", "doubledRate", "sprayRate", "tipTo")
+                  if k in e}
         print(f"  {'  ' * e.get('depth', 0)}{e.get('name')}{' (selected)' if e.get('selected') else ''}: "
               f"can {', '.join(e.get('can') or []) or '-'}; {json.dumps(states, ensure_ascii=False)}")
         for f in fills.get(e.get("id")) or []:
             print(f"  {'  ' * e.get('depth', 0)}  {f.get('fillTitle')}: {f.get('level'):.0f} / {f.get('capacity')}")
         for cap, why in (e.get("whyNot") or {}).items():
             print(f"  {'  ' * e.get('depth', 0)}  {cap} faded: {why}")
-        if e.get("extraKeys"):
-            print(f"  {'  ' * e.get('depth', 0)}  other keys: {', '.join(k.get('text') for k in e['extraKeys'])}")
     print(flush=True)
 
 
@@ -380,9 +415,9 @@ class Viewer(Rig):
                 self.note("ack", msg)
                 self.acks[msg["id"]] = msg
 
-    async def press(self, action: str, value: Any = None, key: Optional[str] = None) -> Ack:
-        self.note("press", {"action": action, "value": value, **({"key": key} if key is not None else {})})
-        return await super().press(action, value, key)
+    async def press(self, action: str, value: Any = None, tool: Any = None) -> Ack:
+        self.note("press", {"action": action, "value": value, **({"tool": tool} if tool is not None else {})})
+        return await super().press(action, value, tool)
 
     async def settle(self) -> None:
         end = time.monotonic() + 30.0
@@ -407,12 +442,12 @@ async def main_async(args) -> int:
         check = Check(rig)
         if not rig.cab.get("engineOn"):
             print("      starting the engine", flush=True)
-            await rig.press("engine.toggle")
+            await rig.press("engine.set", 1)
             await asyncio.sleep(3.0)
         for e in entries(rig.cab):
             if args.only and args.only.lower() not in str(e.get("name")).lower() and args.only != str(e.get("id")):
                 continue
-            await check.tool(e, args.keys)
+            await check.tool(e, args.unload)
         if not args.only:
             await check.all_row()
         if args.attach:
@@ -431,8 +466,7 @@ async def main_async(args) -> int:
 def main() -> None:
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     p.add_argument("--server", default="http://localhost:8123", help="the companion (python -m companion)")
-    p.add_argument("--keys", choices=("safe", "all", "none"), default="safe",
-                   help="the tools' other keys: all but those that empty a tool (safe), all, or none")
+    p.add_argument("--unload", action="store_true", help="press Unload too (it makes pallets of the tank)")
     p.add_argument("--only", help="only the tools whose name has this, or this id")
     p.add_argument("--trace", help="write every cab, press and answer to this file (ndjson)")
     p.add_argument("--attach", action="store_true", help="end with Attach: refused, then back up to a tool")

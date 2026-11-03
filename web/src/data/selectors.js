@@ -398,21 +398,32 @@ export function screenRig(v, cab) {
     ...implementsOf(v).map((i) => ({ ...i, depth: i.depth || 1 }))];
 }
 
-/** A card's buttons come from these, in this order (mod 0.8.7's `can`). */
-export const CAPABILITIES = ["lower", "fold", "turnOn", "tip", "tipSide", "cover", "pipe", "rotate", "bales", "width",
-  "detach"];
+/**
+ * A card's buttons come from these, in this order (mod 0.13.0's `can`,
+ * specs/0012): each in its row's order whatever the tool.
+ */
+export const CAPABILITIES = ["lower", "fold", "turnOn", "unload", "tip", "tipSide", "cover", "pipe", "rotate",
+  "createFields", "autoDrop", "bales", "doubledRate", "sprayRate", "width", "detach"];
 
 /**
- * The capabilities with a button: the ones confirmed in game (spec 0003's
- * close). Cover, rotate and bales wait for their own spec; until then the
- * mod sends their keys among the selected tool's other keys (mod 0.8.17).
- * The width (mod 0.12.0, specs/0011): only where the game's width keys are
- * live; its four buttons have their own row.
+ * The capabilities with a button: our fixed list, one per action (specs/0012,
+ * rule 4). One a newer mod sends that isn't here has none. The width's
+ * four buttons have their own row (specs/0011).
  */
-export const BUTTON_CAPABILITIES = ["lower", "fold", "turnOn", "tip", "tipSide", "pipe", "width", "detach"];
+export const BUTTON_CAPABILITIES = CAPABILITIES;
+
+/**
+ * Under a card's More, collapsed (specs/0012): the plow's Rotate and Create
+ * fields, the baler's Automatic drop and Reset bale count, Doubled rate,
+ * and Precision Farming's Application rate (one row: Rate −, Auto, Rate +).
+ */
+export const MORE_CAPABILITIES = ["rotate", "createFields", "autoDrop", "bales", "doubledRate", "sprayRate"];
 
 /** What a rig member's card has buttons for. @param {import("../types.js").RigEntry} e */
 export const buttonCapsOf = (e) => canOf(e).filter((c) => BUTTON_CAPABILITIES.includes(c));
+
+/** How many things are under a card's More ("More · 2"). @param {import("../types.js").RigEntry} e */
+export const moreCount = (e) => buttonCapsOf(e).filter((c) => MORE_CAPABILITIES.includes(c)).length;
 
 /**
  * What a rig member can do: the mod's `can`, read from the game's parts
@@ -482,9 +493,11 @@ export const alsoAttached = (v, cab) => drivingOrder(screenRig(v, cab))
 /**
  * The All row: a button for each capability two or more cards share, each
  * asking for the state its label names (value 1: folded, lowered, on,
- * tipping; specs/0008). Fold, lower and turn on all are the game's own keys
- * where they give that state; tip all acts on each in turn. Turn on all
- * waits while one of them is folded.
+ * tipping, open; specs/0008). Fold, lower and turn on all are the game's
+ * own keys where they give that state; tip and cover all act on each in
+ * turn. Turn on all waits while one of them is folded. The rig's tools'
+ * buttons decide them, so they don't come and go while the rig is the same
+ * (specs/0012).
  * @param {import("../types.js").RigEntry[]} cards
  * @returns {AllAction[]}
  */
@@ -524,6 +537,11 @@ export function allActions(cards) {
   add("tip", (list) => {
     const on = list.every((e) => e.discharging === true);
     return { action: "implement.tipAll", value: on ? 0 : 1, on, label: on ? "Stop all" : "Tip all" };
+  });
+  // value 1: open; lit while all are open, as each card's Cover
+  add("cover", (list) => {
+    const on = list.every((e) => e.cover?.open === true);
+    return { action: "implement.coverAll", value: on ? 0 : 1, on, label: on ? "Cover all" : "Uncover all" };
   });
   return out;
 }

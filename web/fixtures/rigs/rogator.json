@@ -1,0 +1,102 @@
+{
+ "rig": "rogator",
+ "source": "mod/tests/fixtures/spike0012/rogator.json, through the mod's Cab collector",
+ "cab": {
+  "aiActive": false,
+  "engineOn": false,
+  "engineState": "off",
+  "hitched": false,
+  "implements": [],
+  "inVehicle": true,
+  "keys": {
+   "fold": 529,
+   "turnOn": 529,
+   "unload": 529
+  },
+  "lights": {
+   "beacon": false,
+   "hazard": false,
+   "high": false,
+   "left": false,
+   "on": false,
+   "right": false
+  },
+  "rig": [
+   {
+    "can": [
+     "fold",
+     "turnOn",
+     "unload",
+     "sprayRate"
+    ],
+    "canTurnOn": true,
+    "depth": 0,
+    "foldMoving": false,
+    "foldable": true,
+    "id": 529,
+    "name": "Fendt Rogator 937H",
+    "selectable": true,
+    "selected": true,
+    "sprayRate": {
+     "auto": true,
+     "max": 45,
+     "min": 1,
+     "step": 1
+    },
+    "turnedOn": false,
+    "unfolded": true,
+    "width": {
+     "center": true,
+     "left": 4,
+     "leftMax": 4,
+     "right": 4,
+     "rightMax": 4
+    }
+   }
+  ],
+  "vehicleId": 529
+ },
+ "vehicles": {
+  "controlledId": 529,
+  "vehicles": [
+   {
+    "id": 529,
+    "name": "Fendt Rogator 937H",
+    "brand": "Fendt",
+    "category": "sprayers",
+    "categoryTitle": "Sprayers",
+    "typeName": "selfPropelledSprayer",
+    "fills": [
+     {
+      "unit": 1,
+      "level": 4812.9,
+      "capacity": 4921,
+      "fillType": "liquidfertilizer",
+      "fillTitle": "Liquidfertilizer"
+     }
+    ],
+    "wear": 0.23,
+    "speed": 8.4,
+    "engineOn": true,
+    "fuel": 280,
+    "fuelCapacity": 400,
+    "motorized": true,
+    "implements": []
+   }
+  ]
+ },
+ "expect": {
+  "cards": [
+   "Rogator 937H: Fold:on, Turn on:off, Unload:off, More · 1:off"
+  ],
+  "selected": "Rogator 937H",
+  "also": [],
+  "all": [],
+  "width": [
+   "Rogator 937H: ■■■■■■■■■ 9 / 9 sections: "
+  ],
+  "more": [
+   "Rogator 937H: Rate −:unavailable, Auto:on, Rate +:unavailable"
+  ]
+ }
+}

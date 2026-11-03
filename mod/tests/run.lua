@@ -982,12 +982,24 @@ test("commands: keyed by the dashboard's name, each checks its value (specs/0007
     eq(send("cruise.set", 251).reason, "value not allowed")
     eq(send("cruise.set", 30).ok, true)
     eq(vehicle.spec_drivable.cruiseControl.speed, 30)
-    -- an other key by its input action's name (specs/0011 fix 1), never a number
-    eq(send("implement.key").reason, "value not allowed", "the key's name is needed")
-    eq(send("implement.key", 1).reason, "value not allowed", "not by number")
-    eq(send("implement.key", 1, nil, "UNLOAD").reason, "value not allowed")
-    eq(send("implement.key", nil, nil, "UNLOAD bad").reason, "value not allowed", "an input action's name")
-    eq(send("beacon.set", 1, nil, "UNLOAD").reason, "value not allowed", "a key only on implement.key")
+    -- specs/0012: no other keys. implement.key, implement.rotate and
+    -- implement.baleReset are gone, and no command carries a key
+    for _, old in ipairs({ "implement.key", "implement.rotate", "implement.baleReset" }) do
+        eq(Companion.Commands.ACTIONS[old], nil, old .. " is gone")
+    end
+    eq(send("implement.key", nil, nil, "UNLOAD").reason, "action not allowed")
+    eq(send("beacon.set", 1, nil, "UNLOAD").reason, "value not allowed", "a key field is refused")
+    eq(send("tool.lower", 1, 4, "LOWER_IMPLEMENT").reason, "value not allowed")
+    -- the new tool actions' values: a one-shot carries none, a step -1 or 1
+    eq(send("tool.unload", 1, 4).reason, "value not allowed", "a one-shot: no value")
+    eq(send("tool.unload").reason, "value not allowed", "its tool is needed")
+    eq(send("tool.resetBales", 0, 4).reason, "value not allowed")
+    eq(send("tool.sprayRate", 0, 4).reason, "value not allowed", "a step: -1 or 1")
+    eq(send("tool.sprayRate", 2, 4).reason, "value not allowed")
+    for _, set in ipairs({ "tool.rotate", "tool.createFields", "tool.autoDrop", "tool.doubledRate", "tool.sprayRateAuto" }) do
+        eq(send(set, 2, 4).reason, "value not allowed", set .. ": a state")
+        eq(send(set, 1).reason, "value not allowed", set .. ": its tool")
+    end
     eq(send("implement.tipAll", 2).reason, "value not allowed")
     eq(send("implement.select", -1).reason, "value not allowed")
     eq(send("implement.detach").reason, "value not allowed", "detach needs its tool")
@@ -1852,9 +1864,11 @@ test("commands, implement screen: lower all, pipe, unload, cover as their keys, 
     end
     local combine, cutter, trailer = harvestRig()
     -- Lower all is checked (spec 0003 revision 2): the combo lowers the
-    -- header, as Ctrl+V; a trailer doesn't lower
+    -- header, as Ctrl+V; a trailer doesn't lower (specs/0012: its joint
+    -- says, the header's lowers)
     cutter.lowered = false
     cutter.getIsLowered = function(self) return self.lowered end
+    cutter.getActiveInputAttacherJoint = function() return { allowsLowering = true } end
     combine.startAttacherJointCombo = function(self)
         self.combo = self.combo + 1
         cutter.lowered = not cutter.lowered
@@ -2200,7 +2214,8 @@ test("capabilities: every census type, from its parts and what they hold; an unk
         -- each capability comes with its state
         for _, c in ipairs(f.can) do
             local state = ({ lower = f.lowered, turnOn = f.turnedOn, tipSide = f.tipSide, cover = f.cover,
-                pipe = f.pipe, rotate = f.plow, bales = f.bales, fold = f.foldMoving, tip = true, detach = true })[c]
+                pipe = f.pipe, rotate = f.plow, bales = f.bales, fold = f.foldMoving, tip = true, detach = true,
+                createFields = f.createFields })[c]
             assert(state ~= nil, name .. ": " .. c .. " without its state")
         end
     end
@@ -2208,25 +2223,36 @@ test("capabilities: every census type, from its parts and what they hold; an unk
     -- spike counted them; a sprayer's Dischargeable isn't tipping
     for cap, spec in pairs({ fold = "foldable", turnOn = "turnOnVehicle", cover = "cover", pipe = "pipe",
         rotate = "plow", detach = "attachable", lower = "attachable", tip = "trailer", tipSide = "trailer",
-        bales = "baleCounter" }) do
+        bales = "baleCounter", createFields = "plow" }) do
         eq(full[cap], present[spec], cap .. " with full parts")
     end
     eq(full.fold, census.perCapability.fold, "fold, as the spike's census")
     eq(full.tip, 24, "tip: trailers only, not every Dischargeable (75)")
-    -- with every part empty: only Detach, and the bale counter (it holds no part)
+    -- what the census can't say: no unloading places, toggleable drop,
+    -- slurry tanker or Precision Farming rate in it (specs/0012)
+    for _, cap in ipairs({ "unload", "autoDrop", "doubledRate", "sprayRate", "width" }) do
+        eq(full[cap], nil, cap .. ": not from the part alone")
+    end
+    -- with every part empty: only Detach, the bale counter and a plow's
+    -- create fields (they hold no part: every plow has the key)
     for cap in pairs(full) do
-        eq(empty[cap], (cap == "detach" or cap == "bales") and full[cap] or nil, cap .. " with empty parts")
+        eq(empty[cap], (cap == "detach" or cap == "bales" or cap == "createFields") and full[cap] or nil,
+            cap .. " with empty parts")
     end
 end)
 
-test("capabilities: spike 0.0.4's rigs give each member its buttons, can't-now reasons and the selected one's keys", function()
+test("capabilities: spike 0.0.4's rigs give each member its buttons and can't-now reasons, no other keys", function()
     local VS = Companion.VehicleState
+    -- specs/0012: from the parts. The sprayer's Unload from its unloading
+    -- places (the key the game registers only then), no width with
+    -- Precision Farming's sprayer part; the plow's create fields; the
+    -- baler's pickup lowers itself and its drop toggles
     local expect = {
         mowers = { [992] = "", [994] = "lower,fold,turnOn,detach", [996] = "lower,fold,turnOn,detach" },
         trailers = { [998] = "", [1003] = "tip,tipSide,detach", [1004] = "tip,tipSide,detach" },
-        sprayer = { [1033] = "", [1031] = "fold,turnOn,detach" },
-        plow = { [1035] = "", [1037] = "lower,fold,rotate,detach" },
-        baler = { [1035] = "", [1041] = "turnOn,bales,detach" },
+        sprayer = { [1033] = "", [1031] = "fold,turnOn,unload,detach" },
+        plow = { [1035] = "", [1037] = "lower,fold,rotate,createFields,detach" },
+        baler = { [1035] = "", [1041] = "lower,turnOn,autoDrop,bales,detach" },
         weight = { [1035] = "", [1044] = "lower,detach" },
         truck = { [1053] = "fold", [1051] = "lower,tip,tipSide,detach" },
         attach = { [514] = "" },
@@ -2260,22 +2286,23 @@ test("capabilities: spike 0.0.4's rigs give each member its buttons, can't-now r
     eq(t.index .. "/" .. t.count .. " " .. tostring(t.name), "2/4 nil", "not selected: no label")
     eq(rigs.truck[1051].tipSide.name, "Back")
     eq(rigs.plow[1037].plow.rotated, false)
+    eq(rigs.plow[1037].createFields, false, "limited to fields: no fields made")
     eq(rigs.baler[1041].bales.count, 0)
+    eq(rigs.baler[1041].autoDrop, true)
+    eq(rigs.baler[1041].lowered, false, "the pickup raised")
     eq(rigs.trailers[1004].discharging, false)
     eq(rigs.mowers[996].lowered, true)
-    -- the selected one's other keys, each once, by input action; a
-    -- capability with no button yet (rotate, bales: spec 0003's close)
-    -- leaves its key there
-    eq(joined(rigs.plow[1037].extraKeys), "Rotate plow,Allow create fields")
-    eq(joined(rigs.baler[1041].extraKeys), "Reset bale counter,Turn on automatic drop,Lower pickup",
-        "the pickup lowers by its own key")
-    eq(joined(rigs.sprayer[1031].extraKeys), "Dump,Dump on ground,Unload", "a sprayer's dump isn't tipping")
-    eq(rigs.mowers[996].extraKeys, nil, "all covered")
-    eq(rigs.mowers[994].extraKeys, nil, "not selected")
-    eq(rigs.attach[514].extraKeys, nil, "the tractor's own: Detach and Attach aren't")
-    -- live (0.8.7): folded, getCanBeTurnedOn is false and Turn on went,
-    -- while its key came back as an other key ("Turn on mower"). Folded,
-    -- Turn on stays, unavailable; the turn on key is never an other key
+    -- a sprayer's dump isn't tipping; its sections stay read-only with
+    -- Precision Farming (the probe, 2026-11-02)
+    eq(rigs.sprayer[1031].width.left, 4, "the strip")
+    -- specs/0012: no list of the keys the game registered, on any entry
+    for name, byId in pairs(rigs) do
+        for id, e in pairs(byId) do
+            eq(e.extraKeys, nil, name .. " " .. id .. ": no other keys")
+        end
+    end
+    -- live (0.8.7): folded, getCanBeTurnedOn is false and Turn on went.
+    -- Folded, Turn on stays, unavailable, with the game's words
     local root, byId = SpikeRigs.rig(spikeDump("mowers"), SIDES)
     byId[996]:setFoldState(1)
     byId[996].getTurnedOnNotAllowedWarning = function() return "First unfold the tool" end
@@ -2289,9 +2316,8 @@ test("capabilities: spike 0.0.4's rigs give each member its buttons, can't-now r
     eq(joined(rear.can), "lower,fold,turnOn,detach", "folded: Turn on stays")
     eq(rear.canNow.turnOn, false)
     eq(rear.whyNot.turnOn, "First unfold the tool", "the game's warning")
-    eq(rear.extraKeys, nil, "its turn on key isn't an other key")
     -- the engine off: Turn on stays, faded with the engine's words
-    -- (specs/0011 fix 5), and still no key
+    -- (specs/0011 fix 5)
     byId[996]:setFoldState(-1)
     byId[996].getTurnedOnNotAllowedWarning = nil
     VS.rig(root)
@@ -2305,7 +2331,6 @@ test("capabilities: spike 0.0.4's rigs give each member its buttons, can't-now r
     eq(joined(rear.can), "lower,fold,turnOn,detach", "engine off")
     eq(rear.canNow.turnOn, false)
     eq(rear.whyNot.turnOn, SpikeRigs.START_ENGINE)
-    eq(rear.extraKeys, nil, "its turn on key isn't an other key")
     root.engineOff = nil
     -- live (0.8.8): the engine off, the fold keys only got the game's
     -- warning, while getIsFoldAllowed said yes
@@ -2324,6 +2349,245 @@ test("capabilities: spike 0.0.4's rigs give each member its buttons, can't-now r
     eq(rear.whyNot.lower, "Please start the engine first")
     g_inputBinding = nil
     localToLocal = nil
+end)
+
+-- Card buttons (specs/0012) --------------------------------------------------
+-- A card's buttons come from what the tool is: its parts and the settings
+-- they were loaded with. Spike 0.0.9's probe (mod/tests/fixtures/spike0012/):
+-- the ARION 410 with the W 600 and the Berthoud (Precision Farming), the
+-- engine off and on; the DINO II and the Rogator 937H, self-propelled.
+
+local PROBE = MOD_ROOT .. "tests/fixtures/spike0012/"
+local function probeDump(name)
+    return SpikeRigs.decode(SpikeRigs.readFile(PROBE .. name .. ".json"))
+end
+local function rigById(root)
+    local out = {}
+    for _, e in ipairs(Companion.VehicleState.rig(root)) do
+        out[e.id] = e
+    end
+    return out
+end
+
+test("capabilities: the same can engine off and on, folded or not, selected or not, unloading or not (specs/0012)", function()
+    local VS = Companion.VehicleState
+    local off = rigById((SpikeRigs.rig(probeDump("arion-off"))))
+    local on = rigById((SpikeRigs.rig(probeDump("arion-on"))))
+    -- the ARION never a card's (no part of its own), the W 600 Lower and
+    -- Detach only (no turn on part at all: the probe)
+    local expect = { [531] = "", [530] = "fold,turnOn,unload,sprayRate,detach", [504] = "lower,detach" }
+    for id, can in pairs(expect) do
+        eq(joined(off[id].can), can, "the engine off: " .. id)
+        eq(joined(on[id].can), can, "the engine on: " .. id)
+    end
+    -- only canNow and whyNot change, with the game's words
+    local b = off[530]
+    eq(b.canNow.turnOn, false)
+    eq(b.whyNot.turnOn, "Attach tool to vehicle with a turned-on motor!", "TurnOnVehicle's warning")
+    eq(b.canNow.fold, false)
+    eq(b.whyNot.fold, "Please start the engine first!")
+    eq(b.canNow.sprayRate, false, "the rate needs power")
+    eq(b.canNow.unload, nil, "unloading needs none")
+    eq(off[504].canNow.lower, false)
+    eq(on[530].canNow, nil, "the engine on: nothing faded")
+    eq(on[504].canNow, nil)
+    eq(on[531].canNow, nil)
+    -- the state the labels read
+    local rate = on[530].sprayRate
+    eq(tostring(rate.auto) .. " " .. rate.step .. " " .. rate.min .. " " .. rate.max, "true 1 1 45")
+    eq(on[530].width.left, 4, "the strip, read-only with Precision Farming")
+    eq(on[530].doubledRate, nil, "a fertilizer sprayer: no doubled rate (Sprayer)")
+    eq(on[530].extraKeys, nil)
+    -- the self-propelled ones: their own card, no Detach
+    for _, name in ipairs({ "dino", "rogator" }) do
+        local root = SpikeRigs.rig(probeDump(name))
+        eq(joined(VS.rig(root)[1].can), "fold,turnOn,unload,sprayRate", name)
+    end
+    -- whatever the game does now, every entry keeps its can
+    local root, byId = SpikeRigs.rig(probeDump("arion-on"))
+    local base = {}
+    for id, e in pairs(rigById(root)) do
+        base[id] = joined(e.can)
+    end
+    local function same(what)
+        for id, e in pairs(rigById(root)) do
+            eq(joined(e.can), base[id], what .. ": " .. id)
+        end
+    end
+    local berthoud = byId[530]
+    berthoud:setFoldState(1)
+    local folded = rigById(root)[530]
+    eq(folded.unfolded, false)
+    eq(folded.canNow.turnOn, false, "folded: faded")
+    eq(folded.whyNot.turnOn, "You first need to unfold the tool (sprayer)!", "Foldable's words")
+    same("folded")
+    berthoud:setFoldState(-1)
+    root:setSelectedObject(root.selectableObjects[1])
+    SpikeRigs.registerKeys(root)
+    eq(root:getSelectedVehicle().id, 531)
+    same("the tractor selected")
+    root:setSelectedObject(root.selectableObjects[2])
+    SpikeRigs.registerKeys(root)
+    same("the Berthoud selected, its keys live")
+    berthoud.spec_fillUnit.unloadingFillUnitsRunning = true
+    local unloading = rigById(root)[530]
+    eq(unloading.canNow.unload, false, "while it unloads: faded")
+    eq(unloading.canNow.turnOn, nil, "Turn on stays as it was")
+    same("unloading")
+    berthoud.spec_fillUnit.unloadingFillUnitsRunning = false
+    berthoud.spec_fillUnit.fillUnits[1].fillLevel = 0
+    local empty = rigById(root)[530]
+    eq(empty.canNow.unload, false)
+    eq(empty.whyNot.unload, "Nothing to unload")
+    same("empty")
+    root.engineOff = true
+    same("the engine off")
+    g_inputBinding = nil
+    localToLocal = nil
+end)
+
+test("turn on: only where its settings let it be toggled, whatever it can do now (specs/0012)", function()
+    local VS = Companion.VehicleState
+    local function tool(settings, joint)
+        local o = { id = 600, typeName = "implement", spec_turnOnVehicle = settings }
+        o.getCanBeTurnedOn = function() return false end
+        o.getIsTurnedOn = function() return false end
+        o.getActiveInputAttacherJoint = function() return joint end
+        return o
+    end
+    -- TurnOnVehicle: no key on a tool its tractor turns on, nor on one
+    -- that's always on; nor when its joint never turns it on
+    eq(joined(VS.capabilities(tool({ isAlwaysTurnedOn = false, turnedOnByAttacherVehicle = true }), {}, 1).can),
+        "detach", "turned on by its tractor")
+    eq(joined(VS.capabilities(tool({ isAlwaysTurnedOn = true, turnedOnByAttacherVehicle = false }), {}, 0).can),
+        "", "always on")
+    eq(joined(VS.capabilities(tool({ isAlwaysTurnedOn = false, turnedOnByAttacherVehicle = false },
+        { canBeTurnedOn = false }), {}, 1).can), "detach", "its joint never turns it on")
+    -- the settings decide, not getCanToggleTurnedOn now (a sprayer's asks
+    -- its tank too: Sprayer); the game's "not now" only fades it
+    local s = tool({ isAlwaysTurnedOn = false, turnedOnByAttacherVehicle = false }, { canBeTurnedOn = true })
+    s.getCanToggleTurnedOn = function() return false end
+    local e = VS.capabilities(s, {}, 1)
+    eq(joined(e.can), "turnOn,detach")
+    eq(e.canNow.turnOn, false, "getCanBeTurnedOn false: faded")
+    -- no settings to read: getCanToggleTurnedOn
+    local other = tool({})
+    other.getCanToggleTurnedOn = function() return false end
+    eq(joined(VS.capabilities(other, {}, 1).can), "detach")
+    other.getCanToggleTurnedOn = function() return true end
+    eq(joined(VS.capabilities(other, {}, 1).can), "turnOn,detach")
+    g_inputBinding = nil
+end)
+
+test("capabilities: each new button from its part, faded as the game says (specs/0012)", function()
+    local VS = Companion.VehicleState
+    local function caps(o, depth)
+        return VS.capabilities(o, VS.extras(o, {}), depth or 1)
+    end
+    local function unpowered(o)
+        o.getIsPowered = function() return false, "Please start the engine first!" end
+    end
+    -- Unload: from the unloading places (FillUnit registers UNLOAD only then)
+    local tank = { id = 70, typeName = "seeder", spec_fillUnit = { fillUnits = { { fillLevel = 500 } } } }
+    eq(joined(caps(tank).can), "detach", "no unloading places")
+    tank.spec_fillUnit.unloading = { {} }
+    local e = caps(tank)
+    eq(joined(e.can), "unload,detach")
+    eq(e.canNow, nil)
+    tank.spec_fillUnit.unloadingFillUnitsRunning = true
+    eq(caps(tank).canNow.unload, false, "while it unloads")
+    tank.spec_fillUnit.unloadingFillUnitsRunning = false
+    tank.spec_fillUnit.fillUnits[1].canBeUnloaded = false
+    e = caps(tank)
+    eq(e.canNow.unload, false)
+    eq(e.whyNot.unload, "Nothing to unload", "a unit that can't be unloaded")
+    tank.spec_fillUnit.fillUnits[1].canBeUnloaded = nil
+    tank.spec_fillUnit.fillUnits[1].fillLevel = 0
+    e = caps(tank)
+    eq(e.whyNot.unload, "Nothing to unload", "empty")
+    eq(joined(e.can), "unload,detach", "still there")
+    -- Create fields: every plow, unless forced to its fields; the player's
+    -- permission fades it
+    local plow = { id = 71, typeName = "plow", spec_plow = { limitToField = true, rotationPart = {} } }
+    e = caps(plow)
+    eq(joined(e.can), "createFields,detach")
+    eq(e.createFields, false, "limited to fields")
+    plow.spec_plow.limitToField = false
+    eq(caps(plow).createFields, true)
+    plow.getPlowForceLimitToField = function() return true end
+    eq(joined(caps(plow).can), "detach", "forced, or the platform can't")
+    plow.getPlowForceLimitToField = function() return false end
+    g_currentMission = { getHasPlayerPermission = function(_, name) return name ~= "createFields" end }
+    e = caps(plow)
+    eq(joined(e.can), "createFields,detach")
+    eq(e.canNow.createFields, false, "without the permission")
+    g_currentMission = nil
+    -- Rotate: faded while the game won't turn it (Plow getCanTogglePlowRotation)
+    plow.spec_plow.rotationPart = { turnAnimation = "turn" }
+    plow.spec_plow.rotationMax = true
+    plow.getCanTogglePlowRotation = function() return false end
+    e = caps(plow)
+    eq(joined(e.can), "rotate,createFields,detach")
+    eq(e.plow.rotated, true)
+    eq(e.canNow.rotate, false)
+    -- Automatic drop: only where it toggles; the platform's own setting
+    local baler = { id = 72, typeName = "baler", spec_baler = { automaticDrop = true, toggleableAutomaticDrop = false } }
+    eq(joined(caps(baler).can), "detach")
+    baler.spec_baler.toggleableAutomaticDrop = true
+    e = caps(baler)
+    eq(joined(e.can), "autoDrop,detach")
+    eq(e.autoDrop, true)
+    baler.spec_baler.hasPlatform, baler.spec_baler.platformAutomaticDrop = true, false
+    eq(caps(baler).autoDrop, false, "a platform")
+    unpowered(baler)
+    eq(caps(baler).canNow.autoDrop, false, "no power: its key is a powered one")
+    -- Reset bale count: the bale counter
+    baler.spec_baleCounter = { sessionCounter = 7, lifetimeCounter = 90 }
+    e = caps(baler)
+    eq(joined(e.can), "autoDrop,bales,detach")
+    eq(e.bales.count, 7)
+    eq(e.canNow.bales, false, "no power")
+    -- Doubled rate: a slurry tanker or a manure spreader, never a fertilizer
+    -- sprayer (Sprayer getSprayerDoubledAmountActive; Vincent, 2026-11-03)
+    local function sprayer(fertilizer, allowed)
+        local o = { id = 73, typeName = "sprayer", spec_sprayer = { isFertilizerSprayer = fertilizer,
+            doubledAmountIsActive = false, workAreaParameters = { sprayType = 3 } } }
+        o.getSprayerDoubledAmountActive = function(self, sprayType)
+            return self.spec_sprayer.doubledAmountIsActive, allowed and sprayType == 3
+        end
+        return o
+    end
+    eq(joined(caps(sprayer(true, false)).can), "detach", "a fertilizer sprayer")
+    e = caps(sprayer(false, true))
+    eq(joined(e.can), "doubledRate,detach")
+    eq(e.doubledRate, false)
+    eq(e.canNow, nil)
+    eq(caps(sprayer(false, false)).canNow.doubledRate, false, "not for this spray type")
+    -- Application rate: Precision Farming's sprayer part, where its mode may change
+    local pfPart = { sprayAmountAutoMode = false, sprayAmountAutoModeChangeAllowed = true, sprayAmountManual = 12,
+        sprayAmountManualMin = 1, sprayAmountManualMax = 45 }
+    local pf = { id = 74, typeName = "sprayer", ["spec_FS25_precisionFarming.extendedSprayer"] = pfPart }
+    e = caps(pf)
+    eq(joined(e.can), "sprayRate,detach")
+    eq(tostring(e.sprayRate.auto) .. " " .. e.sprayRate.step .. " " .. e.sprayRate.min .. " " .. e.sprayRate.max,
+        "false 12 1 45")
+    unpowered(pf)
+    eq(caps(pf).canNow.sprayRate, false, "no power")
+    pfPart.sprayAmountAutoModeChangeAllowed = false
+    eq(joined(caps(pf).can), "detach", "its mode can't change")
+    -- the width: its four buttons with sections and no Precision Farming
+    -- sprayer part; with one, the strip alone (the probe)
+    local boom = { id = 75, typeName = "sprayer", spec_variableWorkWidth = { hasSections = true, isActive = true,
+        leftSide = 4, leftSideMax = 4, rightSide = 4, rightSideMax = 4, hasCenter = true } }
+    eq(joined(caps(boom).can), "width,detach")
+    boom.spec_variableWorkWidth.isActive = false
+    e = caps(boom)
+    eq(e.canNow.width, false, "partial width off for its spray type")
+    eq(e.whyNot.width, "This spray type has no partial width")
+    boom["spec_FS25_precisionFarming.extendedSprayer"] = { sprayAmountAutoModeChangeAllowed = false }
+    e = caps(boom)
+    eq(joined(e.can), "detach", "Precision Farming takes the sections over")
+    eq(e.width.left, 4, "the strip stays")
 end)
 
 test("cab: attachable follows the game's attach prompt", function()
@@ -2346,9 +2610,10 @@ test("cab: attachable follows the game's attach prompt", function()
     localToLocal = nil
 end)
 
--- a command queue on a spike rig: each poll is a game frame
-local function spikeCommands(name)
-    local root, byId = SpikeRigs.rig(spikeDump(name), SIDES)
+-- a command queue on a spike rig (spike 0.0.4's by name, else `dump`):
+-- each poll is a game frame
+local function spikeCommands(name, dump)
+    local root, byId = SpikeRigs.rig(dump or spikeDump(name), SIDES)
     local dir = TMP_DIR .. "/c0003" .. name .. "_"
     local write = commandStubs(dir)
     local commands = Companion.Commands.new(dir, "S7", function() end)
@@ -2406,7 +2671,7 @@ test("commands, aimed: a tool's id selects it, presses its key, puts the selecti
     ack = run("implement.detach", 996)
     eq(ack.reason, "You first need to fold up the tool (mower)!")
     -- what it can't do at all, and an id not in the rig
-    eq(run("implement.rotate", 994).reason, "can't rotate")
+    eq(run("tool.rotate", 1, 994).reason, "can't rotate")
     eq(run("tool.lower", 1, 4242).reason, "not attached")
     -- lower: the tractor's key acts on the selected mower (attacher joints)
     table.insert(root.dump.keys.attacherJoints, { action = "LOWER_IMPLEMENT", active = true, text = "Lower mower" })
@@ -2444,27 +2709,160 @@ test("commands, aimed: a tool's id selects it, presses its key, puts the selecti
     eq(ack.already, true)
     eq(frames, 1)
     eq(pressed(), "")
-    -- the selected tool's other keys, by their input action's name: Rotate
-    -- plow, then Allow create fields (rotate has no button yet: spec 0003's
-    -- close)
-    run, root, byId, pressed = spikeCommands("plow")
-    ack = run("implement.key", nil, nil, nil, "IMPLEMENT_EXTRA")
-    eq(ack.via, "IMPLEMENT_EXTRA", "Rotate plow")
-    eq(pressed(), "1037:IMPLEMENT_EXTRA")
-    ack = run("implement.key", nil, nil, nil, "IMPLEMENT_EXTRA3")
-    eq(ack.via, "IMPLEMENT_EXTRA3", "Allow create fields")
-    eq(pressed(), "1037:IMPLEMENT_EXTRA3")
-    eq(run("implement.key", nil, nil, nil, "IMPLEMENT_EXTRA4").reason, "no such key")
-    eq(run("implement.key", nil, nil, nil, "LOWER_IMPLEMENT").reason, "no such key", "a button's key isn't an other key")
-    eq(pressed(), "")
-    ack = run("implement.rotate")
-    eq(ack.via, "IMPLEMENT_EXTRA", "rotate: the selected plow")
-    eq(pressed(), "1037:IMPLEMENT_EXTRA")
     run, root, byId, pressed = spikeCommands("trailers")
     ack = run("implement.tipSide", 1003)
     eq(ack.via, "TOGGLE_TIPSIDE")
     eq(pressed(), "1003:TOGGLE_TIPSIDE")
     eq(root:getSelectedVehicle().id, 1004)
+    g_inputBinding = nil
+    localToLocal = nil
+end)
+
+-- specs/0012: each new button presses its own tool's key (aimed, specs/0009),
+-- a switch answers ok once its state reads back, a one-shot once what it
+-- starts does; already there, nothing runs
+test("commands, card buttons: each presses its key on its own tool and answers by its state (specs/0012)", function()
+    if TMP_DIR == nil then
+        return
+    end
+    local C = Companion.Commands
+    C.CHECK_MAX_FRAMES = 5
+    -- the plow (selected): Rotate and Create fields, at once
+    local run, root, byId, pressed = spikeCommands("plow")
+    local plow = byId[1037]
+    local ack, frames = run("tool.rotate", 1, 1037)
+    eq(ack.ok, true, "rotate: " .. tostring(ack.reason))
+    eq(ack.checked, true)
+    eq(ack.via, "IMPLEMENT_EXTRA")
+    eq(pressed(), "1037:IMPLEMENT_EXTRA", "the plow's key, on it alone")
+    eq(plow.spec_plow.rotationMax, true)
+    eq(frames, 1)
+    eq(run("tool.rotate", 1, 1037).already, true, "rotated already")
+    eq(pressed(), "")
+    ack = run("tool.createFields", 1, 1037)
+    eq(ack.ok, true, "create fields: " .. tostring(ack.reason))
+    eq(ack.via, "IMPLEMENT_EXTRA3")
+    eq(plow.spec_plow.limitToField, false, "it makes fields")
+    eq(run("tool.createFields", 1, 1037).already, true)
+    -- the tractor selected in game: the plow's key all the same, the
+    -- selection put back
+    root:setSelectedObject(root.selectableObjects[1])
+    SpikeRigs.registerKeys(root)
+    pressed()
+    ack, frames = run("tool.rotate", 0, 1037)
+    eq(ack.ok, true, "rotate back, aimed: " .. tostring(ack.reason))
+    eq(pressed(), "1037:IMPLEMENT_EXTRA")
+    eq(frames, 2, "selected, then its key")
+    eq(plow.spec_plow.rotationMax, false)
+    eq(root:getSelectedVehicle().id, 1035, "the selection put back")
+    -- a key that does nothing: Nothing moved
+    plow.stuck = true
+    ack = run("tool.createFields", 0, 1037)
+    plow.stuck = nil
+    eq(ack.ok, false)
+    eq(ack.reason, "Nothing moved")
+    eq(run("implement.rotate", 1037).reason, "action not allowed", "tool.rotate replaces it")
+    -- the baler: Automatic drop (the baler's and the wrapper's key, as one
+    -- press runs both), Reset bale count, the pickup's own Lower
+    run, root, byId, pressed = spikeCommands("baler")
+    local baler = byId[1041]
+    ack = run("tool.autoDrop", 0, 1041)
+    eq(ack.ok, true, "automatic drop off: " .. tostring(ack.reason))
+    eq(ack.via, "IMPLEMENT_EXTRA4")
+    eq(pressed(), "1041:IMPLEMENT_EXTRA4,1041:IMPLEMENT_EXTRA4", "the wrapper's and the baler's")
+    eq(baler.spec_baler.automaticDrop, false)
+    eq(run("tool.autoDrop", 0, 1041).already, true)
+    baler.spec_baleCounter.sessionCounter = 5
+    ack = run("tool.resetBales", nil, 1041)
+    eq(ack.ok, true, "reset: " .. tostring(ack.reason))
+    eq(ack.via, "BALE_COUNTER_RESET")
+    eq(ack.checked, true)
+    eq(baler.spec_baleCounter.sessionCounter, 0)
+    pressed()
+    ack = run("tool.lower", 1, 1041)
+    eq(ack.ok, true, "lower the pickup: " .. tostring(ack.reason))
+    eq(pressed(), "1041:LOWER_IMPLEMENT", "its own key")
+    eq(baler.lowered, true)
+    -- the Berthoud (the W 600 selected): Unload, the rate, Doubled rate
+    run, root, byId, pressed = spikeCommands("arion-on", probeDump("arion-on"))
+    local berthoud = byId[530]
+    local pf = berthoud.spec_extendedSprayer
+    eq(root:getSelectedVehicle().id, 504, "the W 600 selected")
+    ack, frames = run("tool.unload", nil, 530)
+    eq(ack.ok, true, "unload: " .. tostring(ack.reason))
+    eq(ack.checked, true)
+    eq(ack.via, "UNLOAD")
+    eq(pressed(), "530:UNLOAD")
+    eq(frames, 2, "selected, then its key")
+    eq(berthoud.spec_fillUnit.unloadingFillUnitsRunning, true, "it started")
+    eq(root:getSelectedVehicle().id, 504, "put back")
+    eq(run("tool.unload", nil, 530).ok, false, "while it unloads: refused")
+    eq(pressed(), "")
+    berthoud.spec_fillUnit.unloadingFillUnitsRunning = false
+    berthoud.stuck = true
+    eq(run("tool.unload", nil, 530).reason, "Nothing moved")
+    berthoud.stuck = nil
+    -- the tank's level dropping counts too (unverified which the game shows)
+    berthoud.onKey = function(name)
+        if name == "UNLOAD" then
+            berthoud.spec_fillUnit.fillUnits[1].fillLevel = 3000
+        end
+    end
+    eq(run("tool.unload", nil, 530).ok, true, "the level dropped")
+    berthoud.onKey = nil
+    -- the rate: refused at once while automatic
+    pressed()
+    ack, frames = run("tool.sprayRate", 1, 530)
+    eq(ack.ok, false)
+    eq(ack.reason, "Automatic rate is on")
+    eq(frames, 1)
+    eq(pressed(), "")
+    -- Auto off: the mode key (the probe), checked
+    ack = run("tool.sprayRateAuto", 0, 530)
+    eq(ack.ok, true, "automatic off: " .. tostring(ack.reason))
+    eq(ack.via, "PRECISIONFARMING_SPRAY_AMOUNT_MODE")
+    eq(pf.sprayAmountAutoMode, false)
+    eq(run("tool.sprayRateAuto", 0, 530).already, true)
+    -- a step up, the value the key's input (the probe: 1 -> 2), and back
+    pressed()
+    ack = run("tool.sprayRate", 1, 530)
+    eq(ack.ok, true, "rate +: " .. tostring(ack.reason))
+    eq(ack.via, "PRECISIONFARMING_SPRAY_AMOUNT")
+    eq(pressed(), "530:PRECISIONFARMING_SPRAY_AMOUNT")
+    eq(pf.sprayAmountManual, 2)
+    eq(run("tool.sprayRate", -1, 530).ok, true)
+    eq(pf.sprayAmountManual, 1)
+    -- at an end: refused at once
+    eq(run("tool.sprayRate", -1, 530).reason, "at its limit")
+    pf.sprayAmountManual = 45
+    eq(run("tool.sprayRate", 1, 530).reason, "at its limit")
+    pf.sprayAmountManual = 1
+    berthoud.stuck = true
+    eq(run("tool.sprayRate", 1, 530).reason, "Nothing moved")
+    berthoud.stuck = nil
+    -- the engine off: the game's words
+    root.engineOff = true
+    eq(run("tool.sprayRateAuto", 1, 530).reason, SpikeRigs.START_ENGINE)
+    eq(run("tool.sprayRate", 1, 530).reason, SpikeRigs.START_ENGINE)
+    root.engineOff = nil
+    -- Doubled rate: none on a fertilizer sprayer
+    eq(run("tool.doubledRate", 1, 530).reason, "can't doubledRate")
+    -- made a slurry tanker: its key, checked
+    berthoud.spec_sprayer.isFertilizerSprayer = false
+    for _, k in ipairs(berthoud.dump.keys.sprayer) do
+        if k.action == "DOUBLED_SPRAY_AMOUNT" then
+            k.active = true
+        end
+    end
+    pressed()
+    ack = run("tool.doubledRate", 1, 530)
+    eq(ack.ok, true, "doubled rate: " .. tostring(ack.reason))
+    eq(ack.via, "DOUBLED_SPRAY_AMOUNT")
+    eq(pressed(), "530:DOUBLED_SPRAY_AMOUNT")
+    eq(berthoud.spec_sprayer.doubledAmountIsActive, true)
+    eq(run("tool.doubledRate", 1, 530).already, true)
+    eq(root:getSelectedVehicle().id, 504, "the W 600 still selected")
+    C.CHECK_MAX_FRAMES = 240
     g_inputBinding = nil
     localToLocal = nil
 end)
@@ -2985,7 +3383,7 @@ local function sectionSprayer(left, keys)
     return o
 end
 
-test("sprayer: the width from the boom's sections; absent without or when a read fails; can has width only with sections and their keys", function()
+test("sprayer: the width from the boom's sections; absent without or when a read fails; can has width with sections and no Precision Farming sprayer part", function()
     local VS = Companion.VehicleState
     local o = sectionSprayer(2, true)
     local e = VS.capabilities(o, {}, 1)
@@ -3013,23 +3411,22 @@ test("sprayer: the width from the boom's sections; absent without or when a read
     o.spec_variableWorkWidth = setmetatable({ hasSections = true, leftSideMax = 4, rightSide = 4, rightSideMax = 4 },
         { __index = function(_, k) if k == "leftSide" then error("boom") end end })
     eq(VS.capabilities(o, {}, 1).width, nil, "a read failed")
-    -- its keys never live: the width read-only, no capability
-    local readOnly = sectionSprayer(4, false)
-    e = VS.capabilities(readOnly, {}, 1)
+    -- specs/0012: from what it is, its keys live or not (the game registers
+    -- them only while it's selected)
+    local notSelected = sectionSprayer(4, false)
+    e = VS.capabilities(notSelected, {}, 1)
     eq(e.width.left, 4)
+    eq(joined(e.can), "fold,turnOn,width,detach", "its keys not live: the same")
+    -- Precision Farming's sprayer part takes the sections over and the
+    -- game registers no width key (the probe, 2026-11-02): the strip alone
+    notSelected["spec_FS25_precisionFarming.extendedSprayer"] = {}
+    e = VS.capabilities(notSelected, {}, 1)
+    eq(e.width.left, 4, "the strip stays")
     eq(joined(e.can), "fold,turnOn,detach")
-    -- seen live once (selected), the capability stays while it isn't
-    local seen = sectionSprayer(4, true)
-    VS.capabilities(seen, {}, 1)
-    SpikeRigs.unregister(seen)
-    eq(joined(VS.capabilities(seen, {}, 1).can), "fold,turnOn,width,detach", "kept")
-    -- the width keys have a button: not other keys
-    SpikeRigs.register(seen, "variableWorkWidth", WIDTH_KEYS[1])
-    SpikeRigs.register(seen, "variableWorkWidth", { action = "VARIABLE_WORK_WIDTH_TOGGLE", text = "Toggle partial width" })
-    eq(joined(VS.extraKeys(seen, VS.capabilities(seen, {}, 1).can)), "Toggle partial width")
     -- folded: not now, with the game's words
-    seen.unfolded = false
-    e = VS.capabilities(seen, {}, 1)
+    local folded = sectionSprayer(4, true)
+    folded.unfolded = false
+    e = VS.capabilities(folded, {}, 1)
     eq(e.canNow.width, false)
     eq(e.whyNot.width, "First unfold the sprayer")
     g_inputBinding = nil
@@ -3043,6 +3440,10 @@ test("commands, sprayer: tool.width presses its side's key once, ok once that si
     C.CHECK_MAX_FRAMES = 5
     local run, root, byId, pressed = spikeCommands("sprayer")
     local sprayer = byId[1031]
+    -- without Precision Farming (with it, no width key: the probe); the
+    -- width keys as they may be live then (unverified)
+    sprayer.spec_extendedSprayer = nil
+    sprayer.dump.keys["FS25_precisionFarming.extendedSprayer"] = nil
     sprayer.dump.keys.variableWorkWidth = WIDTH_KEYS
     SpikeRigs.registerKeys(root)
     local spec = sprayer.spec_variableWorkWidth
@@ -3093,91 +3494,6 @@ test("commands, sprayer: tool.width presses its side's key once, ok once that si
     localToLocal = nil
 end)
 
-test("sprayer: the vehicle's own other keys leave out its driving parts' keys", function()
-    local VS = Companion.VehicleState
-    SpikeRigs.binding()
-    local o = { id = 40, typeName = "sprayer" }
-    o.getFullName = function() return "Hardi Rubicon 9000" end
-    o.selectableObjects = { { vehicle = o } }
-    o.getSelectedVehicle = function(self) return self end
-    o.getAttachedImplements = function() return {} end
-    SpikeRigs.register(o, "drivable", { action = "AXIS_ACCELERATE_VEHICLE", text = "Accelerate" })
-    SpikeRigs.register(o, "drivable", { action = "AXIS_MOVE_SIDE_VEHICLE", text = "Steer vehicle" })
-    SpikeRigs.register(o, "honk", { action = "HONK", text = "Honk" })
-    SpikeRigs.register(o, "FS25_precisionFarming.extendedMotorized", { action = "PRECISIONFARMING_TOGGLE_X", text = "Motor info" })
-    SpikeRigs.register(o, "sprayer", { action = "DOUBLED_SPRAY_AMOUNT", text = "Activate doubled application rate" })
-    -- the AI worker's key comes from an AI part not among the driving parts
-    -- (live, the DINO II and the ARION): never a card's, the dashboard has
-    -- its own AI worker button (specs/0011 fix 3)
-    SpikeRigs.register(o, "aiImplement", { action = "TOGGLE_AI", text = "Toggle AI Worker" })
-    local rig = VS.rig(o)
-    eq(rig[1].selected, true, "the vehicle selected")
-    eq(joined(rig[1].extraKeys), "Activate doubled application rate")
-    -- a tool's keys stay as they were, the AI worker's and the axes
-    -- (Accelerate, Steer vehicle) left out there too
-    eq(#VS.extraKeys(o, {}), 3)
-    -- pressing checks the same list (specs/0011 fix 2): no driving key, no
-    -- AI worker, by name
-    if TMP_DIR ~= nil then
-        g_localPlayer = { getCurrentVehicle = function() return o end }
-        local dir = TMP_DIR .. "/c0011own_"
-        local write = commandStubs(dir)
-        local commands = Companion.Commands.new(dir, "S11", function() end)
-        local n = 0
-        local function key(name)
-            n = n + 1
-            write(n, "S11", "implement.key", nil, nil, nil, nil, name)
-            return commands:poll()
-        end
-        eq(key("HONK").reason, "no such key", "a driving key")
-        eq(key("TOGGLE_AI").reason, "no such key", "the AI worker's")
-        eq(#g_inputBinding.pressed, 0)
-        local ack = key("DOUBLED_SPRAY_AMOUNT")
-        eq(ack.ok, true)
-        eq(ack.via, "DOUBLED_SPRAY_AMOUNT")
-        eq(g_inputBinding.pressed[1].action, "DOUBLED_SPRAY_AMOUNT")
-        g_localPlayer = nil
-    end
-    g_inputBinding = nil
-end)
-
--- live (0.12.1): "Dump on ground" pressed Unload, as Activate doubled
--- application rate came and went before it in the list (21 times in one
--- session)
-test("commands, sprayer: an other key by name presses that key whatever came and went before it (specs/0011 fix 1)", function()
-    if TMP_DIR == nil then
-        return
-    end
-    local VS = Companion.VehicleState
-    local run, root, byId, pressed = spikeCommands("sprayer")
-    local doubled = g_inputBinding.actionEvents[g_inputBinding.nameActions.DOUBLED_SPRAY_AMOUNT][1]
-    local function keys()
-        for _, e in ipairs(VS.rig(root)) do
-            if e.id == 1031 then
-                return joined(e.extraKeys)
-            end
-        end
-    end
-    doubled.isActive = true
-    eq(keys(), "Activate doubled application rate,Dump,Dump on ground,Unload", "the card's list")
-    doubled.isActive = false
-    eq(keys(), "Dump,Dump on ground,Unload", "gone by the press")
-    local ack = run("implement.key", nil, nil, nil, "TOGGLE_TIPSTATE_GROUND")
-    eq(ack.ok, true, "dump on ground: " .. tostring(ack.reason))
-    eq(ack.via, "TOGGLE_TIPSTATE_GROUND")
-    eq(pressed(), "1031:TOGGLE_TIPSTATE_GROUND", "Dump on ground, on the sprayer")
-    -- a key that went: refused, nothing pressed
-    eq(run("implement.key", nil, nil, nil, "DOUBLED_SPRAY_AMOUNT").reason, "no such key")
-    eq(pressed(), "")
-    doubled.isActive = true
-    eq(run("implement.key", nil, nil, nil, "DOUBLED_SPRAY_AMOUNT").via, "DOUBLED_SPRAY_AMOUNT", "back")
-    eq(pressed(), "1031:DOUBLED_SPRAY_AMOUNT")
-    -- the fold key has its button: not an other key
-    eq(run("implement.key", nil, nil, nil, "IMPLEMENT_EXTRA2").reason, "no such key")
-    eq(pressed(), "")
-    g_inputBinding = nil
-end)
-
 -- live (0.12.1): getIsUnfolded turns false as the fold starts, so a moving
 -- fold always read "Unfolding…"; the direction it moves (spikes 0.0.5,
 -- 0.0.6: foldMoveDirection 1 folding, -1 unfolding, 0 still) says which
@@ -3210,74 +3526,23 @@ end)
 test("sprayer: unfolded with the engine off, Turn on stays, faded with the game's words (specs/0011 fix 5)", function()
     local VS = Companion.VehicleState
     local o = sectionSprayer(4, false)
-    -- the engine on first: it turns on, so it's a tool that turns on
-    eq(joined(VS.capabilities(o, {}, 1).can), "fold,turnOn,detach")
+    eq(joined(VS.capabilities(o, {}, 1).can), "fold,turnOn,width,detach")
     o.getIsPowered = function() return false, "Please start the engine first!" end
     o.getCanBeTurnedOn = function() return false end
     local e = VS.capabilities(o, {}, 1)
-    eq(joined(e.can), "fold,turnOn,detach")
+    eq(joined(e.can), "fold,turnOn,width,detach")
     eq(e.canNow.turnOn, false)
     eq(e.whyNot.turnOn, "Please start the engine first!", "the engine's words")
     eq(e.turnedOn, false)
     -- the turn on part's own warning first, where it has one
     o.getTurnedOnNotAllowedWarning = function() return "Start the engine to turn on the sprayer" end
     eq(VS.capabilities(o, {}, 1).whyNot.turnOn, "Start the engine to turn on the sprayer")
-    -- powered and still not now: as before, no Turn on
+    -- powered and still not now: specs/0012, it stays, faded (0.12.3 had
+    -- none until the game had let it turn on once)
     o.getIsPowered = function() return true end
-    eq(joined(VS.capabilities(o, {}, 1).can), "fold,detach")
-    g_inputBinding = nil
-end)
-
--- live (0.12.2): the CLAAS W 600 (a weight) and the ARION 410 have the turn
--- on part, and the game never lets them turn on; with the engine off fix 5
--- gave both a faded Turn on, and the tractor a card
-test("turn on: never on what the game never let turn on, the engine off or on (specs/0011 fix 5)", function()
-    local VS = Companion.VehicleState
-    local function weight()
-        local o = { id = 600, typeName = "weight", spec_turnOnVehicle = {} }
-        o.getFullName = function() return "CLAAS W 600" end
-        o.getCanBeTurnedOn = function() return false end
-        o.getIsTurnedOn = function() return false end
-        return o
-    end
-    local w = weight()
-    eq(VS.capabilities(w, {}, 1).can[1] ~= "turnOn", true, "the engine on: no Turn on")
-    w.getIsPowered = function() return false, "Please start the engine first!" end
-    local e = VS.capabilities(w, {}, 1)
-    eq(joined(e.can), joined(VS.capabilities(weight(), {}, 1).can), "the engine off: no Turn on either")
-    eq(e.canNow and e.canNow.turnOn, nil)
-    -- loaded with the engine off: none until the game lets it turn on
-    local fresh = weight()
-    fresh.getIsPowered = function() return false, "Please start the engine first!" end
-    eq(VS.capabilities(fresh, {}, 0).can[1], nil, "the tractor itself: nothing")
-    g_inputBinding = nil
-end)
-
--- live (0.12.2): Dump and Dump on ground were on the Berthoud's card while
--- the game didn't show them, and did nothing: the game hides a key it
--- doesn't offer now, active still (spike 0.0.8, displayIsVisible false)
-test("other keys: a key the game hides isn't one", function()
-    local VS = Companion.VehicleState
-    SpikeRigs.binding()
-    local o = { id = 41, typeName = "sprayer" }
-    SpikeRigs.register(o, "dischargeable", { action = "TOGGLE_TIPSTATE_GROUND", text = "Dump on ground", visible = false })
-    SpikeRigs.register(o, "dischargeable", { action = "TOGGLE_TIPSTATE", text = "Dump", visible = false })
-    SpikeRigs.register(o, "fillUnit", { action = "UNLOAD", text = "Unload", visible = true })
-    SpikeRigs.register(o, "sprayer", { action = "DOUBLED_SPRAY_AMOUNT", text = "Activate doubled application rate" })
-    eq(joined(VS.extraKeys(o, {})), "Activate doubled application rate,Unload")
-    g_inputBinding = nil
-end)
-
--- live (0.12.3): "Raise sprayer arm" (AXIS_SPRAYER_ARM) on the Berthoud's
--- card; one press took the arm all the way up. An axis is held, never a
--- button (Vincent)
-test("other keys: an axis (AXIS_...) isn't one", function()
-    local VS = Companion.VehicleState
-    SpikeRigs.binding()
-    local o = { id = 42, typeName = "sprayer" }
-    SpikeRigs.register(o, "sprayer", { action = "AXIS_SPRAYER_ARM", text = "Raise sprayer arm" })
-    SpikeRigs.register(o, "fillUnit", { action = "UNLOAD", text = "Unload" })
-    eq(joined(VS.extraKeys(o, {})), "Unload")
+    e = VS.capabilities(o, {}, 1)
+    eq(joined(e.can), "fold,turnOn,width,detach")
+    eq(e.canNow.turnOn, false)
     g_inputBinding = nil
 end)
 

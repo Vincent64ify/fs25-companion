@@ -1,6 +1,6 @@
 {
  "rig": "sprayer-width",
- "source": "mod/tests/fixtures/spike0003/sprayer.json (with_width_keys, until spec 0011's probe), through the mod's Cab collector",
+ "source": "mod/tests/fixtures/spike0003/sprayer.json (without_precision_farming), through the mod's Cab collector",
  "cab": {
   "aiActive": false,
   "engineOn": false,
@@ -50,6 +50,7 @@
     "can": [
      "fold",
      "turnOn",
+     "unload",
      "width",
      "detach"
     ],
@@ -57,20 +58,6 @@
     "canTurnOn": true,
     "depth": 1,
     "discharging": false,
-    "extraKeys": [
-     {
-      "action": "TOGGLE_TIPSTATE",
-      "text": "Dump"
-     },
-     {
-      "action": "TOGGLE_TIPSTATE_GROUND",
-      "text": "Dump on ground"
-     },
-     {
-      "action": "UNLOAD",
-      "text": "Unload"
-     }
-    ],
     "foldMoving": false,
     "foldable": true,
     "id": 1031,
@@ -138,7 +125,7 @@
  },
  "expect": {
   "cards": [
-   "Vantage 4300: Fold:on, Turn on:off, Detach:off, Dump:off, Dump on ground:off, Unload:off"
+   "Vantage 4300: Fold:on, Turn on:off, Unload:off, Detach:off"
   ],
   "selected": "Vantage 4300",
   "also": [],

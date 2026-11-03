@@ -7,8 +7,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "scripts"))
 
-from rig_check import (entries, judge_all, judge_bales, judge_key, judge_selection,  # noqa: E402
-                       judge_tip_side, judge_toggle, read, skip_key)
+from rig_check import (entries, judge_all, judge_bales, judge_rate, judge_selection,  # noqa: E402
+                       judge_tip_side, judge_toggle, read, sent_for)
 
 TRACTOR, FRONT, REAR = 998, 1003, 1004
 
@@ -79,22 +79,35 @@ def test_the_selection_comes_back():
         "the selection moved from EDK 650 to front"
 
 
-def test_a_key_passes_when_its_label_turns():
-    def baler(text):
-        return {"id": 9, "name": "G-1", "can": ["turnOn"], "extraKeys": [
-            {"action": "IMPLEMENT_EXTRA4", "text": text}, {"action": "LOWER_IMPLEMENT", "text": "Lower pickup"}]}
-    on, off = baler("Turn on automatic drop"), baler("Turn off automatic drop")
-    assert judge_key("IMPLEMENT_EXTRA4", on, off, {"ok": True}) == \
-        ("PASS", "Turn on automatic drop -> Turn off automatic drop")
-    # the same label: the game may still have acted (Allow create fields): Vincent looks
-    assert judge_key("IMPLEMENT_EXTRA4", on, on, {"ok": True})[0] == "LOOK"
-    assert judge_key("IMPLEMENT_EXTRA4", on, {"id": 9, "name": "G-1"}, {"ok": True})[0] == "LOOK"
-    assert judge_key("IMPLEMENT_EXTRA4", on, off, {"ok": False, "reason": "x"})[0] == "FAIL"
+def test_each_button_sends_what_the_card_does():
+    """specs/0012: the card's commands, a set asking for the other state with
+    the tool's id, a one-shot its tool alone, the tip side and the cover by
+    the id as their value."""
+    e = trailer(FRONT, lowered=True, unfolded=False, cover={"open": False}, plow={"rotated": True}, createFields=False,
+                autoDrop=True, doubledRate=False, sprayRate={"auto": True, "step": 1, "min": 1, "max": 45})
+    assert sent_for(e, "lower") == ("tool.lower", 0, FRONT)
+    assert sent_for(e, "fold") == ("tool.fold", 0, FRONT), "folded: unfold"
+    assert sent_for(e, "rotate") == ("tool.rotate", 0, FRONT)
+    assert sent_for(e, "createFields") == ("tool.createFields", 1, FRONT)
+    assert sent_for(e, "autoDrop") == ("tool.autoDrop", 0, FRONT)
+    assert sent_for(e, "doubledRate") == ("tool.doubledRate", 1, FRONT)
+    assert sent_for(e, "sprayRateAuto") == ("tool.sprayRateAuto", 0, FRONT)
+    assert sent_for(e, "cover") == ("implement.cover", FRONT, None)
+    assert sent_for(e, "tipSide") == ("implement.tipSide", FRONT, None)
+    assert sent_for(e, "bales") == ("tool.resetBales", None, FRONT)
+    assert sent_for(e, "unload") == ("tool.unload", None, FRONT)
 
 
-def test_keys_that_empty_a_tool_are_skipped():
-    assert skip_key("Dump on ground") and skip_key("Unload round bale") and skip_key("Unload")
-    assert not skip_key("Turn on automatic drop") and not skip_key("Allow create fields")
+def test_a_rate_step_moves_by_one_or_is_refused():
+    def sprayer(auto, step):
+        return {"id": 530, "name": "Vantage 4300", "can": ["sprayRate"],
+                "sprayRate": {"auto": auto, "step": step, "min": 1, "max": 45}}
+    assert judge_rate(1, sprayer(False, 1), sprayer(False, 2), {"ok": True}) == ("PASS", "step 1 -> 2")
+    assert judge_rate(1, sprayer(False, 1), sprayer(False, 1), {"ok": True})[0] == "FAIL"
+    # automatic or at an end: refused, nothing moved
+    assert judge_rate(1, sprayer(True, 1), sprayer(True, 1), {"ok": False, "reason": "Automatic rate is on"}) ==         ("PASS", "refused: Automatic rate is on")
+    assert judge_rate(-1, sprayer(False, 1), sprayer(False, 1), {"ok": False, "reason": "at its limit"})[0] == "PASS"
+    assert judge_rate(1, sprayer(True, 1), sprayer(True, 2), {"ok": True})[0] == "FAIL", "automatic: must be refused"
 
 
 def test_bale_reset():
