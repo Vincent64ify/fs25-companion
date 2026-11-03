@@ -1,0 +1,395 @@
+# 0013: Vehicle page, calm
+
+Status: approved
+Mod: no change · Started: 2026-11-03 · Design: the canvas [FS25 Companion: Vehicle screen, calm](https://claude.ai/artifact/JApsdXjoSFwsddKv2kNYZ3) (private, on claude.ai; approved by Vincent on 2026-11-03), a THEMES.md section at build; specs [0003](0003-implement-screen.md) (the page), [0010](0010-tidy-states-and-motion.md) (the states), [0012](0012-card-buttons.md) (the buttons)
+
+## Goal
+
+The Vehicle page is distracting (Vincent, 2026-11-02):
+- yellow means five things at once: the selected strip tile, the card's
+  ring, the section bars, the coupling chips and the tab;
+- the selected tool shows twice (a tile and a card), speed and wear
+  twice;
+- a lone card stretches into a large empty box;
+- its buttons stretch to 430 px.
+
+Only the control column reads well: one shape of button, in labelled
+groups. This spec gives every part of the page one job, so each one
+stands on its own:
+- the rig strip shows the rig and where you are;
+- a card shows a tool's state and its buttons, drawn like the column's;
+- a field panel shows the field you're working;
+- the column holds the cab's controls and the rig-wide ones;
+- the bottom bar holds the tractor's numbers, as on the Map screen.
+
+The night palette gets darker and less blue, and yellow goes: an "on"
+button is outlined by day and steel grey at night.
+
+## Behaviour
+
+**Layout (1180×820).** The usual chrome. The content area has:
+- the rig strip across the top (60 tall);
+- under it, the tools on the left and the field panel on the right
+  (320 wide);
+- the column on the right, as on every screen.
+
+Nothing stretches to fill the height: cards are as tall as their content
+and the ground shows under them.
+
+**The rig strip** replaces the band (spec 0002):
+- **Where:** on the ground, with no dark readout card.
+- **Gone:** the band's "Vehicle · CLAAS" label, the job ("Parked"), Speed,
+  Fuel, DEF, Wear and the Engine hot chip. They move to the bottom bar.
+- **Tiles:** every rig member in driving order, as today: the badge, the
+  model, the state line, and a thin bar per fill unit across the tile.
+  - The tiles share the strip's width, at least 150 px each.
+  - A tile is a card's surface (`--card`) with lift, because a tap
+    selects that tool in game (spec 0003); the page stays.
+- **Links:** 64 px wide, with the coupling's name (3-point, Drawbar) in a
+  neutral chip. The line is solid while the tool is lowered and dashed
+  while raised.
+- **The game's selected tool** is shown here, and only here: its tile gets
+  "where you are", a tint with a 2 px ring (`--sel-tint`, `--select`).
+  - No yellow fill.
+  - Cards get no selection ring or tint any more (spec 0010's
+    selected-card look goes).
+- **The tractor's tile** shows no warnings: low fuel or a hot engine turns
+  its number orange in the bottom bar, so it isn't shown twice.
+
+**Tool cards** (a card per working thing, spec 0003), stacked in driving
+order:
+- **Head:** the badge (the "on" look while working, below), the model
+  (18 px), "Berthoud · Sprayers · Rear" under it.
+- **Stats:** Speed against the tool's limit, Width, Area this run and the
+  tool's own wear, as now.
+  - Each one sits on a small quiet tile: the line colour as its
+    background, 10 px corners, 6 × 10 padding, an 11 px label and a 15 px
+    value.
+  - They're context, not the point (Vincent, 2026-11-03).
+- **Tanks:** for each, the name, the percentage (22 px), an 8 px meter,
+  the litres, and "≈ 18 min left" while it's emptying.
+- **Section strip:** as specs 0011 and 0012 have it.
+  - On sections are the muted colour and off ones the line colour, not
+    yellow.
+  - Under it: "7 / 9 sections".
+- **Buttons:** drawn exactly as the column's (84 × 80, icon over a 13 px
+  label), in one row from the left, never stretched to the card's width.
+  - What they are, their labels and their fading are spec 0012's.
+  - **More** (spec 0012) is the row's last button, "More" over its count
+    ("2"); a tap opens or closes the More row under the main one.
+- **Also attached** (a tool with no card, a weight): a slim card each, at
+  the bottom of the tools column. It has the badge, the model, a line
+  with brand, category, side and state, and its buttons (Lower / Raise,
+  Detach) at 84 × 80.
+
+**How many fit (1180×820, no scrolling):**
+- With one or two working tools, the cards stack in the tools column next
+  to the field panel.
+- With three or more, the field panel goes and the cards take the whole
+  width in spec 0003's compact grid (three in a row, four two by two).
+  Their buttons stay 84 × 80, wrapping to a second row if a card is too
+  narrow.
+
+**The field panel** (one or two working tools):
+- **The map**, zoomed to the field the rig is in: the Map screen's own
+  map image, the field's outline (white, 2 px), and the rig as a dark
+  dot with a white ring and a heading arrow.
+  - At night the image is dimmed (72 % brightness, 80 % saturation).
+- **A sprayer's boom:** a white line behind the dot at the tool's working
+  width. Its sections that are off are grey.
+- **The trail (new):** where the rig's tools have worked on this field,
+  drawn as a soft band at the working width. It's green for spraying and
+  sowing and pale yellow for mowing.
+  - It's our estimate (Data contract), never the game's own map.
+  - A trail is kept while the page is open. It's cleared when its tool is
+    detached, as Area is (`rates.js`).
+- **Under the map:**
+  - the field's number and area ("Field 23", "1.8 ha");
+  - the crop and its stage ("Wheat", "Growing · stage 3 of 7") over a
+    bar of its stages;
+  - "Needs" with a chip for each thing the field needs (the Map's field
+    panel's words: Weeding, Fertilizer, Lime...), or "Nothing";
+  - "This run ≈ 54 % of the field", while there's a trail.
+- **Not on a field:** the map around the rig (300 m across), titled "Not
+  on a field", with no crop or needs.
+- **No map image** (not converted yet): the outline and the trail on the
+  card's colour.
+- A tap does nothing (open question 4).
+
+**The column:**
+- Lights and Drive, as on every screen.
+- With two or more working tools, a third group, **All tools**, holds
+  today's All row (spec 0003; spec 0012's rules): Lower all / Raise all,
+  Fold all / Unfold all, Turn on all / Turn off all, Tip all / Stop all.
+  These are the buttons the tools share.
+  - It sits under Drive, three to a row.
+  - A failed answer's note shows under the group.
+  - The group comes with the rig, not with the tools' live state: it
+    doesn't come and go while the rig stays the same.
+  - The page's own All row goes.
+
+**The bottom bar:**
+- **Readout:** as on the Map screen, the tractor's numbers on the right:
+  speed, gear, fuel (with its small bar, orange when low), DEF, wear, and
+  engine temperature (orange when hot).
+  - When space runs out: temperature goes first, then gear.
+  - Rpm, fuel usage and the cruise speed stay Map-only. The cruise speed
+    is already on the Cruise button.
+- **The Loader page** (spec 0002) gets the same strip and readout. Its
+  Load and Target cards are unchanged. The Harvester page keeps its own
+  band (spec 0001).
+
+**"On", where you are, and the night palette:** these are tokens of the
+theme, so they change on every screen, and the column stays the same
+everywhere (Vincent, 2026-11-03).
+- **"On" by day:** an outline instead of the blue fill. The button keeps
+  its surface, its edge and ink take the "on" blue (`#0C4DB8`), and a
+  14 % tint of it shows inside.
+  - Hazard and the turn arrows take their red and green the same way.
+  - A working badge is outlined in the "on" blue.
+- **"On" at night:** a steel grey fill instead of yellow: `#4B5A78 →
+  #3C4966`, white ink, a `#62739A` edge.
+  - Hazard and the turn arrows still fill red and green.
+  - A working badge takes the steel fill.
+- **Pending** (spec 0010) is unchanged: the edge takes the colour the
+  button is going to, with a faint tint of it breathing inside.
+- **Where you are at night:** a light ring (`#C9D4E8`) with a 7 % white
+  tint, instead of yellow. The selected tab and the selected tile use it;
+  day is unchanged.
+- **The rest of the night's yellow goes too** (Vincent, 2026-11-03):
+  - These take the steel fill with white ink: the field number badges on
+    the Map screen and in its field panel, the Harvester's readout badge,
+    and the open Settings button.
+  - Accent text and the farmland badge's text take the muted colour.
+  - The Harvester's "until full" stays orange: it's the warn colour, not
+    the accent.
+  - By day these are unchanged.
+- **The darker night**, closer to black and less blue (the day palette
+  doesn't change):
+
+  | Token | Night today | Night (this spec) |
+  |---|---|---|
+  | Ground | `#0B2149 → #06142E` | `#0C121E → #070B13` |
+  | Bar and tab bar | `#0A1C40 → #04112A` | `#0B1120 → #070B14` |
+  | Card | `#163370 → #0D224B` | `#141C2C → #101727` |
+  | Card (flat) | `#12295A` | `#121A29` |
+  | Button (off) | `#163370 → #0D224B` | `#1A2438 → #131B2C` |
+  | Pill (status bar) | `#0F2550` | `#161F31` |
+  | Border | `#24427C` | `#273349` |
+  | Line, meter track | `#1C3566` | `#1D2638` |
+  | Text / muted | `#EAF0FA` / `#9DB0CF` | `#E8EDF5` / `#97A3B9` |
+  | Badge (idle) | `#24427C → #1C3566` | `#222C40 → #1B2436` |
+  | Chip (on) | `#1C3566`, `#8DB9FF` | `#1D2638`, `#A9C3F2` |
+  | Glass (map overlays) | `rgba(4,17,42,0.85)` | `rgba(7,11,19,0.82)` |
+  | Lift | `… 0 4px 14px rgba(0,0,0,0.4)` | `inset 0 1px 0 rgba(255,255,255,0.06), 0 4px 14px rgba(0,0,0,0.5)` |
+
+  Muted text on a card is 6.7:1 (WCAG AA). OK, warn and alarm stay.
+
+**Day and Night** as above. **Compact (portrait):** one column. The strip
+scrolls sideways, then come the cards, then the field panel (240 tall),
+then the column docked under them, as today.
+
+## Data contract
+
+No mod change, and no new topic or field: everything this page shows is
+already sent and live.
+- **Mod → companion:** unchanged.
+  - `vehicles`: the controlled vehicle's `x`, `z`, `heading`, `speed`,
+    and each implement's `workWidth`.
+  - `cab.rig`: `lowered`, `turnedOn`, `width`, `selected`.
+  - `fields`, `field_outlines`, `crop_types`.
+  - The map's `meta.json` and image (`imageBounds`).
+- **Web** (`web/src/types.js`): no topic changes.
+- **Web** (data, widgets):
+  - `data/selectors.js`: `fieldAt(store, x, z)`, the field whose outline
+    holds the point (`field_outlines`, even-odd rule), or undefined.
+  - `data/coverage.js` (new, beside `rates.js` and fed the same way):
+    - **When it records:** while a tool works. That's the same rule as
+      Area: lowered or turned on, moving faster than 0.5 km/h, with a
+      `workWidth`.
+    - **What it records:** for the field under the rig, the rig's path
+      as segments at that width, with the side sections that are off
+      left out (spec 0011's `width`).
+    - **The percentage:** the share of the field's 2 m cells under any
+      segment, so passes that overlap count once.
+    - **Its limits:** in memory only, at most 20,000 points per field
+      (older ones are merged), cleared when the tool is detached.
+  - `widgets/fieldPanel.js` (new): the panel.
+    - It's an SVG in world metres over the map image: its viewBox is the
+      field's bounds plus 15 %, and the image sits at `imageBounds`.
+    - It isn't the Leaflet map, so the map frame stays on the Map
+      screen.
+    - Field rows: `fieldNeeds` and the growth stages from
+      `fieldInfoPanel.js`.
+
+No game API names are new. The values above are read through names that
+are already verified:
+- `workWidth` from `getAIWorkAreaWidth`: THEMES.md, Implement screen as
+  built; live in spec 0003's mowers.
+- The field outlines from `polygonPoints`: DONE.md, Phase 4, mod 0.4.0.
+
+| Name | Where from | State |
+|---|---|---|
+| (none new) | | |
+
+## Commands
+
+None new.
+- All tools sends today's All row actions (`implement.lowerAll`, Fold
+  all, Turn on all, Tip all; spec 0003), with the same answers and notes.
+- The cards' buttons are spec 0012's.
+
+## Plan
+
+- **Theme** (`web/src/themes/newholland/theme.css`):
+  - the night tokens (the table);
+  - "on" by day (outline) and at night (steel), and "where you are" at
+    night;
+  - the night's other yellow: `--badge`, `--settings-open`, `--tab-sel`,
+    `--accent` and `--accent-2` at night;
+  - the strip on the ground and tiles that share the width;
+  - the cards' stats as small tiles, and buttons fixed at 84 px;
+  - Also attached as slim cards;
+  - the field panel;
+  - the night readout card (`--readout`, still used by the Harvester's
+    band): `#18223A → #0F1626`, so it isn't the old blue.
+- **Theme** (`theme.js`):
+  - The Vehicle page's slots: the strip, then a group with `toolCards`,
+    `toolsAlso` and `fieldPanel`.
+  - Its `controls` slot `add`s the All tools group.
+  - A `readout` list on the Vehicle and Loader pages.
+- **Widgets:**
+  - `vehicleScreen.js`: `vehicleBand` becomes the strip alone
+    (`bandReadouts`, `vehicleJob` and `engineHot` go from the page).
+  - `vehicleTools.js`:
+    - cards drop the selection look;
+    - More becomes a button;
+    - `toolsAll` moves into the column as a control group, using
+      `controls.js`'s group with buttons from the rig.
+  - `fieldPanel.js` (new); `index.js` registers it.
+- **Data:** `selectors.js` (`fieldAt`) and `coverage.js` (new).
+- **Docs:**
+  - THEMES.md gets a "Vehicle page, calm (spec 0013)" section, and its
+    Palettes table and the specs/0010 lines change.
+  - Spec 0012's More row is drawn as a button (that spec's Behaviour, in
+    the same change).
+  - Spec 0002's band moves to the bottom bar (its Behaviour gets a
+    pointer here).
+- **The design system** (`FS25 Companion` on claude.ai) is refreshed in
+  the same change, because theme.css changes (THEMES.md, Design system).
+- **Golden:** no viewer message changes, so `fixtures/golden_viewer.ndjson`
+  stays.
+- **Risks:**
+  - the "on" look changes on every screen (Map, Harvester, Loader);
+  - the field panel and three cards at 1133×744 (iPad mini);
+  - the trail's memory on a long session (the cap);
+  - how close our trail is to the game's own sprayed map, which only the
+    live check can say.
+
+## Acceptance
+
+Automated (each one a test that exists before the work is called built):
+- [ ] `web/test.html`, `fieldAt`: a point inside a concave outline, one
+  in its notch, and one outside; no outlines gives undefined.
+- [ ] `web/test.html`, coverage:
+  - a 100 m straight pass at 10 m width over a 100 × 100 m field gives
+    ≈ 10 %;
+  - the same pass twice still gives ≈ 10 %;
+  - nothing is recorded while raised, turned off, or below 0.5 km/h;
+  - two sections off out of nine record 7/9 of the width;
+  - detaching clears that tool's trail;
+  - the point cap merges and keeps the percentage within 1 %.
+- [ ] `web/test.html`, field panel:
+  - its viewBox is the field's bounds plus 15 %;
+  - "Not on a field" outside any outline;
+  - the Needs chips match `fieldNeeds`;
+  - no percentage without a trail.
+- [ ] `web/test.html`, the page:
+  - no band readouts or job;
+  - the strip's tiles share its width;
+  - the selected tool's tile has the "where you are" look and its card
+    doesn't;
+  - card buttons are 84 px wide and More is a button with its count;
+  - with three working tools the field panel is hidden.
+- [ ] `web/test.html`, the column: All tools shows with two working
+  tools, not with one, and holds the same actions as today's All row.
+- [ ] `web/test.html`, the readout: the Vehicle and Loader pages list
+  speed, gear, fuel, DEF, wear and engine temperature.
+- [ ] `web/test.html`, tokens:
+  - at night an "on" button's background is the steel fill and no
+    computed colour on the Vehicle page is the old yellow (`#FFC72C`,
+    `#FFD65C`);
+  - by day an "on" button has no blue fill and an `#0C4DB8` edge.
+- [ ] Replay in the browser pane (`replay-solek`, a sample driven tractor
+  patched in, per the usual trick), each screen at 1180×820 day and
+  night and once at 1133×744:
+  - the sprayer rig (ARION 410, Vantage 4300, W 600);
+  - two mowers;
+  - three tools;
+  - the Map, Harvester and Loader screens, for the new "on" look.
+- [ ] `python -m pytest mod/tests companion/tests tests` passes, the
+  golden unchanged.
+
+Live check (in game; Solek):
+- [ ] **ARION 410, Berthoud Vantage 4300, W 600, parked by a field:**
+  - the strip shows the three in order, the Vantage selected;
+  - pressing G in game moves the ring to the next tile;
+  - the bottom bar shows speed, gear, fuel, DEF, wear and temperature;
+  - the panel says "Not on a field".
+- [ ] **Drive into a field:** the panel switches to it, with its number,
+  crop and needs as the game's PDA field info shows them.
+- [ ] **Unfold, Turn on and spray two passes,** one with two sections
+  off:
+  - the trail follows the passes at the boom's width, the narrower pass
+    narrower;
+  - "≈ % of the field" is close to the share the game's map shows
+    sprayed.
+- [ ] **Detach the Vantage:** its card and its trail go; the W 600 stays
+  under Also attached.
+- [ ] **Samasz KDF 341 S front and XT 390 rear, mowing:**
+  - All tools is in the column;
+  - Raise all, Fold all and Turn off all act as today's All row did;
+  - the trail is pale yellow.
+- [ ] **At night,** on every screen: nothing on screen is yellow (the
+  orange "until full" aside); "on" buttons and the field number badges
+  are steel grey. **By day,** "on" buttons are outlined.
+
+## Decisions
+
+Made while drafting; the review or the live check can change them.
+- **The field panel is a plain SVG in world metres over the map image,
+  not a second Leaflet map.** The map frame stays the Map screen's (its
+  toolbar, popups and saved view), and the panel needs no pan or zoom.
+- **The field panel shows with one or two working tools only.** Three or
+  more need the width (spec 0003's grid).
+- **More is a button** at the end of the button row, not a row of its own
+  (spec 0012's More row opens under it).
+- **The trail lives in the viewer's memory,** like Area: it starts when
+  the page opens and goes on a reload or a detach (Vincent, 2026-11-03:
+  not kept by the companion).
+- **Not on a field, the panel shows the map around the rig,** not the
+  last field (Vincent, 2026-11-03).
+- **The bottom bar's readout:** speed, gear, fuel, DEF, wear and engine
+  temperature. Rpm, fuel usage and cruise stay on the Map screen.
+- **The Loader page** takes the same strip and readout, so the band is
+  gone everywhere but the Harvester.
+
+## Out of scope / open questions
+
+- **Out of scope:** a trail kept by the companion, shared between tablets
+  or surviving a reload; the game's own sprayed or mowed map.
+- **Open: a tap on the field panel.** Nothing (as drafted), or open the
+  Map screen on that field with its panel?
+
+Answered on 2026-11-03: the new "on" and the darker night apply on every
+screen; the night's other yellow goes neutral; the trail stays in the
+page's memory; off a field the panel shows the map around the rig.
+
+## Log
+
+- 2026-11-03: drafted from the canvas Vincent approved (comments: the
+  tractor's numbers in the bottom bar, a full-width strip, small stat
+  tiles, no yellow at night, steel grey for "on", the outline by day).
+  Vincent answered four open questions the same day (Out of scope).
+- 2026-11-03: approved by Vincent; the tap on the field panel stays open
+  (nothing, as drafted).

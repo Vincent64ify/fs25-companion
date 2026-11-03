@@ -51,3 +51,4 @@ behaviour, in Behaviour too: the spec always says what the code does now.
 | [0010](0010-tidy-states-and-motion.md) | Tidy states, surfaces and motion | live-checked (revision 2: selecting) | no change |
 | [0011](0011-sprayer.md) | Sprayer: Fold, Turn on, the working width | built, live check paused for 0012 | 0.12.4 |
 | [0012](0012-card-buttons.md) | Card buttons: what a tool has, what it can do now | approved | 0.13.0 |
+| [0013](0013-vehicle-screen-calm.md) | Vehicle page, calm: rig strip, tool cards, field panel, no yellow at night | approved | no change |
