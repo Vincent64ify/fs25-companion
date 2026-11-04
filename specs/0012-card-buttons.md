@@ -277,7 +277,7 @@ in; the engine off first, then on):
   (Vincent, 2026-11-02: step 2 on the Fendt Rogator 937H, twice: first
   with automatic on, then off, 12 → 25 → 12 l/ha; the Log has what the
   files said.)
-- [ ] The ARION 410 with the W 600 and the Berthoud: the W 600 has Lower
+- [x] The ARION 410 with the W 600 and the Berthoud: the W 600 has Lower
   and Detach only; the Berthoud Fold, Turn on, Unload, Detach and More ·
   1 (Application rate); the ARION no card. Engine off, folded, unfolded,
   unloading, selecting the tractor in game: no button comes or goes
@@ -340,6 +340,9 @@ in; the engine off first, then on):
 
 - Open: the l/ha the game's HUD shows for a step (not in what we read;
   about 12.5 l/ha a step with liquid fertilizer, once).
+- Open (live check, 2026-11-04): Application rate only for the fill
+  types Precision Farming sets a rate for; the fade is in docs/NEXT.md
+  (0.13.1), then the Berthoud's line is rechecked.
 - Out of scope: Refill, Dump, the Harvester and Loader screens (their own
   tiles, unchanged), bale size (`TOGGLE_BALE_TYPES`), the baler's own
   unload, the mower's drop (`Mower.actionEventToggleDrop`), modded tools'
@@ -399,3 +402,18 @@ in; the engine off first, then on):
   in the browser pane at 1180×820, day and night: the ARION rig engine on
   and off, More open and closed, the plow's More · 2, three cards
   compact.
+- 2026-11-04: live check, first part (mod 0.13.0, spike 0.0.9; both
+  installed zips match the repo). The ARION rig ticked: `can` never
+  changed through the engine off and on, fold, unfold, Unload and the
+  tractor selected; only `canNow` / `whyNot`, with the game's words
+  ("Please start the engine first!", "You first need to unfold the tool
+  (sprayer)!", "Detach while folding is not allowed!", ours "Nothing to
+  unload" while unloading). The AI worker on and off at 07:07:30 was a
+  misclick (Vincent). Unload answered ok and made pallets, engine on and
+  off. The Rogator 937H: Auto off, Rate + 1 → 5, Auto on, each ok (the
+  Vehicle page as the game, Vincent). The Berthoud with herbicide: Auto
+  live but refused twice ("not available now"); with fertilizer the game
+  offers the rate. Precision Farming's `PrecisionFarming.xml` sets rates
+  only for fertilizer, liquid fertilizer, the manures, digestate and
+  lime: the fade goes to docs/NEXT.md (0.13.1). The Berthoud's line stays
+  open until that recheck; the DINO II and the other rigs are next.

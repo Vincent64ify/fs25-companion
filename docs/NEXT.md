@@ -3,6 +3,23 @@
 Things to fix next, in no particular order. Longer-term ideas are under
 **Later** in [PLAN.md](PLAN.md).
 
+- **Application rate fades by what's in the tank** (spec 0012's live
+  check, 2026-11-04, mod 0.13.0): with herbicide in the Berthoud, Auto
+  showed live and both presses answered "not available now"; with
+  fertilizer the game offered the rate (Vincent). Precision Farming's
+  script isn't in its zip, but its `PrecisionFarming.xml` lists the fill
+  types it sets a rate for: `applicationRates` FERTILIZER,
+  LIQUIDFERTILIZER, LIQUIDMANURE, DIGESTATE, MANURE, and lime
+  (`limeUsage`; its help text: the lime spreader adjusts the rate too).
+  Fix (0.13.1): rule 1 unchanged (the button stays); Rate −, Auto and
+  Rate + fade while the sprayer's tank holds another fill type, with our
+  reason ("No application rate for herbicide"), and while it's empty
+  (unverified what the game does then). The list in `Tools.lua`, its
+  comment pointing to `PrecisionFarming.xml`; the spec's Data contract
+  marks it unverified. Tests first. Recheck on the Berthoud with
+  herbicide, then fertilizer, then empty. Not the game's key: it's only
+  registered while the tool is selected.
+
 - **The other buttons' answers:** since spec 0003 revision 2 (mod 0.8.14)
   fold, lower and turn on answer ok only once the tools moved, and Tip
   since revision 3 (mod 0.8.16). Pipe and tip side still answer once
