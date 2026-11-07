@@ -451,7 +451,7 @@ shared parts as components (`Screen`, status bar, tab bar, control column
 and groups, cards, readout card, rig tiles and links, chips, meters).
 The code stays the source of truth: **when `theme.css`, `icons.js` or the
 values in this section change, refresh the design system in the same
-change.** Built from commit `0ccf814`; refreshed for specs/0010 (2026-11-01) and specs/0013 (2026-11-07: the night palette, "on", where you are, working badges, the rig on the ground).
+change.** Built from commit `0ccf814`; refreshed for specs/0010 (2026-11-01) and specs/0013 (2026-11-07: the night palette, "on", where you are, working badges, the rig on the ground; revision 2's trail tokens).
 
 ### Type
 
@@ -1405,14 +1405,15 @@ The Vehicle page gives every part one job, after the canvas
   the model, the line under it; the stats on small quiet tiles; the tanks
   with an 8 px meter; the section strip in the muted and line colours;
   buttons 84 × 80, More the row's last.
-- **Field panel:** the map image zoomed to the field (dimmed at night),
-  its white outline, the trail (green, pale yellow for mowers), the rig as
-  a dark dot with a white ring and a heading arrow, a sprayer's boom; then
-  the field's number, area, crop, stage bar, needs as chips and "This run
-  ≈ 54 % of the field".
+- **Field panel** (revision 2, 2026-11-07: no map image, for speed): the
+  field's outline in the muted colour on the card, the view fixed to the
+  field; the trail in solid `--trail-work` green (`--trail-mow` pale
+  yellow for mowers) under it; the rig as a dark dot with a white ring and
+  a heading arrow, a sprayer's boom; then the field's number, area, crop,
+  stage bar, needs as chips and "This run ≈ 54 % of the field".
 - **Bottom bar:** the tractor's numbers, as on the Map screen.
 - **Compact:** one column, the strip scrolling sideways, the cards, the
-  field panel 240 tall (the map beside the rows), the column docked under.
+  field panel 240 tall (the outline beside the rows), the column docked under.
 
 ### Default removed (2026-10-24)
 

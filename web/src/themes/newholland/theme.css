@@ -93,6 +93,10 @@
   --on-accent: #FFFFFF;
   --ok: #12804A;
   --ok-bg: rgba(18, 128, 74, 0.12);
+  /* the field panel's trail (specs/0013 revision 2): solid, the look of
+     --ok at 30 % and #C9B24A at 35 % over the card */
+  --trail-work: #B4D6C8;
+  --trail-mow: #E8E1BF;
   --warn: #A15800;
   --warn-bg: rgba(229, 138, 0, 0.14);
   --alarm: #C42B2B;
@@ -177,6 +181,8 @@
   --on-accent: #0A1A33;
   --ok: #42D392;
   --ok-bg: rgba(66, 211, 146, 0.14);
+  --trail-work: #20514A;
+  --trail-mow: #524F35;
   --warn: #FFB648;
   --warn-bg: rgba(255, 182, 72, 0.14);
   --alarm: #FF7070;
@@ -1406,8 +1412,9 @@ button { font: inherit; color: inherit; }
 .tools-also-row > .tool-head { flex: 1; }
 .tools-also .tool-buttons { grid-template-columns: repeat(var(--cols, 2), 84px); }
 
-/* the field panel (widgets/fieldPanel.js): the map zoomed to the field, the
-   rig on it, then the field's rows */
+/* the field panel (widgets/fieldPanel.js): the field's outline, its trail
+   and the rig in three layers (specs/0013 revision 2: no map image), then
+   the field's rows */
 .field-panel {
   display: flex;
   flex-direction: column;
@@ -1418,28 +1425,20 @@ button { font: inherit; color: inherit; }
   border-radius: 16px;
   background: var(--card);
 }
-.field-map { position: relative; flex: 1 1 0; min-height: 0; }
-.field-panel[data-image="true"] .field-map { background: #3A4A2C; }
-.field-svg { position: absolute; inset: 0; display: block; width: 100%; height: 100%; }
-/* at night the map is dimmed: 72 % brightness, 80 % saturation (an SVG filter: Safari) */
-:root[data-palette="night"] .field-image { filter: url(#field-dim); }
-.field-outline { fill: rgba(255, 255, 255, 0.06); stroke: #FFFFFF; stroke-opacity: 0.9; stroke-width: 2px; stroke-linejoin: round; }
-/* no map image (not converted yet): the outline and the trail on the card's colour */
-.field-panel:not([data-image="true"]) .field-outline { fill: none; stroke: var(--muted); }
-/* the trail: a soft band at the working width (our estimate), green for
-   spraying and sowing, pale yellow for mowing */
-.field-trail { fill: none; stroke-linejoin: round; stroke-linecap: butt; }
-.field-band { fill: none; }
-.field-trail[data-kind="work"] { stroke: #7CF0B8; opacity: 0.32; }
-.field-trail[data-kind="mow"] { stroke: #F4E7A1; opacity: 0.4; }
-.field-panel:not([data-image="true"]) .field-trail[data-kind="work"] { stroke: var(--ok); opacity: 0.3; }
-.field-panel:not([data-image="true"]) .field-trail[data-kind="mow"] { stroke: #C9B24A; opacity: 0.35; }
+.field-map { position: relative; flex: 1 1 0; min-height: 0; overflow: hidden; }
+/* the trail (our estimate, at the working width, --trail-work green or
+   --trail-mow pale yellow) is painted on the canvas, under the outline */
+.field-trail, .field-svg { position: absolute; inset: 0; display: block; width: 100%; height: 100%; }
+.field-outline { fill: none; stroke: var(--muted); stroke-width: 2px; stroke-linejoin: round; }
+/* the rig: its own layer, moved by a transform without repainting the rest */
+.field-rig { position: absolute; top: 0; left: 0; width: 0; height: 0; pointer-events: none; will-change: transform; }
+.field-rig[hidden] { display: none; }
+.field-rig-svg { position: absolute; top: 0; left: 0; overflow: visible; }
 .field-dot { fill: #0A1A33; stroke: #FFFFFF; stroke-width: 2px; }
 .field-arrow { fill: #FFFFFF; }
 .field-boom-on, .field-boom-off { stroke-width: 3px; stroke-linecap: round; }
-.field-boom-on { stroke: #FFFFFF; }
+.field-boom-on { stroke: var(--text); }
 .field-boom-off { stroke: #7D8799; }
-.field-panel:not([data-image="true"]) .field-boom-on { stroke: var(--text); }
 .field-facts { display: flex; flex: none; flex-direction: column; gap: 10px; padding: 14px 16px 16px; }
 .field-facts [hidden] { display: none !important; }
 .field-row { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; min-width: 0; }

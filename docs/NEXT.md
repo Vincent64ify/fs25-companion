@@ -3,6 +3,18 @@
 Things to fix next, in no particular order. Longer-term ideas are under
 **Later** in [PLAN.md](PLAN.md).
 
+- **The Vehicle page is slow to show on iPad** ([spec 0013](../specs/0013-vehicle-screen-calm.md),
+  2026-11-07): on an iPad Pro M4 in Safari, opening Vehicle (from Map, or
+  switching vehicles) waits ~100–300 ms, then everything appears at
+  once. Harvester and Loader switch at once, so it's the field panel.
+  Not reproduced in the Windows browser pane (taps paint in 16–24 ms,
+  a full 20,000-point trail too). Likely cause: the panel's SVG draws
+  the whole 4096 px `overview.png` to show one field, and Safari decodes
+  it again each time the screen is shown. Needs a clean way to share
+  the map between the Map screen and the panel; unverified until checked
+  on the iPad. The fix is spec 0013's revision 2 (built 2026-11-07): no
+  map image in the panel; this entry closes when the iPad check passes.
+
 - **Tip fades when the game won't tip** (for the trailer's spec; rule 2
   of [spec 0012](../specs/0012-card-buttons.md)): two cases where Tip
   stays live and answers "Nothing moved" after its check's wait, both

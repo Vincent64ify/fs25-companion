@@ -2428,8 +2428,8 @@ check("calm: coverage: the point cap merges older points and keeps the percentag
   near(uncapped.c.percent(1), 50, 6)], [true, true, true, true]);
 
 // the field panel: the field the rig is in, its number, area, crop, stage
-// and needs; "≈ % of the field" while there's a trail; off a field, 300 m
-// around the rig
+// and needs; "≈ % of the field" while there's a trail; off a field, the
+// last field stays (revision 2)
 const fpS = createStore();
 const wheatFruit = { index: 3, name: "WHEAT", title: "Wheat", numGrowthStates: 8, minHarvest: 7, maxHarvest: 7, cut: 9,
   withered: 10 };
@@ -2454,13 +2454,95 @@ rigAt(50, 50);
 const withTrail = panelShow()[5];
 rigAt(150, 50);
 const offField = panelShow();
-check("calm: field panel: the field's bounds plus 15 %, number, area, crop, stage and needs; ≈ % only with a trail; "
-  + "Not on a field: 300 m around the rig", [onField, withTrail, offField, fpw.fieldView([0, 0, 100, 0, 100, 40, 0, 40])],
-  [["Field 1", units.areaText(1, units.METRIC), "-15 -15 130 130", "Wheat|Growing · stage 3 of 7",
-    fieldNeeds(field1, fs.cropCatalog(fpS.get("crop_types"))), null],
-  "≈ 54 % of the field", ["Not on a field", "", "0 -100 300 300", null, null, null], [-15, -6, 130, 52]]);
+const field1Rows = [units.areaText(1, units.METRIC), "-25 -25 150 150", "Wheat|Growing · stage 3 of 7",
+  fieldNeeds(field1, fs.cropCatalog(fpS.get("crop_types")))];
+check("calm: field panel: the field's bounds plus 15 % (at least 25 m), number, area, crop, stage and needs; ≈ % only with "
+  + "a trail; off the field the last field stays", [onField, withTrail, offField, fpw.fieldView([0, 0, 400, 0, 400, 40, 0, 40])],
+  [["Field 1", ...field1Rows, null], "≈ 54 % of the field", ["Field 1", ...field1Rows, "≈ 54 % of the field"],
+    [-60, -25, 520, 90]]);
 check("calm: field panel: the needs are the Map panel's words", fieldNeeds(field1, fs.cropCatalog(fpS.get("crop_types"))),
   ["Fertilizer", "Weeding"]);
+
+// revision 2, a light field panel: no map image; the outline written once a
+// field; the trail on a canvas, each message painting its newest stretch;
+// the arrow moved by a transform; nothing painted while the page is hidden
+const lightS = createStore();
+lightS.set("field_outlines", { fields: [square100, { id: 9, points: [200, 0, 300, 0, 300, 100, 200, 100] }] });
+lightS.set("crop_types", { fruits: [wheatFruit], levels: { spray: 2 } });
+lightS.set("fields", { fields: [field1] });
+lightS.set("hello", { mapId: "m" });
+lightS.set("mapAssets", { mapId: "m", hash: "h" });
+const lightFetched = [];
+const realFetch = window.fetch;
+window.fetch = (url, ...rest) => { lightFetched.push(String(url)); return realFetch(url, ...rest); };
+let setLightSize = (/** @type {number} */ _w, /** @type {number} */ _h) => {};
+const lightCov = cov.createCoverage(lightS);
+const light = fpw.fieldPanel(lightS, { coverage: lightCov, watchSize: (_el, cb) => { setLightSize = cb; } });
+const lightAt = (x, z, heading = 90, id = 1) => lightS.set("vehicles", { controlledId: id, vehicles: [{ id, name: "T7",
+  category: "tractorsM", x, z, heading, speed: 10,
+  implements: [{ id: 2, name: "Sprayer", category: "sprayers", workWidth: 10, turnedOn: true, depth: 1 }] }] });
+setLightSize(300, 300);
+// a pass east along z = 3: its band (-2..8) crosses the field's north edge
+for (let x = 0; x <= 50; x += 5) lightAt(x, 3);
+const lightCanvas = /** @type {HTMLCanvasElement} */ (light.querySelector("canvas"));
+const lightCtx = /** @type {CanvasRenderingContext2D} */ (lightCanvas.getContext("2d"));
+let lightPts = 0, lightClears = 0;
+for (const m of ["moveTo", "lineTo"]) {
+  const f = lightCtx[m].bind(lightCtx);
+  lightCtx[m] = (...a) => { lightPts++; return f(...a); };
+}
+const lightClear = lightCtx.clearRect.bind(lightCtx);
+lightCtx.clearRect = (...a) => { lightClears++; return lightClear(...a); };
+const lightMo = new MutationObserver(() => {});
+lightMo.observe(light, { subtree: true, childList: true, attributes: true, characterData: true });
+const perMessage = [];
+for (let x = 52.5; x <= 100; x += 2.5) {
+  const before = lightPts;
+  lightAt(x, 3);
+  perMessage.push(lightPts - before);
+}
+const lightSvg = /** @type {Element} */ (light.querySelector(".field-svg"));
+const lightMuts = lightMo.takeRecords();
+const lightRig = /** @type {HTMLElement} */ (light.querySelector(".field-rig"));
+// a world spot's alpha on the canvas, through the panel's own fit
+const lightAlpha = (x, z) => {
+  const fit = fpw.fitView(fpw.fieldView(square100.points), 300, 300);
+  const dpr = lightCanvas.width / 300;
+  return lightCtx.getImageData(Math.round((fit.x0 + x * fit.k) * dpr), Math.round((fit.z0 + z * fit.k) * dpr), 1, 1).data[3];
+};
+check("calm (revision 2): field panel light: no image, filter or map request; 20 messages leave the outline untouched and add "
+  + "no element; at most three points painted a message, no full redraw; the arrow by a transform; the trail clipped", [
+  light.querySelectorAll("image, filter").length, lightFetched.filter((u) => /meta\.json|overview/.test(u)),
+  lightMuts.filter((r) => lightSvg.contains(r.target)).length,
+  lightMuts.flatMap((r) => [...r.addedNodes]).filter((n) => n.nodeType === 1).length,
+  perMessage.length, Math.max(...perMessage) <= 3, lightClears, lightRig.hidden, lightRig.style.transform,
+  lightAlpha(75, 5), lightAlpha(75, -1.5)],
+  [0, [], 0, 0, 20, true, 0, false, "translate(250px, 56px) rotate(90deg)", 255, 0]);
+window.fetch = realFetch;
+// hidden (the page not shown): the box is 0 × 0; back to its size, only the
+// stretch missed meanwhile is painted
+setLightSize(0, 0);
+let before = lightPts;
+for (let x = 100; x >= 0; x -= 5) lightAt(x, 20, 270);
+const hiddenPts = lightPts - before;
+const clearsBefore = lightClears;
+const missedBefore = lightAlpha(50, 20);
+setLightSize(300, 300);
+check("calm (revision 2): field panel hidden: nothing painted at 0 × 0; on show the missed stretch is painted, not the "
+  + "whole trail", [hiddenPts, missedBefore, lightAlpha(50, 20), lightClears - clearsBefore], [0, 0, 255, 0]);
+// off the field the last one stays, the arrow where the rig is; another
+// field takes over; a new vehicle off every field: Not on a field, no arrow
+const lightRows = () => [q(light, ".field-title"), lightRig.hidden,
+  /** @type {Element} */ (light.querySelector(".field-outline")).hasAttribute("hidden")];
+lightAt(150, 50);
+const offRows = [...lightRows(), lightRig.style.transform];
+lightAt(250, 50);
+const otherRows = lightRows();
+lightAt(150, 50, 90, 5);
+check("calm (revision 2): field panel: off the field the last field stays with the arrow; another field takes over; a new "
+  + "vehicle off every field: Not on a field, no arrow", [offRows, otherRows, lightRows()],
+  [["Field 1", false, false, "translate(350px, 150px) rotate(90deg)"], ["Field 9", false, false],
+    ["Not on a field", true, true]]);
 check("calm: a tank emptying says how long it lasts; filling, when it's full", [tankRows([tank(500, 18, false)])[0].when,
   tankRows([tank(850, 4, true)])[0].when], ["≈ 18 min left", "full in ≈ 4 min"]);
 check("calm: theme check: a widget added to the column is checked", checkTheme({ id: "x", palettes: [], css: "",

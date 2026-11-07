@@ -1,6 +1,6 @@
 # 0013: Vehicle page, calm
 
-Status: built
+Status: built (live check open); revision 2 built (a light field panel; its iPad check open)
 Mod: no change · Started: 2026-11-03 · Design: the canvas [FS25 Companion: Vehicle screen, calm](https://claude.ai/artifact/JApsdXjoSFwsddKv2kNYZ3) (private, on claude.ai; approved by Vincent on 2026-11-03), a THEMES.md section at build; specs [0003](0003-implement-screen.md) (the page), [0010](0010-tidy-states-and-motion.md) (the states), [0012](0012-card-buttons.md) (the buttons)
 
 ## Goal
@@ -24,6 +24,141 @@ stands on its own:
 
 The night palette gets darker and less blue, and yellow goes: an "on"
 button is outlined by day and steel grey at night.
+
+## Revision 2: a light field panel
+
+Drafted, approved by Vincent and built on 2026-11-07; the iPad check is
+open. This section is the revision whole; Behaviour, Data contract, Plan,
+Acceptance and Decisions below say the same where they changed.
+
+**Why.** On Vincent's iPad Pro (M4, Safari) the Vehicle page has been
+slow since this spec was built. Opening it from Map, or getting into
+another vehicle, waits about 100–300 ms, then everything appears at once.
+The Harvester and Loader pages, without the field panel, show at once.
+The likely cause is the panel's map:
+- it draws the whole 4096 px `overview.png` (about 64 MB decoded) to show
+  one field, and dims it with an SVG filter at night. Safari seems to
+  decode it again each time the page is shown;
+- each vehicles message (about 2 a second) rewrites the newest trail line
+  (up to 500 points) and redraws the SVG with the image under it.
+
+The browser pane on Windows never shows the wait. Taps there paint in
+16–24 ms, even with a full 20,000-point trail, a fresh load or the night.
+So the cause is likely, not proven, and only the iPad can say this
+revision fixes it. Performance comes first for this panel (Vincent).
+
+**What the player sees.**
+- **No map image.** The map area shows the field's outline on the card's
+  colour, as it already does before the map is converted: no roads, trees
+  or neighbouring fields. No dimming at night, since there's no image.
+- **The view is fixed to the field:** its bounds plus 15 % of its size on
+  each side, at least 25 m, so a headland turn stays in view. It doesn't
+  move with the tractor. There are no map controls (there never were:
+  the panel isn't the Leaflet map).
+- **The tractor's arrow and a sprayer's boom** move over it, as today: a
+  dark dot with a white ring and a heading arrow, the boom behind it with
+  its off sections grey.
+- **The work progress:** the trail and "This run ≈ 54 % of the field", as
+  today. The band is a solid colour (no see-through layer), the same green
+  or pale yellow it looks today over the card. Overlapping passes look the
+  same as one, as today. As built: each band is drawn one screen pixel
+  wider, so passes side by side leave no seam.
+- **Off a field:** the panel keeps showing the last field it showed (its
+  outline, trail and rows), with the arrow wherever the tractor is, until
+  you drive into another field. So a headland turn doesn't change it.
+  This replaces "the map around the rig" (Decisions, 2026-11-03), which
+  meant the map image.
+- **No field yet** (just got in, or on the road since): "Not on a field",
+  an empty map area, no arrow.
+- Everything else is unchanged: the rows under the map, when the panel
+  shows (on foot it hides; three working tools or more hide it), the
+  trail's rules (`coverage.js`).
+
+**How it stays light: three layers in the map box, each with one job.**
+1. **The outline:** an SVG with the field's polygon. It's written once
+   when the field changes; vehicles messages never touch it.
+2. **The trail:** a canvas the box's size. Each message paints only the
+   newest stretch: for each run that grew, its last three points (so the
+   bend joins up), in the run's width. It's drawn in full only when the
+   field, the box's size or the palette changes, or a tool's trail goes.
+   It's clipped to the outline.
+3. **The arrow:** one small element moved by a CSS transform
+   (`will-change: transform`), so moving it redraws neither the outline
+   nor the trail. The boom is drawn inside it, again only when the
+   sections change.
+
+The box's size comes from a ResizeObserver, never read during a message.
+While the page is hidden the box is 0 × 0 and nothing is drawn; on show,
+the stretch missed meanwhile is painted then (all of it only if the field
+changed).
+
+So a vehicles message does: find the field (microseconds), update the
+trail's cells (about 0.2 ms, measured), paint one short stretch, move the
+arrow, and change the % text when its rounded value changes. No element
+is added and no SVG attribute is written.
+
+**Data contract.** No mod change, no new topic or field.
+- The panel no longer reads `mapAssets`, `hello` or `meta.json`, and asks
+  for no map image.
+- `coverage.js` is unchanged: the panel reads `trails`, `percent` and
+  `version` as today.
+- Theme tokens: `--trail-work` and `--trail-mow`, opaque, day and night,
+  set to today's look over the card.
+
+**Plan.**
+- `widgets/fieldPanel.js`: the three layers above. The image, the night
+  filter, the clip path, the polylines, `metaOf`, `aroundView` and the
+  per-message `clientWidth` read go. `fieldView` gets the 25 m minimum.
+- `map/overviewLayer.js`: `imageName` is private again.
+- `themes/newholland/theme.css`: the trail tokens; the panel's image,
+  filter and `data-image` rules go; the arrow's layer.
+- Docs: THEMES.md's "Vehicle page, calm" section (the panel without the
+  image); Behaviour, Data contract, Plan, Acceptance and Decisions here;
+  `docs/NEXT.md`'s entry closes once the iPad says so.
+- The design system on claude.ai is refreshed, since theme.css changes.
+- Golden: no viewer message changes.
+
+**Acceptance.**
+
+Automated (written first):
+- [x] `web/test.html`, field panel light:
+  - no `<image>`, no SVG filter, and no request for `meta.json` or
+    `overview*.png` from the panel;
+  - the viewBox is the field's bounds plus 15 %, at least 25 m a side;
+  - 20 vehicles messages on the same field write nothing in the outline's
+    SVG and add no element to the panel (a MutationObserver);
+  - the arrow's transform follows the tractor (its pixel position from
+    the view);
+  - after a pass, the canvas has the trail's colour in the pass's middle
+    and not outside the field;
+  - a message paints only its run's newest stretch (at most three points a
+    run: a counting canvas context);
+  - messages while the box is 0 × 0 paint nothing; on show the missed
+    stretch is painted;
+  - leaving the field keeps it shown with the arrow; entering another
+    switches to it; no field yet shows "Not on a field" and no arrow.
+- [x] The existing coverage and field panel tests pass, updated where this
+  revision changes them (the viewBox, "Not on a field").
+- [x] Replay in the browser pane (the sample sprayer on field 120), day
+  and night at 1180×820 and once at 1133×744.
+- [x] `python -m pytest mod/tests companion/tests tests` passes, the
+  golden unchanged.
+
+Live check (Vincent, iPad Pro, Safari):
+- [ ] Map ↔ Vehicle back and forth quickly: the Vehicle page shows as fast
+  as Harvester and Loader.
+- [ ] Get out and into another tractor, then back: the page shows at once.
+- [ ] Spray two passes on a field: the arrow and the trail follow, the %
+  as before; a headland turn leaves the panel on the field. The same at
+  night.
+
+**Later, in specs of their own** (agreed 2026-11-07, not this revision):
+- Progress kept by the companion, per field and per tool, for the game
+  session (Safari pauses the page, so it misses messages); the panel
+  never switching field by itself ("Working Field 2? · Show Field 2");
+  only fields you own; the % per tool.
+- Contracts and helping another farm: the game's land-access check, a mod
+  change and a live check.
 
 ## Behaviour
 
@@ -101,17 +236,18 @@ order:
 **The field panel** (none, one or two working tools: with none, a
 tractor alone or with a weight, it shows too, the tools column then holding
 only Also attached or "Nothing attached"; hidden on foot):
-- **The map**, zoomed to the field the rig is in: the Map screen's own
-  map image, the field's outline (white, 2 px), and the rig as a dark
-  dot with a white ring and a heading arrow.
-  - At night the image is dimmed (72 % brightness, 80 % saturation).
-- **A sprayer's boom:** a white line behind the dot at the tool's working
-  width. Its sections that are off are grey.
+- **The map** (revision 2: no map image), fixed to the field the rig is
+  in (its bounds plus 15 % of its size on each side, at least 25 m): the
+  field's outline (the muted colour, 2 px) on the card's colour, and the
+  rig as a dark dot with a white ring and a heading arrow. It doesn't move
+  with the rig.
+- **A sprayer's boom:** a line in the text colour behind the dot at the
+  tool's working width. Its sections that are off are grey.
 - **The trail (new):** where the rig's tools have worked on this field,
-  drawn as a soft band at the working width (the sections that are on, so
-  a narrower pass is narrower and sits on the side still on), clipped to
-  the field's outline. It's pale yellow for mowers and green for every
-  other tool (spraying, sowing...).
+  drawn as a solid band at the working width (the sections that are on,
+  so a narrower pass is narrower and sits on the side still on), clipped
+  to the field's outline. It's pale yellow for mowers and green for every
+  other tool (spraying, sowing...): `--trail-mow` and `--trail-work`.
   - It's our estimate (Data contract), never the game's own map.
   - A trail is kept while the page is open. It's cleared when its tool is
     detached, as Area is (`rates.js`), and, as Area, when you change
@@ -124,11 +260,17 @@ only Also attached or "Nothing attached"; hidden on foot):
     panel's words: Weeding, Fertilizer, Lime...), or "Nothing" in muted
     text;
   - "This run ≈ 54 % of the field", while there's a trail.
-- **Not on a field:** the map around the rig (300 m across), titled "Not
-  on a field", with no outline, crop or needs. Without the rig's position
-  (an older mod), the same title over an empty map.
-- **No map image** (not converted yet): the outline and the trail on the
-  card's colour.
+- **Off a field** (revision 2): the last field stays (its outline, trail
+  and rows), the arrow wherever the rig is, until the rig is in another
+  field. With no field yet (just got in, or not on one since): "Not on a
+  field", an empty map, no arrow, no crop or needs. Without the rig's
+  position (an older mod), the same.
+- **What a vehicles message does** (revision 2): paints each run's newest
+  stretch on the trail's canvas, moves the arrow by a transform, and
+  changes the % when its rounded value moves. The outline is written only
+  when the field changes; the trail is drawn in full only when the field,
+  the box's size or the palette changes or a tool's trail goes. While the
+  page is hidden nothing is drawn; on show, the stretch missed meanwhile.
 - A tap does nothing (open question 4).
 
 **The column:**
@@ -220,7 +362,8 @@ already sent and live.
     and each implement's `workWidth`.
   - `cab.rig`: `lowered`, `turnedOn`, `width`, `selected`.
   - `fields`, `field_outlines`, `crop_types`.
-  - The map's `meta.json` and image (`imageBounds`).
+  - The map's `meta.json` and image: no longer read by the field panel
+    (revision 2); the Map screen's own.
 - **Web** (`web/src/types.js`): no topic changes.
 - **Web** (data, widgets):
   - `data/selectors.js`: `fieldAt(store, x, z)`, the outline
@@ -245,12 +388,16 @@ already sent and live.
       middle line, x and z in turn, cut every 500 points); `percent(field)`,
       undefined without a trail; `points(field)`; `version(field)`, which
       changes with its trails (the panel redraws by it).
-  - `widgets/fieldPanel.js` (new): the panel.
-    - It's an SVG in world metres over the map image: its viewBox is the
-      field's bounds plus 15 % of its size on each side, and the image
-      (the Map's own `overview.png`, `overview_2048.png` on a phone) sits
-      at `imageBounds` from `meta.json`. At night an SVG filter dims it
-      (Safari draws no CSS filter functions on SVG).
+  - `widgets/fieldPanel.js` (new): the panel. Revision 2: three layers in
+    the map box, no map image.
+    - The outline: an SVG in world metres, its viewBox `fieldView` (the
+      field's bounds plus 15 % of its size on each side, at least 25 m).
+    - The trail: a canvas, its transform `fitView` (the same fit as the
+      SVG's "xMidYMid meet"), clipped to the outline.
+    - The rig: a `.field-rig` element moved by a CSS transform
+      (`will-change: transform`), the dot, arrow and boom in it.
+    - The box's size from a ResizeObserver (`watchSize`; the tests pass
+      their own, as they pass `coverage`).
     - It isn't the Leaflet map, so the map frame stays on the Map
       screen.
     - Field rows: `fieldNeeds` and the growth stages from
@@ -321,8 +468,11 @@ None new.
     controls (`{ widget: "toolsAll" }`); `toolsAll` draws a
     `.control-group` titled "All tools".
   - `widget.js`: a `readoutUnit` for the readout variant (wear's
-    "% wear"); `fieldInfoPanel.js` exports `growthProgress`,
-    `overviewLayer.js` exports `imageName`.
+    "% wear"); `fieldInfoPanel.js` exports `growthProgress`.
+    (`overviewLayer.js` exported `imageName` until revision 2.)
+  - Revision 2 (2026-11-07): `fieldPanel.js` as three layers, the
+    `--trail-work` and `--trail-mow` tokens; the panel's image, filter,
+    clip path and polylines gone.
   - The theme's tokens: `--on` is the lit layer and `--on-tint` how much
     of it shows (0.14 by day, 1 at night); `--on-fill` for what's on and
     isn't a control; `--work-badge`, `--work-badge-ink`,
@@ -348,8 +498,10 @@ Automated (each one a test that exists before the work is called built):
   - detaching clears that tool's trail;
   - the point cap merges and keeps the percentage within 1 %.
 - [x] `web/test.html`, field panel:
-  - its viewBox is the field's bounds plus 15 %;
-  - "Not on a field" outside any outline;
+  - its viewBox is the field's bounds plus 15 % (at least 25 m since
+    revision 2);
+  - off the field the last field stays (revision 2; "Not on a field"
+    before), with no field yet "Not on a field";
   - the Needs chips match `fieldNeeds`;
   - no percentage without a trail.
 - [x] `web/test.html`, the page:
@@ -405,9 +557,10 @@ Live check (in game; Solek):
 ## Decisions
 
 Made while drafting; the review or the live check can change them.
-- **The field panel is a plain SVG in world metres over the map image,
-  not a second Leaflet map.** The map frame stays the Map screen's (its
-  toolbar, popups and saved view), and the panel needs no pan or zoom.
+- **The field panel is plain layers in world metres, not a second Leaflet
+  map.** The map frame stays the Map screen's (its toolbar, popups and
+  saved view), and the panel needs no pan or zoom. Revision 2
+  (2026-11-07, Vincent): no map image either, for speed on the iPad.
 - **The field panel shows with one or two working tools only.** Three or
   more need the width (spec 0003's grid).
 - **More is a button** at the end of the button row, not a row of its own
@@ -415,8 +568,10 @@ Made while drafting; the review or the live check can change them.
 - **The trail lives in the viewer's memory,** like Area: it starts when
   the page opens and goes on a reload or a detach (Vincent, 2026-11-03:
   not kept by the companion).
-- **Not on a field, the panel shows the map around the rig,** not the
-  last field (Vincent, 2026-11-03).
+- **Off a field, the panel keeps the last field** (revision 2, Vincent,
+  2026-11-07). It showed the map around the rig before (Vincent,
+  2026-11-03), which needed the map image; the last field also keeps a
+  headland turn from changing the panel.
 - **The bottom bar's readout:** speed, gear, fuel, DEF, wear and engine
   temperature. Rpm, fuel usage and cruise stay on the Map screen.
 - **The Loader page** takes the same strip and readout, so the band is
@@ -462,3 +617,17 @@ page's memory; off a field the panel shows the map around the rig.
   The design system on claude.ai is refreshed the same day (its tokens,
   the controls' "on", working badges and the rig on the ground; its
   components' code unchanged).
+- 2026-11-07: Vincent: the Vehicle page is slow on the iPad Pro (Safari),
+  about 100–300 ms to show, Harvester and Loader not; the field panel. Not
+  reproduced in the browser pane (taps paint in 16–24 ms). Revision 2
+  drafted with Vincent: a light field panel (no map image; outline, trail
+  canvas and arrow as three layers; the last field kept off a field).
+- 2026-11-07: revision 2 approved by Vincent and built (web only, no mod
+  change). `web/test.html` all green (301), pytest 119 passed, the golden
+  unchanged. Checked in the browser pane on the Solek replay with a sample
+  sprayer (24 m) on field 120, day and night at 1180×820 and at 1133×744:
+  outline, solid trail and arrow; a palette change or a resize repaints
+  the trail; 200 vehicles messages took 26 ms in all, painting included;
+  a tap from Map shows the Vehicle page in 24 ms. Each band is drawn a
+  pixel wider, so passes side by side leave no seam. The iPad check is
+  Vincent's (the revision's Live check).
