@@ -1,6 +1,6 @@
 # 0013: Vehicle page, calm
 
-Status: built (live check open); revision 2 built (a light field panel; its iPad check open)
+Status: built (live check open); revision 2 live-checked on the iPad (a light field panel)
 Mod: no change · Started: 2026-11-03 · Design: the canvas [FS25 Companion: Vehicle screen, calm](https://claude.ai/artifact/JApsdXjoSFwsddKv2kNYZ3) (private, on claude.ai; approved by Vincent on 2026-11-03), a THEMES.md section at build; specs [0003](0003-implement-screen.md) (the page), [0010](0010-tidy-states-and-motion.md) (the states), [0012](0012-card-buttons.md) (the buttons)
 
 ## Goal
@@ -27,8 +27,8 @@ button is outlined by day and steel grey at night.
 
 ## Revision 2: a light field panel
 
-Drafted, approved by Vincent and built on 2026-11-07; the iPad check is
-open. This section is the revision whole; Behaviour, Data contract, Plan,
+Drafted, approved by Vincent, built and checked on his iPad on
+2026-11-07. This section is the revision whole; Behaviour, Data contract, Plan,
 Acceptance and Decisions below say the same where they changed.
 
 **Why.** On Vincent's iPad Pro (M4, Safari) the Vehicle page has been
@@ -145,10 +145,10 @@ Automated (written first):
   golden unchanged.
 
 Live check (Vincent, iPad Pro, Safari):
-- [ ] Map ↔ Vehicle back and forth quickly: the Vehicle page shows as fast
+- [x] Map ↔ Vehicle back and forth quickly: the Vehicle page shows as fast
   as Harvester and Loader.
-- [ ] Get out and into another tractor, then back: the page shows at once.
-- [ ] Spray two passes on a field: the arrow and the trail follow, the %
+- [x] Get out and into another tractor, then back: the page shows at once.
+- [x] Spray two passes on a field: the arrow and the trail follow, the %
   as before; a headland turn leaves the panel on the field. The same at
   night.
 
@@ -631,3 +631,8 @@ page's memory; off a field the panel shows the map around the rig.
   a tap from Map shows the Vehicle page in 24 ms. Each band is drawn a
   pixel wider, so passes side by side leave no seam. The iPad check is
   Vincent's (the revision's Live check).
+- 2026-11-07: revision 2 checked by Vincent on his iPad Pro (Safari): Map ↔
+  Vehicle and switching tractors show the page at once; spraying passes,
+  the arrow and trail keep up and a headland turn leaves the panel on the
+  field; the same at night. All three boxes ticked. Spec 0013's own live
+  check stays open.

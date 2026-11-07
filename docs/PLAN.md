@@ -88,6 +88,10 @@ up to date until the live check.
   checked on 2026-11-07 on every rig on the farm; the check found three
   fixes (the rate faded by what's in the tank, no Doubled rate with
   Precision Farming, a baler-wrapper's drop read from the wrapper).
+- The calm Vehicle page (spec [0013](../specs/0013-vehicle-screen-calm.md))
+  is built, its live check open. Its revision 2, a light field panel (no
+  map image, the outline, trail and arrow as layers), fixed the page's
+  slow show on the iPad: checked by Vincent on 2026-11-07.
 - The code review of 2026-10-30 ([REVIEW-2026-10-30.md](REVIEW-2026-10-30.md))
   found seven issues. F5 to F7 are fixed (mod 0.8.12), and F1 is fixed and
   confirmed in game (spec [0004](../specs/0004-acks-survive-rotation.md),
