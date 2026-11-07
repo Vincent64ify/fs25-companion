@@ -2288,7 +2288,7 @@ test("capabilities: spike 0.0.4's rigs give each member its buttons and can't-no
     eq(rigs.plow[1037].plow.rotated, false)
     eq(rigs.plow[1037].createFields, false, "limited to fields: no fields made")
     eq(rigs.baler[1041].bales.count, 0)
-    eq(rigs.baler[1041].autoDrop, true)
+    eq(rigs.baler[1041].autoDrop, false, "the wrapper's: its key said Turn on automatic drop")
     eq(rigs.baler[1041].lowered, false, "the pickup raised")
     eq(rigs.trailers[1004].discharging, false)
     eq(rigs.mowers[996].lowered, true)
@@ -2556,6 +2556,18 @@ test("capabilities: each new button from its part, faded as the game says (specs
     eq(caps(baler).autoDrop, false, "a platform")
     unpowered(baler)
     eq(caps(baler).canNow.autoDrop, false, "no power: its key is a powered one")
+    -- a baler-wrapper: the wrapper's setting, the one the shared key flips
+    -- (the probe, 2026-11-07, the G-1 F125 Kombi: one event for both
+    -- parts, the baler's automaticDrop stayed true, the wrapper's key text
+    -- turned "Turn off automatic drop")
+    local kombi = { id = 77, typeName = "baleWrapper",
+        spec_baler = { automaticDrop = true, toggleableAutomaticDrop = true },
+        spec_baleWrapper = { automaticDrop = false, toggleableAutomaticDrop = true } }
+    e = caps(kombi)
+    eq(joined(e.can), "autoDrop,detach")
+    eq(e.autoDrop, false, "the wrapper's")
+    kombi.spec_baleWrapper.automaticDrop = true
+    eq(caps(kombi).autoDrop, true)
     -- Reset bale count: the bale counter
     baler.spec_baleCounter = { sessionCounter = 7, lifetimeCounter = 90 }
     e = caps(baler)
@@ -2578,6 +2590,13 @@ test("capabilities: each new button from its part, faded as the game says (specs
     eq(e.doubledRate, false)
     eq(e.canNow, nil)
     eq(caps(sprayer(false, false)).canNow.doubledRate, false, "not for this spray type")
+    -- Precision Farming's sprayer part takes it away: no key in game (live,
+    -- 2026-11-07, the Fliegl PFW 18000 with slurry; Vincent)
+    local pfTanker = sprayer(false, true)
+    pfTanker["spec_FS25_precisionFarming.extendedSprayer"] = { sprayAmountAutoModeChangeAllowed = false }
+    e = caps(pfTanker)
+    eq(joined(e.can), "detach", "a slurry tanker with Precision Farming: no doubled rate")
+    eq(e.doubledRate, nil)
     -- Application rate: Precision Farming's sprayer part, where its mode may change
     local pfPart = { sprayAmountAutoMode = false, sprayAmountAutoModeChangeAllowed = true, sprayAmountManual = 12,
         sprayAmountManualMin = 1, sprayAmountManualMax = 45 }
@@ -2816,16 +2835,22 @@ test("commands, card buttons: each presses its key on its own tool and answers b
     eq(ack.ok, false)
     eq(ack.reason, "Nothing moved")
     eq(run("implement.rotate", 1037).reason, "action not allowed", "tool.rotate replaces it")
-    -- the baler: Automatic drop (the baler's and the wrapper's key, as one
-    -- press runs both), Reset bale count, the pickup's own Lower
+    -- the baler: Automatic drop (one key for the baler and the wrapper:
+    -- the wrapper's flips, the probe 2026-11-07), Reset bale count, the
+    -- pickup's own Lower
     run, root, byId, pressed = spikeCommands("baler")
     local baler = byId[1041]
+    eq(run("tool.autoDrop", 0, 1041).already, true, "the wrapper's is off")
+    pressed()
+    ack = run("tool.autoDrop", 1, 1041)
+    eq(ack.ok, true, "automatic drop on: " .. tostring(ack.reason))
+    eq(ack.via, "IMPLEMENT_EXTRA4")
+    eq(baler.spec_baleWrapper.automaticDrop, true, "the wrapper's flipped")
+    eq(baler.spec_baler.automaticDrop, true, "the baler's as it was")
+    eq(run("tool.autoDrop", 1, 1041).already, true)
     ack = run("tool.autoDrop", 0, 1041)
     eq(ack.ok, true, "automatic drop off: " .. tostring(ack.reason))
-    eq(ack.via, "IMPLEMENT_EXTRA4")
-    eq(pressed(), "1041:IMPLEMENT_EXTRA4,1041:IMPLEMENT_EXTRA4", "the wrapper's and the baler's")
-    eq(baler.spec_baler.automaticDrop, false)
-    eq(run("tool.autoDrop", 0, 1041).already, true)
+    eq(baler.spec_baleWrapper.automaticDrop, false)
     baler.spec_baleCounter.sessionCounter = 5
     ack = run("tool.resetBales", nil, 1041)
     eq(ack.ok, true, "reset: " .. tostring(ack.reason))
@@ -2912,8 +2937,12 @@ test("commands, card buttons: each presses its key on its own tool and answers b
     root.engineOff = nil
     -- Doubled rate: none on a fertilizer sprayer
     eq(run("tool.doubledRate", 1, 530).reason, "can't doubledRate")
-    -- made a slurry tanker: its key, checked
+    -- made a slurry tanker: none while Precision Farming's part is on it
+    -- (live, 2026-11-07); without it, its key, checked
     berthoud.spec_sprayer.isFertilizerSprayer = false
+    eq(run("tool.doubledRate", 1, 530).reason, "can't doubledRate", "Precision Farming's part")
+    berthoud.spec_extendedSprayer = nil
+    berthoud.dump.keys["FS25_precisionFarming.extendedSprayer"] = nil
     for _, k in ipairs(berthoud.dump.keys.sprayer) do
         if k.action == "DOUBLED_SPRAY_AMOUNT" then
             k.active = true

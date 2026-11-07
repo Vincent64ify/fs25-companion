@@ -44,7 +44,7 @@
     "selected": false
    },
    {
-    "autoDrop": true,
+    "autoDrop": false,
     "bales": {
      "count": 0
     },
@@ -135,7 +135,7 @@
   "also": [],
   "all": [],
   "more": [
-   "G-1 F125 Kombi: Automatic drop off:on, Reset bale count:off"
+   "G-1 F125 Kombi: Automatic drop on:off, Reset bale count:off"
   ]
  }
 }

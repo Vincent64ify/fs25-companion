@@ -6,7 +6,7 @@ it relies on, are in [DONE.md](DONE.md). Small fixes go in
 [specs/](../specs/README.md): written and approved before the code, kept
 up to date until the live check.
 
-## Where things stand (2026-11-01)
+## Where things stand (2026-11-07)
 
 - Phases 0 to 4 of the rework are built and run live on Windows (Solek, and
   Kinlaig, a paid DLC map): the file stream, the client and backend, and the
@@ -77,6 +77,14 @@ up to date until the live check.
   with the engine off; their rechecks are under way (0.12.3: no Turn on
   on a weight or tractor, no card for a tractor, hidden keys left out,
   confirmed; 0.12.4: no axis keys as buttons).
+- A card's buttons come from what the tool is (spec
+  [0012](../specs/0012-card-buttons.md), mod 0.13.3): read once from its
+  parts, faded with the game's words, never coming or going; a More
+  button for the rarer ones (Rotate, Create fields, Automatic drop, Reset
+  bale count, Doubled rate, Precision Farming's application rate). Live
+  checked on 2026-11-07 on every rig on the farm; the check found three
+  fixes (the rate faded by what's in the tank, no Doubled rate with
+  Precision Farming, a baler-wrapper's drop read from the wrapper).
 - The code review of 2026-10-30 ([REVIEW-2026-10-30.md](REVIEW-2026-10-30.md))
   found seven issues. F5 to F7 are fixed (mod 0.8.12), and F1 is fixed and
   confirmed in game (spec [0004](../specs/0004-acks-survive-rotation.md),

@@ -297,6 +297,48 @@ These results override any API guesses later in this document.
     a mixed rig, it unfolded that one.
   - Turn on all (`TurnOnVehicle.actionEventTurnOnAll`) flips every tool
     (`setIsTurnedOn(not getIsTurnedOn())`), so a mixed rig swaps.
+- **A card's buttons from the tool's parts** (spec 0012's live check, mods
+  0.13.0 to 0.13.3, 2026-11-04 and 2026-11-07, Solek with Precision
+  Farming; the game's own scripts in `debugger/gameSource.zip`):
+  - Turn on: `spec_turnOnVehicle` with `isAlwaysTurnedOn` and
+    `turnedOnByAttacherVehicle` false (the Berthoud, the Rogator 937H,
+    the DINO II, the mowers, the Aerosem, the baler); the ARION 410 and
+    the W 600 have no turn on part. `getCanBeTurnedOn()` false while
+    folded or unpowered, with `getTurnedOnNotAllowedWarning()`
+    ("You first need to unfold the tool (sprayer)!", "Attach tool to
+    vehicle with a turned-on motor!").
+  - Unload: `spec_fillUnit.unloading` set, `UNLOAD` pressed on the tool
+    makes pallets with another tool selected; `unloadingFillUnitsRunning`
+    true while it runs.
+  - Lower: the input attacher joint's `allowsLowering` (the W 600 true,
+    the Berthoud false); a baler's pickup lowers by `LOWER_IMPLEMENT` on
+    the baler (the G-1 F125 Kombi).
+  - The plow (the PÖTTINGER SERVO T 6000 P): `spec_plow.rotationPart
+    .turnAnimation` set and `rotationMax` the rotated state;
+    `IMPLEMENT_EXTRA` rotates, refused while lowered or folded
+    (`getCanTogglePlowRotation`); `IMPLEMENT_EXTRA3` flips
+    `limitToField`; Fold refused while turned ("Folding is not allowed
+    while the plow is turned.").
+  - A baler-wrapper (the G-1 F125 Kombi): its baler and wrapper share one
+    `IMPLEMENT_EXTRA4` event, the wrapper's; a press flips
+    `spec_baleWrapper.automaticDrop`, the baler's `automaticDrop` stays
+    true (spike 0.0.9's `csParts`). `BALE_COUNTER_RESET` sets
+    `spec_baleCounter.sessionCounter` to 0. Both keys are powered.
+  - Precision Farming's sprayer part (`spec_FS25_precisionFarming
+    .extendedSprayer`): `sprayAmountAutoMode`, `sprayAmountManual`
+    (1 to 45); `PRECISIONFARMING_SPRAY_AMOUNT_MODE` toggles automatic,
+    `PRECISIONFARMING_SPRAY_AMOUNT` with value 1 or -1 steps the rate,
+    on the Berthoud, the Rogator, the Fliegl PFW 18000 and the Aerosem
+    (fed from the FH 2200). No rate with herbicide in the tank (the keys
+    inactive); fertilizer, liquid fertilizer and slurry are rated (its
+    `PrecisionFarming.xml` lists them with the manures, digestate and
+    lime). With it, the base game's Doubled rate is gone (no key on the
+    Fliegl PFW 18000 with slurry) and its sections take the width keys.
+  - Cover: `TOGGLE_COVER` opens and closes `spec_cover` on the FH 2200
+    and the Aerosem, each and all.
+  - A trailer's tip side with `canTip` false in its XML (the EDK 650's
+    Grain door) never tips to the ground (Trailer
+    `getCanDischargeToGround`).
 
 ---
 

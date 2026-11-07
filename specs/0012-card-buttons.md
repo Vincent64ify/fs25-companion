@@ -1,7 +1,7 @@
 # 0012: Card buttons: what a tool has, what it can do now
 
-Status: built
-Mod: 0.13.1 · Started: 2026-11-02 · Design: [THEMES.md](../docs/THEMES.md#implement-screen-design-2026-10-24) (the card); specs [0003](0003-implement-screen.md) and [0011](0011-sprayer.md) (the buttons this replaces)
+Status: live-checked
+Mod: 0.13.3 · Started: 2026-11-02 · Design: [THEMES.md](../docs/THEMES.md#implement-screen-design-2026-10-24) (the card); specs [0003](0003-implement-screen.md) and [0011](0011-sprayer.md) (the buttons this replaces)
 
 ## Goal
 
@@ -40,8 +40,8 @@ it (Vincent, 2026-11-02):
 
 | Tool | Main row | More |
 |---|---|---|
-| Sprayer, trailed (the Berthoud Vantage 4300) | Fold, Turn on, Unload, Detach; the section strip | Application rate (Precision Farming); Doubled rate on a slurry tanker or a manure spreader |
-| Sprayer, self-propelled (the Agrio DINO II): its own card | Fold, Turn on, Unload; the section strip | Application rate (Precision Farming); Doubled rate on a slurry tanker or a manure spreader |
+| Sprayer, trailed (the Berthoud Vantage 4300) | Fold, Turn on, Unload, Detach; the section strip | Application rate (Precision Farming); else Doubled rate on a slurry tanker or a manure spreader |
+| Sprayer, self-propelled (the Agrio DINO II): its own card | Fold, Turn on, Unload; the section strip | Application rate (Precision Farming); else Doubled rate on a slurry tanker or a manure spreader |
 | Mower | Lower, Fold, Turn on, Detach | |
 | Seeder or planter | Lower, Fold, Turn on, Detach | |
 | Trailer | Tip (Unload here off a sale point), Tip side, Cover, Detach | |
@@ -160,9 +160,9 @@ yet:
 | Pipe | `spec_pipe.hasMovablePipe` | as today | verified (spec 0001) |
 | Rotate | `spec_plow.rotationPart.turnAnimation` | `getCanTogglePlowRotation()` false (Plow.actionEventTurn: the fold's limits, lowered, power), else `getIsPlowRotationAllowed()` false; `getIsPowered` false | `rotationMax` seen in spike 0.0.4; unverified live |
 | Create fields | `spec_plow` and not `getPlowForceLimitToField()` (forced, or the platform can't create fields); the player's `createFields` permission (`g_currentMission:getHasPlayerPermission`) fades it | without the permission | `spec_plow.limitToField` (false: makes fields); unverified |
-| Automatic drop | `spec_baler.toggleableAutomaticDrop` (else `spec_baleWrapper`'s: a baler-wrapper has the key twice, one press toggles both) | `getIsPowered` false (a powered key) | `spec_baler.automaticDrop` (`platformAutomaticDrop` with a platform); unverified |
+| Automatic drop | `spec_baleWrapper.toggleableAutomaticDrop`, else `spec_baler`'s | `getIsPowered` false (a powered key) | a baler-wrapper: `spec_baleWrapper.automaticDrop`, the one its key flips (the probe, 2026-11-07, the G-1 F125 Kombi: the two parts share one event, the wrapper's; the baler's `automaticDrop` stayed true, the key's text followed the wrapper's); else `spec_baler.automaticDrop` (`platformAutomaticDrop` with a platform, unverified) |
 | Reset bale count | `spec_baleCounter` | `getIsPowered` false (a powered key) | `sessionCounter`; unverified |
-| Doubled rate | `spec_sprayer.isFertilizerSprayer` false: a slurry tanker or a manure spreader. Sprayer registers its key on every sprayer but never allows it on a fertilizer sprayer (`getSprayerDoubledAmountActive`'s second answer; Vincent, 2026-11-03) | `getSprayerDoubledAmountActive(workAreaParameters.sprayType)`'s second answer false (not for this spray type) | `spec_sprayer.doubledAmountIsActive`; the key inactive on the three fertilizer sprayers in the probe; unverified on a slurry tanker |
+| Doubled rate | `spec_sprayer.isFertilizerSprayer` false: a slurry tanker or a manure spreader, and no Precision Farming sprayer part (`spec_FS25_precisionFarming.extendedSprayer`), which takes the key away (live, 2026-11-07: none in the game's key help on the Fliegl PFW 18000 with slurry). Sprayer registers its key on every sprayer but never allows it on a fertilizer sprayer (`getSprayerDoubledAmountActive`'s second answer; Vincent, 2026-11-03) | `getSprayerDoubledAmountActive(workAreaParameters.sprayType)`'s second answer false (not for this spray type) | `spec_sprayer.doubledAmountIsActive`; the key inactive on the three fertilizer sprayers in the probe; unverified on a slurry tanker without Precision Farming |
 | Application rate (Precision Farming) | Precision Farming's sprayer part (`spec_FS25_precisionFarming.extendedSprayer`) with `sprayAmountAutoModeChangeAllowed` true | Rate − and + while `sprayAmountAutoMode` is true (the game's rate key is inactive then) or at `sprayAmountManualMin` / `Max`; all three while not powered, and while what it sprays isn't one of the fill types Precision Farming's `PrecisionFarming.xml` gives a rate (`applicationRates`: FERTILIZER, LIQUIDFERTILIZER, LIQUIDMANURE, DIGESTATE, MANURE; `limeUsage`: LIME) or there's nothing to spray. What it sprays as Sprayer `onStartWorkAreaProcessing` finds it: its tank (`getSprayerFillUnitIndex`) with a level, else a source tank (`fillTypeSources`) holding one of its spray types; not faded when filled from outside (`getIsSprayerExternallyFilled`) or unreadable. Live (2026-11-04): herbicide in the Berthoud, the keys inactive; fertilizer, offered. The list and an empty tank unverified | the probe (2026-11-02, the Rogator 937H, Vincent watched the HUD): `sprayAmountAutoMode` (true: automatic), `sprayAmountManual` 1 to 45 (`sprayAmountManualMin`, `sprayAmountManualMax`); one press of `PRECISIONFARMING_SPRAY_AMOUNT` with value 1 stepped it 1 → 2 (12 → 25 l/ha in the HUD with liquid fertilizer), with -1 back; `PRECISIONFARMING_SPRAY_AMOUNT_MODE` toggles automatic; Precision Farming's own script isn't readable |
 | Width (4 buttons) | `spec_variableWorkWidth.hasSections` and no Precision Farming sprayer part (`spec_FS25_precisionFarming.extendedSprayer`); with one, the strip only | `spec_variableWorkWidth.isActive` false ("This spray type has no partial width": Sprayer sets it from the spray type's `supportsVariableWorkWidth`) or folded (Foldable's `unfoldWarning`) | the probe (2026-11-02): `hasSections` and `isActive` true on the Berthoud, the Rogator 937H and the DINO II, all with Precision Farming, and no width key registered on any; a sprayer without Precision Farming unverified |
 | Detach | every tool (depth 1 and more) | `isDetachAllowed()` false | verified (DONE.md) |
@@ -181,7 +181,7 @@ and what it starts reads back.
 | `tool.unload` (new) | none (one-shot) | `UNLOAD` | the unloading started: `unloadingFillUnitsRunning` turned true or the tank's level dropped (unverified which), else "Nothing moved" after the check's wait, as Tip (spec 0003 revision 3; Vincent, 2026-11-02) |
 | `tool.rotate` (replaces `implement.rotate`) | 1 rotated, 0 back | the plow's `IMPLEMENT_EXTRA` | `rotationMax` is the value |
 | `tool.createFields` (new) | 1 on, 0 off | `IMPLEMENT_EXTRA3` (Plow `actionEventLimitToField`) | `limitToField` is the opposite of the value |
-| `tool.autoDrop` (new) | 1 on, 0 off | `IMPLEMENT_EXTRA4` (Baler `actionEventToggleAutomaticDrop`) | `automaticDrop` is the value |
+| `tool.autoDrop` (new) | 1 on, 0 off | `IMPLEMENT_EXTRA4` (BaleWrapper's or Baler's `actionEventToggleAutomaticDrop`) | the drop it reads (the wrapper's on a baler-wrapper) is the value |
 | `tool.resetBales` (new, replaces `implement.baleReset`) | none (one-shot) | `BALE_COUNTER_RESET` | `sessionCounter` is 0 |
 | `tool.doubledRate` (new) | 1 on, 0 off | the sprayer's `toggleDoubledAmountInputBinding` (`DOUBLED_SPRAY_AMOUNT` by default) | `doubledAmountIsActive` is the value |
 | `tool.sprayRate` (new) | -1 or 1: one step down or up (Rate −, Rate +) | `PRECISIONFARMING_SPRAY_AMOUNT`, the value as the key's input (the probe) | `sprayAmountManual` moved by one; refused at once while automatic ("Automatic rate is on") or at its end ("at its limit") |
@@ -286,29 +286,32 @@ in; the engine off first, then on):
   unloading, selecting the tractor in game: no button comes or goes
   (livewatch's `in` line has each one's `can`; any change is a `cab`
   line).
-- [ ] The Berthoud: Unload makes pallets with the tractor selected in
+- [x] The Berthoud: Unload makes pallets with the tractor selected in
   game, answered ok once it started; Rate −, Auto and Rate + as the
   game's rate (its HUD's l/ha, the card's step) on the Berthoud and the
   Rogator 937H; the strip read-only (Precision Farming), with no width
   buttons; More opens and closes, and stays open after a reload.
-- [ ] The Agrio DINO II: its own card, Fold, Turn on, Unload, the strip,
+- [x] The Agrio DINO II: its own card, Fold, Turn on, Unload, the strip,
   More · 1, no Detach.
-- [ ] A slurry tanker or a manure spreader (from the shop): Doubled rate
-  under More, on and off as the game's HUD shows; none on the Berthoud.
-- [ ] The T7.300 with the KDF 341 S and KDD 941 STH: Lower, Fold, Turn on,
+- [x] A slurry tanker or a manure spreader (from the shop): with
+  Precision Farming (the save's), no Doubled rate, More · 1 with
+  Application rate as the game's; none on the Berthoud. Without
+  Precision Farming (Doubled rate under More) not checked: the save
+  always has it.
+- [x] The T7.300 with the KDF 341 S and KDD 941 STH: Lower, Fold, Turn on,
   Detach on both, unchanged from spec 0003.
-- [ ] The Vestrum 100 with two EDK 650: Tip, Tip side, Detach (Cover if
+- [x] The Vestrum 100 with two EDK 650: Tip, Tip side, Detach (Cover if
   the game has covers on it, and Cover all), unchanged from spec 0003.
   `python scripts/rig_check.py --server http://localhost:8125` presses
   each card's buttons there and back on any of these rigs.
-- [ ] A plow (from the shop if none on the farm): Rotate and Create
+- [x] A plow (from the shop if none on the farm): Rotate and Create
   fields under More, each as the game does.
-- [ ] A baler (the G-1 F125 Kombi from spike 0.0.4 if on the farm):
+- [x] A baler (the G-1 F125 Kombi from spike 0.0.4 if on the farm):
   Lower (its pickup) in the main row; Automatic drop and Reset bale count
   under More.
-- [ ] The Valtra S 286 with the Väderstad FH 2200 and the Aerosem: each
+- [x] The Valtra S 286 with the Väderstad FH 2200 and the Aerosem: each
   tool's buttons by the table, none coming and going.
-- [ ] The Map screen: Lights and Drive, no Implement group.
+- [x] The Map screen: Lights and Drive, no Implement group.
 
 ## Decisions
 
@@ -322,9 +325,9 @@ in; the engine off first, then on):
   (Vincent, 2026-11-02): Refill gets its own spec after this one
   (docs/NEXT.md), Dump waits until we know from the game when a sprayer
   offers it.
-- A sprayer's More has the base game's Doubled rate (Sprayer) and
-  Precision Farming's Application rate, the second once the probe has
-  found its state (Vincent, 2026-11-02).
+- A sprayer's More has the base game's Doubled rate (Sprayer) or
+  Precision Farming's Application rate: Precision Farming's sprayer part
+  takes the game's Doubled rate away (live, 2026-11-07; Vincent).
 - The width buttons are on a sprayer with sections and no Precision
   Farming sprayer part, faded while partial width is off; with Precision
   Farming the strip is read-only (Vincent, 2026-11-02, after the probe).
@@ -429,3 +432,69 @@ in; the engine off first, then on):
   inactive on herbicide, as the probe saw; the ARION rig's web fixture
   has the Berthoud's rate faded. Tests: 64 Lua, 117 pytest,
   `web/test.html` 290 green; the golden file unchanged.
+- 2026-11-07: live check, mod 0.13.1 (installed zip matches the repo).
+  The Berthoud's line ticked (Vincent: all as the game). With herbicide
+  the rate row faded, "No application rate for herbicide"; emptied by
+  Unload, "The tank is empty"; the engine off, the engine's words first.
+  With fertilizer: Auto off and on, Rate + 1 → 7, Rate − 7 → 6, each ok
+  and read back. `can` never changed; nothing sent while faded.
+- 2026-11-07: the DINO II ticked (Vincent: all as the game).
+  `fold, turnOn, unload, sprayRate`, no Detach, through the engine off
+  and on, fold and unfold, Turn on and off (each ok); the rate row faded
+  "No application rate for herbicide" with the engine on, Auto's tap sent
+  nothing; More open after a reload.
+- 2026-11-07: the slurry tanker (the Fliegl PFW 18000 MaxxLine Plus on
+  the Nemesis 175 PS, mod 0.13.1): `lower, fold, turnOn, doubledRate,
+  sprayRate, detach`, Doubled rate faded from the start; the game's key
+  help has no doubled rate on it (Vincent): Precision Farming's sprayer
+  part takes it away. Mod 0.13.2: Doubled rate only without that part,
+  as the width buttons. Tests: 64 Lua, 117 pytest; the fixtures and the
+  golden file unchanged. The tanker's line rechecked on 0.13.2.
+- 2026-11-07: mod 0.13.2 loaded (the game's log). The Fliegl PFW 18000:
+  `lower, fold, turnOn, sprayRate, detach`, More · 1; slurry rated: Auto
+  off, Rate + 1 → 2, Rate − 2 → 1, Auto on, each ok and as the game's
+  HUD (Vincent). The slurry tanker's line ticked.
+- 2026-11-07: the T7.300 ticked (Vincent: all as the game). Both mowers
+  `lower, fold, turnOn, detach`, no More, through the engine off and on;
+  on each, unfold, lower, Turn on and off, raise, fold, each ok with
+  nothing unmoved; Lower all twice and Fold all ok.
+- 2026-11-07: the Vestrum 100 ticked (Vincent: as the game). Both EDK
+  650 `tip, tipSide, detach`, no covers (none in game); Tip side stepped
+  Back, Grain door, Left, Right as the game; Tip and Tip all on the
+  ground ok, discharging read back. Tip on the grain door side answered
+  "Nothing moved": the side's XML `canTip` is false (Trailer.lua), so
+  the game never tips there; a fade for it is in docs/NEXT.md (the
+  trailer's spec). `rig_check.py` not run (Vincent pressed each by hand).
+- 2026-11-07: the plow ticked (the PÖTTINGER SERVO T 6000 P on a
+  Versatile 365; Vincent: as the game). `lower, fold, rotate,
+  createFields, detach`, More · 2. Rotate there and back, each ok and
+  read back (rotated, Fold faded "Folding is not allowed while the plow
+  is turned."); Rotate faded while lowered and while folded, as the game
+  refuses both; Create fields on and off ok; folded, Lower and Detach
+  faded with the game's "You first need to unfold the tool (plow)!".
+- 2026-11-07: the baler (the GÖWEIL G-1 F125 Kombi on a T8.435, mod
+  0.13.2): `lower, turnOn, autoDrop, bales, detach`, More · 2; Lower,
+  Turn on, Reset bale count ok; the engine off, the drop and the reset
+  faded. Automatic drop: the game's F1 text flipped on each tap, but all
+  eight answered "Nothing moved" and the card stayed on (Vincent). The
+  probe (spike 0.0.9, `csParts baler-a`, the game's key, `csParts
+  baler-b`): one event for both parts, the wrapper's; the baler's
+  `automaticDrop` stayed true. Mod 0.13.3 reads the wrapper's on a
+  baler-wrapper; the test rig presses as the game (the wrapper's only)
+  and reads the wrapper's from its key's text. Tests: 64 Lua, 117
+  pytest, `web/test.html` 290 green; the baler's web fixture has
+  Automatic drop off. The baler's line rechecked on 0.13.3.
+- 2026-11-07: mod 0.13.3 loaded (the game's log). The Kombi's Automatic
+  drop: six taps, each ok and read back (off, on, off...), with the
+  game's F1 text (Vincent). The baler's line ticked.
+- 2026-11-07: the Valtra ticked (Vincent: as the game). The FH 2200
+  `lower, unload, cover, detach`, the Aerosem `lower, fold, turnOn,
+  unload, cover, sprayRate, detach`, never changing. The Aerosem's fold,
+  lower, Turn on, each ok; Cover on each and Cover all ok, read back;
+  the Aerosem's rate live (fed from the front tank): Auto off, Rate + 1
+  → 2, Rate − 2 → 1, Auto on, each ok; Lower all twice ok.
+- 2026-11-07: the Map screen ticked (Vincent: Lights and Drive only).
+  Live-checked on mod 0.13.3; the confirmed names moved into DONE.md.
+  Left for other specs: Tip's fade on a side that can't tip there
+  (docs/NEXT.md); Doubled rate without Precision Farming and an empty
+  tank's rate in game not seen.

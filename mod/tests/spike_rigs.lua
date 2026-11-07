@@ -246,6 +246,13 @@ function SpikeRigs.act(target, name, value, part)
         target.spec_plow.limitToField = not target.spec_plow.limitToField
         return
     elseif name == "IMPLEMENT_EXTRA4" and (part == "baler" or part == "baleWrapper") then
+        -- a baler-wrapper's two parts share one event for the key, whose
+        -- callback is the wrapper's: the baler's setting stays (the probe,
+        -- 2026-11-07)
+        if part == "baler" and type(target.spec_baleWrapper) == "table"
+            and target.spec_baleWrapper.toggleableAutomaticDrop then
+            return
+        end
         local spec = target["spec_" .. part]
         spec.automaticDrop = not spec.automaticDrop
         return
@@ -480,6 +487,15 @@ function SpikeRigs.member(m)
             o["spec_" .. part] = o["spec_" .. part] or {}
             o["spec_" .. part].toggleableAutomaticDrop = true
             o["spec_" .. part].automaticDrop = m.baler ~= nil and m.baler.automaticDrop == true
+            -- the wrapper's setting isn't in spike 0.0.4's dump: its key's
+            -- text says it (the shared key shows the wrapper's, the probe)
+            if part == "baleWrapper" then
+                for _, k in ipairs(keys.baleWrapper) do
+                    if k.action == "IMPLEMENT_EXTRA4" and type(k.text) == "string" then
+                        o.spec_baleWrapper.automaticDrop = k.text:find("Turn off", 1, true) ~= nil
+                    end
+                end
+            end
         end
     end
     if m.sprayer ~= nil then

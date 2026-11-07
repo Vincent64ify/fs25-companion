@@ -426,19 +426,21 @@ end
 
 -- a baler's automatic drop where it toggles (toggleableAutomaticDrop, fixed
 -- at load): the platform's own setting where it has one
--- (Baler.setBalerAutomaticDrop); a baler-wrapper's wrapper has its own
--- (BaleWrapper), toggled by the same key. Returns its state, and whether
--- it toggles
+-- (Baler.setBalerAutomaticDrop). A baler-wrapper's wrapper has its own
+-- (BaleWrapper), and it's the one the key flips: the two parts share one
+-- event, the wrapper's (the probe, 2026-11-07, the G-1 F125 Kombi: the
+-- baler's automaticDrop stayed true, the key's text followed the
+-- wrapper's). Returns its state, and whether it toggles
 local function dropOf(object)
     local baler, wrapper = object.spec_baler, object.spec_baleWrapper
     local on, toggles = nil, false
-    if type(baler) == "table" and baler.toggleableAutomaticDrop == true then
+    if type(wrapper) == "table" and wrapper.toggleableAutomaticDrop == true then
+        on, toggles = wrapper.automaticDrop, true
+    elseif type(baler) == "table" and baler.toggleableAutomaticDrop == true then
         on, toggles = baler.automaticDrop, true
         if baler.hasPlatform == true then
             on = baler.platformAutomaticDrop
         end
-    elseif type(wrapper) == "table" and wrapper.toggleableAutomaticDrop == true then
-        on, toggles = wrapper.automaticDrop, true
     end
     if type(on) ~= "boolean" then
         on = nil
@@ -508,13 +510,15 @@ local function hasOf(object, out, depth)
     end
     -- Sprayer allows a doubled rate only on a slurry tanker or a manure
     -- spreader (getSprayerDoubledAmountActive; isFertilizerSprayer is set
-    -- at load; Vincent, 2026-11-03)
+    -- at load; Vincent, 2026-11-03), and Precision Farming's sprayer part
+    -- takes its key away (live, 2026-11-07: none on the Fliegl PFW 18000
+    -- with slurry, Vincent)
+    local pf = VehicleState.precisionSprayer(object)
     local sprayer = object.spec_sprayer
-    if type(sprayer) == "table" and sprayer.isFertilizerSprayer == false then
+    if type(sprayer) == "table" and sprayer.isFertilizerSprayer == false and pf == nil then
         has.doubledRate = true
         out.doubledRate = sprayer.doubledAmountIsActive == true
     end
-    local pf = VehicleState.precisionSprayer(object)
     if type(pf) == "table" and pf.sprayAmountAutoModeChangeAllowed == true then
         has.sprayRate = true
         out.sprayRate = sprayRateOf(pf)

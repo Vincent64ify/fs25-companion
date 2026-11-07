@@ -3,6 +3,17 @@
 Things to fix next, in no particular order. Longer-term ideas are under
 **Later** in [PLAN.md](PLAN.md).
 
+- **Tip with the grain door side** (spec 0012's live check, 2026-11-07,
+  the Vestrum 100 and two EDK 650, mod 0.13.2): with the tip side on
+  "Grain door", Tip stayed live on the ground and answered "Nothing
+  moved" (twice); the other sides tipped. Not the second trailer: the
+  game's Trailer.lua reads each tip side's XML `canTip` ("if false, only
+  back door control is allowed") and `getCanDischargeToGround` is false
+  for it; `canTipIfEmpty` false does the same on an empty tank. Rule 2:
+  Tip should fade while the side can't tip there, with our reason
+  ("This side only opens its door"); unverified whether the game's key
+  does anything else on that side (the door). In the trailer's spec,
+  with Tip with the engine off.
 - **The other buttons' answers:** since spec 0003 revision 2 (mod 0.8.14)
   fold, lower and turn on answer ok only once the tools moved, and Tip
   since revision 3 (mod 0.8.16). Pipe and tip side still answer once
