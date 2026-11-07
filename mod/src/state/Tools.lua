@@ -345,6 +345,85 @@ local function sprayRateOf(pf)
     return out
 end
 
+-- the fill types Precision Farming sets a rate for: its own settings
+-- (PrecisionFarming.xml in its zip: applicationRates, and limeUsage for
+-- lime); its script isn't readable. Live (2026-11-04): herbicide in the
+-- Berthoud, the rate keys inactive; fertilizer in it, the rate offered
+local RATED_FILL_TYPES = { FERTILIZER = true, LIQUIDFERTILIZER = true, LIQUIDMANURE = true, DIGESTATE = true,
+    MANURE = true, LIME = true }
+
+-- a fill unit's fill type and level, as Fill.lua reads them
+local function fillOf(object, index)
+    local units = type(object.spec_fillUnit) == "table" and object.spec_fillUnit.fillUnits or nil
+    local unit = type(units) == "table" and units[index] or nil
+    local level = Api.tryCall(object, "getFillUnitFillLevel", index)
+    if type(level) ~= "number" then
+        level = type(unit) == "table" and unit.fillLevel or nil
+    end
+    local fillType = Api.tryCall(object, "getFillUnitFillType", index)
+    if type(fillType) ~= "number" then
+        fillType = type(unit) == "table" and unit.fillType or nil
+    end
+    return fillType, level
+end
+
+-- what a sprayer sprays now, as Sprayer.onStartWorkAreaProcessing finds
+-- it: its own tank with a level, else a source tank (fillTypeSources, the
+-- front tank a seeder draws from) holding one of its spray types. Returns
+-- the fill type's index, false when there's nothing to spray, nil when it
+-- can't be told (unreadable, or filled from outside: the game buys it)
+local function sprayFillOf(object)
+    local sprayer = object.spec_sprayer
+    if type(sprayer) ~= "table" or Api.tryCall(object, "getIsSprayerExternallyFilled") == true then
+        return nil
+    end
+    local index = Api.tryCall(object, "getSprayerFillUnitIndex")
+    if type(index) ~= "number" then
+        index = sprayer.fillUnitIndex
+    end
+    if type(index) ~= "number" then
+        return nil
+    end
+    local fillType, level = fillOf(object, index)
+    if type(level) ~= "number" then
+        return nil
+    end
+    if level > 0 then
+        return type(fillType) == "number" and fillType or nil
+    end
+    local sources = type(sprayer.fillTypeSources) == "table" and sprayer.fillTypeSources or {}
+    for _, sprayType in ipairs(type(sprayer.supportedSprayTypes) == "table" and sprayer.supportedSprayTypes or {}) do
+        for _, src in ipairs(type(sources[sprayType]) == "table" and sources[sprayType] or {}) do
+            local vehicle = type(src) == "table" and src.vehicle or nil
+            if type(vehicle) == "table" and Api.tryCall(vehicle, "getIsFillUnitActive", src.fillUnitIndex) ~= false then
+                local srcType, srcLevel = fillOf(vehicle, src.fillUnitIndex)
+                if type(srcLevel) == "number" and srcLevel > 0 and srcType == sprayType then
+                    return srcType
+                end
+            end
+        end
+    end
+    return false
+end
+
+-- why Precision Farming has no rate for what's sprayed now: nil when it
+-- has one, or when what's sprayed can't be told or named
+local function noRateWhy(object)
+    local fillType = sprayFillOf(object)
+    if fillType == false then
+        return "The tank is empty"
+    end
+    if fillType == nil or type(g_fillTypeManager) ~= "table" then
+        return nil
+    end
+    local info = Api.tryCall(g_fillTypeManager, "getFillTypeByIndex", fillType)
+    if type(info) ~= "table" or type(info.name) ~= "string" or RATED_FILL_TYPES[info.name] then
+        return nil
+    end
+    local title = type(info.title) == "string" and info.title or info.name
+    return "No application rate for " .. title:lower()
+end
+
 -- a baler's automatic drop where it toggles (toggleableAutomaticDrop, fixed
 -- at load): the platform's own setting where it has one
 -- (Baler.setBalerAutomaticDrop); a baler-wrapper's wrapper has its own
@@ -518,6 +597,12 @@ local function nowOf(object, out, has)
     -- the rate's three buttons need power; Rate - and + fade by sprayRate
     -- too (automatic on, at an end)
     refuse("sprayRate", power, noPower)
+    -- and all three fade while what's sprayed has no rate in Precision
+    -- Farming (herbicide; an empty tank: unverified what the game does)
+    if has.sprayRate then
+        local why = noRateWhy(object)
+        refuse("sprayRate", why == nil, why)
+    end
     -- the width: Sprayer sets isActive from the spray type's
     -- supportsVariableWorkWidth (the probe read it true); folded, the boom
     -- has no sections to switch: Foldable's own warning (unfoldWarning)

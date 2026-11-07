@@ -55,6 +55,9 @@
      "detach"
     ],
     "canLower": false,
+    "canNow": {
+     "sprayRate": false
+    },
     "canTurnOn": true,
     "depth": 1,
     "foldMoving": false,
@@ -74,6 +77,9 @@
     },
     "turnedOn": false,
     "unfolded": true,
+    "whyNot": {
+     "sprayRate": "No application rate for herbicide"
+    },
     "width": {
      "center": true,
      "left": 4,
@@ -168,7 +174,7 @@
    "Vantage 4300: ■■■■■■■■■ 9 / 9 sections: "
   ],
   "more": [
-   "Vantage 4300: Rate −:unavailable, Auto:on, Rate +:unavailable"
+   "Vantage 4300: Rate −:unavailable, Auto:unavailable, Rate +:unavailable"
   ]
  }
 }

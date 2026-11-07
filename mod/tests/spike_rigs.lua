@@ -15,6 +15,27 @@ SpikeRigs.FOLD_WHILE_LOWERED = "Folding is not allowed while the tool is lowered
 -- the game's warning on a fold key with the engine off (live, 0.8.8)
 SpikeRigs.START_ENGINE = "Please start the engine first"
 
+-- the fill types the dumps name (spike 0.0.9 read them by name), by the
+-- index the game would give them, with a title as FillTypeManager's
+local FILL_TITLES = { HERBICIDE = "Herbicide", LIQUIDFERTILIZER = "Liquid Fertilizer", FERTILIZER = "Fertilizer",
+    LIME = "Lime", DIESEL = "Diesel", DEF = "DEF", AIR = "Air" }
+local fillNames = {}
+
+function SpikeRigs.fillType(name)
+    for i, n in ipairs(fillNames) do
+        if n == name then
+            return i
+        end
+    end
+    fillNames[#fillNames + 1] = name
+    return #fillNames
+end
+
+SpikeRigs.fillTypeManager = { getFillTypeByIndex = function(_, i)
+    local name = fillNames[i]
+    return name ~= nil and { name = name, title = FILL_TITLES[name] or name } or nil
+end }
+
 -- JSON -----------------------------------------------------------------------
 
 local function utf8(code)
@@ -443,7 +464,8 @@ function SpikeRigs.member(m)
         o.spec_fillUnit = o.spec_fillUnit or {}
         o.spec_fillUnit.fillUnits = {}
         for i, f in ipairs(m.fills or {}) do
-            o.spec_fillUnit.fillUnits[i] = { fillLevel = f.level, capacity = f.capacity, canBeUnloaded = true }
+            o.spec_fillUnit.fillUnits[i] = { fillLevel = f.level, capacity = f.capacity, canBeUnloaded = true,
+                fillType = f.name ~= nil and SpikeRigs.fillType(f.name) or nil }
         end
         if (m.unloading or 0) > 0 or hasKey("fillUnit", "UNLOAD") then
             o.spec_fillUnit.unloading = {}
@@ -465,6 +487,8 @@ function SpikeRigs.member(m)
         for k, v in pairs(m.sprayer) do
             o.spec_sprayer[k] = v
         end
+        -- the spray tank: unit 1 on every probed sprayer
+        o.spec_sprayer.fillUnitIndex = 1
         -- Sprayer: never on a fertilizer sprayer, else for its spray type
         o.getSprayerDoubledAmountActive = function(self)
             return self.spec_sprayer.doubledAmountIsActive, self.spec_sprayer.isFertilizerSprayer == false
@@ -594,6 +618,7 @@ function SpikeRigs.rig(dump, sides)
     root.engineOff = dump.engineOn == false or nil
     SpikeRigs.registerKeys(root)
     g_localPlayer = { getCurrentVehicle = function() return root end }
+    g_fillTypeManager = SpikeRigs.fillTypeManager
     return root, byId
 end
 
@@ -622,8 +647,16 @@ function SpikeRigs.registerKeys(root)
 end
 
 -- Precision Farming's rate keys as the probe saw them: the mode key while
--- powered, the rate key only while automatic is off (2026-11-02)
+-- powered, the rate key only while automatic is off (2026-11-02); neither
+-- with herbicide in the tank (the Berthoud's, inactive; live, 2026-11-04)
 local PF_KEYS = { PRECISIONFARMING_SPRAY_AMOUNT = "rate", PRECISIONFARMING_SPRAY_AMOUNT_MODE = "mode" }
+local PF_RATED = { FERTILIZER = true, LIQUIDFERTILIZER = true, LIQUIDMANURE = true, DIGESTATE = true,
+    MANURE = true, LIME = true }
+
+local function rated(o)
+    local unit = o.spec_fillUnit ~= nil and o.spec_fillUnit.fillUnits[1] or nil
+    return unit ~= nil and (unit.fillLevel or 0) > 0 and PF_RATED[fillNames[unit.fillType or 0] or ""] == true
+end
 
 function SpikeRigs.liven(root)
     local b = g_inputBinding
@@ -633,7 +666,8 @@ function SpikeRigs.liven(root)
             local o = event.targetObject
             local pf = o.spec_extendedSprayer
             if type(pf) == "table" and pf.sprayAmountAutoMode ~= nil then
-                event.isActive = o:getIsPowered() == true and (which == "mode" or pf.sprayAmountAutoMode ~= true)
+                event.isActive = o:getIsPowered() == true and rated(o)
+                    and (which == "mode" or pf.sprayAmountAutoMode ~= true)
             end
         end
     end

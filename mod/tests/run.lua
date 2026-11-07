@@ -2389,7 +2389,15 @@ test("capabilities: the same can engine off and on, folded or not, selected or n
     eq(b.canNow.sprayRate, false, "the rate needs power")
     eq(b.canNow.unload, nil, "unloading needs none")
     eq(off[504].canNow.lower, false)
-    eq(on[530].canNow, nil, "the engine on: nothing faded")
+    -- the probe's Berthoud held herbicide: Precision Farming has no rate
+    -- for it (live, 2026-11-04)
+    eq(joined(on[530].canNow and (function()
+        local k = {}
+        for cap in pairs(on[530].canNow) do k[#k + 1] = cap end
+        table.sort(k)
+        return k
+    end)() or {}), "sprayRate", "the engine on: only the rate faded")
+    eq(on[530].whyNot.sprayRate, "No application rate for herbicide")
     eq(on[504].canNow, nil)
     eq(on[531].canNow, nil)
     -- the state the labels read
@@ -2403,6 +2411,13 @@ test("capabilities: the same can engine off and on, folded or not, selected or n
         local root = SpikeRigs.rig(probeDump(name))
         eq(joined(VS.rig(root)[1].can), "fold,turnOn,unload,sprayRate", name)
     end
+    -- the DINO II held herbicide, the Rogator liquid fertilizer
+    local dino = SpikeRigs.rig(probeDump("dino"))
+    eq(VS.rig(dino)[1].whyNot.sprayRate, "Please start the engine first!", "dumped engine off: power first")
+    dino.engineOff = nil
+    eq(VS.rig(dino)[1].whyNot.sprayRate, "No application rate for herbicide")
+    local rogator = VS.rig((SpikeRigs.rig(probeDump("rogator"))))[1]
+    eq(rogator.canNow == nil or rogator.canNow.sprayRate == nil, true, "liquid fertilizer: the rate live")
     -- whatever the game does now, every entry keeps its can
     local root, byId = SpikeRigs.rig(probeDump("arion-on"))
     local base = {}
@@ -2575,6 +2590,45 @@ test("capabilities: each new button from its part, faded as the game says (specs
     eq(caps(pf).canNow.sprayRate, false, "no power")
     pfPart.sprayAmountAutoModeChangeAllowed = false
     eq(joined(caps(pf).can), "detach", "its mode can't change")
+    pfPart.sprayAmountAutoModeChangeAllowed = true
+    -- Precision Farming rates only what its PrecisionFarming.xml lists
+    -- (fertilizers, manures, digestate, lime): what's in the tank fades
+    -- the row, never removes it (live, 2026-11-04: herbicide refused)
+    g_fillTypeManager = { getFillTypeByIndex = function(_, i)
+        return ({ [3] = { name = "HERBICIDE", title = "Herbicide" },
+                  [4] = { name = "LIQUIDFERTILIZER", title = "Liquid Fertilizer" },
+                  [6] = { name = "LIME", title = "Lime" } })[i]
+    end }
+    local supply = { spec_fillUnit = { fillUnits = { { fillLevel = 0, fillType = 4 } } } }
+    pf = { id = 76, typeName = "sprayer", ["spec_FS25_precisionFarming.extendedSprayer"] = pfPart,
+        spec_sprayer = { fillUnitIndex = 1, supportedSprayTypes = { 4 },
+            fillTypeSources = { [4] = { { vehicle = supply, fillUnitIndex = 1 } } } },
+        spec_fillUnit = { fillUnits = { { fillLevel = 900, fillType = 4 } } } }
+    eq(caps(pf).canNow, nil, "liquid fertilizer")
+    pf.spec_fillUnit.fillUnits[1].fillType = 6
+    eq(caps(pf).canNow, nil, "lime")
+    pf.spec_fillUnit.fillUnits[1].fillType = 3
+    e = caps(pf)
+    eq(joined(e.can), "sprayRate,detach", "herbicide: the row stays")
+    eq(e.canNow.sprayRate, false)
+    eq(e.whyNot.sprayRate, "No application rate for herbicide")
+    pf.spec_fillUnit.fillUnits[1].fillLevel = 0
+    e = caps(pf)
+    eq(e.canNow.sprayRate, false, "empty")
+    eq(e.whyNot.sprayRate, "The tank is empty")
+    supply.spec_fillUnit.fillUnits[1].fillLevel = 300
+    eq(caps(pf).canNow, nil, "its own tank empty, a source's in use (Sprayer)")
+    supply.spec_fillUnit.fillUnits[1].fillType = 3
+    eq(caps(pf).whyNot.sprayRate, "The tank is empty", "a source only for the spray type it holds")
+    pf.getIsSprayerExternallyFilled = function() return true end
+    eq(caps(pf).canNow, nil, "filled from outside: the game buys it, can't tell")
+    pf.getIsSprayerExternallyFilled = nil
+    pf.spec_fillUnit.fillUnits[1] = { fillLevel = 900, fillType = 3 }
+    unpowered(pf)
+    eq(caps(pf).whyNot.sprayRate, "Please start the engine first!", "no power first")
+    pf.getIsPowered = nil
+    g_fillTypeManager = nil
+    eq(caps(pf).canNow, nil, "a fill type it can't name: not faded")
     -- the width: its four buttons with sections and no Precision Farming
     -- sprayer part; with one, the strip alone (the probe)
     local boom = { id = 75, typeName = "sprayer", spec_variableWorkWidth = { hasSections = true, isActive = true,
@@ -2810,8 +2864,19 @@ test("commands, card buttons: each presses its key on its own tool and answers b
     end
     eq(run("tool.unload", nil, 530).ok, true, "the level dropped")
     berthoud.onKey = nil
-    -- the rate: refused at once while automatic
+    -- the rate: herbicide in the tank (the probe), refused at once with
+    -- our words, nothing pressed (live, 2026-11-04: the game's key was
+    -- inactive)
     pressed()
+    ack, frames = run("tool.sprayRateAuto", 0, 530)
+    eq(ack.ok, false)
+    eq(ack.reason, "No application rate for herbicide")
+    eq(frames, 1)
+    eq(pressed(), "")
+    eq(run("tool.sprayRate", 1, 530).reason, "No application rate for herbicide")
+    -- liquid fertilizer in it: refused at once while automatic
+    berthoud.spec_fillUnit.fillUnits[1].fillType = SpikeRigs.fillType("LIQUIDFERTILIZER")
+    SpikeRigs.liven(root)
     ack, frames = run("tool.sprayRate", 1, 530)
     eq(ack.ok, false)
     eq(ack.reason, "Automatic rate is on")

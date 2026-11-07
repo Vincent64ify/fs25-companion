@@ -144,7 +144,7 @@ EXPECT = {
         "also": ["W 600 · CLAAS · Weights · Front · Raised: Lower:off, Detach:off"],
         "all": [],
         "width": ["Vantage 4300: ■■■■■■■■■ 9 / 9 sections: "],
-        "more": ["Vantage 4300: Rate −:unavailable, Auto:on, Rate +:unavailable"],
+        "more": ["Vantage 4300: Rate −:unavailable, Auto:unavailable, Rate +:unavailable"],
     },
     "dino": {
         "cards": ["DINO II: Fold:unavailable, Turn on:unavailable, Unload:off, More · 1:off"],

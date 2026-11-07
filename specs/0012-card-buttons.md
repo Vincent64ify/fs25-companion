@@ -1,7 +1,7 @@
 # 0012: Card buttons: what a tool has, what it can do now
 
 Status: built
-Mod: 0.13.0 · Started: 2026-11-02 · Design: [THEMES.md](../docs/THEMES.md#implement-screen-design-2026-10-24) (the card); specs [0003](0003-implement-screen.md) and [0011](0011-sprayer.md) (the buttons this replaces)
+Mod: 0.13.1 · Started: 2026-11-02 · Design: [THEMES.md](../docs/THEMES.md#implement-screen-design-2026-10-24) (the card); specs [0003](0003-implement-screen.md) and [0011](0011-sprayer.md) (the buttons this replaces)
 
 ## Goal
 
@@ -80,7 +80,10 @@ only on a tool whose parts have it (Data contract).
   (the game's rate key does nothing then) and at the ends (1 and 45).
   Auto's line shows the step while the player sets it, "Step 2 / 45"
   (the game's HUD shows l/ha, which isn't in what we read; Vincent,
-  2026-11-02); none while automatic.
+  2026-11-02); none while automatic. All three are faded while what the
+  sprayer sprays has no rate in Precision Farming (herbicide: "No
+  application rate for herbicide") or its tank is empty ("The tank is
+  empty"); the row stays (live check, 2026-11-04).
 - **Compact** (three cards or more, spec 0003): the main row stays, with
   More's button faded and closed.
 - **The section strip** (spec 0011) stays as it is. Its four width
@@ -160,7 +163,7 @@ yet:
 | Automatic drop | `spec_baler.toggleableAutomaticDrop` (else `spec_baleWrapper`'s: a baler-wrapper has the key twice, one press toggles both) | `getIsPowered` false (a powered key) | `spec_baler.automaticDrop` (`platformAutomaticDrop` with a platform); unverified |
 | Reset bale count | `spec_baleCounter` | `getIsPowered` false (a powered key) | `sessionCounter`; unverified |
 | Doubled rate | `spec_sprayer.isFertilizerSprayer` false: a slurry tanker or a manure spreader. Sprayer registers its key on every sprayer but never allows it on a fertilizer sprayer (`getSprayerDoubledAmountActive`'s second answer; Vincent, 2026-11-03) | `getSprayerDoubledAmountActive(workAreaParameters.sprayType)`'s second answer false (not for this spray type) | `spec_sprayer.doubledAmountIsActive`; the key inactive on the three fertilizer sprayers in the probe; unverified on a slurry tanker |
-| Application rate (Precision Farming) | Precision Farming's sprayer part (`spec_FS25_precisionFarming.extendedSprayer`) with `sprayAmountAutoModeChangeAllowed` true | Rate − and + while `sprayAmountAutoMode` is true (the game's rate key is inactive then) or at `sprayAmountManualMin` / `Max`; all three while not powered | the probe (2026-11-02, the Rogator 937H, Vincent watched the HUD): `sprayAmountAutoMode` (true: automatic), `sprayAmountManual` 1 to 45 (`sprayAmountManualMin`, `sprayAmountManualMax`); one press of `PRECISIONFARMING_SPRAY_AMOUNT` with value 1 stepped it 1 → 2 (12 → 25 l/ha in the HUD with liquid fertilizer), with -1 back; `PRECISIONFARMING_SPRAY_AMOUNT_MODE` toggles automatic; Precision Farming's own script isn't readable |
+| Application rate (Precision Farming) | Precision Farming's sprayer part (`spec_FS25_precisionFarming.extendedSprayer`) with `sprayAmountAutoModeChangeAllowed` true | Rate − and + while `sprayAmountAutoMode` is true (the game's rate key is inactive then) or at `sprayAmountManualMin` / `Max`; all three while not powered, and while what it sprays isn't one of the fill types Precision Farming's `PrecisionFarming.xml` gives a rate (`applicationRates`: FERTILIZER, LIQUIDFERTILIZER, LIQUIDMANURE, DIGESTATE, MANURE; `limeUsage`: LIME) or there's nothing to spray. What it sprays as Sprayer `onStartWorkAreaProcessing` finds it: its tank (`getSprayerFillUnitIndex`) with a level, else a source tank (`fillTypeSources`) holding one of its spray types; not faded when filled from outside (`getIsSprayerExternallyFilled`) or unreadable. Live (2026-11-04): herbicide in the Berthoud, the keys inactive; fertilizer, offered. The list and an empty tank unverified | the probe (2026-11-02, the Rogator 937H, Vincent watched the HUD): `sprayAmountAutoMode` (true: automatic), `sprayAmountManual` 1 to 45 (`sprayAmountManualMin`, `sprayAmountManualMax`); one press of `PRECISIONFARMING_SPRAY_AMOUNT` with value 1 stepped it 1 → 2 (12 → 25 l/ha in the HUD with liquid fertilizer), with -1 back; `PRECISIONFARMING_SPRAY_AMOUNT_MODE` toggles automatic; Precision Farming's own script isn't readable |
 | Width (4 buttons) | `spec_variableWorkWidth.hasSections` and no Precision Farming sprayer part (`spec_FS25_precisionFarming.extendedSprayer`); with one, the strip only | `spec_variableWorkWidth.isActive` false ("This spray type has no partial width": Sprayer sets it from the spray type's `supportsVariableWorkWidth`) or folded (Foldable's `unfoldWarning`) | the probe (2026-11-02): `hasSections` and `isActive` true on the Berthoud, the Rogator 937H and the DINO II, all with Precision Farming, and no width key registered on any; a sprayer without Precision Farming unverified |
 | Detach | every tool (depth 1 and more) | `isDetachAllowed()` false | verified (DONE.md) |
 
@@ -340,9 +343,9 @@ in; the engine off first, then on):
 
 - Open: the l/ha the game's HUD shows for a step (not in what we read;
   about 12.5 l/ha a step with liquid fertilizer, once).
-- Open (live check, 2026-11-04): Application rate only for the fill
-  types Precision Farming sets a rate for; the fade is in docs/NEXT.md
-  (0.13.1), then the Berthoud's line is rechecked.
+- Open: what the game does with an empty tank (the rate's buttons are
+  faded then, "The tank is empty"), and whether Precision Farming rates
+  a fill type its settings don't list (its script isn't readable).
 - Out of scope: Refill, Dump, the Harvester and Loader screens (their own
   tiles, unchanged), bale size (`TOGGLE_BALE_TYPES`), the baler's own
   unload, the mower's drop (`Mower.actionEventToggleDrop`), modded tools'
@@ -417,3 +420,12 @@ in; the engine off first, then on):
   only for fertilizer, liquid fertilizer, the manures, digestate and
   lime: the fade goes to docs/NEXT.md (0.13.1). The Berthoud's line stays
   open until that recheck; the DINO II and the other rigs are next.
+- 2026-11-07: mod 0.13.1, the rate faded by what's sprayed (the fix from
+  the live check). Rate −, Auto and Rate + fade while the sprayer sprays
+  a fill type Precision Farming's settings give no rate, or nothing;
+  what's sprayed found as Sprayer does (its tank, else a source tank).
+  The test rigs carry the probe's fill types (the Berthoud's and the DINO
+  II's herbicide, the Rogator's liquid fertilizer) and the rate keys
+  inactive on herbicide, as the probe saw; the ARION rig's web fixture
+  has the Berthoud's rate faded. Tests: 64 Lua, 117 pytest,
+  `web/test.html` 290 green; the golden file unchanged.

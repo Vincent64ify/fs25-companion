@@ -2046,14 +2046,20 @@ const spCard = spPage.cardsEl.querySelector('.tool-card[data-vehicle="true"]');
 check("sprayer: a self-propelled sprayer's own card: no Detach, no wear, no driving keys", [
   statLabels(spCard), [...spCard.querySelectorAll(".tool-buttons .control")].map(lbl)],
   [["Speed", "Width", "Area"], ["Fold", "Turn on", "Unload", "More · 1", "Rate −", "Auto", "Rate +"]]);
-// specs/0012: a tap on Unload sends its tool alone; Rate + its step
+// specs/0012: a tap on Unload sends its tool alone; Auto the state it
+// asks for, where Precision Farming has a rate for what's in the tank (the
+// Rogator's liquid fertilizer), nothing where it has none (the Berthoud's
+// herbicide: faded, mod 0.13.1)
 const unloadPage = toolsPage(rigFix["arion-on"].vehicles, rigFix["arion-on"].cab);
 const berthoudCard = unloadPage.cardsEl.querySelector('.tool-card[data-id="530"]');
 tap([...berthoudCard.querySelectorAll(".tool-buttons .control")].find((b) => lbl(b) === "Unload"));
 tap([...berthoudCard.querySelectorAll(".tool-more .control")].find((b) => lbl(b) === "Auto"));
+const ratePage = toolsPage(rigFix.rogator.vehicles, rigFix.rogator.cab);
+tap([...ratePage.cardsEl.querySelectorAll(".tool-more .control")].find((b) => lbl(b) === "Auto"));
 await Promise.resolve();
-check("sprayer: Unload sends the tool's id, Auto the state it asks for", unloadPage.sent,
-  [["tool.unload", undefined, 530], ["tool.sprayRateAuto", 0, 530]]);
+check("sprayer: Unload sends the tool's id, Auto the state it asks for; faded by herbicide, nothing", [
+  unloadPage.sent, ratePage.sent],
+  [[["tool.unload", undefined, 530]], [["tool.sprayRateAuto", 0, 529]]]);
 
 // --- Card buttons (specs/0012-card-buttons.md) -----------------------------------
 
@@ -2068,7 +2074,7 @@ const engOn = engButtons();
 check("buttons: the engine off and on, the same buttons; only the faded ones differ", [
   engOff.map((b) => `${b[0]}:${b[1]}`).join(", ") === engOn.map((b) => `${b[0]}:${b[1]}`).join(", "),
   engOff.filter((b, i) => b[2] !== engOn[i][2]).map((b) => `${b[1]}:${b[2]}->${engOn.find((x) => x[0] === b[0])[2]}`)],
-  [true, ["Fold:unavailable->on", "Turn on:unavailable->off", "Auto:unavailable->on"]]);
+  [true, ["Fold:unavailable->on", "Turn on:unavailable->off"]]);
 // More: the main row's last tile, closed, with how many are in it; a tap
 // opens it on that card, lit, its buttons a row under the main row; the
 // browser remembers it by the tool's model; nothing under More, no tile
