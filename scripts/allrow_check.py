@@ -42,7 +42,13 @@ SETTLE_MAX_S = 30.0
 # the state each kind of button asks for, and the cab field that shows it
 FIELDS = {"lower": "lowered", "fold": "unfolded", "turnOn": "turnedOn"}
 ALL_ACTIONS = {"lower": "implement.lowerAll", "fold": "implement.foldAll", "turnOn": "implement.turnOnAll"}
-TOOL_ACTIONS = {"lower": "implement.lower", "fold": "implement.fold", "turnOn": "implement.turnOn"}
+TOOL_ACTIONS = {"lower": "tool.lower", "fold": "tool.fold", "turnOn": "tool.turnOn"}
+
+
+def value_for(kind: str, reach: bool) -> int:
+    """The value a command asks for (specs/0008): 1 lowered, on; fold's 1
+    is folded, while the cab's field says unfolded."""
+    return int(not reach) if kind == "fold" else int(reach)
 
 Cab = Dict[str, Any]
 
@@ -61,26 +67,28 @@ def state(e: Dict[str, Any], kind: str) -> Optional[bool]:
     return value if isinstance(value, bool) else None
 
 
-def asked(cab: Cab, kind: str, tool_id: Optional[int] = None) -> Tuple[Dict[int, bool], str]:
+def asked(cab: Cab, kind: str, tool_id: Optional[int] = None) -> Tuple[Dict[int, bool], str, bool]:
     """The state each tool should reach, by the label's rule (the mod's too),
-    and the label: Fold all folds while one is unfolded, Lower all lowers
-    while one is raised, Turn on all turns on while one is off; a card's
-    button toggles its tool. Tools already there aren't listed."""
+    the label, and that state (the cab field's: unfolded for fold): Fold
+    all folds while one is unfolded, Lower all lowers while one is raised,
+    Turn on all turns on while one is off; a card's button toggles its
+    tool. Tools already there aren't listed."""
     tools = [e for e in tools_of(cab) if has(e, kind)]
     if tool_id is not None:
         e = next((t for t in tools if t.get("id") == tool_id), None)
         if e is None:
-            return {}, "?"
+            return {}, "?", False
         now = state(e, kind)
         return {tool_id: not now}, {"lower": ("Raise", "Lower"), "fold": ("Unfold", "Fold"),
-                                    "turnOn": ("Turn off", "Turn on")}[kind][0 if now else 1]
+                                    "turnOn": ("Turn off", "Turn on")}[kind][0 if now else 1], not now
     if kind == "fold":
         want_unfolded = not any(state(e, "fold") is True for e in tools)
         label = "Unfold all" if want_unfolded else "Fold all"
-        return {e["id"]: want_unfolded for e in tools if state(e, "fold") != want_unfolded}, label
+        return ({e["id"]: want_unfolded for e in tools if state(e, "fold") != want_unfolded}, label,
+                want_unfolded)
     want = any(state(e, kind) is not True for e in tools)
     label = {"lower": ("Lower all", "Raise all"), "turnOn": ("Turn on all", "Turn off all")}[kind][0 if want else 1]
-    return {e["id"]: want for e in tools if state(e, kind) != want}, label
+    return {e["id"]: want for e in tools if state(e, kind) != want}, label, want
 
 
 def judge(kind: str, want: Dict[int, bool], ack: Optional[Dict[str, Any]], after: Cab,
@@ -176,9 +184,9 @@ class Run:
         print("      before:", "; ".join(
             f"{e.get('name')} lowered={e.get('lowered')} unfolded={e.get('unfolded')} on={e.get('turnedOn')}"
             + (" MOVING" if e.get("foldMoving") else "") for e in tools_of(before)), flush=True)
-        want, label = asked(before, kind, tool_id)
+        want, label, reach = asked(before, kind, tool_id)
         action = TOOL_ACTIONS[kind] if tool_id is not None else ALL_ACTIONS[kind]
-        ack = await self.rig.press(action, tool_id)
+        ack = await self.rig.press(action, value_for(kind, reach), tool_id)
         await self.rig.settle()
         passed, shown = judge(kind, want, ack, self.rig.cab, expect, before)
         answer = "no answer" if ack is None else ("ok" if ack.get("ok") else f"failed: {ack.get('reason')}")
@@ -192,7 +200,7 @@ class Run:
             tools = [e for e in tools_of(self.rig.cab) if has(e, kind)]
             if all(state(e, kind) == value for e in tools):
                 return
-            await self.rig.press(ALL_ACTIONS[kind])
+            await self.rig.press(ALL_ACTIONS[kind], value_for(kind, value))
             await self.rig.settle()
 
 
@@ -232,18 +240,19 @@ async def main_async(args) -> int:
             await run.to("fold", True)
             await run.to("lower", False)
             await run.to("turnOn", False)
-            await rig.press(TOOL_ACTIONS[setup], first["id"])
+            now = next((e for e in tools_of(rig.cab) if e.get("id") == first["id"]), first)
+            await rig.press(TOOL_ACTIONS[setup], value_for(setup, not state(now, setup)), first["id"])
             await rig.settle()
             await run.step(f"mixed: {first.get('name')} {setup}, then all", kind, expect="learn")
         # 4. the engine off: nothing may move
         await run.to("turnOn", False)
         await run.to("lower", False)
-        await rig.press("engine.toggle")
+        await rig.press("engine.set", 0)
         await asyncio.sleep(2.0)
         for name, kind in [("engine off: Fold all", "fold"), ("engine off: Lower all", "lower"),
                            ("engine off: Turn on all", "turnOn")]:
             await run.step(name, kind, expect="blocked")
-        await rig.press("engine.toggle")
+        await rig.press("engine.set", 1)
         listener.cancel()
     failed = [n for n, p in run.results if not p]
     print(f"\n{len(run.results) - len(failed)} of {len(run.results)} passed" + (": failed " + ", ".join(failed) if failed else ""))

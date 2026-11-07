@@ -67,22 +67,11 @@ Things to fix next, in no particular order. Longer-term ideas are under
   arrives first (every frame) and the vehicles topic up to 500 ms later,
   so the vehicle's tile can keep the last vehicle's name. Add
   `entryModel(e, v)` to the key.
-- **`scripts/allrow_check.py`** still sends `implement.lower`,
-  `implement.fold`, `implement.turnOn` and `engine.toggle`, gone since
-  mod 0.10.0 ([spec 0008](../specs/0008-commands-say-the-state.md)): its
-  per-tool steps answer "action not allowed". `rig_check.py` sends
-  today's commands since spec 0012; move `allrow_check.py`'s to
-  `tool.*` with the state asked for and the tool's id.
 - **Refill on the dashboard** (Vincent, spec 0011's live check,
   2026-11-02): at a fill station the game offers Refill for the sprayer;
   a button for it when the game shows it. It isn't one of the tool's
   keys (it comes from the station, the game's activatable objects; names
   unverified), so it needs its own spec.
-- **The mod's version in hello** (spec 0011's live check, 2026-11-01):
-  `Companion.VERSION` in `mod/src/Companion.lua` still says 0.9.1, so
-  hello's `modVersion` is wrong since 0.9.1 (the game ran 0.12.1). Read it
-  from `modDesc.xml` at load (`g_modManager`, unverified), or bump it with
-  every mod version.
 - **The design system artifact** needs a refresh (THEMES.md): spec 0011
   added four icons (`widthLeftIn`, `widthLeftOut`, `widthRightIn`,
   `widthRightOut`) and the width strip, and the selected tool card lost

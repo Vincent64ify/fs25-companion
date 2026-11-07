@@ -12,7 +12,8 @@
 
 Companion = Companion or {}
 
-Companion.VERSION = "0.9.1"
+-- hello's modVersion: always modDesc.xml's <version> (mod/tests/test_version.py)
+Companion.VERSION = "0.13.4"
 Companion.DIR_NAME = "FS25_Companion"
 Companion.STREAM_FILE = "stream.ndjson"
 Companion.COMMAND_DIR = "cmd/"

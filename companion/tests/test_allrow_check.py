@@ -6,7 +6,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "scripts"))
 
-from allrow_check import asked, judge  # noqa: E402
+from allrow_check import TOOL_ACTIONS, asked, judge, value_for  # noqa: E402
 
 
 def cab(*tools):
@@ -24,18 +24,18 @@ def mowers(front, rear):
 def test_asked_follows_the_labels():
     folded = {"unfolded": False, "lowered": False, "turnedOn": False}
     unfolded = {"unfolded": True, "lowered": False, "turnedOn": False}
-    assert asked(mowers(folded, folded), "fold") == ({FRONT: True, REAR: True}, "Unfold all")
+    assert asked(mowers(folded, folded), "fold") == ({FRONT: True, REAR: True}, "Unfold all", True)
     # one unfolded: Fold all, as the game's key (spike 0.0.5)
-    assert asked(mowers(folded, unfolded), "fold") == ({REAR: False}, "Fold all")
-    assert asked(mowers(unfolded, {**unfolded, "lowered": True}), "lower") == ({FRONT: True}, "Lower all")
+    assert asked(mowers(folded, unfolded), "fold") == ({REAR: False}, "Fold all", False)
+    assert asked(mowers(unfolded, {**unfolded, "lowered": True}), "lower") == ({FRONT: True}, "Lower all", True)
     assert asked(mowers({**unfolded, "lowered": True}, {**unfolded, "lowered": True}), "lower") == \
-        ({FRONT: False, REAR: False}, "Raise all")
-    assert asked(mowers(unfolded, unfolded), "turnOn", REAR) == ({REAR: True}, "Turn on")
+        ({FRONT: False, REAR: False}, "Raise all", False)
+    assert asked(mowers(unfolded, unfolded), "turnOn", REAR) == ({REAR: True}, "Turn on", True)
 
 
 def test_a_run_that_passes():
     before = mowers({"unfolded": False}, {"unfolded": False})
-    want, _ = asked(before, "fold")
+    want, _, _ = asked(before, "fold")
     after = mowers({"unfolded": True}, {"unfolded": True})
     assert judge("fold", want, {"ok": True}, after) == (True, "KDF 341 S there, KDD 941 STH there")
 
@@ -43,7 +43,7 @@ def test_a_run_that_passes():
 def test_an_ok_with_nothing_moved_fails():
     """The 0.8.10 kind: ok, and nothing lowered."""
     before = mowers({"lowered": False}, {"lowered": False})
-    want, _ = asked(before, "lower")
+    want, _, _ = asked(before, "lower")
     passed, shown = judge("lower", want, {"ok": True}, before)
     assert not passed
     assert shown == "ok, but KDF 341 S not there, KDD 941 STH not there"
@@ -51,7 +51,7 @@ def test_an_ok_with_nothing_moved_fails():
 
 def test_a_failure_that_moved_fails_and_no_answer_fails():
     before = mowers({"turnedOn": False}, {"turnedOn": False})
-    want, _ = asked(before, "turnOn")
+    want, _, _ = asked(before, "turnOn")
     after = mowers({"turnedOn": True}, {"turnedOn": True})
     assert judge("turnOn", want, {"ok": False, "reason": "Nothing moved"}, after)[0] is False
     assert judge("turnOn", want, None, after)[0] is False
@@ -59,7 +59,7 @@ def test_a_failure_that_moved_fails_and_no_answer_fails():
 
 def test_a_failure_naming_the_one_that_didnt_move_passes_when_learning():
     before = mowers({"lowered": True}, {"lowered": False})
-    want, _ = asked(before, "lower")
+    want, _, _ = asked(before, "lower")
     after = mowers({"lowered": True}, {"lowered": False})
     ack = {"ok": False, "reason": "KDD 941 STH: Nothing moved"}
     assert judge("lower", want, ack, after, expect="learn")[0] is True
@@ -68,9 +68,18 @@ def test_a_failure_naming_the_one_that_didnt_move_passes_when_learning():
 
 def test_engine_off_must_fail_and_move_nothing():
     before = mowers({"unfolded": True}, {"unfolded": True})
-    want, _ = asked(before, "fold")
+    want, _, _ = asked(before, "fold")
     ack = {"ok": False, "reason": "Please start the engine first!"}
     assert judge("fold", want, ack, before, expect="blocked", before=before) == (True, "nothing moved")
     moved = mowers({"unfolded": False}, {"unfolded": True})
     assert judge("fold", want, ack, moved, expect="blocked", before=before)[0] is False
     assert judge("fold", want, {"ok": True}, before, expect="blocked", before=before)[0] is False
+
+
+def test_commands_are_todays():
+    """Since mod 0.10.0 a card's buttons are tool.* with the state asked
+    for (specs/0008); fold's 1 is folded, the cab's field unfolded."""
+    assert TOOL_ACTIONS == {"lower": "tool.lower", "fold": "tool.fold", "turnOn": "tool.turnOn"}
+    assert [value_for("lower", True), value_for("lower", False)] == [1, 0]
+    assert [value_for("turnOn", True), value_for("turnOn", False)] == [1, 0]
+    assert [value_for("fold", True), value_for("fold", False)] == [0, 1], "unfolded asks fold 0"
