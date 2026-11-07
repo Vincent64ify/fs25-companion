@@ -66,7 +66,7 @@ up to date until the live check.
   waiting look, the selected card shows by its accent ring (its tint went
   on 2026-11-01), and a tap anywhere on a card selects it. Confirmed in
   game on 2026-11-01.
-- The sprayer is built (spec [0011](../specs/0011-sprayer.md), mod
+- The sprayer is done (spec [0011](../specs/0011-sprayer.md), mod
   0.12.4): Fold and Turn on on a trailed and a self-propelled sprayer, the
   boom's sections as a strip (read-only: the game's width keys aren't live
   on the Berthoud or the DINO II), no driving keys on a vehicle's own
@@ -77,7 +77,9 @@ up to date until the live check.
   Worker on a card, Fold's label by the fold's direction, Turn on faded
   with the engine off; their rechecks are under way (0.12.3: no Turn on
   on a weight or tractor, no card for a tractor, hidden keys left out,
-  confirmed; 0.12.4: no axis keys as buttons).
+  confirmed; 0.12.4: no axis keys as buttons). Closed on 2026-11-07 with
+  spec 0012's live check, which replaced its other keys and rechecked
+  the rest; a sprayer without Precision Farming wasn't checked.
 - A card's buttons come from what the tool is (spec
   [0012](../specs/0012-card-buttons.md), mod 0.13.3): read once from its
   parts, faded with the game's words, never coming or going; a More

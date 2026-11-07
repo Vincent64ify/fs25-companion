@@ -49,6 +49,6 @@ behaviour, in Behaviour too: the spec always says what the code does now.
 | [0008](0008-commands-say-the-state.md) | Commands say the state they want (SIMPLIFY S3) | live-checked (AI worker left out: NEXT.md) | 0.10.0 |
 | [0009](0009-one-way-to-run-each-action.md) | One way to run each action (SIMPLIFY S4) | live-checked (the All row's keys fixed on the way) | 0.11.2 |
 | [0010](0010-tidy-states-and-motion.md) | Tidy states, surfaces and motion | live-checked (revision 2: selecting) | no change |
-| [0011](0011-sprayer.md) | Sprayer: Fold, Turn on, the working width | built, live check paused for 0012 | 0.12.4 |
+| [0011](0011-sprayer.md) | Sprayer: Fold, Turn on, the working width | live-checked (closed with 0012's check; Precision Farming off not checked: NEXT.md) | 0.12.4 |
 | [0012](0012-card-buttons.md) | Card buttons: what a tool has, what it can do now | live-checked (every rig on the farm; Tip's fade on a side that can't tip: NEXT.md) | 0.13.3 |
 | [0013](0013-vehicle-screen-calm.md) | Vehicle page, calm: rig strip, tool cards, field panel, no yellow at night | approved | no change |

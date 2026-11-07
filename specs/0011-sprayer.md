@@ -1,6 +1,6 @@
 # 0011: Sprayer
 
-Status: built
+Status: live-checked (closed 2026-11-07: Precision Farming off not checked)
 Mod: 0.12.4 · Started: 2026-11-01 · Design: [THEMES.md](../docs/THEMES.md#implement-screen-design-2026-10-24) (the card); spec [0003](0003-implement-screen.md) (moved out at its close)
 
 ## Goal
@@ -259,10 +259,12 @@ Live check (in game; Solek, CLAAS ARION 410 with the Berthoud Vantage
   2026-11-01, mod 0.12.1: folded, faded with "You first need to unfold
   the tool (sprayer)!"; unfolded, on and off each ok in the frame of the
   press. Detach on the Berthoud worked too.)
-- [ ] If the keys are live: Left in / out, Right in / out: one section each, the strip and the
+- [ ] Not checked: if the keys are live: Left in / out, Right in / out: one section each, the strip and the
   game's PARTIAL WIDTH HUD the same after each press; a side at its limit
   fades its button. (Doesn't apply on the Berthoud or the DINO II: the
-  keys aren't live. Left open for a sprayer where they are.)
+  keys aren't live. Since spec 0012 the width buttons exist only on a
+  sprayer without Precision Farming's sprayer part, and every sprayer in
+  the save has it: docs/NEXT.md.)
 - [x] Dump, Dump on ground, Unload: what each does in game, and whether
   the label says it (open question 2). (Vincent, 2026-11-02, mod 0.12.2
   and 0.12.3: Dump and Dump on ground pressed their own keys and did
@@ -271,22 +273,32 @@ Live check (in game; Solek, CLAAS ARION 410 with the Berthoud Vantage
   tank into pallets on the ground, the label says it.)
 - [x] The tank's "empty in" while spraying (at x1). (Vincent,
   2026-11-01, mod 0.12.1)
-- [ ] Self-propelled: its card has no driving keys, Fold and Turn on work
+- [x] Self-propelled: its card has no driving keys, Fold and Turn on work
   as on the trailed one. (The Agrio DINO II: all but "Toggle AI Worker",
-  fix 3; Fold's label wrong while folding, fix 4.)
-- [ ] After every card button, the game's selected tool is the one it was.
+  fix 3; Fold's label wrong while folding, fix 4. Seen in spec 0012's
+  live check, 2026-11-07, mod 0.13.2: the DINO II's own card, Fold,
+  Unfold, Turn on and off each ok, no driving keys: cards list no game
+  keys since 0012.)
+- [x] After every card button, the game's selected tool is the one it was.
   (livewatch shows it: the W 600's Lower selected it and put the Berthoud
   back in the same second; every other change was a head tap or a
-  Detach. Waiting for Vincent to confirm.)
-- [ ] The same card with Precision Farming off (a savegame without it,
+  Detach. Spec 0012's rule 3, live-checked 2026-11-04 and 2026-11-07:
+  the Berthoud's Unload and rate pressed with the W 600 selected, the W
+  600 still selected after; Vincent: as the game.)
+- [ ] Not checked: the same card with Precision Farming off (a savegame without it,
   if there is one): Fold, Turn on, the strip and the tank as above, no
-  Precision Farming keys.
+  Precision Farming keys. (Every save has it: docs/NEXT.md.)
 
-### Fixes from the live check (built, mod 0.12.2)
+### Fixes from the live check (built, mod 0.12.2; closed 2026-11-07)
 
 Found on 2026-11-01 (the Log has the details). Each has its test
-(`mod/tests/run.lua`, `companion/tests`, `web/test.html`); each waits for
-its recheck in game.
+(`mod/tests/run.lua`, `companion/tests`, `web/test.html`). Closed with
+spec 0012's live check (2026-11-04 and 2026-11-07): fixes 1 to 3 went
+with the other keys (no card lists the game's keys since 0012); fix 4
+seen (the fold's direction on the Berthoud and the DINO II, Folding… /
+Unfolding… as the game); fix 5 seen (Turn on faded with the engine off,
+the game's words, on the Berthoud, the DINO II and the Fliegl PFW
+18000).
 
 1. **Other keys by name, not number.** A card's other key sends its
    number in `extraKeys`, and a key that comes and goes
@@ -472,3 +484,8 @@ Choices made while building that the live check should confirm or change.
   other keys and `implement.key` went, Turn on comes from the turn on
   part's settings, the width buttons from sections without Precision
   Farming's sprayer part. Behaviour and Data contract point there.
+- 2026-11-07: closed with spec 0012's live check (mod 0.13.2 and
+  0.13.3): the self-propelled card and the selection put back ticked,
+  the five fixes rechecked or gone with the other keys. Not checked: the
+  width buttons and the card with Precision Farming off, as every
+  sprayer in the save has Precision Farming (docs/NEXT.md).

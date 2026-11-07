@@ -60,6 +60,12 @@ Things to fix next, in no particular order. Longer-term ideas are under
   client only, live-checked); F3 and F4 matter before a hosted relay. F1 is fixed
   ([spec 0004](../specs/0004-acks-survive-rotation.md), mod 0.8.13,
   live-checked); F5 (mod 0.8.12), F6 and F7 are fixed (2026-10-30).
+- **A sprayer without Precision Farming** (specs 0011 and 0012, not
+  checked): every sprayer in the save has Precision Farming's sprayer
+  part, so its four width buttons (Left in / out, Right in / out, faded
+  while the spray type has no partial width) and Doubled rate on a
+  slurry tanker or a manure spreader were never seen live. Check them in
+  a save without Precision Farming, if there ever is one.
 - **The rig strip's names** (seen building spec 0012, 2026-11-03): the
   Vehicle page band's strip is rebuilt only when its key changes
   (`vehicleScreen.js`), and the key leaves out the model's name, which
