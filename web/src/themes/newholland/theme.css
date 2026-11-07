@@ -1706,7 +1706,6 @@ button { font: inherit; color: inherit; }
 }
 
 /* the cards */
-.veh-card {/* the cards */
 .veh-card {
   display: flex;
   flex-direction: column;

@@ -636,3 +636,9 @@ page's memory; off a field the panel shows the map around the rig.
   the arrow and trail keep up and a headland turn leaves the panel on the
   field; the same at night. All three boxes ticked. Spec 0013's own live
   check stays open.
+- 2026-11-07: Vincent saw the Loader page's cards had no surface. This
+  spec's first build left a stray `.veh-card {` in theme.css, so the rest
+  of the file sat inside it and never matched: the Load and Target cards
+  lost their background, border and padding, and every rule after them
+  (Engine two columns wide, the compact layouts) was dropped. Fixed;
+  `tests/test_theme_css.py` now fails on a style rule inside another.
