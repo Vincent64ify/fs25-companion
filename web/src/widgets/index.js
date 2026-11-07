@@ -5,8 +5,9 @@ import * as vehicle from "./vehicle.js";
 import * as farm from "./farm.js";
 import { implementsWidget } from "./implements.js";
 import { alerts, connection, protocolError } from "./status.js";
-import { loadCard, targetCard, vehicleBand } from "./vehicleScreen.js";
+import { loadCard, rigStrip, targetCard } from "./vehicleScreen.js";
 import { toolCards, toolsAll, toolsAlso } from "./vehicleTools.js";
+import { fieldPanel } from "./fieldPanel.js";
 import { combineCard, harvestBand, headerCard } from "./harvesterScreen.js";
 import { fullscreen } from "./screen.js";
 
@@ -18,12 +19,13 @@ export const WIDGETS = {
   connection,
   protocolError,
   alerts,
-  vehicleBand,
+  rigStrip,
   loadCard,
   targetCard,
   toolsAll,
   toolCards,
   toolsAlso,
+  fieldPanel,
   harvestBand,
   combineCard,
   headerCard,

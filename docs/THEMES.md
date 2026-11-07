@@ -451,7 +451,7 @@ shared parts as components (`Screen`, status bar, tab bar, control column
 and groups, cards, readout card, rig tiles and links, chips, meters).
 The code stays the source of truth: **when `theme.css`, `icons.js` or the
 values in this section change, refresh the design system in the same
-change.** Built from commit `0ccf814`.
+change.** Built from commit `0ccf814`; refreshed for specs/0010 (2026-11-01) and specs/0013 (2026-11-07: the night palette, "on", where you are, working badges, the rig on the ground).
 
 ### Type
 
@@ -477,45 +477,59 @@ change.** Built from commit `0ccf814`.
 ### Palettes
 
 Gradients run top to bottom unless noted. "Ink" is the dark text on yellow.
+The night palette is spec 0013's (2026-11-07): darker, less blue, and no
+yellow ([specs/0013](../specs/0013-vehicle-screen-calm.md)).
 
 | Token | Day | Night |
 |---|---|---|
-| Bar (status bar) | `#154091 → #0C2D6B` | `#0A1C40 → #04112A` |
-| Ground | `#F4F7FC → #E3EAF5` | `#0B2149 → #06142E` |
-| Card | `#FFFFFF → #F2F6FC` | `#163370 → #0D224B` |
-| Button (off), map toolbar | `#FFFFFF → #EEF3FA` | `#163370 → #0D224B` |
-| Readout card | `160deg #1B4A9E → #0C2D6B` | `160deg #1A3B80 → #0D224B` |
-| Border | `#D2DCEC` | `#24427C` |
-| Line, meter track | `#E3EAF5` | `#1C3566` |
-| Text | `#0D1B33` | `#EAF0FA` |
-| Muted text | `#55627A` | `#9DB0CF` |
-| Bar text, muted | `#FFFFFF`, `#BFD0EE` | `#EAF0FA`, `#9DB0CF` |
-| On (controls, Working) | `#2B6BD6 → #0C4DB8`, white text | `#FFD65C → #FFC72C`, ink `#0A1A33` |
-| Where you are (selected tab, recentre while following, Layers open, the tab's menu) | tint `#DFE8F7`, 2 px ring `#0C4DB8`, ink `#0C2D6B` | tint `rgba(255,199,44,0.14)`, 2 px ring `#FFC72C`, ink `#FFD65C` |
-| Settings button while open | `#FFFFFF`, text `#0C4DB8` | `#FFD65C → #FFC72C`, ink |
-| Icon badge | `#FFD65C → #FFC72C`, ink | the same |
+| Bar (status bar), tab bar | `#154091 → #0C2D6B` (tab bar `#FFFFFF → #F4F7FC`) | `#0B1120 → #070B14` |
+| Ground | `#F4F7FC → #E3EAF5` | `#0C121E → #070B13` |
+| Card | `#FFFFFF → #F2F6FC` (flat `#FFFFFF`) | `#141C2C → #101727` (flat `#121A29`) |
+| Button (off), map toolbar | `#FFFFFF → #EEF3FA` | `#1A2438 → #131B2C` |
+| Pill (status bar) | `#1A3F85` | `#161F31` |
+| Readout card (the Harvester's band) | `160deg #1B4A9E → #0C2D6B` | `160deg #18223A → #0F1626` |
+| Border | `#D2DCEC` | `#273349` |
+| Line, meter track | `#E3EAF5` | `#1D2638` |
+| Text | `#0D1B33` | `#E8EDF5` |
+| Muted text (6.7:1 on a night card) | `#55627A` | `#97A3B9` |
+| Bar text, muted | `#FFFFFF`, `#BFD0EE` | `#E8EDF5`, `#97A3B9` |
+| On (controls) | an outline: the button's surface, edge and ink `#0C4DB8`, a 14 % tint of it inside | steel `#4B5A78 → #3C4966`, white ink, edge `#62739A` |
+| Working badge | outlined in `#0C4DB8` (1.5 px), no fill | the steel fill, white ink |
+| Where you are (selected tab, the strip's selected tool, recentre while following, Layers open, the tab's menu) | tint `#DFE8F7`, 2 px ring `#0C4DB8`, ink `#0C2D6B` | tint `rgba(255,255,255,0.07)`, 2 px ring `#C9D4E8`, white ink |
+| Settings button while open | `#FFFFFF`, text `#0C4DB8` | the steel fill, white ink |
+| Icon badge (field numbers, the Harvester's readout badge, a tank's chip) | `#FFD65C → #FFC72C`, ink | the steel fill, white ink |
+| Badge (idle) | `#E8EEF7 → #D2DCEC` | `#222C40 → #1B2436` |
+| Chip (on) | `#E6EEFB`, `#0C4DB8` | `#1D2638`, `#A9C3F2` |
+| Accent text, the farmland badge's text | `#0C4DB8`, `#FFC72C` | the muted colour |
 | OK | `#12804A` (fill `#23A262 → #12804A`) | `#42D392` (fill `#4FE09C → #2DB876`) |
 | Warn | `#A15800` (fill `#FFB648 → #E58A00`) | `#FFB648` |
 | Alarm | `#C42B2B` | `#FF7070` |
 | Live dot | `#4ADE80` | `#4ADE80` |
 | Backdrop behind a panel | `rgba(4,17,42,0.45)` | `rgba(0,0,0,0.55)` |
-| Map overlays (scale, labels) | white glass `rgba(255,255,255,0.85)` | dark glass `rgba(4,17,42,0.85)` |
+| Map overlays (scale, labels) | white glass `rgba(255,255,255,0.85)` | dark glass `rgba(7,11,19,0.82)` |
 
 - Map colours (hotspots, fields, crops, markers) are the same in both
   palettes and every theme.
 - Turn arrows use OK, Hazard uses Alarm, only while on: off they are
-  neutral, on they fill with that colour (white ink by day, `#0A1A33` at
-  night). A filled blue or yellow only ever means "on"
+  neutral; on, by day they're outlined in that colour as "on" is, at night
+  they fill with it (ink `#0A1A33`). A lit fill only ever means "on"
   ([specs/0010](../specs/0010-tidy-states-and-motion.md)).
+- In the CSS, `--on` is the lit layer and `--on-tint` how much of it shows
+  (0.14 by day, 1 at night); `--on-fill` is the same look for what's on
+  and isn't a control (Settings' Screen switches, the Harvester's chips);
+  `--work-badge` and its ink and ring are a working badge's.
 - Unavailable controls: a flat, dashed 1.5 px outline in the muted colour,
   no fill or shadow, muted icon and label (specs/0010; was the off style
   at 45 %).
 - Pending: the border takes the colour the button is going to and a faint
   tint of it breathes inside (8 % to 28 %); no ring, no glow. Selecting a
   tool has no waiting look: the game answers too fast for one.
-- The game's selected tool card: a faint tint over the whole card
-  (`rgba(12,77,184,0.07)` by day, `rgba(255,199,44,0.08)` at night) inside
-  the 2 px `select` ring; a tap anywhere on a card selects its tool.
+- The game's selected tool shows on the Vehicle page's rig strip only, as
+  where you are (specs/0013); its card has no selection look any more
+  (specs/0010's ring went). A tap anywhere on a card still selects its
+  tool.
+- At night the status bar's sun takes the bar's ink, so nothing on screen
+  is yellow but the Harvester's orange "until full".
 
 ### Depth
 
@@ -524,10 +538,10 @@ Gradients run top to bottom unless noted. "Ink" is the dark text on yellow.
   field panel, popups, Layers, the tab menu); readout bands and display
   cards are flat (specs/0010). Day
   `inset 0 1px 0 #FFFFFF, 0 2px 4px rgba(12,45,107,0.10), 0 6px 14px rgba(12,45,107,0.10)`;
-  night `inset 0 1px 0 rgba(255,255,255,0.08), 0 4px 14px rgba(0,0,0,0.4)`.
-- **On buttons:** day
-  `inset 0 1px 0 rgba(255,255,255,0.25), 0 2px 4px rgba(12,45,107,0.18), 0 6px 14px rgba(12,45,107,0.18)`;
-  night `inset 0 1px 0 rgba(255,255,255,0.45), 0 2px 10px rgba(255,199,44,0.22)`.
+  night `inset 0 1px 0 rgba(255,255,255,0.06), 0 4px 14px rgba(0,0,0,0.5)`.
+- **On buttons:** by day the button's own lift (an outline); at night
+  `inset 0 1px 0 rgba(255,255,255,0.12), 0 2px 8px rgba(0,0,0,0.4)`
+  (specs/0013).
 - **Panels over the screen:** `0 20px 60px` at 35 % (day) or 60 % (night).
 - No blur anywhere, for older tablets.
 
@@ -565,8 +579,9 @@ Gradients run top to bottom unless noted. "Ink" is the dark text on yellow.
   80-tall buttons with 8 gaps; 28 px icons, 13 px labels (specs/0010).
 - **Map:** floating toolbar of 48 buttons, top-left inside the map, 12 in
   from the edges; field panel 248 wide, top-right; scale bottom-right.
-- **Vehicle screen:** columns `1fr | 300`, rows `296 | 116 | 1fr`;
-  implement rows about 68 tall.
+- **Vehicle page** (specs/0013): the rig strip 60 tall (tiles 56, at
+  least 150 wide, links 64); under it the cards and Also attached, and the
+  field panel 320 wide; card buttons 84 × 80, as the column's.
 - **Settings panel:** 420 wide, in the main area (12 below the status bar,
   12 above the tab bar).
 - **Touch targets:** at least 44, and 48 on the map toolbar.
@@ -579,8 +594,10 @@ Gradients run top to bottom unless noted. "Ink" is the dark text on yellow.
 | Wide | 1600 px and up | as regular; the map grows |
 | Compact | under 900 px, or portrait | rows `56 / 1fr / 64`; main rows `1fr / auto`, the control dock in 3 columns |
 
-- **Tab bar readout** (Map screen only): speed, gear, rpm, fuel (with a
-  small bar, warn-coloured when low), engine temp. When space runs out,
+- **Tab bar readout:** on the Map screen speed, gear, rpm, fuel (with a
+  small bar, warn-coloured when low), engine temp, fuel usage and the
+  cruise speed; on the Vehicle and Loader pages (specs/0013) speed, gear,
+  fuel, DEF, wear ("23 % wear") and engine temp. When space runs out,
   drop temp, then gear.
 - **Tab labels:** shown whenever they fit (see Tab bar).
 
@@ -1368,6 +1385,34 @@ full width whenever no Target shows.
   the weight meter; dimmed out of range; a green Full chip.
 - **Compact:** one column, the strip scrolls sideways, Target under Load,
   the column docked under them.
+
+### Vehicle page, calm (spec 0013, 2026-11-07)
+
+The Vehicle page gives every part one job, after the canvas
+[FS25 Companion: Vehicle screen, calm](https://claude.ai/artifact/JApsdXjoSFwsddKv2kNYZ3)
+(approved 2026-11-03). Behaviour, data and checks are in the spec,
+[specs/0013-vehicle-screen-calm.md](../specs/0013-vehicle-screen-calm.md).
+
+- **Layout:** the rig strip across the top, on the ground; under it the
+  tool cards (as tall as their content) with Also attached at the bottom,
+  and the field panel on the right; the column as on every screen, with
+  an All tools group under Drive for two working tools or more. Three
+  working tools or more: no field panel, the cards in spec 0003's grid.
+- **Strip:** tiles on a card's surface with lift, sharing the width; the
+  game's selected tool is where you are (a tint and a 2 px ring). Links
+  are a line with a neutral chip, dashed while raised.
+- **Cards:** the badge (outlined while working by day, steel at night),
+  the model, the line under it; the stats on small quiet tiles; the tanks
+  with an 8 px meter; the section strip in the muted and line colours;
+  buttons 84 × 80, More the row's last.
+- **Field panel:** the map image zoomed to the field (dimmed at night),
+  its white outline, the trail (green, pale yellow for mowers), the rig as
+  a dark dot with a white ring and a heading arrow, a sprayer's boom; then
+  the field's number, area, crop, stage bar, needs as chips and "This run
+  ≈ 54 % of the field".
+- **Bottom bar:** the tractor's numbers, as on the Map screen.
+- **Compact:** one column, the strip scrolling sideways, the cards, the
+  field panel 240 tall (the map beside the rows), the column docked under.
 
 ### Default removed (2026-10-24)
 

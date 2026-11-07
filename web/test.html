@@ -1456,51 +1456,8 @@ const forksVehicle = (carried) => loaderVehicle({ bucket: 0, carried, extra: { i
   loaderVehicle().implements[0],
   { id: 8, name: "Pallet Fork", typeName: "dynamicMountAttacherImplement", category: "frontLoaderTools", depth: 2 }] } });
 
-check("vehicle screen: band: job", [
-  vsc.vehicleJob(loaderVehicle(), loaderCab()), vsc.vehicleJob(loaderVehicle({ bucket: 0 }), loaderCab()).text,
-  vsc.vehicleJob(forksVehicle([seedPallet]), undefined).text,
-  vsc.vehicleJob(seedVehicle(), seedCab()).text, vsc.vehicleJob({ ...seedVehicle(), isAI: true, ai: { job: "Field work" } }, seedCab()).text,
-  vsc.vehicleJob(undefined, undefined).text],
-  [{ text: "Loading · Potatoes", icon: "loader" }, "Driving", "Loading · Seeds", "Seeding", "Field work", "On foot"]);
-const bro = (list) => list.map((r) => [r.id, r.label, r.value, r.unit, r.sub, r.alert]);
-check("vehicle screen: band: speed with gear and direction, fuel and DEF range, wear", [
-  bro(vsc.bandReadouts(loaderVehicle(), { fuel: 5.2, def: 9.4 }, units.METRIC)),
-  bro(vsc.bandReadouts(seedVehicle({ gear: "-1" }), {}, units.METRIC)),
-  bro(vsc.bandReadouts(loaderVehicle(), { fuel: 0.66 }, MILES)).slice(0, 3),
-  bro(vsc.bandReadouts({ id: 1, gear: "N" }, {}, units.METRIC))],
-  [[["speed", "Speed", "6.2", "km/h", "F2 · forward", false], ["fuel", "Fuel", "≈ 5", "h", "64%", false],
-    ["def", "DEF", "≈ 9", "h", "71%", false], ["wear", "Wear", "18", "%", "good", false]],
-  [["speed", "Speed", "14.2", "km/h", "R1 · reverse", false], ["fuel", "Fuel", "42", "%", "", false],
-    ["wear", "Wear", "74", "%", "repair soon", true]],
-  [["speed", "Speed", "3.9", "mph", "F2 · forward", false], ["fuel", "Fuel", "≈ 40", "min", "64%", false],
-    ["def", "DEF", "71", "%", "", false]],
-  [["speed", "Speed", "–", "km/h", "N · neutral", false], ["fuel", "Fuel", "–", "", "", false], ["wear", "Wear", "–", "%", "", false]]]);
-check("vehicle screen: band: Engine hot from 100 °C (the game has no warning level)", [
-  vsc.engineHot(loaderVehicle()), vsc.engineHot(loaderVehicle({ extra: { motorTemp: 99.9 } })),
-  vsc.engineHot(loaderVehicle({ extra: { motorTemp: 100 } })), vsc.engineHot(loaderVehicle({ extra: { motorTemp: 104 } })),
-  vsc.engineHot(undefined)], [false, false, true, true, false]);
-check("vehicle screen: band: an electric vehicle's Fuel is its Battery", [
-  vsc.bandReadouts({ id: 1, fuel: 50, fuelCapacity: 100, fuelType: "electriccharge" }, { fuel: 2 }, units.METRIC)[1],
-  vsc.bandReadouts({ id: 1, fuel: 50, fuelCapacity: 100, fuelType: "diesel" }, {}, units.METRIC)[1].label],
-  [{ id: "fuel", label: "Battery", value: "≈ 2", unit: "h", sub: "50%", alert: false }, "Fuel"]);
-check("vehicle screen: fuel range in hours, at the 5 minutes' usage", [vsc.fuelRange(256, 49.2), vsc.fuelRange(256, 0),
-  vsc.fuelRange(256, undefined), vsc.fuelRange(undefined, 40)], [256 / 49.2, undefined, undefined, undefined]);
-
-// fuel use over 5 minutes, from the game's L/h; DEF from its level's drop
-const useStore = createStore();
-let useNow = 0;
-const useRates = rt.createRates(useStore, () => useNow);
-const useAt = (s, usage, def) => { useNow = s * 1000; useStore.set("vehicles", { controlledId: 1, vehicles: [{ id: 1, fuel: 200,
-  fuelCapacity: 400, fuelUsage: usage, def, defCapacity: 40 }] }); };
-useAt(0, 30, 20);
-useAt(10, 30, 19.99);
-const usageEarly = [useRates.fuelPerHour(), useRates.defPerHour()];
-for (let s = 20; s <= 90; s += 10) useAt(s, s <= 50 ? 30 : 50, 20 - s * 0.002);
-const usageLater = [useRates.fuelPerHour(), useRates.defPerHour()];
-for (let s = 100; s <= 400; s += 10) useAt(s, 40, 20 - s * 0.002);
-check("rates: fuel per hour over the last 5 minutes, DEF from its level", [usageEarly,
-  usageLater.map((x) => x && Number(x.toFixed(1))), [useRates.fuelPerHour(), Number(useRates.defPerHour()?.toFixed(1))]],
-  [[undefined, undefined], [38, 7.2], [40, 7.2]]);
+// the band's job and numbers went (specs/0013): the tractor's numbers are
+// the bottom bar's readout, the Map screen's widgets (T3, T6)
 
 // the rig strip: tiles in driving order, links named by the joint
 check("vehicle screen: joint names: game names first, else front or rear", [
@@ -1512,7 +1469,7 @@ check("vehicle screen: joint names: game names first, else front or rear", [
 const stripS = createStore();
 const stripSent = [];
 const stripOpened = [];
-const vBand = vsc.vehicleBand(stripS, { rates: { fuelPerHour: () => 49.2, defPerHour: () => 3 },
+const vBand = vsc.rigStrip(stripS, {
   send: (a, value) => { stripSent.push([a, value]); return Promise.resolve({ ok: true }); } });
 const bandHost = document.createElement("div");
 bandHost.append(vBand);
@@ -1524,13 +1481,11 @@ const stripShow = () => [...vBand.querySelectorAll(".veh-strip > *")].map((el) =
 stripS.set("vehicles", { controlledId: 1, vehicles: [seedVehicle()] });
 stripS.set("cab", seedCab());
 const seedStrip = stripShow();
-const bandText = [q(vBand, ".veh-job"), [...vBand.querySelectorAll(".veh-ro")].map((r) =>
-  `${r.dataset.ro}:${q(r, "b")}${q(r, ".veh-ro-unit")}:${q(r, "small")}${r.dataset.alert === "true" ? ":alert" : ""}`),
-  vBand.querySelector(".veh-hot").hidden];
 stripS.set("vehicles", { controlledId: 1, vehicles: [loaderVehicle({ extra: { motorTemp: 104 } })] });
 stripS.set("cab", loaderCab());
 const loaderStrip = stripShow();
-const hotShown = [q(vBand, ".veh-job"), vBand.querySelector(".veh-hot").hidden, q(vBand, ".veh-hot")];
+// specs/0013: the strip alone; a hot engine is the bottom bar's, never the tractor's tile
+const stripAlone = [vBand.className, vBand.querySelectorAll(".veh-job, .veh-ro, .veh-hot").length];
 for (const t of vBand.querySelectorAll(".rig-tile")) t.click();
 await new Promise((r) => setTimeout(r, 0));
 check("vehicle screen: rig strip: driving order, links by joint, solid while lowered, the selected tile", [seedStrip, loaderStrip],
@@ -1538,9 +1493,7 @@ check("vehicle screen: rig strip: driving order, links by joint, solid while low
     "<3-point:dashed>", "Front weight|Raised"],
   [`T7.315 HD|Engine on · ${(1240).toLocaleString()} h`, "<Loader:solid>", "Quicke Q6M|Loader", "<Tool:solid>",
     "Albutt Bucket|Potatoes · 82%|selected"]]);
-check("vehicle screen: band: job, the four numbers, Engine hot", [bandText, hotShown],
-  [["Seeding", ["speed:14.2km/h:F5 · forward", "fuel:≈ 3h:42%", "wear:74%:repair soon:alert"], true],
-    ["Loading · Potatoes", false, "Engine hot"]]);
+check("vehicle screen: the strip alone: no job, numbers or Engine hot (specs/0013)", stripAlone, ["veh-rig", 0]);
 check("tap selects: a tap on a strip tile selects that tool in game and the page stays", [stripSent, stripOpened,
   vBand.querySelector(".rig-tile[data-pick]").getAttribute("aria-label")],
   [[["implement.select", 1], ["implement.select", 5]], [], "T7.315 HD: select in game"]);
@@ -1672,11 +1625,11 @@ const gearGroup = controlGroup({ label: "Implement", controls: ["implementLowere
 gearStore.set("vehicles", { controlledId: 1, vehicles: [loaderVehicle({ bucket: 0 })] });
 gearStore.set("cab", gearCab(true));
 check("loader gear: Lower and Lower all unavailable, not lit", states(gearGroup), ["unavailable", "unavailable"]);
-check("loader gear: a lowered bucket isn't the job", vsc.vehicleJob(loaderVehicle({ bucket: 0, extra: { speed: 0 } }), gearCab(true)).text,
+check("loader gear: a lowered bucket isn't the job", sel.rigJob(loaderVehicle({ bucket: 0, extra: { speed: 0 } }), gearCab(true)).text,
   "Standing");
 check("loader gear: links solid, the empty bucket's tile says Bucket", (() => {
   const s = createStore();
-  const b = vsc.vehicleBand(s, { rates: { fuelPerHour: () => undefined, defPerHour: () => undefined } });
+  const b = vsc.rigStrip(s);
   s.set("vehicles", { controlledId: 1, vehicles: [loaderVehicle({ bucket: 0 })] });
   s.set("cab", gearCab(false));
   return [...b.querySelectorAll(".veh-strip > *")].map((el) => (el.classList.contains("rig-link")
@@ -1696,9 +1649,10 @@ const appV = document.createElement("div");
 renderTheme(THEMES[0], appV, createStore(), createMapFrame(createStore()));
 const vehScreen = appV.querySelector('.screen[data-screen="vehicle"]');
 const loaderScreen = appV.querySelector('.screen[data-screen="loader"]');
-const vehGroups = [...vehScreen.querySelectorAll(".control-column .control-group")];
-const slotsOf = (el) => ["veh-band", "veh-load", "veh-target", "tools-all", "tool-cards", "tools-also", "implements-card"]
-  .map((c) => !!el?.querySelector(`.${c}`));
+// the column's All tools group hides itself without a rig (specs/0013)
+const vehGroups = [...vehScreen.querySelectorAll(".control-column .control-group")].filter((g) => !g.hidden);
+const slotsOf = (el) => ["veh-rig", "veh-load", "veh-target", "tool-cards", "tools-also", "field-panel", "implements-card"]
+  .map((c) => !!el?.querySelector(`.slot-group .${c}`));
 check("theme: the Vehicle screen's slots and its column", [
   slotsOf(vehScreen), slotsOf(loaderScreen),
   vehGroups.map((g) => q(g, ".control-group-label")),
@@ -1812,7 +1766,9 @@ const toolsPage = (vehicles, cab) => {
   const attachEl = controlGroup({ label: "Hitch", controls: ["attach"] }, s, send).querySelector(".control");
   s.set("vehicles", vehicles);
   s.set("cab", cab);
-  const buttons = (el) => [...el.querySelectorAll(".control")].map((b) => `${lbl(b)}:${b.dataset.state}`).join(", ");
+  // More is "More" over its count (specs/0013): "More · 2" here, as the fixtures have it
+  const buttons = (el) => [...el.querySelectorAll(".control")].map((b) => `${lbl(b)}${b.dataset.control === "more"
+    ? ` · ${q(b, ".control-value")}` : ""}:${b.dataset.state}`).join(", ");
   // specs/0011: a card's working width, "model: ■■□ line: its buttons" (■ on, □ off)
   const width = () => [...cardsEl.querySelectorAll(".tool-card")].filter((c) => !c.querySelector(".tool-width").hidden)
     .map((c) => `${q(c, ".tool-name")}: ${[...c.querySelectorAll(".tool-width-seg")]
@@ -1824,9 +1780,9 @@ const toolsPage = (vehicles, cab) => {
     .map((c) => `${q(c, ".tool-name")}: ${buttons(c.querySelector(".tool-more .tool-buttons"))}`);
   const shown = () => ({
     cards: [...cardsEl.querySelectorAll(".tool-card")].map((c) => `${q(c, ".tool-name")}: ${buttons(c.querySelector(".tool-buttons"))}`),
-    selected: cardsEl.querySelector('.tool-card[data-selected="true"] .tool-name')?.textContent ?? null,
+    selected: cardsEl.querySelector('.tool-head[data-selected="true"] .tool-name')?.textContent ?? null,
     also: alsoEl.hidden ? [] : [...alsoEl.querySelectorAll(".tools-also-row")]
-      .map((r) => `${q(r, ".tools-also-text")}: ${buttons(r)}`),
+      .map((r) => `${q(r, ".tool-name")} · ${q(r, ".tool-sub")}: ${buttons(r)}`),
     all: allEl.hidden ? [] : [...allEl.querySelectorAll(".control")].map((b) => `${lbl(b)}:${b.dataset.state}`),
     ...(width().length ? { width: width() } : {}),
     ...(more().length ? { more: more() } : {}),
@@ -1980,10 +1936,11 @@ const seederRig = toolsPage({ controlledId: 1, vehicles: [{ id: 1, name: "T7.315
 const statLabels = (card) => [...card.querySelectorAll(".tool-stat-label")].map((e) => e.textContent);
 check("tools: the vehicle's own card (a sprayer, the truck): no wear, no Detach; a tractor with a seeder has none", [
   selfSprayer.shown().cards, statLabels(selfSprayer.cardsEl.querySelector(".tool-card")),
-  selfSprayer.cardsEl.querySelector(".tool-chip").hidden, q(selfSprayer.cardsEl, ".tool-sub"),
+  [!!selfSprayer.cardsEl.querySelector(".tool-chip"), selfSprayer.cardsEl.querySelector(".tool-badge").dataset.on],
+  q(selfSprayer.cardsEl, ".tool-sub"),
   [q(truckCard, ".tool-name"), statLabels(truckCard), q(truckCard, ".tool-buttons")?.includes("Detach")],
   seederRig.shown().cards.map((c) => c.split(":")[0]), q(seederRig.cardsEl, ".tank-name")],
-  [["Rubicon 9000: Fold:on, Turn off:on"], ["Speed", "Width", "Area"], false, "Hardi · Sprayers",
+  [["Rubicon 9000: Fold:on, Turn off:on"], ["Speed", "Width", "Area"], [false, "true"], "Hardi · Sprayers",
     ["Arocs 4133 + TECTRUM RS26", ["Speed", "Width", "Area"], false], ["Amazone Cirrus"], "Seeds"]);
 // live (0.12.2): with the engine off the ARION 410 had a card for a faded
 // Turn on; a tractor is never one of the cards, whatever it says it can do
@@ -2045,7 +2002,7 @@ const spPage = toolsPage(rigFix.dino.vehicles, rigFix.dino.cab);
 const spCard = spPage.cardsEl.querySelector('.tool-card[data-vehicle="true"]');
 check("sprayer: a self-propelled sprayer's own card: no Detach, no wear, no driving keys", [
   statLabels(spCard), [...spCard.querySelectorAll(".tool-buttons .control")].map(lbl)],
-  [["Speed", "Width", "Area"], ["Fold", "Turn on", "Unload", "More · 1", "Rate −", "Auto", "Rate +"]]);
+  [["Speed", "Width", "Area"], ["Fold", "Turn on", "Unload", "More", "Rate −", "Auto", "Rate +"]]);
 // specs/0012: a tap on Unload sends its tool alone; Auto the state it
 // asks for, where Precision Farming has a rate for what's in the tank (the
 // Rogator's liquid fertilizer), nothing where it has none (the Berthoud's
@@ -2085,7 +2042,7 @@ const plowPage = toolsPage(rigFix.plow.vehicles, rigFix.plow.cab);
 const plowMore = plowPage.cardsEl.querySelector(".tool-card");
 const moreState = (card) => {
   const t = card.querySelector(".tool-more-toggle");
-  return [t === card.querySelector(".tool-buttons").lastElementChild, lbl(t), t.dataset.state,
+  return [t === card.querySelector(".tool-buttons").lastElementChild, `${lbl(t)}/${q(t, ".control-value")}`, t.dataset.state,
     t.getAttribute("aria-expanded"), card.querySelector(".tool-more").hidden];
 };
 const moreClosed = moreState(plowMore);
@@ -2101,8 +2058,8 @@ const mowerMore = [mowerCard.querySelector(".tool-more-toggle"), mowerCard.query
 const moreSelects = plowPage.sent.some((x) => x[0] === "implement.select");
 check("buttons: More closed with its count, opens and closes, remembered per model; none without anything under it", [
   moreClosed, moreOpened, moreRemembered, moreShut, mowerMore, moreSelects],
-  [[true, "More · 2", "off", "false", true], [true, "More · 2", "on", "true", false],
-    [true, "More · 2", "on", "true", false], [true, "More · 2", "off", "false", true], [null, true], false]);
+  [[true, "More/2", "off", "false", true], [true, "More/2", "on", "true", false],
+    [true, "More/2", "on", "true", false], [true, "More/2", "off", "false", true], [null, true], false]);
 // compact (three cards or more): the main row stays; More keeps its row, closed
 plowMore.querySelector(".tool-more-toggle").click();
 const pl = rigFix.plow;
@@ -2114,7 +2071,7 @@ const compactMore = compactPlow.cardsEl.querySelector('.tool-card[data-id="1037"
 compactMore.querySelector(".tool-more-toggle").click();
 check("buttons: compact keeps the main row and More's tile, faded and closed", [compactPlow.cardsEl.dataset.compact,
   q(compactMore, ".tool-buttons").length > 0, moreState(compactMore)],
-  ["true", true, [true, "More · 2", "unavailable", "false", true]]);
+  ["true", true, [true, "More/2", "unavailable", "false", true]]);
 try {
   if (moreSaved === null) localStorage.removeItem(MORE_STORE);
   else localStorage.setItem(MORE_STORE, moreSaved);
@@ -2195,14 +2152,13 @@ check("specs/0010: a tap on a card's body selects its tool (not the selected one
   [selectedAgain, bodyPage.sent, btnPage.sent.length, btnPage.sent.some(([a]) => a === "implement.select")],
   [0, [["implement.select", 994]], 1, false]);
 
-// the band names the brand; the strip's tiles keep the model alone
+// the strip's tiles keep the model alone (the band's brand label went: specs/0013)
 const brandS = createStore();
-const brandBand = vsc.vehicleBand(brandS, { rates: { fuelPerHour: () => undefined, defPerHour: () => undefined } });
+const brandBand = vsc.rigStrip(brandS);
 brandS.set("vehicles", rigFix.mowers.vehicles);
 brandS.set("cab", rigFix.mowers.cab);
-check("tools: the band's label is the brand; tiles the model alone", [q(brandBand, ".veh-cap"),
-  [...brandBand.querySelectorAll(".rig-tile b")].map((e) => e.textContent)],
-  ["Vehicle · New Holland", ["XT 390", "T7.300", "KDF 341 S"]]);
+check("tools: the strip's tiles: the model alone", [...brandBand.querySelectorAll(".rig-tile b")].map((e) => e.textContent),
+  ["XT 390", "T7.300", "KDF 341 S"]);
 
 // tabs: Map and Vehicle; a saved "implement" opens Vehicle; Attach faded
 // until the game has something in reach
@@ -2251,10 +2207,13 @@ const layoutCheck = (/** @type {string} */ label) => {
   if (screen.hidden) { layoutIssues.push(`${label}: not on the Vehicle page`); return; }
   if (screen.scrollHeight > screen.clientHeight + 1) layoutIssues.push(`${label}: the page scrolls`);
   const box = screen.getBoundingClientRect();
-  for (const el of screen.querySelectorAll(".tool-card, .tools-all, .tools-also-row, .veh-band")) {
+  for (const el of screen.querySelectorAll(".tool-card, .tools-all, .tools-also-row, .veh-rig, .field-panel")) {
     if (/** @type {HTMLElement} */ (el).offsetParent === null) continue;
     const what = `${label}: ${el.className} ${el.querySelector(".tool-name")?.textContent ?? ""}`.trim();
-    if (el.scrollHeight > el.clientHeight + 1 || el.scrollWidth > el.clientWidth + 1) layoutIssues.push(`${what} overflows`);
+    // the strip scrolls sideways when its tiles don't fit at 150 px, with
+    // room for their lift round it (specs/0013): only its place is checked
+    const overflows = el.scrollHeight > el.clientHeight + 1 || el.scrollWidth > el.clientWidth + 1;
+    if (overflows && !el.classList.contains("veh-rig")) layoutIssues.push(`${what} overflows`);
     const r = el.getBoundingClientRect();
     if (r.bottom > box.bottom + 1 || r.right > box.right + 1) layoutIssues.push(`${what} is off the page`);
   }
@@ -2340,7 +2299,7 @@ for (const palette of ["day", "night"]) {
   const plainCard = tidyEl("section", { class: "tool-card", "data-selected": "false" });
   const pickedCard = tidyEl("section", { class: "tool-card", "data-selected": "true" });
   const tab = /** @type {HTMLElement} */ (lapp.querySelector('.tab[aria-pressed="true"]'));
-  const band = /** @type {HTMLElement} */ (lapp.querySelector(".veh-band"));
+  const band = /** @type {HTMLElement} */ (lapp.querySelector(".veh-rig"));
   const card = /** @type {HTMLElement} */ (lapp.querySelector(".tool-card"));
   tidyRows.push([palette,
     ["tokens", ["--t-fast", "--t-base", "--t-slow", "--t-breathe", "--ease"].filter((t) => !root.getPropertyValue(t).trim())],
@@ -2362,22 +2321,245 @@ for (const palette of ["day", "night"]) {
     ["selected card", tcs(pickedCard).boxShadow !== tcs(plainCard).boxShadow,
       tcs(pickedCard).backgroundImage === tcs(plainCard).backgroundImage]]);
 }
+// specs/0013: by day "on" is an outline, its tint 14 % of the colour; at night the steel fill
 const tidyWant = (palette) => [palette,
   ["tokens", []],
   ["unavailable", "1", "dashed", "none"],
   ["pending", true, "control-wait", "none"],
   ["hazard pending", true],
   ["hazard off", true],
-  ["hazard on", true, "1"],
-  ["on", true, "1"],
+  ["hazard on", true, palette === "day" ? "0.14" : "1"],
+  ["on", palette === "night", palette === "day" ? "0.14" : "1"],
   ["tab", "none", true],
   ["map tool", "none", true],
   ["surfaces", "none", false, true],
   ["waiting", "solid", "waiting", "1"],
   ["selecting", "none", "none", "none", "none"],
-  ["selected card", true, true]];
+  // specs/0013: the strip's tile shows where you are; a card has no selection look
+  ["selected card", false, true]];
 check("specs/0010: one look per state, outlines for where you are, lift only on what you press, one way to wait",
   tidyRows, [tidyWant("day"), tidyWant("night")]);
+
+// --- Vehicle page, calm (specs/0013-vehicle-screen-calm.md) ----------------------
+
+const cov = await import("./src/data/coverage.js");
+const fpw = await import("./src/widgets/fieldPanel.js");
+const { fieldNeeds } = await import("./src/panels/fieldInfoPanel.js");
+
+// fieldAt: the field whose outline holds the point (even-odd): a U open to
+// the north (its notch 40..60 × 0..60) and a square beside it
+const uField = { id: 7, points: [0, 0, 40, 0, 40, 60, 60, 60, 60, 0, 100, 0, 100, 100, 0, 100] };
+const outlineS = createStore();
+outlineS.set("field_outlines", { fields: [uField, { id: 8, points: [200, 0, 300, 0, 300, 100, 200, 100] }] });
+check("calm: fieldAt: inside a concave outline, in its notch, outside; no outlines", [
+  sel.fieldAt(outlineS, 20, 50)?.id, sel.fieldAt(outlineS, 50, 30)?.id, sel.fieldAt(outlineS, 50, 80)?.id,
+  sel.fieldAt(outlineS, 250, 50)?.id, sel.fieldAt(outlineS, 150, 50), sel.fieldAt(createStore(), 20, 50)],
+  [7, undefined, 7, 8, undefined, undefined]);
+
+// coverage: a 100 × 100 m field, a rig driven over it in 5 m steps
+const square100 = { id: 1, points: [0, 0, 100, 0, 100, 100, 0, 100] };
+const sprayer10 = { id: 2, name: "Sprayer", category: "sprayers", workWidth: 10 };
+const covRig = ({ tools = [sprayer10], entries = [{ id: 2, turnedOn: true }], maxPoints = undefined } = {}) => {
+  const s = createStore();
+  const c = cov.createCoverage(s, maxPoints ? { maxPoints } : {});
+  s.set("field_outlines", { fields: [square100] });
+  const rig = { entries };
+  const at = (x, z, heading, speed = 10) => {
+    s.set("cab", { inVehicle: true, rig: [{ id: 1, depth: 0, can: [] },
+      ...rig.entries.map((e) => ({ depth: 1, side: "rear", can: ["turnOn", "detach"], ...e }))] });
+    s.set("vehicles", { controlledId: 1, vehicles: [{ id: 1, name: "T7", category: "tractorsM", x, z, heading, speed,
+      implements: tools.filter((t) => rig.entries.some((e) => e.id === t.id)).map((t) => ({ depth: 1, ...t })) }] });
+  };
+  // a straight pass along z = zz, east (x0 < x1) or west
+  const pass = (zz, x0 = 0, x1 = 100, speed = 10) => {
+    const dir = Math.sign(x1 - x0);
+    for (let x = x0; dir > 0 ? x <= x1 : x >= x1; x += 5 * dir) at(x, zz, dir > 0 ? 90 : 270, speed);
+  };
+  return { c, at, pass, rig };
+};
+const near = (a, b, within = 1) => typeof a === "number" && typeof b === "number" && Math.abs(a - b) <= within;
+const once = covRig();
+once.pass(51);
+const oncePct = once.c.percent(1);
+once.pass(51, 100, 0);
+const raisedOff = covRig({ tools: [{ id: 2, category: "mowers", workWidth: 10 }],
+  entries: [{ id: 2, can: ["lower", "turnOn", "detach"], lowered: false, turnedOn: false }] });
+raisedOff.pass(51);
+const sprayOff = covRig({ entries: [{ id: 2, turnedOn: false }] });
+sprayOff.pass(51);
+const crawl = covRig();
+crawl.pass(51, 0, 100, 0.4);
+// two sections off of nine (the outer two on the left): 7 of 9 m, its middle
+// 1 m to the right (south, driving east); with the sections' widths
+// (specs/0011), the metres of those on: 26 of 33, its middle 3.5 m left
+const narrow = covRig({ tools: [{ ...sprayer10, workWidth: 9 }],
+  entries: [{ id: 2, turnedOn: true, width: { left: 2, leftMax: 4, right: 4, rightMax: 4, center: true } }] });
+narrow.pass(51);
+const narrowM = covRig({ tools: [{ ...sprayer10, workWidth: 33 }], entries: [{ id: 2, turnedOn: true,
+  width: { left: 4, leftMax: 4, right: 2, rightMax: 4, center: true, sections: [3, 4, 4, 4, 3, 4, 4, 4, 3] } }] });
+narrowM.pass(51);
+const runOf = (r) => {
+  const run = r.c.trails(1)[0]?.runs[0];
+  return run && [run.w, run.pts[1]];
+};
+check("calm: coverage: a 100 m pass at 10 m over 1 ha ≈ 10 %, twice still ≈ 10 %; nothing raised, off or under 0.5 km/h; "
+  + "two sections off of nine: 7/9 of the width", [
+  near(oncePct, 10), near(once.c.percent(1), 10),
+  [raisedOff, sprayOff, crawl].map((r) => [r.c.percent(1), r.c.trails(1).length]), runOf(narrow), runOf(narrowM)],
+  [true, true, [[undefined, 0], [undefined, 0], [undefined, 0]], [7, 52], [26, 47.5]]);
+// a trail per tool; detaching one clears its trail, as Area (rates.js)
+const two = covRig({ tools: [sprayer10, { id: 3, name: "Mower", category: "mowers", workWidth: 10 }],
+  entries: [{ id: 2, turnedOn: true }, { id: 3, turnedOn: false }] });
+two.pass(51);
+two.rig.entries = [{ id: 2, turnedOn: false }, { id: 3, turnedOn: true }];
+two.pass(21);
+const twoBefore = [two.c.trails(1).map((t) => `${t.tool}:${t.kind}`), near(two.c.percent(1), 20)];
+two.rig.entries = [{ id: 3, turnedOn: true }];
+two.at(100, 21, 90, 0);
+check("calm: coverage: a trail per tool (green spraying, pale yellow mowing); detaching one clears its trail", [
+  twoBefore, two.c.trails(1).map((t) => `${t.tool}:${t.kind}`), near(two.c.percent(1), 10)],
+  [[["2:work", "3:mow"], true], ["3:mow"], true]);
+// the cap: older points merge; the percentage stays within 1 %
+const capped = covRig({ maxPoints: 40 });
+const uncapped = covRig();
+for (const r of [capped, uncapped]) for (let i = 0; i < 5; i++) r.pass(5 + 20 * i, i % 2 ? 100 : 0, i % 2 ? 0 : 100);
+check("calm: coverage: the point cap merges older points and keeps the percentage within 1 %", [
+  capped.c.points(1) <= 40, uncapped.c.points(1) > 40, near(capped.c.percent(1), uncapped.c.percent(1)),
+  near(uncapped.c.percent(1), 50, 6)], [true, true, true, true]);
+
+// the field panel: the field the rig is in, its number, area, crop, stage
+// and needs; "≈ % of the field" while there's a trail; off a field, 300 m
+// around the rig
+const fpS = createStore();
+const wheatFruit = { index: 3, name: "WHEAT", title: "Wheat", numGrowthStates: 8, minHarvest: 7, maxHarvest: 7, cut: 9,
+  withered: 10 };
+fpS.set("field_outlines", { fields: [square100] });
+fpS.set("crop_types", { fruits: [wheatFruit], levels: { spray: 2 } });
+const field1 = { id: 1, areaHa: 1, fruitTypeIndex: 3, growthState: 3, sprayLevel: 0, weedState: 1, limeLevel: 1, plowLevel: 1 };
+fpS.set("fields", { fields: [field1] });
+let fpPct;
+const panelEl = fpw.fieldPanel(fpS, { coverage: { trails: () => [], percent: () => fpPct, version: () => 0 } });
+const rigAt = (x, z) => fpS.set("vehicles", { controlledId: 1, vehicles: [{ id: 1, name: "T7", category: "tractorsM", x, z,
+  heading: 90, speed: 0, implements: [] }] });
+const hiddenOr = (sel, read) => (panelEl.querySelector(sel).hidden ? null : read());
+const panelShow = () => [q(panelEl, ".field-title"), q(panelEl, ".field-area"),
+  panelEl.querySelector("svg").getAttribute("viewBox"),
+  hiddenOr(".field-crop-row", () => `${q(panelEl, ".field-crop")}|${q(panelEl, ".field-stage")}`),
+  hiddenOr(".field-needs", () => [...panelEl.querySelectorAll(".field-need")].map((e) => e.textContent)),
+  hiddenOr(".field-cover", () => q(panelEl, ".field-cover b"))];
+rigAt(50, 50);
+const onField = panelShow();
+fpPct = 54.4;
+rigAt(50, 50);
+const withTrail = panelShow()[5];
+rigAt(150, 50);
+const offField = panelShow();
+check("calm: field panel: the field's bounds plus 15 %, number, area, crop, stage and needs; ≈ % only with a trail; "
+  + "Not on a field: 300 m around the rig", [onField, withTrail, offField, fpw.fieldView([0, 0, 100, 0, 100, 40, 0, 40])],
+  [["Field 1", units.areaText(1, units.METRIC), "-15 -15 130 130", "Wheat|Growing · stage 3 of 7",
+    fieldNeeds(field1, fs.cropCatalog(fpS.get("crop_types"))), null],
+  "≈ 54 % of the field", ["Not on a field", "", "0 -100 300 300", null, null, null], [-15, -6, 130, 52]]);
+check("calm: field panel: the needs are the Map panel's words", fieldNeeds(field1, fs.cropCatalog(fpS.get("crop_types"))),
+  ["Fertilizer", "Weeding"]);
+check("calm: a tank emptying says how long it lasts; filling, when it's full", [tankRows([tank(500, 18, false)])[0].when,
+  tankRows([tank(850, 4, true)])[0].when], ["≈ 18 min left", "full in ≈ 4 min"]);
+check("calm: theme check: a widget added to the column is checked", checkTheme({ id: "x", palettes: [], css: "",
+  screens: [{ id: "a", label: "A", slots: [{ controls: true, add: [{ widget: "nope6" }] }] }] }),
+['screen a: adds no widget "nope6"']);
+
+// the page at 1180 × 820, in the layout frame
+const vscreen = /** @type {HTMLElement} */ (lapp.querySelector('.screen[data-screen="vehicle"]'));
+const rendered = (/** @type {Element|null} */ el) => !!el && el.getClientRects().length > 0;
+const putRig = (f) => { lstore.set("vehicles", f.vehicles); lstore.set("cab", f.cab); };
+const sizeOf = (el) => { const r = el.getBoundingClientRect(); return `${Math.round(r.width)}×${Math.round(r.height)}`; };
+ldoc.documentElement.dataset.palette = "day";
+lui.showScreen("vehicle");
+putRig(rigFix.mowers);
+const stripEl = /** @type {HTMLElement} */ (vscreen.querySelector(".veh-strip"));
+const tileEls = [...vscreen.querySelectorAll(".veh-strip .rig-tile")];
+const tileWidths = tileEls.map((t) => t.getBoundingClientRect().width);
+const stripFilled = [...tileEls, ...vscreen.querySelectorAll(".veh-strip .rig-link")]
+  .reduce((sum, el) => sum + el.getBoundingClientRect().width, 0);
+const selTile = /** @type {HTMLElement} */ (vscreen.querySelector('.rig-tile[data-selected="true"]'));
+const mowCards = [...vscreen.querySelectorAll(".tool-card")];
+const cardLook = (c) => [tcs(c).boxShadow, tcs(c).borderTopColor, tcs(c).backgroundImage, tcs(c).outlineStyle].join("|");
+check("calm: the page: the strip alone, its tiles share its width; the selected tool's tile is where you are, its card isn't", [
+  vscreen.querySelectorAll(".veh-band, .veh-ro, .veh-job, .veh-hot, .slot-group .tools-all").length,
+  tileWidths.every((w) => Math.abs(w - tileWidths[0]) <= 1), tileWidths[0] >= 150,
+  Math.abs(stripFilled - (stripEl.clientWidth - parseFloat(tcs(stripEl).paddingLeft) - parseFloat(tcs(stripEl).paddingRight))) <= 2,
+  tcs(tileEls[0]).flexGrow,
+  q(selTile, ".rig-text b"), tcs(selTile).boxShadow.includes("inset") && tcs(selTile).boxShadow.includes("rgb(12, 77, 184)"),
+  tcs(selTile).backgroundColor, new Set(mowCards.map(cardLook)).size, mowCards.filter((c) => c.dataset.selected).length],
+  [0, true, true, true, "1", "XT 390", true, "rgb(223, 232, 247)", 1, 0]);
+putRig(rigFix.plow);
+const plowCard = /** @type {HTMLElement} */ (vscreen.querySelector(".tool-card"));
+const plowButtons = [...plowCard.querySelectorAll(":scope > .tool-buttons > .control")];
+const moreButton = /** @type {HTMLElement} */ (plowCard.querySelector(".tool-more-toggle"));
+check("calm: card buttons are the column's, 84 × 80, from the left; More is the row's last button over its count", [
+  [...new Set(plowButtons.map(sizeOf))], moreButton.tagName, moreButton === plowButtons[plowButtons.length - 1],
+  lbl(moreButton), q(moreButton, ".control-value"),
+  plowButtons[0].getBoundingClientRect().left - plowCard.getBoundingClientRect().left <= 20],
+  [["84×80"], "BUTTON", true, "More", "2", true]);
+const panelWith = (f) => { putRig(f); return rendered(vscreen.querySelector(".field-panel")); };
+check("calm: the field panel shows with one or two working tools, not with three",
+  [panelWith(madeRig(1)), panelWith(madeRig(2)), panelWith(madeRig(3))], [true, true, false]);
+const columnShow = () => [...vscreen.querySelectorAll(".control-column .control-group")].filter(rendered)
+  .map((g) => q(g, ".control-group-label"));
+putRig(rigFix.mowers);
+const mowColumn = columnShow();
+const allGroup = /** @type {HTMLElement} */ (vscreen.querySelector(".control-column .tools-all"));
+const allInColumn = [...allGroup.querySelectorAll(".control")].map((b) => `${lbl(b)}:${b.dataset.state}`);
+const allColumns = tcs(/** @type {Element} */ (allGroup.querySelector(".control-grid"))).gridTemplateColumns.split(" ").length;
+putRig(rigFix.sprayer);
+check("calm: the column: All tools under Drive with two working tools (the All row's buttons, three to a row), not with one",
+  [mowColumn, allInColumn, allColumns, columnShow()],
+  [["Lights", "Drive", "All tools"], rigFix.mowers.expect.all, 3, ["Lights", "Drive"]]);
+const readoutOf = (id) => [...lapp.querySelectorAll(`.tab-readout[data-screen="${id}"] > *`)].map((e) => e.title);
+const SIX = ["Speed", "Gear", "Fuel", "DEF", "Wear", "Engine temp"];
+check("calm: the readout: the Vehicle and Loader pages list speed, gear, fuel, DEF, wear and engine temperature", [
+  readoutOf("vehicle"), readoutOf("loader"), THEMES[0].screens.filter((s) => s.readout?.length).map((s) => s.id)],
+  [SIX, SIX, ["map", "vehicle", "loader"]]);
+
+// tokens: "on" outlined by day, the steel fill at night, and no yellow on
+// the Vehicle page at night
+const YELLOW = /255, 199, 44|255, 214, 92/;
+const LOOKED_AT = ["color", "backgroundColor", "backgroundImage", "borderTopColor", "borderRightColor", "borderBottomColor",
+  "borderLeftColor", "boxShadow", "outlineColor", "fill", "stroke"];
+const yellowIn = (/** @type {Element} */ root) => {
+  const found = new Set();
+  for (const el of [root, ...root.querySelectorAll("*")]) {
+    if (!rendered(el)) continue;
+    for (const pseudo of ["", "::before", "::after"]) {
+      const st = tcs(el, pseudo);
+      if (pseudo && (st.content === "none" || st.content === "normal")) continue;
+      for (const p of LOOKED_AT) if (YELLOW.test(st[p])) found.add(`${el.getAttribute("class") || el.tagName}${pseudo} ${p}`);
+    }
+  }
+  return [...found];
+};
+const onLooks = [];
+for (const palette of ["day", "night"]) {
+  ldoc.documentElement.dataset.palette = palette;
+  tidy.replaceChildren();
+  const on = tidyCtl(lights, "on");
+  const hazardLit = tidyCtl(hazard, "on");
+  const layer = tcs(on, "::before");
+  onLooks.push([palette, tcs(on).borderTopColor, tcs(on).color, Number(layer.opacity) <= 0.2,
+    layer.backgroundImage.includes("rgb(75, 90, 120)"), tcs(on).backgroundImage.includes("rgb(255, 255, 255)"),
+    tcs(hazardLit).color]);
+}
+const nightYellow = [];
+for (const [name, f] of [["mowers", rigFix.mowers], ["sprayer-width", rigFix["sprayer-width"]], ["arion-on", rigFix["arion-on"]],
+  ["3 tools", madeRig(3)]]) {
+  putRig(f);
+  nightYellow.push(...yellowIn(lapp).map((x) => `${name}: ${x}`));
+}
+check("calm: tokens: by day \"on\" is outlined (edge and ink #0C4DB8, no blue fill); at night the steel fill; "
+  + "no old yellow on the Vehicle page at night", [onLooks, nightYellow],
+  [[["day", "rgb(12, 77, 184)", "rgb(12, 77, 184)", true, false, true, "rgb(196, 43, 43)"],
+    ["night", "rgb(98, 115, 154)", "rgb(255, 255, 255)", false, true, false, "rgb(10, 26, 51)"]], []]);
+ldoc.documentElement.dataset.palette = "day";
+
 tidy.remove();
 layoutFrame.remove();
 

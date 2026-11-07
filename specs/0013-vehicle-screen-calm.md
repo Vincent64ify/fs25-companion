@@ -1,6 +1,6 @@
 # 0013: Vehicle page, calm
 
-Status: approved
+Status: built
 Mod: no change · Started: 2026-11-03 · Design: the canvas [FS25 Companion: Vehicle screen, calm](https://claude.ai/artifact/JApsdXjoSFwsddKv2kNYZ3) (private, on claude.ai; approved by Vincent on 2026-11-03), a THEMES.md section at build; specs [0003](0003-implement-screen.md) (the page), [0010](0010-tidy-states-and-motion.md) (the states), [0012](0012-card-buttons.md) (the buttons)
 
 ## Goal
@@ -42,7 +42,8 @@ and the ground shows under them.
   Fuel, DEF, Wear and the Engine hot chip. They move to the bottom bar.
 - **Tiles:** every rig member in driving order, as today: the badge, the
   model, the state line, and a thin bar per fill unit across the tile.
-  - The tiles share the strip's width, at least 150 px each.
+  - The tiles share the strip's width, at least 150 px each; past that
+    the strip scrolls sideways (five tiles or more at 1180×820).
   - A tile is a card's surface (`--card`) with lift, because a tap
     selects that tool in game (spec 0003); the page stays.
 - **Links:** 64 px wide, with the coupling's name (3-point, Drawbar) in a
@@ -59,15 +60,20 @@ and the ground shows under them.
 **Tool cards** (a card per working thing, spec 0003), stacked in driving
 order:
 - **Head:** the badge (the "on" look while working, below), the model
-  (18 px), "Berthoud · Sprayers · Rear" under it.
+  (18 px), "Berthoud · Sprayers · Rear" under it. The Working chip goes:
+  the badge says it.
 - **Stats:** Speed against the tool's limit, Width, Area this run and the
   tool's own wear, as now.
   - Each one sits on a small quiet tile: the line colour as its
     background, 10 px corners, 6 × 10 padding, an 11 px label and a 15 px
-    value.
-  - They're context, not the point (Vincent, 2026-11-03).
+    value. No bar under Speed or Wear (the canvas has none): over the
+    tool's limit Speed's value turns orange.
+  - They're context, not the point (Vincent, 2026-11-03), so they go first
+    when space runs out: two stacked cards on a screen under 800 px tall
+    (the iPad mini's 1133×744) show none.
 - **Tanks:** for each, the name, the percentage (22 px), an 8 px meter,
-  the litres, and "≈ 18 min left" while it's emptying.
+  the litres, and "≈ 18 min left" while it's emptying ("full in ≈ 4 min"
+  while it fills, as before). No box round each tank.
 - **Section strip:** as specs 0011 and 0012 have it.
   - On sections are the muted colour and off ones the line colour, not
     yellow.
@@ -75,8 +81,9 @@ order:
 - **Buttons:** drawn exactly as the column's (84 × 80, icon over a 13 px
   label), in one row from the left, never stretched to the card's width.
   - What they are, their labels and their fading are spec 0012's.
-  - **More** (spec 0012) is the row's last button, "More" over its count
-    ("2"); a tap opens or closes the More row under the main one.
+  - **More** (spec 0012) is the row's last button: a chevron, "More",
+    and its count ("2") as the button's value line under it; a tap opens
+    or closes the More row under the main one (its buttons 84 × 80 too).
 - **Also attached** (a tool with no card, a weight): a slim card each, at
   the bottom of the tools column. It has the badge, the model, a line
   with brand, category, side and state, and its buttons (Lower / Raise,
@@ -89,8 +96,11 @@ order:
   width in spec 0003's compact grid (three in a row, four two by two).
   Their buttons stay 84 × 80, wrapping to a second row if a card is too
   narrow.
+- At 1133×744 the same, with two stacked cards' stats gone (above).
 
-**The field panel** (one or two working tools):
+**The field panel** (none, one or two working tools: with none, a
+tractor alone or with a weight, it shows too, the tools column then holding
+only Also attached or "Nothing attached"; hidden on foot):
 - **The map**, zoomed to the field the rig is in: the Map screen's own
   map image, the field's outline (white, 2 px), and the rig as a dark
   dot with a white ring and a heading arrow.
@@ -98,20 +108,25 @@ order:
 - **A sprayer's boom:** a white line behind the dot at the tool's working
   width. Its sections that are off are grey.
 - **The trail (new):** where the rig's tools have worked on this field,
-  drawn as a soft band at the working width. It's green for spraying and
-  sowing and pale yellow for mowing.
+  drawn as a soft band at the working width (the sections that are on, so
+  a narrower pass is narrower and sits on the side still on), clipped to
+  the field's outline. It's pale yellow for mowers and green for every
+  other tool (spraying, sowing...).
   - It's our estimate (Data contract), never the game's own map.
   - A trail is kept while the page is open. It's cleared when its tool is
-    detached, as Area is (`rates.js`).
+    detached, as Area is (`rates.js`), and, as Area, when you change
+    vehicles or get out; another map clears them all.
 - **Under the map:**
   - the field's number and area ("Field 23", "1.8 ha");
   - the crop and its stage ("Wheat", "Growing · stage 3 of 7") over a
     bar of its stages;
   - "Needs" with a chip for each thing the field needs (the Map's field
-    panel's words: Weeding, Fertilizer, Lime...), or "Nothing";
+    panel's words: Weeding, Fertilizer, Lime...), or "Nothing" in muted
+    text;
   - "This run ≈ 54 % of the field", while there's a trail.
 - **Not on a field:** the map around the rig (300 m across), titled "Not
-  on a field", with no crop or needs.
+  on a field", with no outline, crop or needs. Without the rig's position
+  (an older mod), the same title over an empty map.
 - **No map image** (not converted yet): the outline and the trail on the
   card's colour.
 - A tap does nothing (open question 4).
@@ -132,9 +147,13 @@ order:
 - **Readout:** as on the Map screen, the tractor's numbers on the right:
   speed, gear, fuel (with its small bar, orange when low), DEF, wear, and
   engine temperature (orange when hot).
-  - When space runs out: temperature goes first, then gear.
+  - Wear reads "23 % wear", so the bare number says what it is.
+  - When space runs out: temperature goes first (under 1000 px wide), then
+    gear (compact keeps speed, fuel and DEF; a phone speed and fuel).
   - Rpm, fuel usage and the cruise speed stay Map-only. The cruise speed
     is already on the Cruise button.
+  - The band's fuel and DEF ranges in hours ("≈ 5 h", spec 0002) go with
+    the band: the readout shows them as the Map does, a % and a bar.
 - **The Loader page** (spec 0002) gets the same strip and readout. Its
   Load and Target cards are unchanged. The Harvester page keeps its own
   band (spec 0001).
@@ -147,6 +166,8 @@ everywhere (Vincent, 2026-11-03).
   14 % tint of it shows inside.
   - Hazard and the turn arrows take their red and green the same way.
   - A working badge is outlined in the "on" blue.
+  - What's "on" without being a control (Settings' Screen switches, the
+    Harvester's chips) takes the same outlined look.
 - **"On" at night:** a steel grey fill instead of yellow: `#4B5A78 →
   #3C4966`, white ink, a `#62739A` edge.
   - Hazard and the turn arrows still fill red and green.
@@ -163,6 +184,7 @@ everywhere (Vincent, 2026-11-03).
   - Accent text and the farmland badge's text take the muted colour.
   - The Harvester's "until full" stays orange: it's the warn colour, not
     the accent.
+  - The status bar's sun (the weather) takes the bar's ink at night.
   - By day these are unchanged.
 - **The darker night**, closer to black and less blue (the day palette
   doesn't change):
@@ -201,8 +223,10 @@ already sent and live.
   - The map's `meta.json` and image (`imageBounds`).
 - **Web** (`web/src/types.js`): no topic changes.
 - **Web** (data, widgets):
-  - `data/selectors.js`: `fieldAt(store, x, z)`, the field whose outline
-    holds the point (`field_outlines`, even-odd rule), or undefined.
+  - `data/selectors.js`: `fieldAt(store, x, z)`, the outline
+    (`{id, points}`) of the field that holds the point (`field_outlines`,
+    even-odd rule), or undefined. `widthSegments` and `widthMetres` (spec
+    0011) moved here from `vehicleTools.js`, which the trail needs too.
   - `data/coverage.js` (new, beside `rates.js` and fed the same way):
     - **When it records:** while a tool works. That's the same rule as
       Area: lowered or turned on, moving faster than 0.5 km/h, with a
@@ -213,10 +237,20 @@ already sent and live.
     - **The percentage:** the share of the field's 2 m cells under any
       segment, so passes that overlap count once.
     - **Its limits:** in memory only, at most 20,000 points per field
-      (older ones are merged), cleared when the tool is detached.
+      (the oldest runs lose every other point; the percentage is kept in
+      the cells, so it doesn't move), cleared when the tool is detached,
+      on another vehicle or map. A step over 30 m is a jump, not a pass.
+    - **What it gives** (`coverageOf(store)`): `trails(field)`, a list per
+      tool with its kind ("work" or "mow") and runs (a width and its
+      middle line, x and z in turn, cut every 500 points); `percent(field)`,
+      undefined without a trail; `points(field)`; `version(field)`, which
+      changes with its trails (the panel redraws by it).
   - `widgets/fieldPanel.js` (new): the panel.
     - It's an SVG in world metres over the map image: its viewBox is the
-      field's bounds plus 15 %, and the image sits at `imageBounds`.
+      field's bounds plus 15 % of its size on each side, and the image
+      (the Map's own `overview.png`, `overview_2048.png` on a phone) sits
+      at `imageBounds` from `meta.json`. At night an SVG filter dims it
+      (Safari draws no CSS filter functions on SVG).
     - It isn't the Leaflet map, so the map frame stays on the Map
       screen.
     - Field rows: `fieldNeeds` and the growth stages from
@@ -279,6 +313,20 @@ None new.
   the same change, because theme.css changes (THEMES.md, Design system).
 - **Golden:** no viewer message changes, so `fixtures/golden_viewer.ndjson`
   stays.
+- **As built** (2026-11-07), where the code went beyond the list above:
+  - `vehicleBand` is now `rigStrip` (the strip alone), and the Loader page
+    uses it too; `rates.js` lost the fuel and DEF use the band's ranges
+    needed.
+  - `render.js`: a column's `add` takes a widget as well as a group of
+    controls (`{ widget: "toolsAll" }`); `toolsAll` draws a
+    `.control-group` titled "All tools".
+  - `widget.js`: a `readoutUnit` for the readout variant (wear's
+    "% wear"); `fieldInfoPanel.js` exports `growthProgress`,
+    `overviewLayer.js` exports `imageName`.
+  - The theme's tokens: `--on` is the lit layer and `--on-tint` how much
+    of it shows (0.14 by day, 1 at night); `--on-fill` for what's on and
+    isn't a control; `--work-badge`, `--work-badge-ink`,
+    `--work-badge-ring` for a working badge.
 - **Risks:**
   - the "on" look changes on every screen (Map, Harvester, Loader);
   - the field panel and three cards at 1133×744 (iPad mini);
@@ -289,9 +337,9 @@ None new.
 ## Acceptance
 
 Automated (each one a test that exists before the work is called built):
-- [ ] `web/test.html`, `fieldAt`: a point inside a concave outline, one
+- [x] `web/test.html`, `fieldAt`: a point inside a concave outline, one
   in its notch, and one outside; no outlines gives undefined.
-- [ ] `web/test.html`, coverage:
+- [x] `web/test.html`, coverage:
   - a 100 m straight pass at 10 m width over a 100 × 100 m field gives
     ≈ 10 %;
   - the same pass twice still gives ≈ 10 %;
@@ -299,35 +347,35 @@ Automated (each one a test that exists before the work is called built):
   - two sections off out of nine record 7/9 of the width;
   - detaching clears that tool's trail;
   - the point cap merges and keeps the percentage within 1 %.
-- [ ] `web/test.html`, field panel:
+- [x] `web/test.html`, field panel:
   - its viewBox is the field's bounds plus 15 %;
   - "Not on a field" outside any outline;
   - the Needs chips match `fieldNeeds`;
   - no percentage without a trail.
-- [ ] `web/test.html`, the page:
+- [x] `web/test.html`, the page:
   - no band readouts or job;
   - the strip's tiles share its width;
   - the selected tool's tile has the "where you are" look and its card
     doesn't;
   - card buttons are 84 px wide and More is a button with its count;
   - with three working tools the field panel is hidden.
-- [ ] `web/test.html`, the column: All tools shows with two working
+- [x] `web/test.html`, the column: All tools shows with two working
   tools, not with one, and holds the same actions as today's All row.
-- [ ] `web/test.html`, the readout: the Vehicle and Loader pages list
+- [x] `web/test.html`, the readout: the Vehicle and Loader pages list
   speed, gear, fuel, DEF, wear and engine temperature.
-- [ ] `web/test.html`, tokens:
+- [x] `web/test.html`, tokens:
   - at night an "on" button's background is the steel fill and no
     computed colour on the Vehicle page is the old yellow (`#FFC72C`,
     `#FFD65C`);
   - by day an "on" button has no blue fill and an `#0C4DB8` edge.
-- [ ] Replay in the browser pane (`replay-solek`, a sample driven tractor
+- [x] Replay in the browser pane (`replay-solek`, a sample driven tractor
   patched in, per the usual trick), each screen at 1180×820 day and
   night and once at 1133×744:
   - the sprayer rig (ARION 410, Vantage 4300, W 600);
   - two mowers;
   - three tools;
   - the Map, Harvester and Loader screens, for the new "on" look.
-- [ ] `python -m pytest mod/tests companion/tests tests` passes, the
+- [x] `python -m pytest mod/tests companion/tests tests` passes, the
   golden unchanged.
 
 Live check (in game; Solek):
@@ -373,6 +421,15 @@ Made while drafting; the review or the live check can change them.
   temperature. Rpm, fuel usage and cruise stay on the Map screen.
 - **The Loader page** takes the same strip and readout, so the band is
   gone everywhere but the Harvester.
+- **Made while building (2026-11-07):**
+  - The field panel shows with no working tool too (a tractor alone, a
+    weight): the width is there, and where you are is still useful.
+  - The trail ends at the field's edge (clipped to its outline), so a turn
+    on the headland stays off the map.
+  - Pale yellow for mowers only; every other tool's trail is green.
+  - Stats go first on a short screen: two stacked cards at 1133×744 were
+    68 px too tall with them (the trailers).
+  - No bar under the stats, as on the canvas.
 
 ## Out of scope / open questions
 
@@ -393,3 +450,15 @@ page's memory; off a field the panel shows the map around the rig.
   Vincent answered four open questions the same day (Out of scope).
 - 2026-11-03: approved by Vincent; the tap on the field panel stays open
   (nothing, as drafted).
+- 2026-11-07: built (dashboard only, no mod change). `web/test.html` all
+  green (298), pytest 119 passed, the golden unchanged. Checked in the
+  browser pane on the Solek replay with a driven ARION patched in (the
+  Vantage spraying 7 of 9 sections on field 120, the two Samasz mowers,
+  three made-up tools; the Map, Loader and Harvester screens), day and
+  night at 1180×820 and at 1133×744: every rig fits, nothing yellow at
+  night. Differences from the draft are in Behaviour and Decisions (the
+  panel with no working tool, the trail clipped to the field, stats gone
+  on a short screen, "% wear" in the bar, the band's fuel range gone).
+  The design system on claude.ai is refreshed the same day (its tokens,
+  the controls' "on", working badges and the rig on the ground; its
+  components' code unchanged).

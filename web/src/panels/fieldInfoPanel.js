@@ -63,11 +63,11 @@ export function fieldNeeds(field, catalog) {
 
 /**
  * Stages grown out of the stages to harvest, or undefined when the field
- * isn't growing anything.
+ * isn't growing anything (the Vehicle page's field panel too, specs/0013).
  * @param {FieldState} field
  * @param {ReturnType<typeof cropCatalog>} catalog
  */
-function growthProgress(field, catalog) {
+export function growthProgress(field, catalog) {
   const growth = growthClass(field, catalog);
   const fruit = catalog.fruits.get(field.fruitTypeIndex ?? -1);
   const of = growth.stages ?? fruit?.minHarvest ?? fruit?.numGrowthStates;

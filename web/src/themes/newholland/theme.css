@@ -23,9 +23,19 @@
   --tabs-shadow: 0 -2px 8px rgba(12, 45, 107, 0.06);
   --line: #E3EAF5;
   --tool-ink: #0C2D6B;
-  --on: linear-gradient(#2B6BD6, #0C4DB8);
-  --on-text: #FFFFFF;
+  /* "on" (specs/0013): by day an outline. The button keeps its surface;
+     its edge and ink take the on blue, and --on-tint of --on shows inside.
+     Pending breathes the same --on (specs/0010). --on-fill is the same look
+     for what isn't a control (a chip, the Settings switches) */
+  --on: #0C4DB8;
+  --on-tint: 0.14;
+  --on-text: #0C4DB8;
   --on-border: #0C4DB8;
+  --on-fill: linear-gradient(rgba(12, 77, 184, 0.14), rgba(12, 77, 184, 0.14)), linear-gradient(#FFFFFF, #EEF3FA);
+  /* a working tool's badge: outlined in the on blue */
+  --work-badge: transparent;
+  --work-badge-ink: #0C4DB8;
+  --work-badge-ring: inset 0 0 0 1.5px #0C4DB8;
   --tab-sel: linear-gradient(#1B4A9E, #0C2D6B);
   --tab-sel-text: #FFFFFF;
   --tab-sel-shadow: 0 2px 6px rgba(12, 45, 107, 0.3);
@@ -42,7 +52,8 @@
   /* lift only on what you can press, and on what floats over the map or the
      screen; readouts and display cards are flat (specs/0010) */
   --lift: inset 0 1px 0 #FFFFFF, 0 2px 4px rgba(12, 45, 107, 0.10), 0 6px 14px rgba(12, 45, 107, 0.10);
-  --on-lift: inset 0 1px 0 rgba(255, 255, 255, 0.25), 0 2px 4px rgba(12, 45, 107, 0.18), 0 6px 14px rgba(12, 45, 107, 0.18);
+  /* an outlined "on" keeps the button's lift */
+  --on-lift: var(--lift);
   --panel-shadow: 0 20px 60px rgba(4, 17, 42, 0.35);
   --backdrop: rgba(4, 17, 42, 0.45);
   --glass: rgba(255, 255, 255, 0.85);
@@ -55,13 +66,15 @@
   --chip-on-bg: #E6EEFB;
   --chip-on-text: #0C4DB8;
   --chip-off-bg: #EEF2F8;
-  /* where you are (selected tab, pressed map tool, the tab's menu): a tinted
-     outline; a filled --on only ever means "on" (specs/0010) */
+  /* where you are (selected tab, the strip's selected tool, pressed map
+     tool, the tab's menu): a tinted outline; a lit "on" only ever means
+     "on" (specs/0010) */
   --sel-tint: #DFE8F7;
   --sel-ink: #0C2D6B;
-  /* the ink on a lit Hazard (alarm) or turn arrow (ok) */
-  --alarm-ink: #FFFFFF;
-  --ok-ink: #FFFFFF;
+  /* the ink on a lit Hazard (alarm) or turn arrow (ok): by day they're
+     outlined in their colour, as "on" is */
+  --alarm-ink: #C42B2B;
+  --ok-ink: #12804A;
   /* motion (specs/0010): three durations, one rhythm for waiting, one curve */
   --t-fast: 120ms;    /* a press */
   --t-base: 180ms;    /* a state changes */
@@ -98,57 +111,69 @@
   color-scheme: light;
 }
 
+/* the night (specs/0013): darker and less blue, closer to black; no yellow.
+   "On" is a steel grey fill with white ink, where you are a light ring */
 :root[data-palette="night"] {
-  --bar: linear-gradient(#0A1C40, #04112A);
-  --bar-text: #EAF0FA;
-  --bar-muted: #9DB0CF;
-  --bar-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
-  --pill: #0F2550;
-  --ground: linear-gradient(#0B2149, #06142E);
-  --card: linear-gradient(#163370, #0D224B);
-  --card-solid: #12295A;
-  --btn: linear-gradient(#163370, #0D224B);
-  --tabs: linear-gradient(#0A1C40, #04112A);
-  --tabs-shadow: 0 -2px 10px rgba(0, 0, 0, 0.35);
-  --line: #1C3566;
-  --tool-ink: #EAF0FA;
-  --on: linear-gradient(#FFD65C, #FFC72C);
-  --on-text: #0A1A33;
-  --on-border: #FFC72C;
-  --tab-sel: linear-gradient(#FFD65C, #FFC72C);
-  --tab-sel-text: #0A1A33;
-  --tab-sel-shadow: 0 2px 10px rgba(255, 199, 44, 0.25);
-  --settings-open: linear-gradient(#FFD65C, #FFC72C);
-  --settings-open-text: #0A1A33;
-  --select: #FFC72C;
-  --select-bg: #132B5C;
+  --bar: linear-gradient(#0B1120, #070B14);
+  --bar-text: #E8EDF5;
+  --bar-muted: #97A3B9;
+  --bar-shadow: 0 2px 8px rgba(0, 0, 0, 0.45);
+  --pill: #161F31;
+  --ground: linear-gradient(#0C121E, #070B13);
+  --card: linear-gradient(#141C2C, #101727);
+  --card-solid: #121A29;
+  --btn: linear-gradient(#1A2438, #131B2C);
+  --tabs: linear-gradient(#0B1120, #070B14);
+  --tabs-shadow: 0 -2px 10px rgba(0, 0, 0, 0.45);
+  --line: #1D2638;
+  --tool-ink: #E8EDF5;
+  --on: linear-gradient(#4B5A78, #3C4966);
+  --on-tint: 1;
+  --on-text: #FFFFFF;
+  --on-border: #62739A;
+  --on-fill: linear-gradient(#4B5A78, #3C4966);
+  --work-badge: linear-gradient(#4B5A78, #3C4966);
+  --work-badge-ink: #FFFFFF;
+  --work-badge-ring: none;
+  --tab-sel: linear-gradient(#4B5A78, #3C4966);
+  --tab-sel-text: #FFFFFF;
+  --tab-sel-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+  --settings-open: linear-gradient(#4B5A78, #3C4966);
+  --settings-open-text: #FFFFFF;
+  --select: #C9D4E8;
+  --select-bg: #182134;
   --select-ink: #0A1A33;
+  --badge: linear-gradient(#4B5A78, #3C4966);
+  --badge-ink: #FFFFFF;
   --ok-fill: linear-gradient(90deg, #4FE09C, #2DB876);
   --warn-fill: linear-gradient(90deg, #FFB648, #E58A00);
-  --lift: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 4px 14px rgba(0, 0, 0, 0.4);
-  --on-lift: inset 0 1px 0 rgba(255, 255, 255, 0.45), 0 2px 10px rgba(255, 199, 44, 0.22);
+  --lift: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 4px 14px rgba(0, 0, 0, 0.5);
+  --on-lift: inset 0 1px 0 rgba(255, 255, 255, 0.12), 0 2px 8px rgba(0, 0, 0, 0.4);
   --panel-shadow: 0 20px 60px rgba(0, 0, 0, 0.6);
   --backdrop: rgba(0, 0, 0, 0.55);
-  --glass: rgba(4, 17, 42, 0.85);
-  --glass-text: #EAF0FA;
-  --readout: linear-gradient(160deg, #1A3B80 0%, #0D224B 75%);
+  --glass: rgba(7, 11, 19, 0.82);
+  --glass-text: #E8EDF5;
+  /* the Harvester's band (its readout card), not the old blue */
+  --readout: linear-gradient(160deg, #18223A 0%, #0F1626 75%);
   --warn-border: #7A5A1E;
-  --badge-off: linear-gradient(#24427C, #1C3566);
-  --badge-off-ink: #EAF0FA;
-  --chip-on-bg: #1C3566;
-  --chip-on-text: #8DB9FF;
-  --chip-off-bg: #132B5C;
-  --sel-tint: rgba(255, 199, 44, 0.14);
-  --sel-ink: #FFD65C;
+  --badge-off: linear-gradient(#222C40, #1B2436);
+  --badge-off-ink: #E8EDF5;
+  --chip-on-bg: #1D2638;
+  --chip-on-text: #A9C3F2;
+  --chip-off-bg: #182134;
+  --sel-tint: rgba(255, 255, 255, 0.07);
+  --sel-ink: #FFFFFF;
   --alarm-ink: #0A1A33;
   --ok-ink: #0A1A33;
 
-  --bg: #06142E;
-  --surface: #12295A;
-  --border: #24427C;
-  --text: #EAF0FA;
-  --muted: #9DB0CF;
-  --accent: #FFC72C;
+  --bg: #070B13;
+  --surface: #121A29;
+  --border: #273349;
+  --text: #E8EDF5;
+  --muted: #97A3B9;
+  /* accent text takes the muted colour at night */
+  --accent: #97A3B9;
+  --accent-2: #97A3B9;
   --on-accent: #0A1A33;
   --ok: #42D392;
   --ok-bg: rgba(66, 211, 146, 0.14);
@@ -156,12 +181,12 @@
   --warn-bg: rgba(255, 182, 72, 0.14);
   --alarm: #FF7070;
   --alarm-bg: rgba(255, 112, 112, 0.14);
-  --control-bg: #163370;
-  --control-hover: #1A3B80;
-  --control-text: #EAF0FA;
-  --control-line: #24427C;
-  --popup-bg: #12295A;
-  --popup-text: #EAF0FA;
+  --control-bg: #1A2438;
+  --control-hover: #222C40;
+  --control-text: #E8EDF5;
+  --control-line: #273349;
+  --popup-bg: #121A29;
+  --popup-text: #E8EDF5;
   color-scheme: dark;
 }
 
@@ -296,6 +321,8 @@ button { font: inherit; color: inherit; }
 .weather-now { display: flex; align-items: center; gap: 6px; }
 .weather-now .icon { color: var(--bar-muted); }
 .weather-now .icon[data-icon="sun"] { color: #FFC72C; }
+/* nothing yellow at night (specs/0013): the sun in the bar's ink */
+:root[data-palette="night"] .weather-now .icon[data-icon="sun"] { color: var(--bar-text); }
 
 .conn {
   display: flex;
@@ -418,7 +445,8 @@ button { font: inherit; color: inherit; }
 .control-label { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 /* the lit colour is a layer under the icon and label that fades in and out
    (a gradient can't be transitioned): --on, or alarm (Hazard) and ok (turn
-   arrows), which are neutral while off */
+   arrows), which are neutral while off. Lit, it shows --on-tint of it: a
+   faint tint inside the outline by day, the whole fill at night (specs/0013) */
 .control::before {
   content: "";
   position: absolute;
@@ -437,7 +465,7 @@ button { font: inherit; color: inherit; }
   color: var(--on-text);
   box-shadow: var(--on-lift);
 }
-.control[data-state="on"]::before { opacity: 1; }
+.control[data-state="on"]::before { opacity: var(--on-tint); }
 .control[data-tint="alarm"][data-state="on"] { border-color: var(--alarm); color: var(--alarm-ink); }
 .control[data-tint="ok"][data-state="on"] { border-color: var(--ok); color: var(--ok-ink); }
 /* pending (a command is out, or the game is settling): the border takes the
@@ -690,7 +718,7 @@ button { font: inherit; color: inherit; }
   min-width: 0;
   min-height: 0;
 }
-.slot:has(> .veh-band) { grid-column: 1 / -1; }
+.slot:has(> .veh-rig) { grid-column: 1 / -1; }
 /* no Target (the Vehicle page, or Loader without a loader): Load takes the full width */
 .slot-group[data-group="vehicle"]:not(:has(.veh-target:not([hidden]))) .slot:has(> .veh-load) { grid-column: 1 / -1; }
 
@@ -841,7 +869,6 @@ button { font: inherit; color: inherit; }
   color: var(--badge-off-ink);
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);
 }
-.impl-badge[data-on="true"] { background: var(--badge); color: var(--badge-ink); box-shadow: 0 2px 6px rgba(0, 0, 0, 0.18); }
 .impl-badge .icon { width: 24px; height: 24px; }
 .impl-text { display: flex; flex-direction: column; min-width: 0; }
 .impl-text b, .impl-text span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -861,7 +888,7 @@ button { font: inherit; color: inherit; }
 }
 .impl-chip .icon { width: 14px; height: 14px; stroke-width: 2.4; }
 .impl-chip[data-state="on"] { background: var(--chip-on-bg); color: var(--chip-on-text); }
-.impl-chip[data-state="active"] { background: var(--on); color: var(--on-text); box-shadow: 0 1px 3px rgba(12, 45, 107, 0.3); }
+.impl-chip[data-state="active"] { background: var(--on-fill); color: var(--on-text); box-shadow: inset 0 0 0 1.5px var(--on-border); }
 /* a work chip that's off is plain text */
 .impl-chip:has(.impl-dot)[data-state="off"] { background: transparent; font-weight: 500; }
 .impl-chip[data-state="off"] .impl-dot { display: none; }
@@ -899,28 +926,6 @@ button { font: inherit; color: inherit; }
 .impl-row[data-selected="true"] .widget-meter { background: rgba(255, 255, 255, 0.18); }
 .impl-row[data-selected="true"] .impl-detach { border-color: rgba(255, 255, 255, 0.3); background: rgba(255, 255, 255, 0.12); color: #FFFFFF; }
 .impl-row[data-selected="true"] .impl-text .impl-detach span { color: inherit; }
-/* at night, the night selection: yellow with dark ink, as the selected tab */
-:root[data-palette="night"] .impl-row[data-selected="true"] {
-  background: var(--tab-sel);
-  box-shadow: var(--tab-sel-shadow);
-  color: var(--tab-sel-text);
-}
-:root[data-palette="night"] .impl-row[data-selected="true"] .impl-text span,
-:root[data-palette="night"] .impl-row[data-selected="true"] .impl-wear > div,
-:root[data-palette="night"] .impl-row[data-selected="true"] .impl-fill > div { color: rgba(10, 26, 51, 0.7); }
-:root[data-palette="night"] .impl-row[data-selected="true"] .impl-wear b,
-:root[data-palette="night"] .impl-row[data-selected="true"] .impl-fill b,
-:root[data-palette="night"] .impl-row[data-selected="true"] .impl-text .impl-selected { color: var(--tab-sel-text); }
-:root[data-palette="night"] .impl-row[data-selected="true"] .impl-chip { background: rgba(10, 26, 51, 0.1); color: var(--tab-sel-text); }
-:root[data-palette="night"] .impl-row[data-selected="true"] .impl-chip[data-state="on"] { background: rgba(10, 26, 51, 0.2); }
-:root[data-palette="night"] .impl-row[data-selected="true"] .impl-chip:has(.impl-dot)[data-state="off"] { background: transparent; }
-:root[data-palette="night"] .impl-row[data-selected="true"] .widget-meter { background: rgba(10, 26, 51, 0.18); }
-:root[data-palette="night"] .impl-row[data-selected="true"] .widget-meter > span { background: #0A1A33; }
-:root[data-palette="night"] .impl-row[data-selected="true"] .impl-detach {
-  border-color: rgba(10, 26, 51, 0.3);
-  background: rgba(10, 26, 51, 0.1);
-  color: var(--tab-sel-text);
-}
 .impl-pick { display: flex; align-items: center; gap: 10px; margin-top: 6px; }
 .impl-text .impl-selected { font-size: 12px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text); }
 .impl-detach {
@@ -1080,7 +1085,7 @@ button { font: inherit; color: inherit; }
 .screen-switch .icon { width: 20px; height: 20px; flex: none; }
 .screen-switch [aria-pressed="true"] {
   border-color: var(--on-border);
-  background: var(--on);
+  background: var(--on-fill);
   color: var(--on-text);
   box-shadow: var(--on-lift);
 }
@@ -1091,8 +1096,8 @@ button { font: inherit; color: inherit; }
   box-shadow: 0 1px 2px rgba(12, 45, 107, 0.15), 0 4px 10px rgba(12, 45, 107, 0.12);
 }
 
-/* --- the Harvester screen's grid; the rig tiles of the Vehicle band's strip,
-   tanks and the fill limit, shared by the pages ----------------------------- */
+/* --- the Harvester screen's grid; the rig strip's tiles (specs/0013), tanks
+   and the fill limit, shared by the pages ---------------------------------- */
 
 .screen[data-screen="harvester"] {
   display: grid;
@@ -1101,60 +1106,58 @@ button { font: inherit; color: inherit; }
   padding: 12px;
   overflow-y: auto;
 }
+/* a tile: a card's surface with lift, since a tap selects that tool in game */
 .rig-tile {
   display: grid;
   grid-template-columns: 30px minmax(0, 1fr);
   align-content: center;
-  gap: 4px 8px;
-  flex: 0 1 210px;
-  min-width: 150px;
-  padding: 7px 10px;
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  border-radius: 12px;
-  background: rgba(255, 255, 255, 0.08);
+  gap: 1px 10px;
+  box-sizing: border-box;
+  height: 56px;
+  padding: 0 14px 0 10px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--card);
+  color: var(--text);
+  box-shadow: var(--lift);
+  transition: box-shadow var(--t-base) var(--ease), transform var(--t-fast) var(--ease);
 }
-.rig-tile[data-depth="0"] { border-color: rgba(255, 255, 255, 0.3); }
 .rig-badge {
   display: grid;
   place-items: center;
-  grid-row: span 2;
+  grid-row: span 3;
+  align-self: center;
   width: 30px;
   height: 30px;
   border-radius: 8px;
-  background: rgba(255, 255, 255, 0.14);
-  color: #FFFFFF;
+  background: var(--badge-off);
+  color: var(--badge-off-ink);
 }
 .rig-badge .icon { width: 18px; height: 18px; }
-.rig-badge[data-on="true"] { background: var(--badge); color: var(--badge-ink); }
-.rig-text { display: flex; flex-direction: column; min-width: 0; }
+.rig-text { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
 .rig-text b, .rig-text span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .rig-text b { font-size: 14px; font-weight: 700; }
-.rig-text span { font-size: 12px; color: #BFD0EE; }
-.rig-bars { grid-column: 2; display: flex; gap: 4px; }
-.rig-bars .widget-meter { flex: 1; width: auto; height: 4px; background: rgba(255, 255, 255, 0.18); }
+.rig-text span { font-size: 12px; color: var(--muted); }
+.rig-bars { grid-column: 2; display: flex; gap: 4px; margin-top: 2px; }
+.rig-bars .widget-meter { flex: 1; width: auto; height: 4px; background: var(--line); }
 .rig-tile[data-pick="true"] { cursor: pointer; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
-.rig-tile[data-pick="true"]:active { background: rgba(255, 255, 255, 0.16); }
-/* the selected tile: the night selection (yellow, dark ink) by day too, as
-   the band is dark in both palettes */
+.rig-tile[data-pick="true"]:active { transform: scale(0.98); }
+/* the game's selected tool, shown here only: where you are, a tint inside a
+   2 px ring (specs/0013: no yellow fill) */
 .rig-tile[data-selected="true"] {
-  border-color: #FFC72C;
-  background: linear-gradient(#FFD65C, #FFC72C);
-  color: #0A1A33;
-  box-shadow: 0 2px 10px rgba(255, 199, 44, 0.25);
+  border-color: transparent;
+  background: var(--sel-tint);
+  box-shadow: inset 0 0 0 2px var(--select);
 }
-.rig-tile[data-selected="true"] .rig-text span { color: rgba(10, 26, 51, 0.7); }
-.rig-tile[data-selected="true"] .rig-badge { background: rgba(10, 26, 51, 0.12); color: #0A1A33; }
-.rig-tile[data-selected="true"] .rig-badge[data-on="true"] { background: #0A1A33; color: #FFC72C; }
-.rig-tile[data-selected="true"] .rig-bars .widget-meter { background: rgba(10, 26, 51, 0.18); }
-.rig-tile[data-selected="true"] .rig-bars .widget-meter > span { background: #0A1A33; }
 
-/* a card's tanks */
-.tank { display: flex; flex-direction: column; gap: 6px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 12px; }
-.tank[data-alert] { border-color: var(--warn-border); }
-.tank-head { display: flex; align-items: center; gap: 8px; min-width: 0; }
-.tank-name { overflow: hidden; font-size: 15px; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
+/* a card's tanks: the name, the percentage, an 8 px meter, the litres and
+   how long it lasts */
+.tank { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.tank-head { display: flex; align-items: baseline; gap: 8px; min-width: 0; }
+.tank-name { overflow: hidden; font-size: 14px; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
 .tank-chip {
   flex: none;
+  align-self: center;
   padding: 2px 8px;
   border-radius: 999px;
   background: var(--badge);
@@ -1164,9 +1167,11 @@ button { font: inherit; color: inherit; }
   letter-spacing: 0.04em;
   text-transform: uppercase;
 }
-.tank-pct { margin-left: auto; font-size: 22px; font-weight: 700; font-variant-numeric: tabular-nums; }
-.tank-meter.widget-meter { width: auto; height: 10px; border-radius: 5px; }
+.tank-pct { margin-left: auto; font-size: 22px; font-weight: 700; line-height: 1; font-variant-numeric: tabular-nums; }
+.tank-meter.widget-meter { width: auto; height: 8px; border-radius: 4px; }
 .tank-foot { display: flex; justify-content: space-between; gap: 8px; font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.tank-foot > span:empty { display: none; }
+.tank[data-alert] .tank-pct { color: var(--warn); }
 /* the game's Trailer Fill Limit: past where a tank stops (its weight limit)
    the bar is shaded, with a tick at the stop; at the limit, the game's MAX
    as a lock and MAX */
@@ -1180,8 +1185,6 @@ button { font: inherit; color: inherit; }
   background: repeating-linear-gradient(135deg, transparent 0 3px, rgba(127, 140, 160, 0.45) 3px 5px);
   color: var(--text);
 }
-.rig-bars .fill-beyond { border-left-color: #FFFFFF; }
-.rig-tile[data-selected="true"] .rig-bars .fill-beyond { border-left-color: #0A1A33; }
 .fill-max {
   display: inline-flex;
   flex: none;
@@ -1197,67 +1200,62 @@ button { font: inherit; color: inherit; }
   vertical-align: middle;
 }
 .fill-max .icon { width: 12px; height: 12px; stroke-width: 2.6; }
-.tank-head .fill-max { margin: 0 0 0 auto; }
+.tank-head .fill-max { margin: 0 0 0 auto; align-self: center; }
 .tank-head .fill-max + .tank-pct { margin-left: 0; }
 
-/* --- Vehicle page (specs/0003): the band, the All row, a card per working
-   thing, Also attached (widgets/vehicleTools.js) ---------------------------- */
+/* --- Vehicle page (specs/0003; calm, specs/0013): the rig strip across the
+   top; under it the cards and Also attached on the left, the field panel on
+   the right (widgets/vehicleTools.js, widgets/fieldPanel.js) -------------- */
 
-/* the band, the All row and Also attached keep their height; the cards
-   take the rest, without scrolling at 1180 x 820 */
+/* nothing stretches: cards are as tall as their content, the ground shows under them */
 .slot-group[data-group="tools"] { display: flex; flex-direction: column; gap: 12px; min-width: 0; min-height: 0; }
 .slot-group[data-group="tools"] > .slot { flex: none; }
-.slot-group[data-group="tools"] > .slot:has(> .tool-cards) { flex: 1 1 0; }
+.slot-group[data-group="work"] {
+  display: grid;
+  flex: 1 1 0;
+  grid-template-columns: minmax(0, 1fr) 320px;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 12px;
+  min-width: 0;
+  min-height: 0;
+}
+.slot-group[data-group="work"] > .slot:has(> .tool-cards) { grid-column: 1; grid-row: 1; align-self: start; }
+/* Also attached at the bottom of the tools column */
+.slot-group[data-group="work"] > .slot:has(> .tools-also) { grid-column: 1; grid-row: 2; align-self: end; }
+.slot-group[data-group="work"] > .slot:has(> .field-panel) { grid-column: 2; grid-row: 1 / -1; }
+/* three working things or more: no field panel, the cards take the width */
+.slot-group[data-group="work"]:not(:has(.field-panel:not([hidden]))) { grid-template-columns: minmax(0, 1fr); }
 /* the cards say "Nothing attached" */
 .screen[data-screen="vehicle"] .veh-strip-none { display: none !important; }
 
-/* the All row: Unfold all, Lower all, Turn on all, ... */
-.tools-all { position: relative; display: flex; align-items: center; gap: 14px; min-width: 0; }
-/* a failed All row answer ("KDD 941 STH: Nothing moved"): just under the
-   row, over the cards' top, so nothing moves */
-.tools-all .tool-note { top: calc(100% + 6px); bottom: auto; left: 54px; right: 0; z-index: 2; }
-.tools-all > .veh-cap { flex: none; width: 40px; }
-.tools-all .tool-buttons { flex: 1; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); grid-auto-rows: 64px; }
+/* All tools, the column's third group: a failed answer's note under it */
+.control-group.tools-all .tool-note { position: static; margin: 8px 0 0; }
 
-.tool-cards { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
-.tool-list {
-  display: grid;
-  flex: 1;
-  grid-template-columns: minmax(0, 1fr);
-  grid-auto-rows: minmax(0, 1fr);
-  gap: 12px;
-  min-height: 0;
-}
+.tool-cards { display: flex; flex-direction: column; min-width: 0; }
+.tool-list { display: grid; grid-template-columns: minmax(0, 1fr); align-content: start; gap: 12px; }
 .tool-list:empty { display: none; }
-/* one full width; two side by side; three in a row; four two by two; five
-   or six three by two (Vincent, 2026-10-26) */
-.tool-cards[data-count="2"] .tool-list, .tool-cards[data-count="4"] .tool-list { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-.tool-cards:is([data-count="3"], [data-count="5"], [data-count="6"]) .tool-list { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-.tool-none { margin: auto; font-size: 18px; font-weight: 600; color: var(--muted); }
+/* one or two stack; three in a row, four two by two, five or six three by
+   two (spec 0003's compact grid) */
+.tool-cards[data-compact="true"] .tool-list { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.tool-cards[data-count="4"] .tool-list { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.tool-none { margin: 24px auto; font-size: 18px; font-weight: 600; color: var(--muted); text-align: center; }
 .tool-none[hidden] { display: none; }
 
 .tool-card {
   position: relative;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 14px;
   min-width: 0;
-  min-height: 0;
-  padding: 12px 14px;
-  overflow: hidden;
+  padding: 14px 16px;
   border: 1px solid var(--border);
   border-radius: 16px;
   background: var(--card);
 }
-/* the game's selected tool: the accent ring round the card, its background
-   as any card's (specs/0010, revision 2; the tint went 2026-11-01) */
-.tool-card[data-selected="true"] {
-  border-color: var(--select);
-  box-shadow: 0 0 0 2px var(--select);
-}
-/* a tap anywhere on a card selects its tool (vehicleTools.js toolCard) */
+/* a tap anywhere on a card selects its tool (vehicleTools.js toolCard); the
+   strip shows which is selected, the card doesn't (specs/0013) */
 .tool-card:has(> .tool-head[data-pick="true"]) { cursor: pointer; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
-.tool-head { display: flex; flex: none; align-items: center; gap: 12px; min-width: 0; min-height: 48px; border-radius: 12px; }
+.tool-head { display: flex; flex: none; align-items: center; gap: 12px; min-width: 0; border-radius: 12px; }
 /* a faded button's reason after a tap: over the card's foot, so nothing moves */
 .tool-note {
   position: absolute;
@@ -1285,40 +1283,35 @@ button { font: inherit; color: inherit; }
   color: var(--badge-off-ink);
 }
 .tool-badge .icon { width: 22px; height: 22px; }
-.tool-badge[data-on="true"] { background: var(--badge); color: var(--badge-ink); }
+/* working: the "on" look (outlined by day, the steel fill at night) */
+.tool-badge[data-on="true"], .rig-badge[data-on="true"], .impl-badge[data-on="true"] {
+  background: var(--work-badge);
+  color: var(--work-badge-ink);
+  box-shadow: var(--work-badge-ring);
+}
 .tool-text { display: flex; flex: 1; flex-direction: column; min-width: 0; }
 .tool-name, .tool-sub { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.tool-name { font-size: 18px; font-weight: 700; }
+.tool-name { font-size: 18px; font-weight: 700; line-height: 1.2; }
 .tool-sub { font-size: 13px; color: var(--muted); }
-.tool-chip {
-  flex: none;
-  padding: 3px 10px;
-  border-radius: 999px;
-  background: var(--badge);
-  color: var(--badge-ink);
-  font-size: 12px;
-  font-weight: 700;
-}
-.tool-chip[hidden] { display: none; }
-.tool-stats { display: grid; flex: none; grid-template-columns: repeat(auto-fit, minmax(96px, 1fr)); gap: 8px; }
+/* the stats, each on a small quiet tile: context, not the point */
+.tool-stats { display: grid; flex: none; grid-template-columns: repeat(auto-fit, minmax(96px, 1fr)); gap: 6px; }
 .tool-stat {
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  gap: 2px;
   min-width: 0;
-  padding: 8px 10px;
-  border-radius: 12px;
-  /* as the Combine card's (.harv-stat) */
+  padding: 6px 10px;
+  border-radius: 10px;
   background: var(--line);
 }
 .tool-stat-label { font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
-.tool-stat-value { overflow: hidden; font-size: 17px; font-weight: 700; font-variant-numeric: tabular-nums; text-overflow: ellipsis; white-space: nowrap; }
-/* its track in the card's colour: the tile is the meter's own grey */
-.tool-stat .widget-meter { width: auto; height: 5px; background: var(--card-solid); }
+.tool-stat-value { overflow: hidden; font-size: 15px; font-weight: 700; line-height: 1.2; font-variant-numeric: tabular-nums;
+  text-overflow: ellipsis; white-space: nowrap; }
 .tool-stat[data-level] .tool-stat-value { color: var(--warn); }
-.tool-stat[data-level] .widget-meter > span { background: var(--warn-fill); }
-/* control-size buttons, as many columns as fit the card */
-.tool-buttons { display: grid; flex: none; grid-template-columns: repeat(auto-fit, minmax(76px, 1fr)); grid-auto-rows: 80px; gap: 8px; }
+/* the buttons: the column's, 84 × 80, in one row from the left, wrapping
+   where a card is too narrow; never stretched */
+.tool-buttons { display: grid; flex: none; grid-template-columns: repeat(auto-fill, 84px); grid-auto-rows: 80px; gap: 8px;
+  justify-content: start; }
 /* the game's long key labels ("Work mode right") wrap onto a second line
    instead of cutting off: four alike at a glance were live (2026-10-30) */
 .tool-buttons .control-label {
@@ -1335,12 +1328,13 @@ button { font: inherit; color: inherit; }
 .tool-buttons .control[data-control^="key:"] .icon { width: 20px; height: 20px; }
 .tool-buttons .control[data-control^="key:"] .control-label { -webkit-line-clamp: 3; line-clamp: 3; }
 /* tanks side by side where the card is wide (a baler's chamber, net, wrap) */
-.tool-tanks { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 8px; min-height: 0; }
+.tool-tanks { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px 18px; min-height: 0; }
 .tool-tanks[hidden] { display: none; }
 /* a sprayer's working width (specs/0011): one row, Left out and Left in, the
    strip of its sections left to right as seen from the cab over its line,
-   Right in and Right out; the off sections grey with a dashed outline (as an
-   unavailable control, specs/0010). Read-only or compact: the strip alone */
+   Right in and Right out. The sections that are on in the muted colour, off
+   ones in the line colour (specs/0013: not yellow). Read-only or compact:
+   the strip alone */
 .tool-width {
   display: grid;
   flex: none;
@@ -1353,20 +1347,21 @@ button { font: inherit; color: inherit; }
 .tool-width > .tool-buttons { display: contents; }
 .tool-width:has(> .tool-buttons[hidden]) { grid-template-columns: minmax(0, 1fr); grid-auto-rows: auto; }
 .tool-width > .tool-buttons[hidden] { display: none; }
-.tool-width-head { display: flex; flex-direction: column; order: 1; gap: 4px; min-width: 0; padding: 0 4px; }
+.tool-width-head { display: flex; flex-direction: column; order: 1; gap: 6px; min-width: 0; padding: 0 4px; }
+.tool-width:has(> .tool-buttons[hidden]) .tool-width-head { padding: 0; }
 .tool-width .control[data-control^="width:right"] { order: 2; }
-.tool-width-strip { display: flex; gap: 3px; min-width: 0; height: 14px; }
-.tool-width-seg { flex: 1; min-width: 4px; border-radius: 4px; background: var(--badge); }
-.tool-width-seg[data-on="false"] { border: 1.5px dashed var(--muted); background: var(--chip-off-bg); }
-.tool-width-line { overflow: hidden; font-size: 13px; font-weight: 700; font-variant-numeric: tabular-nums; text-align: center;
+.tool-width-strip { display: flex; gap: 4px; min-width: 0; height: 6px; }
+.tool-width-seg { flex: 1; min-width: 4px; border-radius: 3px; background: var(--muted); }
+.tool-width-seg[data-on="false"] { background: var(--line); }
+.tool-width-line { overflow: hidden; font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums;
   text-overflow: ellipsis; white-space: nowrap; }
-/* More (specs/0012): the main row's last tile, "More · 2" over a chevron,
-   lit while open; open, its buttons a lower row under the main row, and the
-   card shows its compact body (no stats, the main tank's meter) so they
-   fit at 1180 x 820. Compact keeps the tile, faded */
+.tool-width:not(:has(> .tool-buttons[hidden])) .tool-width-line { text-align: center; }
+/* More (specs/0012): the main row's last button, "More" over its count, a
+   chevron for its icon, lit while open; open, its buttons a row under the
+   main row, and the card shows its compact body (no stats, the main tank's
+   meter). Compact keeps the button, faded */
 .tool-more { flex: none; }
 .tool-more[hidden] { display: none; }
-.tool-more .tool-buttons { grid-auto-rows: 64px; }
 .tool-more-toggle .tool-more-chevron { display: grid; place-items: center; }
 .tool-more-toggle .tool-more-chevron::after {
   content: "";
@@ -1381,39 +1376,97 @@ button { font: inherit; color: inherit; }
 .tool-more-toggle[aria-expanded="true"] .tool-more-chevron::after { margin: 5px 0 0; transform: rotate(-135deg); }
 @media (prefers-reduced-motion: reduce) { .tool-more-toggle .tool-more-chevron::after { transition: none; } }
 .tool-card:has(> .tool-more:not([hidden])) :is(.tool-stats, .tank:not(:first-child), .tank-foot) { display: none; }
-/* two cards (a front tank and the sprayer): lower button rows, so the width
-   row and the tank fit at 1180 x 820 */
-.tool-cards[data-count="2"] .tool-card:has(> .tool-width:not([hidden])) { gap: 8px; }
-.tool-cards[data-count="2"] .tool-card:has(> .tool-width:not([hidden])) > .tool-buttons { grid-auto-rows: 64px; }
-/* three or more: the compact form, head, buttons and the main meter */
-.tool-cards[data-compact="true"] .tool-card { gap: 8px; padding: 10px 12px; }
+/* two stacked cards on a short screen (1133 x 744): the stats go first, so
+   both fit without scrolling */
+@media (max-height: 799px) {
+  .tool-cards[data-count="2"] .tool-stats { display: none; }
+}
+/* three or more: the compact form, head, buttons and the main meter; the
+   buttons stay the column's, wrapping */
+.tool-cards[data-compact="true"] .tool-card { gap: 10px; padding: 12px; }
 .tool-cards[data-compact="true"] :is(.tool-stats, .tank:not(:first-child), .tank-foot) { display: none; }
-.tool-cards[data-compact="true"] .tool-head { min-height: 40px; }
 .tool-cards[data-compact="true"] .tool-badge { width: 34px; height: 34px; }
 .tool-cards[data-compact="true"] .tool-name { font-size: 16px; }
-.tool-cards[data-compact="true"] .tool-buttons { grid-template-columns: repeat(auto-fit, minmax(56px, 1fr)); grid-auto-rows: 60px; gap: 6px; }
-/* a smaller icon leaves room for two lines of label in 60 px */
-.tool-cards[data-compact="true"] .tool-buttons .control .icon { width: 22px; height: 22px; }
-.tool-cards[data-compact="true"] .tool-buttons .control[data-control^="key:"] .control-label { -webkit-line-clamp: 2; line-clamp: 2; }
-.tool-cards[data-compact="true"] .tank { gap: 4px; padding: 6px 10px; }
-.tool-cards[data-compact="true"] .tool-width-strip { height: 10px; }
 .tool-cards[data-compact="true"] .tank-pct { font-size: 17px; }
 
-/* Also attached: one line each, its buttons at the end */
-.tools-also { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
-.tools-also-list { display: flex; flex-direction: column; gap: 6px; margin: 0; padding: 0; list-style: none; }
+/* Also attached: a slim card each, its badge, model and line, its buttons
+   at the end */
+.tools-also { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.tools-also-list { display: flex; flex-direction: column; gap: 8px; margin: 0; padding: 0; list-style: none; }
 .tools-also-row {
-  display: grid;
-  grid-template-columns: 40px minmax(0, 1fr) auto;
+  display: flex;
   align-items: center;
   gap: 12px;
-  padding: 6px 8px 6px 10px;
+  min-width: 0;
+  padding: 12px 12px 12px 16px;
   border: 1px solid var(--border);
-  border-radius: 14px;
+  border-radius: 16px;
   background: var(--card);
 }
-.tools-also-text { overflow: hidden; font-size: 15px; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
-.tools-also .tool-buttons { grid-template-columns: repeat(var(--cols, 2), 96px); grid-auto-rows: 56px; }
+.tools-also-row > .tool-head { flex: 1; }
+.tools-also .tool-buttons { grid-template-columns: repeat(var(--cols, 2), 84px); }
+
+/* the field panel (widgets/fieldPanel.js): the map zoomed to the field, the
+   rig on it, then the field's rows */
+.field-panel {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: var(--card);
+}
+.field-map { position: relative; flex: 1 1 0; min-height: 0; }
+.field-panel[data-image="true"] .field-map { background: #3A4A2C; }
+.field-svg { position: absolute; inset: 0; display: block; width: 100%; height: 100%; }
+/* at night the map is dimmed: 72 % brightness, 80 % saturation (an SVG filter: Safari) */
+:root[data-palette="night"] .field-image { filter: url(#field-dim); }
+.field-outline { fill: rgba(255, 255, 255, 0.06); stroke: #FFFFFF; stroke-opacity: 0.9; stroke-width: 2px; stroke-linejoin: round; }
+/* no map image (not converted yet): the outline and the trail on the card's colour */
+.field-panel:not([data-image="true"]) .field-outline { fill: none; stroke: var(--muted); }
+/* the trail: a soft band at the working width (our estimate), green for
+   spraying and sowing, pale yellow for mowing */
+.field-trail { fill: none; stroke-linejoin: round; stroke-linecap: butt; }
+.field-band { fill: none; }
+.field-trail[data-kind="work"] { stroke: #7CF0B8; opacity: 0.32; }
+.field-trail[data-kind="mow"] { stroke: #F4E7A1; opacity: 0.4; }
+.field-panel:not([data-image="true"]) .field-trail[data-kind="work"] { stroke: var(--ok); opacity: 0.3; }
+.field-panel:not([data-image="true"]) .field-trail[data-kind="mow"] { stroke: #C9B24A; opacity: 0.35; }
+.field-dot { fill: #0A1A33; stroke: #FFFFFF; stroke-width: 2px; }
+.field-arrow { fill: #FFFFFF; }
+.field-boom-on, .field-boom-off { stroke-width: 3px; stroke-linecap: round; }
+.field-boom-on { stroke: #FFFFFF; }
+.field-boom-off { stroke: #7D8799; }
+.field-panel:not([data-image="true"]) .field-boom-on { stroke: var(--text); }
+.field-facts { display: flex; flex: none; flex-direction: column; gap: 10px; padding: 14px 16px 16px; }
+.field-facts [hidden] { display: none !important; }
+.field-row { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; min-width: 0; }
+.field-title { overflow: hidden; font-size: 16px; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
+.field-area, .field-stage { flex: none; font-size: 13px; color: var(--muted); }
+.field-crop { overflow: hidden; font-size: 14px; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
+.field-crop-row { display: flex; flex-direction: column; gap: 6px; }
+.field-stages { display: flex; gap: 3px; }
+.field-stages > span { flex: 1; height: 6px; border-radius: 3px; background: var(--line); }
+.field-stages > span[data-on="true"] { background: var(--ok); }
+.field-needs { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.field-needs > .veh-cap { margin-right: 4px; }
+.field-need-list { display: contents; }
+.field-need {
+  display: inline-flex;
+  align-items: center;
+  height: 26px;
+  padding: 0 10px;
+  border-radius: 999px;
+  background: var(--chip-off-bg);
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 600;
+}
+.field-needs-none { font-size: 13px; color: var(--muted); }
+.field-cover > span { font-size: 13px; color: var(--muted); }
+.field-cover > b { font-size: 18px; font-weight: 700; font-variant-numeric: tabular-nums; }
 
 /* --- Harvester screen: the Vehicle tab's page for a combine (specs/0001) ------ */
 
@@ -1490,7 +1543,7 @@ button { font: inherit; color: inherit; }
   font-weight: 600;
   white-space: nowrap;
 }
-.harv-chip[data-state="active"] { background: var(--on); color: var(--on-text); }
+.harv-chip[data-state="active"] { background: var(--on-fill); color: var(--on-text); box-shadow: inset 0 0 0 1.5px var(--on-border); }
 .harv-call { margin-left: auto; background: var(--warn-bg); color: var(--warn); }
 .harv-cap { font-size: 12px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
 
@@ -1611,86 +1664,50 @@ button { font: inherit; color: inherit; }
 
 /* --- Vehicle screen (specs/0002): band, rig strip, Load and Target ----------- */
 
-/* the band and its strip: one readout card, day and night */
-.veh-band {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  min-width: 0;
-  padding: 14px 16px;
-  border-radius: 20px;
-  background: var(--readout);
-  color: #FFFFFF;
-}
-.veh-band [hidden] { display: none !important; }
+/* the rig strip (specs/0013): on the ground, 60 tall; the tiles share its
+   width (at least 150 px each, past that it scrolls sideways), joined by
+   64 px links naming the coupling, solid while lowered, dashed while raised */
+.veh-rig { display: flex; align-items: center; gap: 14px; min-width: 0; height: 60px; }
+.veh-rig [hidden] { display: none !important; }
 .veh-cap { font-size: 12px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
-.veh-band .veh-cap { color: #BFD0EE; }
-.veh-band-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; min-width: 0; }
-.veh-band-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-.veh-job-row { display: flex; align-items: center; gap: 10px; min-width: 0; }
-.veh-job { margin: 0; overflow: hidden; font-size: 22px; font-weight: 700; line-height: 1.2; text-overflow: ellipsis; white-space: nowrap; }
-.veh-hot {
-  display: inline-flex;
-  flex: none;
-  align-items: center;
-  gap: 6px;
-  padding: 3px 10px;
-  border-radius: 999px;
-  background: rgba(255, 193, 77, 0.2);
-  color: #FFC14D;
-  font-size: 13px;
-  font-weight: 600;
-  white-space: nowrap;
-}
-.veh-hot .icon { width: 14px; height: 14px; stroke-width: 2.4; }
-.veh-ros { display: flex; flex: none; gap: 24px; }
-.veh-ro { display: flex; flex-direction: column; gap: 2px; min-width: 72px; }
-.veh-ro > div { display: flex; align-items: baseline; gap: 3px; }
-.veh-ro b { font-size: 28px; font-weight: 700; line-height: 1.05; font-variant-numeric: tabular-nums; white-space: nowrap; }
-.veh-ro-unit { font-size: 14px; font-weight: 600; color: #BFD0EE; }
-.veh-ro small { min-height: 15px; font-size: 12px; font-weight: 600; color: #BFD0EE; white-space: nowrap; }
-.veh-ro[data-alert="true"] b, .veh-ro[data-alert="true"] small, .veh-ro[data-alert="true"] .veh-ro-unit { color: #FFC14D; }
-
-/* the strip: the Implement tab's rig tiles, joined by links naming the
-   coupling (solid while lowered, dashed while raised) */
-.veh-strip-row { display: flex; align-items: center; gap: 14px; min-width: 0; }
 .veh-strip {
   display: flex;
   flex: 1;
-  align-items: stretch;
+  align-items: center;
   min-width: 0;
-  margin: 0;
-  padding: 0;
+  /* room for the tiles' lift inside the scroll box */
+  margin: -6px;
+  padding: 6px;
   overflow-x: auto;
   list-style: none;
   scrollbar-width: none;
 }
-.veh-strip .rig-tile { flex: 1 1 210px; min-height: 48px; }
-.veh-strip-none { flex: none; margin: 0; font-size: 13px; color: #BFD0EE; }
-.rig-link { position: relative; display: grid; flex: none; place-items: center; width: 84px; }
+.veh-strip .rig-tile { flex: 1 1 0; min-width: 150px; }
+.veh-strip-none { flex: none; margin: 0; font-size: 13px; color: var(--muted); }
+.rig-link { position: relative; display: grid; flex: none; align-self: stretch; place-items: center; width: 64px; }
 .rig-link::before {
   content: "";
   position: absolute;
   top: 50%;
   right: 0;
   left: 0;
-  border-top: 2px solid rgba(191, 208, 238, 0.75);
+  border-top: 2px solid var(--border);
 }
 .rig-link[data-lowered="false"]::before { border-top-style: dashed; }
 .rig-link > span {
   position: relative;
-  padding: 3px 9px;
-  border: 1px solid rgba(191, 208, 238, 0.45);
+  padding: 2px 8px;
+  border: 1px solid var(--border);
   border-radius: 999px;
-  background: #0A1A33;
-  color: #DCE6F7;
-  font-size: 12px;
+  background: var(--card-solid);
+  color: var(--muted);
+  font-size: 11px;
   font-weight: 600;
   white-space: nowrap;
 }
-[data-palette="night"] .rig-link > span { border-color: rgba(255, 199, 44, 0.45); color: #FFE08A; }
 
 /* the cards */
+.veh-card {/* the cards */
 .veh-card {
   display: flex;
   flex-direction: column;
@@ -1756,6 +1773,12 @@ button { font: inherit; color: inherit; }
 .veh-target-weight .widget-meter { display: block; width: auto; height: 8px; border-radius: 4px; }
 .veh-target-none { margin: 0; font-size: 15px; color: var(--muted); }
 
+/* the Vehicle and Loader pages' readout (specs/0013): temperature goes
+   first when space runs out */
+@media (max-width: 999px) {
+  .tab-readout:not([data-screen="map"]) > :nth-child(6) { display: none !important; }
+}
+
 /* the Drive group's Engine is two columns wide, on every screen with it */
 .control-column .control[data-control="engineOn"] { grid-column: span 2; }
 
@@ -1782,21 +1805,23 @@ button { font: inherit; color: inherit; }
     align-content: start;
     overflow-y: auto;
   }
-  /* one column: the band (its strip a scrolling row), Load, Target under it */
+  /* one column: the strip (a scrolling row), Load, Target under it */
   .slot-group[data-group="vehicle"] { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto; }
-  .veh-band-head { flex-wrap: wrap; }
-  .veh-ros { flex-wrap: wrap; gap: 14px 22px; }
   .veh-strip .rig-tile { flex: 0 0 190px; }
   .veh-card { overflow: visible; }
   /* the screen scrolls, so its rows keep their content's height */
   :is(.screen[data-screen="vehicle"], .screen[data-screen="loader"]) :is(.slot-group, .slot, .control-column) {
     min-height: auto;
   }
-  /* the Vehicle page's cards: one a row, at their own height (specs/0003) */
-  .slot-group[data-group="tools"] > .slot:has(> .tool-cards) { flex: none; }
-  .tool-cards .tool-list { grid-template-columns: minmax(0, 1fr) !important; grid-auto-rows: auto; }
-  .tool-card { overflow: visible; }
-  .tools-all { flex-wrap: wrap; }
+  /* the Vehicle page: the strip, the cards one a row, Also attached, then
+     the field panel 240 tall (specs/0013) */
+  .slot-group[data-group="work"] { grid-template-columns: minmax(0, 1fr) !important; grid-template-rows: auto; }
+  .slot-group[data-group="work"] > .slot:is(:has(> .tool-cards), :has(> .tools-also), :has(> .field-panel)) {
+    grid-column: 1; grid-row: auto; }
+  .tool-cards .tool-list { grid-template-columns: minmax(0, 1fr) !important; }
+  .field-panel { height: 240px; flex-direction: row; }
+  .field-panel .field-map { flex: 1 1 0; }
+  .field-panel .field-facts { width: 46%; overflow-y: auto; }
   /* the Harvester screen scrolls the same way: band, Combine, Header, then
      the control dock */
   .screen[data-screen="harvester"] { grid-template-columns: minmax(0, 1fr); align-content: start; }
@@ -1809,6 +1834,7 @@ button { font: inherit; color: inherit; }
   /* unselected tabs drop to icons; the readout keeps speed, rpm and fuel */
   .tab:not([aria-pressed="true"]) { padding: 0; }
   .tab:not([aria-pressed="true"]) :is(.tab-label, .tab-more) { display: none; }
+  /* the Map's: speed, rpm and fuel; the Vehicle pages': speed, fuel and DEF */
   .tab-readout > :nth-child(2), .tab-readout > :nth-child(n+5) { display: none !important; }
 }
 
@@ -1819,7 +1845,8 @@ button { font: inherit; color: inherit; }
   .day-clock { padding: 7px 12px; }
   .status-end > .conn::before { display: none; }
   .control-column { grid-template-columns: minmax(0, 1fr); }
-  .tab-readout > :nth-child(3) { display: none !important; }
+  .tab-readout[data-screen="map"] > :nth-child(3), .tab-readout:not([data-screen="map"]) > :nth-child(4) {
+    display: none !important; }
   .tab-readout .widget-meter { display: none; }
 }
 
@@ -1833,8 +1860,9 @@ button { font: inherit; color: inherit; }
 
 /* reduced motion: nothing moves; waiting keeps a still tint or outline */
 @media (prefers-reduced-motion: reduce) {
-  .control, .control::before, .tool, .tab, .arc-fill, .readout-rpm .widget-meter > span, .harv-bar > i { transition: none; }
-  .control:active, .tool:active { transform: none; }
+  .control, .control::before, .tool, .tab, .rig-tile, .arc-fill, .readout-rpm .widget-meter > span, .harv-bar > i {
+    transition: none; }
+  .control:active, .tool:active, .rig-tile:active { transform: none; }
   .control[data-state="pending"]::before { animation: none; opacity: 0.18; }
   .impl-step[data-state="pending"], .impl-detach[data-state="pending"],
   .harv-ro[data-alert="true"] b, .harv-ro[data-alert="true"] small { animation: none; }

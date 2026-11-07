@@ -444,6 +444,32 @@ export function canOf(e) {
   return out;
 }
 
+/**
+ * A sprayer's sections, left to right as seen from the cab (specs/0011):
+ * each true while on. A side's outer sections go off first; the middle one
+ * is always on.
+ * @param {import("../types.js").RigWidth} w
+ * @returns {boolean[]}
+ */
+export function widthSegments(w) {
+  const left = Array.from({ length: w.leftMax }, (_, i) => i >= w.leftMax - w.left);
+  const right = Array.from({ length: w.rightMax }, (_, i) => i < w.right);
+  return [...left, ...(w.center ? [true] : []), ...right];
+}
+
+/**
+ * The metres in use and in all, from the game's section widths (one for
+ * each, left to right); undefined without them: never an estimate.
+ * @param {import("../types.js").RigWidth} w
+ * @returns {{used: number, all: number}|undefined}
+ */
+export function widthMetres(w) {
+  const on = widthSegments(w);
+  if (!Array.isArray(w.sections) || w.sections.length !== on.length) return undefined;
+  if (!w.sections.every((m) => typeof m === "number" && m >= 0)) return undefined;
+  return { used: w.sections.reduce((sum, m, i) => sum + (on[i] ? m : 0), 0), all: w.sections.reduce((a, b) => a + b, 0) };
+}
+
 /** The ids of what's mounted on the loader's forks or hook (mod 0.8.5). @param {Vehicle|undefined} v */
 const carriedIds = (v) => new Set((Array.isArray(/** @type {any} */ (v)?.carried) ? /** @type {any} */ (v).carried : [])
   .map((/** @type {any} */ c) => c?.id));
@@ -657,6 +683,60 @@ export function alerts(v, units = METRIC) {
     out.push({ id: "wear", level: "warn", text: `Wear ${Math.round(wear)}%`, icon: "wear" });
   }
   return out.sort((a, b) => (a.level === b.level ? 0 : a.level === "alarm" ? -1 : 1));
+}
+
+// --- the field under the rig (specs/0013) -----------------------------------
+
+/**
+ * Whether a field's outline holds the point (even-odd rule).
+ * @param {number[]} points [x1, z1, x2, z2, ...] in world metres
+ * @param {number} x @param {number} z
+ */
+export function insideOutline(points, x, z) {
+  let inside = false;
+  const n = points.length - (points.length % 2);
+  for (let i = 0, j = n - 2; i < n; j = i, i += 2) {
+    const xi = points[i], zi = points[i + 1], xj = points[j], zj = points[j + 1];
+    if ((zi > z) !== (zj > z) && x < ((xj - xi) * (z - zi)) / (zj - zi) + xi) inside = !inside;
+  }
+  return inside;
+}
+
+/** @type {WeakMap<object, {outline: import("../types.js").FieldOutline, box: number[]}[]>} each topic's outlines with their bounds */
+const outlineBoxes = new WeakMap();
+
+/**
+ * An outline's bounds, [minX, minZ, maxX, maxZ].
+ * @param {number[]} points
+ */
+export function outlineBounds(points) {
+  const box = [Infinity, Infinity, -Infinity, -Infinity];
+  for (let i = 0; i + 1 < points.length; i += 2) {
+    box[0] = Math.min(box[0], points[i]);
+    box[1] = Math.min(box[1], points[i + 1]);
+    box[2] = Math.max(box[2], points[i]);
+    box[3] = Math.max(box[3], points[i + 1]);
+  }
+  return box;
+}
+
+/**
+ * The field whose outline (field_outlines) holds the point, or undefined.
+ * @param {StoreLike} store
+ * @param {number} x @param {number} z world metres
+ * @returns {import("../types.js").FieldOutline|undefined}
+ */
+export function fieldAt(store, x, z) {
+  const topic = store.get("field_outlines");
+  if (!topic || !Array.isArray(topic.fields) || typeof x !== "number" || typeof z !== "number") return undefined;
+  let boxes = outlineBoxes.get(topic);
+  if (!boxes) {
+    boxes = topic.fields.filter((/** @type {any} */ f) => f && Array.isArray(f.points) && f.points.length >= 6)
+      .map((/** @type {import("../types.js").FieldOutline} */ outline) => ({ outline, box: outlineBounds(outline.points) }));
+    outlineBoxes.set(topic, boxes);
+  }
+  return boxes.find(({ outline, box }) => x >= box[0] && x <= box[2] && z >= box[1] && z <= box[3]
+    && insideOutline(outline.points, x, z))?.outline;
 }
 
 /**

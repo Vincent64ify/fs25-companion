@@ -66,9 +66,10 @@ only on a tool whose parts have it (Data contract).
   while open), Rotate, Create fields on / off, Automatic drop on / off,
   Reset bale count (its count under it, "12 bales"), Doubled rate on /
   off; Folding… / Unfolding… while a fold moves (spec 0011 fix 4).
-- **More:** the main row's last button, "More · 2" (how many are under
-  it) over a chevron, closed (Vincent, 2026-11-03: a button, not a row of
-  its own, so a card fits at 1180×820). A tap opens or closes it on that
+- **More:** the main row's last button, a chevron over "More" with how
+  many are under it ("2") as its value line (spec 0013: drawn as the
+  column's buttons; it was "More · 2"), closed (Vincent, 2026-11-03: a
+  button, not a row of its own, so a card fits at 1180×820). A tap opens or closes it on that
   card: lit while open, its buttons a row under the main row, and the
   card shows its compact body meanwhile (no stats, the main tank's meter
   alone) so they fit. The viewer's browser remembers which are open (per

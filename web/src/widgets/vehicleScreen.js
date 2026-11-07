@@ -3,11 +3,11 @@
 // docs/THEMES.md, Vehicle screen): the Vehicle tab's pages for yard work
 // with a loader (Loader) and for everything else (Vehicle, its tools'
 // cards in vehicleTools.js, specs/0003); hasLoader picks between them.
-// - vehicleBand: its label names the vehicle's brand; the job, speed, fuel
-//   and DEF as a range, wear and Engine hot, over the rig strip: every
-//   vehicle in the rig as a tile in driving order (the model alone), joined
-//   by links that name the coupling. A tap on a tile selects that tool in
-//   game; the page stays.
+// - rigStrip: every vehicle in the rig as a tile in driving order (the
+//   model alone), joined by links that name the coupling, on the ground
+//   (specs/0013: the band's job and numbers went to the bottom bar). The
+//   game's selected tool shows here only, where you are; a tap on a tile
+//   selects that tool in game and the page stays.
 // - loadCard: what's on the loader and the session's tally (createTally);
 //   without a loader, every tank in the rig.
 // - targetCard: the vehicle nearby that takes what you carry (the mod picks
@@ -16,11 +16,10 @@
 // mod 0.8.5) and the cab's rig (joint).
 
 import {
-  LIMITS, cabOf, controlledVehicle, defPct, drivingOrder, entryModel, fillMax, fillName, fillPct, fillStop, fillsOf,
-  fuelPct, gearName, implementById, implementsOf, kindLabel, lowersInRig, rigJob, screenRig, vehicleBrand, vehicleKind,
+  cabOf, controlledVehicle, drivingOrder, entryModel, fillMax, fillName, fillPct, fillStop, fillsOf, implementById,
+  implementsOf, kindLabel, lowersInRig, screenRig, vehicleKind,
 } from "../data/selectors.js";
-import { speedUnit, speedValue, unitsOf } from "../data/units.js";
-import { ratesOf } from "../data/rates.js";
+import { unitsOf } from "../data/units.js";
 import { sendCommand } from "../connection.js";
 import { tileState } from "./vehicleTools.js";
 import { fillMeter, maxBadge } from "./implements.js";
@@ -39,8 +38,6 @@ import { icon } from "../ui/icons.js";
  */
 /** @typedef {{name: string, fillType?: string, title: string, litres: number, tonnes?: number}} LoadLine */
 
-// wear this high (%) turns orange: "repair soon"
-const WEAR_WARN = 70;
 // a bucket counts a load from over this full (%) to under the next
 const LOAD_FULL_PCT = 50;
 const LOAD_EMPTY_PCT = 5;
@@ -134,86 +131,6 @@ export function loadLines(v) {
 const amountText = (line) => `${Math.round(line.litres).toLocaleString()} L` +
   (typeof line.tonnes === "number" ? ` · ${fmt(line.tonnes, 1)} t` : "");
 
-/**
- * The job: an AI worker's, "Loading · Potatoes" while something is on the
- * loader, else the Implement tab's.
- * @param {Vehicle|undefined} v
- * @param {import("../types.js").Cab|undefined} cab
- * @returns {{text: string, icon: string}}
- */
-export function vehicleJob(v, cab) {
-  if (v && !v.isAI) {
-    const line = loadLines(v)[0];
-    if (line) return { text: `Loading · ${line.title}`, icon: "loader" };
-  }
-  return rigJob(v, cab);
-}
-
-/** Under the speed: the gear and the way it goes ("F2 · forward", "R1 · reverse"). @param {Vehicle|undefined} v */
-export function gearLine(v) {
-  const g = gearName(v);
-  if (!g) return "";
-  const way = /^R/.test(g) ? "reverse" : g === "N" ? "neutral" : "forward";
-  return `${/^\d/.test(g) ? "F" + g : g} · ${way}`;
-}
-
-/**
- * Hours a tank lasts at this use, undefined while the use isn't known.
- * @param {number|undefined} level litres
- * @param {number|undefined} perHour litres an hour
- */
-export function fuelRange(level, perHour) {
-  return typeof level === "number" && typeof perHour === "number" && perHour > 0 ? level / perHour : undefined;
-}
-
-/** "≈ 5" h, "≈ 40" min. @param {number} hours */
-function rangeText(hours) {
-  return hours >= 1 ? { value: `≈ ${Math.round(hours)}`, unit: "h" }
-    : { value: `≈ ${Math.max(1, Math.round(hours * 60))}`, unit: "min" };
-}
-
-/** @typedef {{id: string, label: string, value: string, unit: string, sub: string, alert: boolean}} Readout */
-
-/**
- * The band's numbers: speed with the gear, fuel and DEF (with DEF only) as
- * a range with the % under it ("%" alone while the use isn't known), wear.
- * @param {Vehicle|undefined} v
- * @param {{fuel?: number, def?: number}} ranges hours
- * @param {Units} units
- * @returns {Readout[]}
- */
-export function bandReadouts(v, ranges, units) {
-  /** @returns {Readout} */
-  const tank = (/** @type {string} */ id, /** @type {string} */ label, /** @type {number|undefined} */ pct,
-    /** @type {number|undefined} */ hours) => {
-    if (pct === undefined) return { id, label, value: "–", unit: "", sub: "", alert: false };
-    if (hours === undefined) return { id, label, value: String(Math.round(pct)), unit: "%", sub: "", alert: false };
-    return { id, label, ...rangeText(hours), sub: `${Math.round(pct)}%`, alert: false };
-  };
-  const out = [
-    { id: "speed", label: "Speed", value: typeof v?.speed === "number" ? fmt(speedValue(v.speed, units), 1) : "–",
-      unit: speedUnit(units), sub: gearLine(v), alert: false },
-    // an electric vehicle's "fuel" is its battery (in kWh)
-    tank("fuel", v?.fuelType === "electriccharge" ? "Battery" : "Fuel", fuelPct(v), ranges.fuel),
-  ];
-  const def = defPct(v);
-  if (def !== undefined) out.push(tank("def", "DEF", def, ranges.def));
-  const wear = typeof v?.wear === "number" ? Math.round(100 * v.wear) : undefined;
-  out.push(wear === undefined ? { id: "wear", label: "Wear", value: "–", unit: "%", sub: "", alert: false }
-    : { id: "wear", label: "Wear", value: String(wear), unit: "%", sub: wear >= WEAR_WARN ? "repair soon" : "good",
-      alert: wear >= WEAR_WARN });
-  return out;
-}
-
-/**
- * Engine hot from 100 °C: the game has no warning level of its own (spec
- * 0002's spike; its fan comes on at 95 °C).
- * @param {Vehicle|undefined} v
- */
-export function engineHot(v) {
-  return typeof v?.motorTemp === "number" && v.motorTemp >= LIMITS.tempWarn;
-}
-
 // a coupling's name from its joint's type name (the game's 24, spec 0002);
 // first match wins: a cutter trailer is towed, a bigbag hangs on a hook
 const JOINTS = /** @type {[RegExp, string][]} */ ([
@@ -260,7 +177,7 @@ export function stripState(e, v) {
   return tileState(e, v) || (d ? kindLabel(d) : "") || "";
 }
 
-/** Working: turned on, or discharging (the yellow badge). */
+/** Working: turned on, or discharging (the badge's "on" look). */
 const working = (/** @type {RigEntry} */ e) => e.turnedOn === true || e.discharging === true;
 
 /** The kind's icon: tools never count as tractors. */
@@ -340,60 +257,26 @@ function stripItems(order, v, send) {
   return items;
 }
 
-/** The widgets' options: tests pass their own rates, send and tally. */
-const ratesFrom = (/** @type {any} */ opts, /** @type {any} */ store) =>
-  /** @type {{fuelPerHour: () => number|undefined, defPerHour: () => number|undefined}} */ (opts.rates || ratesOf(store));
-
 /**
- * The band: the job and its four numbers over the rig strip, one readout
- * card.
+ * The strip: the rig's tiles and links on the ground, a tile's surface
+ * like a card's (it can be pressed). The vehicle alone says "Nothing
+ * attached" (the Loader page; the Vehicle page's cards say it).
  * @type {import("./widget.js").CreateWidget}
  */
-export function vehicleBand(store, opts = {}) {
+export function rigStrip(store, opts = {}) {
   /** @type {Send} */
   const send = /** @type {any} */ (opts).send || sendCommand;
-  const rates = ratesFrom(opts, store);
-  const job = h("h1", { className: "veh-job" });
-  const hot = h("span", { className: "veh-hot" }, icon("engineTemp"), h("span", { text: "Engine hot" }));
-  const ros = h("div", { className: "veh-ros" });
   const strip = h("ol", { className: "veh-strip" });
   strip.setAttribute("aria-label", "Rig");
   const none = h("p", { className: "veh-strip-none", text: "Nothing attached" });
-  const label = h("span", { className: "veh-cap", text: "Vehicle" });
-  const root = h("section", { className: "veh-band" },
-    h("div", { className: "veh-band-head" },
-      h("div", { className: "veh-band-text" }, label,
-        h("div", { className: "veh-job-row" }, job, hot)),
-      ros),
-    h("div", { className: "veh-strip-row" }, strip, none));
-  root.setAttribute("aria-label", "Vehicle");
+  const root = h("section", { className: "veh-rig" }, strip, none);
+  root.setAttribute("aria-label", "Rig");
   if (opts.id) root.id = opts.id;
 
-  let lastRos = "";
   let lastStrip = "";
   const render = () => {
     const v = controlledVehicle(store);
     const cab = cabOf(store);
-    const units = unitsOf(store);
-    // the shop's brand on the label; the strip's tiles keep the model alone
-    const brand = vehicleBrand(v);
-    label.textContent = brand ? `Vehicle · ${brand}` : "Vehicle";
-    job.textContent = vehicleJob(v, cab).text;
-    hot.hidden = !engineHot(v);
-    const readouts = bandReadouts(v, { fuel: fuelRange(v?.fuel, rates.fuelPerHour()),
-      def: fuelRange(/** @type {any} */ (v)?.def, rates.defPerHour()) }, units);
-    const roKey = JSON.stringify(readouts);
-    if (roKey !== lastRos) {
-      lastRos = roKey;
-      ros.replaceChildren(...readouts.map((r) => {
-        const el = h("div", { className: "veh-ro" }, h("span", { className: "veh-cap", text: r.label }),
-          h("div", {}, h("b", { text: r.value }), h("span", { className: "veh-ro-unit", text: r.unit })),
-          h("small", { text: r.sub }));
-        el.dataset.ro = r.id;
-        el.dataset.alert = String(r.alert);
-        return el;
-      }));
-    }
     const order = v ? drivingOrder(screenRig(v, cab)) : [];
     const key = JSON.stringify(order.map((e) => [e, stripState(e, v), entryKind(e, v),
       fillsOf(/** @type {any} */ (detailOf(e, v))).map((f) => [Math.round(fillPct(f)), fillMax(f)])]));
@@ -405,7 +288,6 @@ export function vehicleBand(store, opts = {}) {
   };
   store.subscribe("vehicles", render);
   store.subscribe("cab", render);
-  store.subscribe("env", render);
   return root;
 }
 

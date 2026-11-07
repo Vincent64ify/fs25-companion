@@ -118,8 +118,9 @@ export const load = valueWidget({
   },
 });
 
+// in the bottom bar (specs/0013): "18 % wear"
 export const wear = valueWidget({
-  label: "Wear", unit: "%", icon: "wear", topics: VEHICLE,
+  label: "Wear", unit: "%", readoutUnit: "% wear", icon: "wear", topics: VEHICLE,
   read: (store) => wearPct(controlledVehicle(store)),
   text: pct, number: (v) => String(Math.round(v)),
   level: (v) => (v >= LIMITS.wearWarn ? "warn" : undefined),

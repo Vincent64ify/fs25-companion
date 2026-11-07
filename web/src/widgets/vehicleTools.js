@@ -1,27 +1,31 @@
 // @ts-check
 // The Vehicle page's tools (specs/0003-implement-screen.md; the Implement
-// tab merged in): every tool you can work with as a card with all its
-// buttons, under the band.
-// - toolsAll: the All row, a button for each thing two or more cards share
-//   (Unfold all, Lower all, Turn on all, Tip all).
+// tab merged in; the calm page, specs/0013): every tool you can work with
+// as a card with all its buttons, under the rig strip.
+// - toolsAll: the column's All tools group, a button for each thing two or
+//   more cards share (Unfold all, Lower all, Turn on all, Tip all).
 // - toolCards: a card per working thing in driving order, the vehicle in
-//   its place when it works by itself (a sprayer, a tipper truck). A card
-//   has a button for each capability the mod sends (`can`, read from what
-//   the tool is: specs/0012), from our fixed list, never one per tool type;
-//   the game's "not now" only fades one. The main row, then a collapsed
-//   More (a plow's Rotate, a baler's drop, the application rate...). Three
-//   or more cards go compact.
-// - toolsAlso: each tool with no card (a weight), one line, Lower and Detach.
+//   its place when it works by itself (a sprayer, a tipper truck), each as
+//   tall as its content. A card has a button for each capability the mod
+//   sends (`can`, read from what the tool is: specs/0012), from our fixed
+//   list, never one per tool type; the game's "not now" only fades one. The
+//   main row, drawn as the column's buttons, then a collapsed More (a plow's
+//   Rotate, a baler's drop, the application rate...), its button the main
+//   row's last. Three or more cards go compact.
+// - toolsAlso: each tool with no card (a weight), a slim card with Lower
+//   and Detach.
 // A sprayer's card shows its working width (specs/0011-sprayer.md): a strip
 // of its sections and how many are on, with Left / Right in / out where the
 // game's width keys are live.
-// A tap on a card's head selects that tool in game; a button aims at its
-// own tool (the command carries its id); the page never changes.
-// Estimates come from data/rates.js.
+// The game's selected tool shows on the strip only (specs/0013); a tap on a
+// card still selects its tool in game. A button aims at its own tool (the
+// command carries its id); the page never changes. Estimates come from
+// data/rates.js.
 
 import {
-  MORE_CAPABILITIES, allActions, alsoAttached, buttonCapsOf, cabOf, canOf, cardsOf, controlledVehicle, entryModel, fillMax,
+  MORE_CAPABILITIES, allActions, alsoAttached, buttonCapsOf, cabOf, cardsOf, controlledVehicle, entryModel, fillMax,
   fillName, fillPct, fillStop, fillsOf, foldingText, implementById, kindLabel, lowersInRig, moreCount, screenRig, vehicleKind,
+  widthMetres, widthSegments,
 } from "../data/selectors.js";
 import { areaText, lengthText, lengthUnit, lengthValue, speedUnit, speedValue, unitsOf } from "../data/units.js";
 import { minutesText, ratesOf, timeLeft } from "../data/rates.js";
@@ -135,7 +139,7 @@ export function tankRows(tanks) {
       name: t.fill.level > 0 ? fillName(t.fill) : "Empty", pct, chips, max, fill: t.fill,
       litres: `${Math.round(t.fill.level).toLocaleString()} / ${Math.round(t.fill.capacity).toLocaleString()} L`,
       when: max ? "at its weight limit"
-        : t.left ? `${t.left.full ? "full in" : "empty in"} ${minutesText(t.left.minutes)}` : "",
+        : t.left ? (t.left.full ? `full in ${minutesText(t.left.minutes)}` : `${minutesText(t.left.minutes)} left`) : "",
     };
   });
 }
@@ -327,30 +331,9 @@ function widthButtons(e, id) {
   });
 }
 
-/**
- * The strip's sections, left to right as seen from the cab: each true while
- * on. A side's outer sections go off first; the middle one is always on.
- * @param {RigWidth} w
- * @returns {boolean[]}
- */
-export function widthSegments(w) {
-  const left = Array.from({ length: w.leftMax }, (_, i) => i >= w.leftMax - w.left);
-  const right = Array.from({ length: w.rightMax }, (_, i) => i < w.right);
-  return [...left, ...(w.center ? [true] : []), ...right];
-}
-
-/**
- * The metres in use and in all, from the game's section widths (one for
- * each, left to right); undefined without them: never an estimate.
- * @param {RigWidth} w
- * @returns {{used: number, all: number}|undefined}
- */
-export function widthMetres(w) {
-  const on = widthSegments(w);
-  if (!Array.isArray(w.sections) || w.sections.length !== on.length) return undefined;
-  if (!w.sections.every((m) => typeof m === "number" && m >= 0)) return undefined;
-  return { used: w.sections.reduce((sum, m, i) => sum + (on[i] ? m : 0), 0), all: w.sections.reduce((a, b) => a + b, 0) };
-}
+// the strip's sections and their metres live with the selectors: the
+// trail (data/coverage.js) needs them too
+export { widthMetres, widthSegments };
 
 /**
  * "8 / 9 sections · 30 / 33 m" (Vincent, 2026-11-01); the sections alone
@@ -376,15 +359,16 @@ export function widthLine(w, units) {
  * 2026-11-01).
  * @param {Send} send
  * @param {(why: string) => void} [onWhy]
+ * @param {string} [className] the grid's class: the column's own in the column
  */
-function buttonRow(send, onWhy) {
+function buttonRow(send, onWhy, className = "tool-buttons") {
   const sent = send;
   send = async (action, value, tool, side) => {
     const result = await sent(action, value, tool, side);
     if (!result.ok && result.reason) onWhy?.(result.reason);
     return result;
   };
-  const el = h("div", { className: "tool-buttons" });
+  const el = h("div", { className });
   /** @type {Map<string, {ui: ReturnType<typeof createControl>, b: ToolButton}>} */
   const shown = new Map();
   let order = "";
@@ -471,15 +455,13 @@ export function cardStats(e, v, rates, units) {
   return out;
 }
 
-/** One stat: a label, a value, a bar. */
+/**
+ * One stat on its small quiet tile (specs/0013): a label and a value, no
+ * bar; over the tool's limit its value turns orange.
+ */
 function statTile(/** @type {Stat} */ s) {
   const el = h("div", { className: "tool-stat" }, h("span", { className: "tool-stat-label", text: s.label }),
     h("b", { className: "tool-stat-value", text: s.value }));
-  if (s.pct !== undefined) {
-    const bar = h("span");
-    bar.style.width = `${Math.max(0, Math.min(100, s.pct))}%`;
-    el.append(h("span", { className: "widget-meter" }, bar));
-  }
   if (s.level) el.dataset.level = s.level;
   if (s.title) el.title = s.title;
   return el;
@@ -583,19 +565,20 @@ function rememberMore(/** @type {string} */ model, /** @type {boolean} */ open) 
 }
 
 /**
- * A card's More (specs/0012): the last tile of the main row, "More · 2",
- * closed (Vincent, 2026-11-03: a tile, not a row of its own, so a card
- * fits at 1180 × 820); a tap opens or closes it on that card, lit while
- * open, its buttons a row under the main row, remembered by the tool's
- * model in this browser. Compact (three cards or more) keeps the tile,
- * faded and closed. None on a tool with nothing under More.
+ * A card's More (specs/0012): the main row's last button, "More" over its
+ * count ("2", specs/0013), closed (Vincent, 2026-11-03: not a row of its
+ * own, so a card fits at 1180 × 820); a tap opens or closes it on that
+ * card, lit while open, its buttons a row under the main row, remembered by
+ * the tool's model in this browser. Compact (three cards or more) keeps the
+ * button, faded and closed. None on a tool with nothing under More.
  * @param {Send} send
  * @param {(why: string) => void} onWhy
  */
 function moreBlock(send, onWhy) {
-  const label = h("span", { className: "control-label" });
+  const value = h("span", { className: "control-value" });
   const toggle = /** @type {HTMLButtonElement} */ (h("button", { className: "control tool-more-toggle" },
-    h("span", { className: "icon tool-more-chevron" }), label));
+    h("span", { className: "icon tool-more-chevron" }), h("span", { className: "control-label", text: "More" }), value));
+  toggle.dataset.value = "";
   toggle.type = "button";
   toggle.dataset.control = "more";
   const buttons = buttonRow(send, onWhy);
@@ -631,7 +614,7 @@ function moreBlock(send, onWhy) {
       model = toolModel;
       count = n;
       compact = isCompact;
-      label.textContent = `More · ${n}`;
+      value.textContent = String(n);
       toggle.setAttribute("aria-label", `More, ${n}`);
       buttons.set(list);
       paint();
@@ -647,8 +630,7 @@ function toolCard(send) {
   const badge = h("span", { className: "tool-badge" });
   const name = h("b", { className: "tool-name" });
   const sub = h("span", { className: "tool-sub" });
-  const chip = h("span", { className: "tool-chip", text: "Working" });
-  let head = h("header", { className: "tool-head" }, badge, h("div", { className: "tool-text" }, name, sub), chip);
+  let head = h("header", { className: "tool-head" }, badge, h("div", { className: "tool-text" }, name, sub));
   const stats = h("div", { className: "tool-stats" });
   const note = reasonNote();
   const buttons = buttonRow(send, note.show);
@@ -678,13 +660,11 @@ function toolCard(send) {
       const model = entryModel(e, v) || "Tool";
       el.dataset.id = String(e.id);
       el.dataset.vehicle = String(e.depth === 0);
-      el.dataset.selected = String(e.selected === true);
       el.setAttribute("aria-label", model);
       const kind = entryKind(e, v);
       if (kind !== lastKind) badge.replaceChildren(icon((lastKind = kind)));
+      // working: the badge's "on" look (specs/0013: no Working chip)
       badge.dataset.on = String(working(e));
-      chip.hidden = !working(e);
-      chip.textContent = e.discharging ? (e.trailer || canOf(e).includes("tip") ? "Tipping" : "Unloading") : "Working";
       name.textContent = model;
       sub.textContent = cardSub(e, v);
       // the head selects the tool in game: rebuilt when that changes
@@ -764,9 +744,12 @@ export function toolCards(store, opts = {}) {
 }
 
 /**
- * The All row: with two or more working things, a button for each thing
- * they share, lit while every one of them is on; Turn on all waits while
- * one is folded ("Unfold first").
+ * All tools (specs/0013): the column's third group, under Drive, three to a
+ * row. With two or more working things, a button for each thing they
+ * share, lit while every one of them is on; Turn on all waits while one is
+ * folded ("Unfold first"). Their parts decide the buttons (specs/0012), so
+ * the group comes with the rig and stays while it's the same. A failed
+ * answer's note shows under it.
  * @type {import("./widget.js").CreateWidget}
  */
 export function toolsAll(store, opts = {}) {
@@ -774,9 +757,9 @@ export function toolsAll(store, opts = {}) {
   const send = /** @type {any} */ (opts).send || sendCommand;
   // a failed answer names the tools that didn't move (revision 2)
   const note = reasonNote();
-  const buttons = buttonRow(send, note.show);
-  const root = h("section", { className: "tools-all" }, h("span", { className: "veh-cap", text: "All" }), buttons.el,
-    note.el);
+  const buttons = buttonRow(send, note.show, "control-grid");
+  const root = h("section", { className: "control-group tools-all" },
+    h("h2", { className: "control-group-label", text: "All tools" }), buttons.el, note.el);
   root.setAttribute("aria-label", "All tools");
   if (opts.id) root.id = opts.id;
   const render = () => {
@@ -796,15 +779,16 @@ const ALL_ICONS = /** @type {Record<string, string>} */ ({
   fold: "fold", lower: "lowerAll", turnOn: "implementOn", tip: "unload", cover: "cover",
 });
 
-/** "1,500 kg · Fendt · Weights · Front · Raised": an Also attached line. */
+/** "Fendt · Weights · Front · Raised": an Also attached card's line, under its model. */
 export function alsoLine(/** @type {RigEntry} */ e, /** @type {Vehicle|undefined} */ v) {
   const state = lowersInRig(e, v) ? (e.lowered ? "Lowered" : "Raised") : "";
-  return [entryModel(e, v) || "Tool", cardSub(e, v), state].filter(Boolean).join(" · ");
+  return [cardSub(e, v), state].filter(Boolean).join(" · ");
 }
 
 /**
- * Also attached: each tool with no card, one line with Lower / Raise
- * (where it lowers) and Detach.
+ * Also attached: each tool with no card as a slim card at the bottom of the
+ * tools: its badge, model and line, then Lower / Raise (where it lowers)
+ * and Detach, the column's size.
  * @type {import("./widget.js").CreateWidget}
  */
 export function toolsAlso(store, opts = {}) {
@@ -814,7 +798,8 @@ export function toolsAlso(store, opts = {}) {
   const root = h("section", { className: "tools-also" }, h("span", { className: "veh-cap", text: "Also attached" }), list);
   root.setAttribute("aria-label", "Also attached");
   if (opts.id) root.id = opts.id;
-  /** @type {Map<unknown, {el: HTMLElement, text: HTMLElement, badge: HTMLElement, buttons: ReturnType<typeof buttonRow>}>} */
+  /** @type {Map<unknown, {el: HTMLElement, name: HTMLElement, sub: HTMLElement, badge: HTMLElement,
+   *   buttons: ReturnType<typeof buttonRow>, kind: string}>} */
   const rows = new Map();
   /** @type {string|undefined} */
   let lastOrder;
@@ -829,16 +814,20 @@ export function toolsAlso(store, opts = {}) {
       for (const key of keys) {
         if (rows.has(key)) continue;
         const badge = h("span", { className: "tool-badge" });
-        const text = h("span", { className: "tools-also-text" });
+        const name = h("b", { className: "tool-name" });
+        const sub = h("span", { className: "tool-sub" });
         const buttons = buttonRow(send);
-        rows.set(key, { el: h("li", { className: "tools-also-row" }, badge, text, buttons.el), text, badge, buttons });
+        rows.set(key, { el: h("li", { className: "tools-also-row" }, h("div", { className: "tool-head" }, badge,
+          h("div", { className: "tool-text" }, name, sub)), buttons.el), name, sub, badge, buttons, kind: "" });
       }
       list.replaceChildren(...keys.map((key) => /** @type {any} */ (rows.get(key)).el));
     }
     also.forEach((e, i) => {
       const row = /** @type {any} */ (rows.get(keys[i]));
-      row.badge.replaceChildren(icon(entryKind(e, v)));
-      row.text.textContent = alsoLine(e, v);
+      const kind = entryKind(e, v);
+      if (kind !== row.kind) row.badge.replaceChildren(icon((row.kind = kind)));
+      row.name.textContent = entryModel(e, v) || "Tool";
+      row.sub.textContent = alsoLine(e, v);
       row.buttons.set(toolButtons(e).filter((b) => b.key === "detach" || (b.key === "lower" && lowersInRig(e, v))));
     });
   };

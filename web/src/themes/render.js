@@ -24,10 +24,12 @@ import { hasIcon, icon } from "../ui/icons.js";
 /**
  * A place on a screen: a widget (and what it shows without data), the map,
  * the theme's control groups (less the ones `omit` names, for a screen
- * that shows them elsewhere, plus the screen's own groups in `add`), or a
- * group of slots the theme's CSS lays out together (data-group).
+ * that shows them elsewhere, plus the screen's own groups in `add`: a group
+ * of controls, or a widget that draws a group of its own, the Vehicle
+ * page's All tools), or a group of slots the theme's CSS lays out together
+ * (data-group).
  * @typedef {{widget: string, variant?: string, whenMissing?: "hide"|"dash"} | {map: "full"|"mini"}
- *   | {controls: true, omit?: string[], add?: ControlGroup[]} | {group: string, slots: Slot[]}} Slot
+ *   | {controls: true, omit?: string[], add?: (ControlGroup|{widget: string})[]} | {group: string, slots: Slot[]}} Slot
  */
 
 /**
@@ -138,9 +140,15 @@ export function checkTheme(theme, widgetIds = Object.keys(WIDGETS)) {
         for (const id of slot.omit || []) {
           if (!CONTROLS[id]) errors.push(`screen ${screen.id}: omits no control "${id}"`);
         }
-        for (const id of (slot.add || []).flatMap((group) => group.controls)) {
-          if (!CONTROLS[id]) errors.push(`screen ${screen.id}: adds no control "${id}"`);
-          else wantIcon(CONTROLS[id].icon, `control ${id}`);
+        for (const group of slot.add || []) {
+          if ("widget" in group) {
+            if (!known.has(group.widget)) errors.push(`screen ${screen.id}: adds no widget "${group.widget}"`);
+            continue;
+          }
+          for (const id of group.controls) {
+            if (!CONTROLS[id]) errors.push(`screen ${screen.id}: adds no control "${id}"`);
+            else wantIcon(CONTROLS[id].icon, `control ${id}`);
+          }
         }
       }
     }
@@ -208,12 +216,13 @@ export function renderTheme(theme, app, store, frame, settings, autoPick) {
           parent.append(mapSlot);
         } else if ("controls" in slot) {
           const omit = new Set(slot.omit || []);
+          /** @type {(ControlGroup|{widget: string})[]} */
           const groups = (chrome.controls || [])
             .map((group) => ({ ...group, controls: group.controls.filter((id) => !omit.has(id)) }))
-            .filter((group) => group.controls.length)
-            .concat(slot.add || []);
+            .filter((group) => group.controls.length);
           const column = h("aside", { className: "control-column" },
-            ...groups.map((group) => controlGroup(group, store)));
+            ...groups.concat(slot.add || []).map((group) => ("widget" in group
+              ? createWidget(group.widget, store) : controlGroup(group, store))));
           column.setAttribute("aria-label", "Controls");
           parent.append(column);
         } else if ("group" in slot) {

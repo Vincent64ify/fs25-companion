@@ -25,6 +25,14 @@ beside it, and a tap no longer changes the page.
 
 ## Behaviour
 
+**Since spec [0013](0013-vehicle-screen-calm.md) (2026-11-07) the band is
+gone** on Vehicle and Loader: the rig strip stands on the ground alone (the
+game's selected tool as a ringed tile, not yellow), and the band's speed,
+fuel, DEF and wear are the bottom bar's readout with the gear and the
+engine temperature, as on the Map screen. The job, the fuel and DEF ranges
+and the Engine hot chip went with it. Load and Target are unchanged. What
+follows about the band is how it was.
+
 - **Three pages on the Vehicle tab:** the tab wears the icon of the page
   it opens on and names it: "Vehicle · Loader", "Vehicle · Harvester",
   just "Vehicle" on the plain page, with a chevron for its menu

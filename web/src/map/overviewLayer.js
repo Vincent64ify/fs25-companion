@@ -31,8 +31,11 @@ export function gridLines(min, max, step) {
   return out;
 }
 
-/** Phones get the 2048 px image: a 4096² image costs 64 MB decoded. */
-function imageName() {
+/**
+ * Phones get the 2048 px image: a 4096² image costs 64 MB decoded. The
+ * Vehicle page's field panel asks for the same one, from the browser's cache.
+ */
+export function imageName() {
   return Math.max(screen.width, screen.height) <= SMALL_SCREEN_PX
     ? "overview_2048.png" : "overview.png";
 }

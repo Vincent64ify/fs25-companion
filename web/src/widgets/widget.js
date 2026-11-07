@@ -35,6 +35,8 @@ import { icon } from "../ui/icons.js";
  * @property {(raw: any) => number} [bar] 0..100 for the condition variant's bar; default meter
  * @property {(store: Store) => string|undefined} [detail] beside the number in the condition variant ("72 L")
  * @property {string} [note] under the number in the condition variant, in place of a bar
+ * @property {string} [readoutUnit] the readout variant's unit where the plain one wouldn't say
+ *   what the number is ("% wear" in the bottom bar, specs/0013)
  */
 
 /** The unit's element, marked so a unit that follows the settings can change. */
@@ -90,7 +92,8 @@ const VARIANTS = {
       if (def.icon) root.append(icon(def.icon));
       root.append(h("span", { className: "widget-meter" }, h("span")));
     }
-    if (def.unit) root.append(value, unitEl("small", def.unit));
+    if (def.readoutUnit) root.append(value, h("small", { text: def.readoutUnit }));
+    else if (def.unit) root.append(value, unitEl("small", def.unit));
     else root.append(h("small", { text: def.label }), value);
     return [root, value];
   },
