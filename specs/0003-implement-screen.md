@@ -202,7 +202,7 @@ keys act as the game's do (`SpikeRigs.act`; a `stuck` tool ignores them).
 - [x] `web/test.html`: an implement command waits up to 5 s; a "Nothing
   moved" answer shows on its card and the All row; with one tool folded
   and one unfolded, the All row says "Fold all".
-- [x] `client/tests/test_allrow_check.py`: the asked states follow the
+- [x] `companion/tests/test_allrow_check.py`: the asked states follow the
   labels; a run that passes, an ok with nothing moved, a failure that
   moved, the engine off.
 - [x] Checked in the browser pane at 1180×820, day and night: the notes
@@ -1096,3 +1096,10 @@ Vincent's to answer. Judging tested in `client/tests/test_rig_check.py`.
   faded: no line under it, no hover title, no note after a tap (Vincent:
   "if it's not available it should just be in its disabled state"). A
   failed answer still shows its reason on the card and the All row.
+- 2026-11-07: `allrow_check.py` sends today's commands (mod 0.13.4,
+  `792e570`): `tool.lower` / `tool.fold` / `tool.turnOn` with the state
+  asked for and the tool's id, the All row with its value, `engine.set`
+  (it still sent the `implement.*` names and `engine.toggle` gone since
+  mod 0.10.0, spec 0008). Live on the T7.300 with the KDF 341 S and KDD
+  941 STH, the engine on first: 36 of 36 passed, the engine-off steps
+  refused with the game's words and nothing moved.

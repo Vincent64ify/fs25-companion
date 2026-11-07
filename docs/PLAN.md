@@ -47,7 +47,8 @@ up to date until the live check.
   vehicle type and real rig dumps. Revision 2: fold, lower and turn on
   answer ok only once the tools moved, Lower all is the game's key again,
   and `scripts/allrow_check.py` judges the live check from the files; on
-  the mowers it passed 36 of 36 (2026-10-30). Revision 3: Tip presses
+  the mowers it passed 36 of 36 (2026-10-30), and again with today's
+  commands (2026-11-07, mod 0.13.4). Revision 3: Tip presses
   the tip key the game shows (Unload here on the ground, Tip into a sale
   point) and answers ok once the trailer tips; `scripts/rig_check.py`
   checks any rig's buttons, and the trailers passed (2026-10-31). Closed
