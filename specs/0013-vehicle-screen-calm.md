@@ -1,6 +1,6 @@
 # 0013: Vehicle page, calm
 
-Status: built (live check run 2026-11-07: three boxes open); revision 2 live-checked on the iPad (a light field panel); revision 3 live-checked but two boxes (your fields, a trail only while working, every mower); revision 4 built, live check open (what Precision Farming's nozzles spray)
+Status: live-checked (2026-11-07; Precision Farming off not checked: NEXT.md), with revisions 2 (a light field panel), 3 (your fields, a trail only while working, every mower) and 4 (what Precision Farming's nozzles spray)
 Mod: 0.15.0 (revision 4; 0.14.0 revision 3; no change before) · Started: 2026-11-03 · Design: the canvas [FS25 Companion: Vehicle screen, calm](https://claude.ai/artifact/JApsdXjoSFwsddKv2kNYZ3) (private, on claude.ai; approved by Vincent on 2026-11-03), a THEMES.md section at build; specs [0003](0003-implement-screen.md) (the page), [0010](0010-tidy-states-and-motion.md) (the states), [0012](0012-card-buttons.md) (the buttons)
 
 ## Goal
@@ -277,11 +277,11 @@ Live check (in game; Solek, mod 0.14.0):
 - [x] **T7.300 with the KDF 341 S front and the butterfly rear, mowing a
   pass:** three bands, the wings left and right of the middle, the same
   width as the game's mown swaths; Area counts the full width.
-- [ ] **The Vantage folded, then unfolded and off, driven over a field:**
+- [x] **The Vantage folded, then unfolded and off, driven over a field:**
   no trail, Area doesn't move. **Turned on:** the trail starts. **Two
   sections off on one side:** the band is on the side still on (the sign
   of `workSpans`).
-- [ ] **A field that isn't yours:** "Not on your field". **Drive off yours
+- [x] **A field that isn't yours:** "Not on your field". **Drive off yours
   onto the road:** the field stays through a headland turn, goes past the
   margin, and comes back with its trail when you return.
 
@@ -385,14 +385,14 @@ Automated (written first):
   unchanged.
 
 Live check (in game; Solek, mod 0.15.0):
-- [ ] **The Vantage with Precision Farming's automatic spraying, a pass
+- [x] **The Vantage with Precision Farming's automatic spraying, a pass
   where the game sprays with only some sections:** the strip lights those
   sections and the count says so; the trail is as wide as what sprays and
   sits on that side; it matches the game's sprayed map.
-- [ ] **Turned off:** the strip shows the sections set by hand.
-- [ ] **Two sections off by hand, Precision Farming's automation off (if
+- [x] **Turned off:** the strip shows the sections set by hand.
+- [x] **Two sections off by hand, Precision Farming's automation off (if
   the sprayer allows):** the strip and trail as revision 3.
-- [ ] **Leaving a field and coming back** (revision 3's fix): the outline
+- [x] **Leaving a field and coming back** (revision 3's fix): the outline
   and the trail both go past the margin, and both come back.
 - [ ] **Precision Farming off** (a save without it, if one can be made):
   the strip and trail follow the sections set by hand. Otherwise this stays
@@ -669,10 +669,10 @@ for revision 3's work areas:
 
 | Name | Where from | State |
 |---|---|---|
-| `spec_workArea.workAreas[i].start`, `.width`, `.height` (nodes), `.type` | WorkArea.lua (the game's source) | unverified live: revision 3's live check |
-| `localToLocal(node, root, 0, 0, 0)`, its x (GIANTS' +x left) | engine; `Api.localX` | the call is used in Rig.lua; the sign unverified: the live check's sections |
-| `g_workAreaTypeManager:getWorkAreaTypeIsAIArea(type)` | WorkArea.lua (`getAIWorkAreaWidth`) | unverified live |
-| `spec_<mod>.extendedSprayerEffects.sprayerEffects[i]`: `isActive`, `effectNode` | Precision Farming's ExtendedSprayerEffects.lua | unverified live: revision 4's live check |
+| `spec_workArea.workAreas[i].start`, `.width`, `.height` (nodes), `.type` | WorkArea.lua (the game's source) | verified 2026-11-07 (DONE.md) |
+| `localToLocal(node, root, 0, 0, 0)`, its x (GIANTS' +x left) | engine; `Api.localX` | verified 2026-11-07: +x left (DONE.md) |
+| `g_workAreaTypeManager:getWorkAreaTypeIsAIArea(type)` | WorkArea.lua (`getAIWorkAreaWidth`) | verified 2026-11-07 (DONE.md) |
+| `spec_<mod>.extendedSprayerEffects.sprayerEffects[i]`: `isActive`, `effectNode` | Precision Farming's ExtendedSprayerEffects.lua | verified 2026-11-07 (DONE.md) |
 
 ## Commands
 
@@ -811,7 +811,7 @@ Live check (in game; Solek):
   - the panel says "Not on your field" (revision 3).
 - [x] **Drive into a field:** the panel switches to it, with its number,
   crop and needs as the game's PDA field info shows them.
-- [ ] **Unfold, Turn on and spray two passes,** one with two sections
+- [x] **Unfold, Turn on and spray two passes,** one with two sections
   off:
   - the trail follows the passes at the boom's width, the narrower pass
     narrower;
@@ -988,3 +988,11 @@ page's memory; off a field the panel shows the map around the rig.
   pytest 120).
 - 2026-11-07: Vincent confirmed in game that the trail draws solid bands
   with the fix.
+- 2026-11-07: Vincent checked revision 4 in game (mod 0.15.0): automatic
+  spraying lights the sections that spray and the trail matches the game's
+  sprayed map; turned off, the strip shows the sections set by hand; two
+  sections off by hand follow; leaving a field takes the outline and trail
+  away and back. Ticked with them: revision 3's Vantage and fields boxes
+  and the page's spraying box. Precision Farming off stays open (NEXT.md,
+  with the four width buttons). The names verified move to DONE.md; spec
+  live-checked.

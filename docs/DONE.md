@@ -339,6 +339,22 @@ These results override any API guesses later in this document.
   - A trailer's tip side with `canTip` false in its XML (the EDK 650's
     Grain door) never tips to the ground (Trailer
     `getCanDischargeToGround`).
+- Spec 0013, revisions 3 and 4 (Solek, mods 0.14.0 and 0.15.0,
+  2026-11-07):
+  - `getIsLowered(default)` returns the default for a tool on a joint that
+    doesn't lower (`Attachable.lua`): the trailed Vantage reads lowered
+    when asked with `true`, folded or not. Lowered means something only
+    for a tool that lowers.
+  - Work areas: `spec_workArea.workAreas[i]`'s `start`, `width` and
+    `height` nodes and `type`, `g_workAreaTypeManager:
+    getWorkAreaTypeIsAIArea(type)`, and `localToLocal(node,
+    vehicle.rootNode, 0, 0, 0)`: x is positive to the left, so metres
+    right are -x. The T7.300's butterfly mower gives its two wings.
+  - Precision Farming's nozzles: the tool's
+    `spec_FS25_precisionFarming.extendedSprayerEffects` (found by its
+    suffix), its `sprayerEffects[i].isActive` and `.effectNode`: the
+    stretches whose nozzles are on match the game's sprayed map. Its
+    automatic spraying never changes the boom's `leftSide` / `rightSide`.
 
 ---
 

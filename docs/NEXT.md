@@ -65,7 +65,9 @@ Things to fix next, in no particular order. Longer-term ideas are under
   part, so its four width buttons (Left in / out, Right in / out, faded
   while the spray type has no partial width) and Doubled rate on a
   slurry tanker or a manure spreader were never seen live. Check them in
-  a save without Precision Farming, if there ever is one.
+  a save without Precision Farming, if there ever is one, with spec 0013
+  revision 4's last box: the strip and the trail follow the sections set
+  by hand (no `spraySpans`).
 - **The rig strip's names** (seen building spec 0012, 2026-11-03): the
   Vehicle page band's strip is rebuilt only when its key changes
   (`vehicleScreen.js`), and the key leaves out the model's name, which
