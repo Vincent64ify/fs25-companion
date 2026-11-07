@@ -3,23 +3,27 @@
 Things to fix next, in no particular order. Longer-term ideas are under
 **Later** in [PLAN.md](PLAN.md).
 
-- **Tip with the grain door side** (spec 0012's live check, 2026-11-07,
-  the Vestrum 100 and two EDK 650, mod 0.13.2): with the tip side on
-  "Grain door", Tip stayed live on the ground and answered "Nothing
-  moved" (twice); the other sides tipped. Not the second trailer: the
-  game's Trailer.lua reads each tip side's XML `canTip` ("if false, only
-  back door control is allowed") and `getCanDischargeToGround` is false
-  for it; `canTipIfEmpty` false does the same on an empty tank. Rule 2:
-  Tip should fade while the side can't tip there, with our reason
-  ("This side only opens its door"); unverified whether the game's key
-  does anything else on that side (the door). In the trailer's spec,
-  with Tip with the engine off.
+- **Tip fades when the game won't tip** (for the trailer's spec; rule 2
+  of [spec 0012](../specs/0012-card-buttons.md)): two cases where Tip
+  stays live and answers "Nothing moved" after its check's wait, both
+  on the Vestrum 100 with two EDK 650:
+  - The engine off (spec 0008's live check, 2026-10-31): the game only
+    says to start the engine. Fold and lower are refused at once with
+    the game's words (`VehicleState.powered`); Tip should be too.
+  - The grain door side (spec 0012's live check, 2026-11-07, mod
+    0.13.2): the other sides tipped. Not the second trailer: the game's
+    Trailer.lua reads each tip side's XML `canTip` ("if false, only back
+    door control is allowed") and `getCanDischargeToGround` is false for
+    it; `canTipIfEmpty` false does the same on an empty tank. Our reason
+    ("This side only opens its door"); unverified whether the game's key
+    does anything else on that side (the door).
 - **The other buttons' answers:** since spec 0003 revision 2 (mod 0.8.14)
-  fold, lower and turn on answer ok only once the tools moved, and Tip
-  since revision 3 (mod 0.8.16). Pipe and tip side still answer once
-  their key ran; each gets the same check in its rig's spec. Cover and
-  Rotate have no button since 0003's close (mod 0.8.17); theirs get it
-  in the cover and plow specs.
+  fold, lower and turn on answer ok only once the tools moved, Tip since
+  revision 3 (mod 0.8.16), and spec 0012's switches (Rotate, Create
+  fields, Automatic drop, Doubled rate, the rate) once their state reads
+  back (mod 0.13.0). Pipe, Tip side and Cover (back since spec 0012:
+  `implement.cover`, no `checked` in its ack on 2026-11-07) still answer
+  once their key ran; each gets the same check in its rig's spec.
   Live (2026-10-31): Tip answered ok and nothing tipped over a sale
   point that doesn't take the load and on land not ours ("You don't
   have access to this land"); spec 0003's Log.
@@ -29,11 +33,6 @@ Things to fix next, in no particular order. Longer-term ideas are under
   should open the game's AI job screen (pick the job there), and stop a
   worker that runs. Opening that screen from the mod needs a game GUI
   call that isn't verified: find it first.
-- **Tip with the engine off** (spec 0008's live check, 2026-10-31, the
-  Vestrum 100 and two EDK 650): the game only says to start the engine,
-  and Tip answers "Nothing moved" after its check's wait. Fold and lower
-  are refused at once with the game's words (`VehicleState.powered`); tip
-  should be too, and its card button fade, in the trailer's spec.
 - **Lower all answered "Nothing moved" once** (spec 0008's live check,
   2026-10-31, T7.300 with the KDF 341 S and KDD 941 STH, both raised and
   unfolded, game in focus): the front lowered about 3 s after the press
@@ -61,10 +60,6 @@ Things to fix next, in no particular order. Longer-term ideas are under
   client only, live-checked); F3 and F4 matter before a hosted relay. F1 is fixed
   ([spec 0004](../specs/0004-acks-survive-rotation.md), mod 0.8.13,
   live-checked); F5 (mod 0.8.12), F6 and F7 are fixed (2026-10-30).
-- **The vehicle's other keys:** closed by
-  [spec 0012](../specs/0012-card-buttons.md) (mod 0.13.0): no card lists
-  the keys the game registered any more (`extraKeys` went), so no driving
-  key or "Toggle AI Worker" can show.
 - **The rig strip's names** (seen building spec 0012, 2026-11-03): the
   Vehicle page band's strip is rebuilt only when its key changes
   (`vehicleScreen.js`), and the key leaves out the model's name, which
