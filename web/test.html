@@ -2514,6 +2514,17 @@ const nozzled = (spraySpans) => {
 };
 check("calm (revision 4): three of nine sections spraying: one band a third wide, a third of the area; none spraying: nothing",
   [nozzled([[-5.5, 5.5]]), nozzled([])], [[[11], true, 1100], [[], true, 0]]);
+// a trailed boom swings: its edges move a little every message; under 1 m
+// the band stays one run (no seams), a real change starts a new one
+const swingTool = { ...vantage, spraySpans: [[-13.5, 14]] };
+const swing = covRig({ tools: [swingTool], entries: [{ id: 2, can: ["turnOn"], turnedOn: true }] });
+for (let i = 0, x = 0; x <= 100; i++, x += 5) {
+  swingTool.spraySpans = x <= 60 ? [[-13.5 + (i % 2 ? 0.3 : -0.2), 14 + (i % 3 ? 0.1 : -0.4)]] : [[-8.5, 14]];
+  swing.at(x, 51, 90);
+}
+const swingRuns = swing.c.trails(1)[0]?.runs ?? [];
+check("calm (revision 4): a swinging boom's edges moving under 1 m keep one band; a 5 m change starts another",
+  [swingRuns.length, swingRuns.map((r) => Math.round(r.w * 10) / 10)], [2, [27.3, 22.5]]);
 // the card's strip and its line, and the panel's boom, from the nozzles
 const pfFix = JSON.parse(JSON.stringify(rigFix.sprayer));
 for (const v of pfFix.vehicles.vehicles) for (const i of v.implements || []) if (i.id === 1031) i.spraySpans = [[-5.5, 5.5]];

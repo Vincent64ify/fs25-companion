@@ -488,7 +488,9 @@ only Also attached or "Nothing attached"; hidden on foot):
   mower's two wings are drawn either side of the tractor; a sprayer's band
   is the sections that are on, so a narrower pass is narrower and sits on
   the side still on; revision 4: with Precision Farming's nozzles, only
-  where they spray), clipped to the field's outline. A tool draws only
+  where they spray), clipped to the field's outline. A band goes on while
+  its edges move less than 1 m (a trailed boom swings behind the tractor);
+  a new one overlaps the last stretch, so no seam or wedge shows. A tool draws only
   while it works: on if it turns on, lowered if it lowers (revision 3). It's pale yellow for mowers and green for every
   other tool (spraying, sowing...): `--trail-mow` and `--trail-work`.
   - It's our estimate (Data contract), never the game's own map.
@@ -975,3 +977,14 @@ page's memory; off a field the panel shows the map around the rig.
   (three new checks), pytest 120, the golden unchanged; in the pane a 33 m
   boom spraying a third leaves 11 m bands and "3 / 9 sections · 11 / 33 m",
   day and night. The live check is Vincent's (the revision's five boxes).
+- 2026-11-07: Vincent saw the trail as thin lines with mod 0.15.0. A
+  recorder on the stream showed the nozzles right (about 27 m sprayed of
+  33, one stretch), but the trailed Vantage's edges moved 0.1–1 m every
+  message, so the trail began a new run almost every sample (41 runs in 85)
+  and the square ends left seams, wedges in turns. Fixed (web only): a run
+  goes on while its edges move under 1 m, at its own band; a new run starts
+  from the old one's last two spots. The recorded pass now makes one solid
+  band through its U-turn; a swinging-boom test (test.html all green,
+  pytest 120).
+- 2026-11-07: Vincent confirmed in game that the trail draws solid bands
+  with the fix.

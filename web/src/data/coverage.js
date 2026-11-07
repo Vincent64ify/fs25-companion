@@ -10,7 +10,9 @@
 // are bandsOf's: a sprayer's sections that are on (specs/0011), so a
 // narrower pass is narrower and shifted to the side still on; else each of
 // its work areas (a butterfly mower's wings), else its working width. A
-// band is a run of its own. The share of a field done counts its 2 m cells
+// band is a run of its own; it goes on while its edges move under 1 m (a
+// trailed boom swings), and a new run overlaps the old one's last stretch,
+// so neither seams nor bends show. The share of a field done counts its 2 m cells
 // under any band, so passes that overlap count once.
 //
 // In memory only, in world metres. At most 20,000 points a field: past
@@ -27,6 +29,9 @@ const MAX_STEP_M = 30;
 // a run's polyline is cut at this many points, so drawing one only redraws the last
 const RUN_POINTS = 500;
 const MIN_KMH = 0.5;
+// a band's edges moving less than this keep its run (a trailed boom swings
+// behind the tractor every message): fewer runs, no seams between them
+const EDGE_M = 1;
 
 /** @typedef {import("../types.js").FieldOutline} FieldOutline */
 /**
@@ -248,18 +253,23 @@ export function createCoverage(store, { maxPoints = MAX_POINTS, cell = CELL_M } 
         const last = open.get(key);
         const h = typeof heading === "number" ? (heading * Math.PI) / 180
           : last ? Math.atan2(x - last.x, -(z - last.z)) : 0;
-        // the band's middle: o metres to the right of the track
-        const here = [x + band.o * Math.cos(h), z + band.o * Math.sin(h)];
         const joined = last && last.field === outline.id && Math.hypot(x - last.x, z - last.z) <= MAX_STEP_M;
         let run = joined ? /** @type {NonNullable<typeof last>} */ (last).run : undefined;
-        if (run && (run.w !== band.w || run.o !== band.o || run.pts.length / 2 >= RUN_POINTS)) {
-          // a new width (or a long run): a new run from the last spot
-          const prev = /** @type {NonNullable<typeof last>} */ (last);
-          const from = band.o === run.o ? run.pts.slice(-2)
-            : [prev.x + band.o * Math.cos(h), prev.z + band.o * Math.sin(h)];
+        // the run goes on at its own band while the edges stay within EDGE_M
+        const moved = !run || Math.abs((band.o - band.w / 2) - (run.o - run.w / 2)) > EDGE_M
+          || Math.abs((band.o + band.w / 2) - (run.o + run.w / 2)) > EDGE_M;
+        if (run && !moved) band = { w: run.w, o: run.o };
+        // the band's middle: o metres to the right of the track
+        const here = [x + band.o * Math.cos(h), z + band.o * Math.sin(h)];
+        if (run && (moved || run.pts.length / 2 >= RUN_POINTS)) {
+          // the edges moved (or a long run): a new run from the last spot
+          // from the old run's last two spots, moved to the new middle, so the
+          // two overlap one stretch and a bend between them leaves no wedge
+          const dx = (band.o - run.o) * Math.cos(h), dz = (band.o - run.o) * Math.sin(h);
+          const from = run.pts.slice(-4).map((v, k) => v + (k % 2 ? dz : dx));
           run = { w: band.w, o: band.o, pts: from, seq: ++seq };
           trail.runs.push(run);
-          f.points += 1;
+          f.points += from.length / 2;
         }
         if (!run) {
           run = { w: band.w, o: band.o, pts: [], seq: ++seq };
