@@ -234,10 +234,12 @@ export const mainFill = (fills) => fills.find((f) => f.level > 0) || fills[0];
 /**
  * An attached implement, as the mod sends it. hitch: 0 raised .. 1 lowered;
  * pto missing for an implement without one.
- * speedLimit (km/h), workWidth (m) and crop since the Implement screen.
+ * speedLimit (km/h), workWidth (m) and crop since the Implement screen;
+ * workSpans since mod 0.14.0: each work area's [from, to], metres right of
+ * the rig's centre line (specs/0013 revision 3).
  * @typedef {{id?: number, name?: string, brand?: string, typeName?: string, category?: string, categoryTitle?: string,
  *   depth?: number, lowered?: boolean, turnedOn?: boolean, wear?: number, pto?: boolean,
- *   hitch?: number, fills?: Fill[], speedLimit?: number, workWidth?: number,
+ *   hitch?: number, fills?: Fill[], speedLimit?: number, workWidth?: number, workSpans?: number[][],
  *   crop?: {name?: string, title?: string}}} Implement
  */
 
@@ -371,6 +373,102 @@ export function isLoaderGear(entry, impl) {
     const cat = typeof x?.category === "string" ? x.category.toUpperCase() : "";
     return (LOADER_CATEGORY.test(cat) && !/LOADERWAGON/.test(cat)) || LOADER_TYPE.test(x?.typeName || "");
   });
+}
+
+/**
+ * Whether a tool works now (specs/0013 revision 3), for the trail and
+ * Area: everything it has says so. On if it turns on, lowered if it lowers
+ * (the game reads a tool on a joint that doesn't lower as lowered, so
+ * lowered means nothing without Lower); one with neither, by its turnedOn.
+ * Loader gear never. Without the cab's entry, lowered or on, as before.
+ * @param {import("../types.js").RigEntry|undefined} entry the cab's rig entry
+ * @param {Implement|undefined} impl the vehicles topic's implement
+ */
+export function isWorking(entry, impl) {
+  if (isLoaderGear(entry, impl)) return false;
+  if (!entry || !Array.isArray(entry.can)) return !!(impl?.lowered || impl?.turnedOn);
+  const lowers = entry.can.includes("lower"), turns = entry.can.includes("turnOn");
+  if (!lowers && !turns) return entry.turnedOn === true;
+  return (!lowers || entry.lowered === true) && (!turns || entry.turnedOn === true);
+}
+
+/**
+ * The bands a working tool covers across the rig (specs/0013 revision 3),
+ * each {w: metres wide, o: its middle, metres right of the track}:
+ * - with sections (a sprayer's width), the sections that are on, across
+ *   its working width (specs/0011);
+ * - else its work areas (workSpans), those that touch or overlap as one: a
+ *   butterfly mower's two wings;
+ * - else its working width on the track (a mod before 0.14.0);
+ * - none without a width.
+ * @param {Implement|undefined} impl
+ * @param {import("../types.js").RigEntry|undefined} entry
+ * @returns {{w: number, o: number}[]}
+ */
+export function bandsOf(impl, entry) {
+  const width = typeof impl?.workWidth === "number" && impl.workWidth > 0 ? impl.workWidth : undefined;
+  const w = /** @type {any} */ (entry)?.width;
+  if (w && width && widthSegments(w).length) return [sectionBand(w, width)];
+  const spans = (Array.isArray(impl?.workSpans) ? /** @type {number[][]} */ (impl?.workSpans) : [])
+    .filter((p) => Array.isArray(p) && typeof p[0] === "number" && typeof p[1] === "number" && p[1] > p[0])
+    .map((p) => [p[0], p[1]])
+    .sort((a, b) => a[0] - b[0]);
+  if (spans.length) {
+    /** @type {number[][]} */
+    const merged = [];
+    for (const p of spans) {
+      const last = merged[merged.length - 1];
+      if (last && p[0] <= last[1] + 1e-6) last[1] = Math.max(last[1], p[1]);
+      else merged.push(p);
+    }
+    return merged.map(([from, to]) => ({ w: to - from, o: (from + to) / 2 }));
+  }
+  return width ? [{ w: width, o: 0 }] : [];
+}
+
+/**
+ * A sprayer's band: the sections that are on, how wide and how far its
+ * middle sits right of the track; the whole working width when none says.
+ * @param {import("../types.js").RigWidth} w
+ * @param {number} workWidth metres
+ * @returns {{w: number, o: number}}
+ */
+export function sectionBand(w, workWidth) {
+  const on = widthSegments(w);
+  if (!on.length) return { w: workWidth, o: 0 };
+  const metres = widthMetres(w) ? /** @type {number[]} */ (w.sections) : on.map(() => workWidth / on.length);
+  const all = metres.reduce((a, b) => a + b, 0);
+  const first = on.indexOf(true);
+  const last = on.lastIndexOf(true);
+  if (first < 0) return { w: 0, o: 0 };
+  const from = metres.slice(0, first).reduce((a, b) => a + b, 0);
+  const to = metres.slice(0, last + 1).reduce((a, b) => a + b, 0);
+  return { w: to - from, o: (from + to) / 2 - all / 2 };
+}
+
+/**
+ * Whether your farm owns the field's farmland (fields' farmlandId, the
+ * farmlands topic's farmId): the field panel and the trail only take
+ * yours (specs/0013 revision 3).
+ * @param {StoreLike} store
+ * @param {number|undefined} fieldId
+ */
+export function isOwnField(store, fieldId) {
+  if (fieldId === undefined) return false;
+  const field = (store.get("fields")?.fields || []).find((/** @type {any} */ f) => f?.id === fieldId);
+  if (typeof field?.farmlandId !== "number") return false;
+  const land = (store.get("farmlands")?.farmlands || []).find((/** @type {any} */ l) => l?.id === field.farmlandId);
+  return typeof land?.farmId === "number" && land.farmId !== 0 && land.farmId === myFarmId(store);
+}
+
+/**
+ * The field of yours whose outline holds the point, or undefined.
+ * @param {StoreLike} store
+ * @param {number} x @param {number} z world metres
+ */
+export function ownFieldAt(store, x, z) {
+  const outline = fieldAt(store, x, z);
+  return outline && isOwnField(store, outline.id) ? outline : undefined;
 }
 
 /**

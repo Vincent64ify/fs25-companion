@@ -51,4 +51,4 @@ behaviour, in Behaviour too: the spec always says what the code does now.
 | [0010](0010-tidy-states-and-motion.md) | Tidy states, surfaces and motion | live-checked (revision 2: selecting) | no change |
 | [0011](0011-sprayer.md) | Sprayer: Fold, Turn on, the working width | live-checked (closed with 0012's check; Precision Farming off not checked: NEXT.md) | 0.12.4 |
 | [0012](0012-card-buttons.md) | Card buttons: what a tool has, what it can do now | live-checked (every rig on the farm; Tip's fade on a side that can't tip: NEXT.md) | 0.13.3 |
-| [0013](0013-vehicle-screen-calm.md) | Vehicle page, calm: rig strip, tool cards, field panel, no yellow at night | built (live check open); revision 2 live-checked on the iPad: a light field panel | no change |
+| [0013](0013-vehicle-screen-calm.md) | Vehicle page, calm: rig strip, tool cards, field panel, no yellow at night | built (live check: three boxes open); revision 2 live-checked on the iPad; revision 3 built (live check open): your fields, a trail only while working, every mower | 0.14.0 |

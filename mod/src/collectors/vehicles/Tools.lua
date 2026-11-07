@@ -86,6 +86,45 @@ local function workWidthOf(object)
     return width ~= nil and Geo.round(width, 1) or nil
 end
 
+-- each work area's span across the rig (specs/0013 revision 3): {from,
+-- to} metres right of the controlled vehicle's centre line, from the
+-- area's start, width and height nodes. GIANTS' local +x is left
+-- (unverified here: the revision's live check), so right is -x. Only the
+-- AI's area types, as getAIWorkAreaWidth counts them, when the game says
+-- which. Nil without work areas or the engine call.
+local function workSpansOf(object, root)
+    local spec = object.spec_workArea
+    local rootNode = type(root) == "table" and root.rootNode or nil
+    if type(spec) ~= "table" or type(spec.workAreas) ~= "table" or rootNode == nil then
+        return nil
+    end
+    local types = g_workAreaTypeManager
+    local spans = {}
+    for _, area in pairs(spec.workAreas) do
+        local isAI = type(area) == "table" and (types == nil or Api.tryCall(types, "getWorkAreaTypeIsAIArea", area.type) ~= false)
+        if isAI then
+            local lo, hi
+            for _, node in ipairs({ area.start or false, area.width or false, area.height or false }) do
+                local x = node and Api.localX(node, rootNode) or nil
+                if x == nil then
+                    lo = nil
+                    break
+                end
+                lo = lo == nil and -x or math.min(lo, -x)
+                hi = hi == nil and -x or math.max(hi, -x)
+            end
+            if lo ~= nil and hi > lo then
+                spans[#spans + 1] = { Geo.round(lo, 1), Geo.round(hi, 1) }
+            end
+        end
+    end
+    if #spans == 0 then
+        return nil
+    end
+    table.sort(spans, function(a, b) return a[1] < b[1] end)
+    return spans
+end
+
 -- a combine's crop: the last fruit it took in, as its fill type
 -- ({name = "wheat", title = "Wheat"}); nil before it has harvested
 local function cropOf(object)
@@ -142,7 +181,9 @@ local function yieldOf(object)
     }
 end
 
-local function collectImplements(vehicle, depth, out)
+-- root: the controlled vehicle, the frame of the work areas' spans
+local function collectImplements(vehicle, depth, out, root)
+    root = root or vehicle
     local attached = Api.tryCall(vehicle, "getAttachedImplements")
     if type(attached) ~= "table" then
         return
@@ -169,10 +210,11 @@ local function collectImplements(vehicle, depth, out)
                 -- the Implement screen
                 speedLimit = speedLimitOf(object),
                 workWidth = workWidthOf(object),
+                workSpans = workSpansOf(object, root),
                 crop = cropOf(object),
             }
             if depth < MAX_IMPLEMENT_DEPTH then
-                collectImplements(object, depth + 1, out)
+                collectImplements(object, depth + 1, out, root)
             end
         end
     end

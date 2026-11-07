@@ -2363,6 +2363,8 @@ const covRig = ({ tools = [sprayer10], entries = [{ id: 2, turnedOn: true }], ma
   const s = createStore();
   const c = cov.createCoverage(s, maxPoints ? { maxPoints } : {});
   s.set("field_outlines", { fields: [square100] });
+  s.set("fields", { fields: [{ id: 1, farmlandId: 1 }] });
+  s.set("farmlands", { farmlands: [{ id: 1, farmId: 1 }] });
   const rig = { entries };
   const at = (x, z, heading, speed = 10) => {
     s.set("cab", { inVehicle: true, rig: [{ id: 1, depth: 0, can: [] },
@@ -2427,6 +2429,58 @@ check("calm: coverage: the point cap merges older points and keeps the percentag
   capped.c.points(1) <= 40, uncapped.c.points(1) > 40, near(capped.c.percent(1), uncapped.c.percent(1)),
   near(uncapped.c.percent(1), 50, 6)], [true, true, true, true]);
 
+// revision 3: a tool works when everything it has says so
+const ent = (can, lowered, turnedOn, more = {}) => ({ id: 2, depth: 1, can, lowered, turnedOn, ...more });
+check("calm (revision 3): isWorking: on if it turns on, lowered if it lowers, by turnedOn with neither; loader gear never; "
+  + "no cab entry: lowered or on, as before", [
+  sel.isWorking(ent(["fold", "turnOn", "detach"], true, false), { id: 2, category: "sprayers" }),
+  sel.isWorking(ent(["fold", "turnOn", "detach"], true, true), { id: 2, category: "sprayers" }),
+  sel.isWorking(ent(["lower", "turnOn"], true, false), { id: 2, category: "mowers" }),
+  sel.isWorking(ent(["lower", "turnOn"], false, true), { id: 2, category: "mowers" }),
+  sel.isWorking(ent(["lower", "turnOn"], true, true), { id: 2, category: "mowers" }),
+  sel.isWorking(ent(["lower", "detach"], true, false), { id: 2, category: "plows" }),
+  sel.isWorking(ent(["detach"], true, false), { id: 2 }), sel.isWorking(ent(["detach"], false, true), { id: 2 }),
+  sel.isWorking(ent(["lower"], true, false), { id: 2, category: "frontLoaderTools" }),
+  sel.isWorking(undefined, { id: 2, lowered: true }), sel.isWorking(undefined, { id: 2 })],
+  [false, true, false, false, true, true, false, true, false, true, false]);
+// the folded, off Vantage (it can't lower: the game reads it lowered) leaves no trail and no area
+const vantage = { id: 2, name: "Berthoud Vantage 4300", category: "sprayers", workWidth: 33 };
+const folded = covRig({ tools: [vantage], entries: [{ id: 2, can: ["fold", "turnOn", "unload", "detach"], lowered: true,
+  turnedOn: false, unfolded: false }] });
+folded.pass(51);
+const foldStore = createStore();
+let foldNow = 0;
+const foldRates = rt.createRates(foldStore, () => foldNow);
+for (let i = 0; i <= 20; i++) {
+  foldNow = i * 500;
+  foldStore.set("cab", { inVehicle: true, rig: [{ id: 1, depth: 0, can: [] }, { id: 2, depth: 1, can: ["fold", "turnOn"],
+    lowered: true, turnedOn: false }] });
+  foldStore.set("vehicles", { controlledId: 1, vehicles: [{ id: 1, speed: 10, implements: [{ depth: 1, ...vantage }] }] });
+}
+check("calm (revision 3): the folded, off Vantage moving over a field: no trail, no area", [folded.c.trails(1).length,
+  folded.c.percent(1), foldRates.area(2) || 0], [0, undefined, 0]);
+// bands from the work areas: a butterfly's two wings, merged spans, a sprayer's sections, none sent
+// (on 2 m cells a 3.1 m wing covers two: ≈ 8 %; one 9.2 m band would be ≈ 10 %)
+const wings = { id: 3, name: "Butterfly", category: "mowers", workWidth: 3.1, workSpans: [[-4.6, -1.5], [1.5, 4.6]] };
+const fly = covRig({ tools: [wings], entries: [{ id: 3, can: ["lower", "turnOn", "detach"], lowered: true, turnedOn: true }] });
+fly.pass(51);
+const r1 = (n) => Math.round(n * 10) / 10;
+const wingStore = createStore();
+let wingNow = 0;
+const wingRates = rt.createRates(wingStore, () => wingNow);
+for (let i = 0; i <= 20; i++) {
+  wingNow = i * 500;
+  wingStore.set("vehicles", { controlledId: 1, vehicles: [{ id: 1, speed: 36, implements: [{ depth: 1, lowered: true, ...wings }] }] });
+}
+check("calm (revision 3): bands from the work areas: two wings, the middle left; spans that touch or overlap are one; a sprayer "
+  + "keeps its sections' band; none sent: the width on the track; Area counts both wings", [
+  fly.c.trails(1)[0].runs.map((r) => [r1(r.w), Math.round(r.pts[1])]), near(fly.c.percent(1), 6.2, 2),
+  sel.bandsOf({ workWidth: 3, workSpans: [[-2, 0.5], [0.5, 3], [2, 4]] }, undefined),
+  sel.bandsOf({ workWidth: 9, workSpans: [[-4.5, 4.5]] }, { width: { left: 2, leftMax: 4, right: 4, rightMax: 4, center: true } }),
+  sel.bandsOf({ workWidth: 10 }, undefined), sel.bandsOf({}, undefined),
+  Math.round(wingRates.area(3) * 10000)],
+  [[[3.1, 48], [3.1, 54]], true, [{ w: 6, o: 1 }], [{ w: 7, o: 1 }], [{ w: 10, o: 0 }], [], 620]);
+
 // the field panel: the field the rig is in, its number, area, crop, stage
 // and needs; "≈ % of the field" while there's a trail; off a field, the
 // last field stays (revision 2)
@@ -2435,8 +2489,9 @@ const wheatFruit = { index: 3, name: "WHEAT", title: "Wheat", numGrowthStates: 8
   withered: 10 };
 fpS.set("field_outlines", { fields: [square100] });
 fpS.set("crop_types", { fruits: [wheatFruit], levels: { spray: 2 } });
-const field1 = { id: 1, areaHa: 1, fruitTypeIndex: 3, growthState: 3, sprayLevel: 0, weedState: 1, limeLevel: 1, plowLevel: 1 };
+const field1 = { id: 1, farmlandId: 1, areaHa: 1, fruitTypeIndex: 3, growthState: 3, sprayLevel: 0, weedState: 1, limeLevel: 1, plowLevel: 1 };
 fpS.set("fields", { fields: [field1] });
+fpS.set("farmlands", { farmlands: [{ id: 1, farmId: 1 }] });
 let fpPct;
 const panelEl = fpw.fieldPanel(fpS, { coverage: { trails: () => [], percent: () => fpPct, version: () => 0 } });
 const rigAt = (x, z) => fpS.set("vehicles", { controlledId: 1, vehicles: [{ id: 1, name: "T7", category: "tractorsM", x, z,
@@ -2452,12 +2507,12 @@ const onField = panelShow();
 fpPct = 54.4;
 rigAt(50, 50);
 const withTrail = panelShow()[5];
-rigAt(150, 50);
+rigAt(120, 50);
 const offField = panelShow();
 const field1Rows = [units.areaText(1, units.METRIC), "-25 -25 150 150", "Wheat|Growing · stage 3 of 7",
   fieldNeeds(field1, fs.cropCatalog(fpS.get("crop_types")))];
 check("calm: field panel: the field's bounds plus 15 % (at least 25 m), number, area, crop, stage and needs; ≈ % only with "
-  + "a trail; off the field the last field stays", [onField, withTrail, offField, fpw.fieldView([0, 0, 400, 0, 400, 40, 0, 40])],
+  + "a trail; off the field, inside its margin, it stays", [onField, withTrail, offField, fpw.fieldView([0, 0, 400, 0, 400, 40, 0, 40])],
   [["Field 1", ...field1Rows, null], "≈ 54 % of the field", ["Field 1", ...field1Rows, "≈ 54 % of the field"],
     [-60, -25, 520, 90]]);
 check("calm: field panel: the needs are the Map panel's words", fieldNeeds(field1, fs.cropCatalog(fpS.get("crop_types"))),
@@ -2469,7 +2524,8 @@ check("calm: field panel: the needs are the Map panel's words", fieldNeeds(field
 const lightS = createStore();
 lightS.set("field_outlines", { fields: [square100, { id: 9, points: [200, 0, 300, 0, 300, 100, 200, 100] }] });
 lightS.set("crop_types", { fruits: [wheatFruit], levels: { spray: 2 } });
-lightS.set("fields", { fields: [field1] });
+lightS.set("fields", { fields: [field1, { id: 9, farmlandId: 2 }] });
+lightS.set("farmlands", { farmlands: [{ id: 1, farmId: 1 }, { id: 2, farmId: 1 }] });
 lightS.set("hello", { mapId: "m" });
 lightS.set("mapAssets", { mapId: "m", hash: "h" });
 const lightFetched = [];
@@ -2530,19 +2586,44 @@ const missedBefore = lightAlpha(50, 20);
 setLightSize(300, 300);
 check("calm (revision 2): field panel hidden: nothing painted at 0 × 0; on show the missed stretch is painted, not the "
   + "whole trail", [hiddenPts, missedBefore, lightAlpha(50, 20), lightClears - clearsBefore], [0, 0, 255, 0]);
-// off the field the last one stays, the arrow where the rig is; another
-// field takes over; a new vehicle off every field: Not on a field, no arrow
+// off the field, inside its margin, it stays with the arrow where the rig
+// is; another field takes over; a new vehicle off every field: Not on your
+// field, no arrow (revision 3)
 const lightRows = () => [q(light, ".field-title"), lightRig.hidden,
   /** @type {Element} */ (light.querySelector(".field-outline")).hasAttribute("hidden")];
-lightAt(150, 50);
+lightAt(120, 50);
 const offRows = [...lightRows(), lightRig.style.transform];
 lightAt(250, 50);
 const otherRows = lightRows();
 lightAt(150, 50, 90, 5);
-check("calm (revision 2): field panel: off the field the last field stays with the arrow; another field takes over; a new "
-  + "vehicle off every field: Not on a field, no arrow", [offRows, otherRows, lightRows()],
-  [["Field 1", false, false, "translate(350px, 150px) rotate(90deg)"], ["Field 9", false, false],
-    ["Not on a field", true, true]]);
+check("calm (revision 2): field panel: off the field, inside its margin, it stays with the arrow; another field takes over; a "
+  + "new vehicle off every field: Not on your field, no arrow", [offRows, otherRows, lightRows()],
+  [["Field 1", false, false, "translate(290px, 150px) rotate(90deg)"], ["Field 9", false, false],
+    ["Not on your field", true, true]]);
+// revision 3: past the margin the field goes; back on it, its trail is
+// still there; a field of another farm (or nobody's) is as off a field
+for (const x of [40, 45, 50]) lightAt(x, 50, 90, 1);
+const backTrail = lightCov.percent(1) !== undefined;
+lightAt(124, 50);
+const inMargin = lightRows();
+lightAt(126, 50);
+const pastMargin = lightRows();
+lightAt(50, 50);
+const backRows = [...lightRows(), lightCov.percent(1) !== undefined];
+lightS.set("farmlands", { farmlands: [{ id: 1, farmId: 3 }, { id: 2, farmId: 1 }] });
+const theirBefore = lightCov.points(1);
+lightAt(55, 50);
+const theirRows = lightRows();
+lightAt(60, 50);
+const theirSame = lightCov.points(1) === theirBefore;
+lightS.set("farmlands", { farmlands: [{ id: 1, farmId: 0 }, { id: 2, farmId: 1 }] });
+lightAt(50, 50);
+const nobodyRows = lightRows();
+check("calm (revision 3): field panel: past the margin Not on your field; back on it the trail is still there; another farm's "
+  + "field or nobody's: Not on your field, no trail recorded", [backTrail, inMargin, pastMargin, backRows, theirRows,
+  theirSame, nobodyRows],
+  [true, ["Field 1", false, false], ["Not on your field", true, true], ["Field 1", false, false, true],
+    ["Not on your field", true, true], true, ["Not on your field", true, true]]);
 check("calm: a tank emptying says how long it lasts; filling, when it's full", [tankRows([tank(500, 18, false)])[0].when,
   tankRows([tank(850, 4, true)])[0].when], ["≈ 18 min left", "full in ≈ 4 min"]);
 check("calm: theme check: a widget added to the column is checked", checkTheme({ id: "x", palettes: [], css: "",

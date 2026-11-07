@@ -1516,6 +1516,50 @@ test("implement screen: speed limit, working width and crop in the vehicles topi
     g_fruitTypeManager = nil
 end)
 
+test("vehicles topic: each work area's span across the rig (specs/0013 revision 3)", function()
+    loadVehicles()
+    getWorldTranslation = function() return 0, 0, 0 end
+    localDirectionToWorld = function() return 0, 0, -1 end
+    FillType = { UNKNOWN = 0 }
+    g_storeManager, g_brandManager, g_fillTypeManager, g_fruitTypeManager = nil, nil, nil, nil
+    -- each node's x in the tractor's frame; GIANTS' local +x is left, so
+    -- the left wing has positive x and comes out as negative metres
+    local xOf = { [101] = 4.61, [102] = 1.5, [103] = 4.6, [111] = -1.5, [112] = -4.6, [113] = -1.5,
+        [121] = 16.5, [122] = -16.5, [123] = 16.5 }
+    localToLocal = function(node, to)
+        assert(to == 1, "into the tractor's root node")
+        return xOf[node], 0, 0
+    end
+    g_workAreaTypeManager = { getWorkAreaTypeIsAIArea = function(_, t) return t ~= 9 end }
+    local mower = { id = 31, typeName = "mower", getFullName = function() return "Butterfly" end,
+        spec_workArea = { workAreas = {
+            { type = 1, start = 101, width = 102, height = 103 },
+            { type = 1, start = 111, width = 112, height = 113 },
+            -- not an AI area (a roller, a rut): left out, as getAIWorkAreaWidth does
+            { type = 9, start = 121, width = 122, height = 123 },
+        } } }
+    local sprayer = { id = 32, typeName = "sprayer", getFullName = function() return "Boom" end,
+        spec_workArea = { workAreas = { { type = 1, start = 121, width = 122, height = 123 } } } }
+    local trailer = { id = 33, typeName = "trailer", getFullName = function() return "Tipper" end,
+        spec_workArea = { workAreas = {} } }
+    local tractor = { id = 30, typeName = "tractor", rootNode = 1, spec_motorized = {},
+        getFullName = function() return "T7" end,
+        attached = { { object = mower }, { object = sprayer }, { object = trailer } },
+        getAttachedImplements = function(self) return self.attached end }
+    for _, o in ipairs({ mower, sprayer, trailer }) do
+        o.getAttacherVehicle = function() return tractor end
+    end
+    g_localPlayer = { getCurrentVehicle = function() return tractor end }
+    g_currentMission = { vehicleSystem = { vehicles = { tractor } } }
+    local impl = Companion.Collectors.Vehicles.collect({}).vehicles[1].implements
+    eq(Json.encode(impl[1].workSpans), "[[-4.6,-1.5],[1.5,4.6]]", "two wings, left first, metres right of the centre")
+    eq(Json.encode(impl[2].workSpans), "[[-16.5,16.5]]", "one boom")
+    eq(impl[3].workSpans, nil, "no work areas")
+    localToLocal = nil
+    eq(Companion.Collectors.Vehicles.collect({}).vehicles[1].implements[1].workSpans, nil, "no engine call: nil")
+    g_workAreaTypeManager, g_localPlayer, g_currentMission = nil, nil, nil
+end)
+
 test("harvester screen: straw, its key, worked area and Precision Farming's yield", function()
     load("src/collectors/Cab.lua")
     local Cab = Companion.Collectors.Cab

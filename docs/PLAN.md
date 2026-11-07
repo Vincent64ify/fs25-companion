@@ -91,7 +91,10 @@ up to date until the live check.
 - The calm Vehicle page (spec [0013](../specs/0013-vehicle-screen-calm.md))
   is built, its live check open. Its revision 2, a light field panel (no
   map image, the outline, trail and arrow as layers), fixed the page's
-  slow show on the iPad: checked by Vincent on 2026-11-07.
+  slow show on the iPad: checked by Vincent on 2026-11-07. The page's live
+  check (2026-11-07) left three boxes open; revision 3 (mod 0.14.0: only
+  your fields, a trail only while a tool works, a band per work area) is
+  built, its live check open.
 - The code review of 2026-10-30 ([REVIEW-2026-10-30.md](REVIEW-2026-10-30.md))
   found seven issues. F5 to F7 are fixed (mod 0.8.12), and F1 is fixed and
   confirmed in game (spec [0004](../specs/0004-acks-survive-rotation.md),

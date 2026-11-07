@@ -1,7 +1,7 @@
 # 0013: Vehicle page, calm
 
-Status: built (live check open); revision 2 live-checked on the iPad (a light field panel)
-Mod: no change · Started: 2026-11-03 · Design: the canvas [FS25 Companion: Vehicle screen, calm](https://claude.ai/artifact/JApsdXjoSFwsddKv2kNYZ3) (private, on claude.ai; approved by Vincent on 2026-11-03), a THEMES.md section at build; specs [0003](0003-implement-screen.md) (the page), [0010](0010-tidy-states-and-motion.md) (the states), [0012](0012-card-buttons.md) (the buttons)
+Status: built (live check run 2026-11-07: three boxes open); revision 2 live-checked on the iPad (a light field panel); revision 3 built, live check open (your fields, a trail only while working, every mower)
+Mod: 0.14.0 (revision 3; no change before) · Started: 2026-11-03 · Design: the canvas [FS25 Companion: Vehicle screen, calm](https://claude.ai/artifact/JApsdXjoSFwsddKv2kNYZ3) (private, on claude.ai; approved by Vincent on 2026-11-03), a THEMES.md section at build; specs [0003](0003-implement-screen.md) (the page), [0010](0010-tidy-states-and-motion.md) (the states), [0012](0012-card-buttons.md) (the buttons)
 
 ## Goal
 
@@ -160,6 +160,136 @@ Live check (Vincent, iPad Pro, Safari):
 - Contracts and helping another farm: the game's land-access check, a mod
   change and a live check.
 
+## Revision 3: your fields, a trail only while working, every mower
+
+Drafted 2026-11-07 from Vincent's live check (the Log), approved by him the same day,
+built the same day. This section is the revision whole; Behaviour, Data
+contract, Plan, Acceptance and Decisions below say the same where they
+changed.
+
+**Why.** Three things in the live check didn't hold:
+1. The panel takes any field, ours or not, and since revision 2 keeps the
+   last one however far the rig drives off it, across the whole map.
+2. The trail drew with the Vantage folded and not spraying. In the game's
+   `Attachable.lua`, `getIsLowered(default)` returns the default for a
+   tool on a joint that doesn't lower (a trailed sprayer), and the mod
+   asks `getIsLowered(true)`. So the Vantage always reads lowered, and the
+   rule "lowered or turned on" holds whatever it does. The Area counter
+   (`rates.js`) uses the same rule, so it counts those hectares too.
+3. The rear butterfly mower left no trail of its own. Its `workWidth` is
+   the widest single work area (`getAIWorkAreaWidth`, about 3 m) and the
+   band sits on the rig's track, so its two wings were never drawn and its
+   middle hid under the front mower's band. Area counts it 3 m wide too.
+
+**What the player sees.**
+- **Only your fields.** The panel shows a field only when your farm owns
+  its farmland. On anyone else's field it's as off a field. Contracts and
+  helping another farm stay for their own spec (step 3 below).
+- **Leaving a field.** The panel keeps the field while the rig is inside
+  the panel's view: the field plus its margin (15 % of its size a side, at
+  least 25 m), the same box the arrow is drawn in. So a headland turn
+  keeps it; driving off past the margin shows "Not on your field" with no
+  outline and no arrow. Back on the field, its outline and trail come
+  back: trails are kept per field until you change vehicles, as today.
+- **"Not on your field"** replaces "Not on a field" (just got in, on the
+  road, or on a field that isn't yours).
+- **A trail only while a tool works.** A tool works when everything it has
+  says so:
+  - it turns on (its card has Turn on): it's on;
+  - it lowers (its card has Lower): it's lowered;
+  - neither: it's on (the game's reading), as today;
+  - and, as today, the rig moves faster than 0.5 km/h, with a working
+    width, and it isn't loader gear.
+  So a sprayer needs Turn on (the game won't turn one on folded); a mower
+  needs both lowered and on; a plough or cultivator, lowered. Fold isn't
+  part of the rule: some tools lower through their fold. Area counts by
+  the same rule.
+- **Every part of a wide tool.** A tool's trail is drawn from its work
+  areas, each a band at its place across the rig: a butterfly mower draws
+  its two wings left and right of the tractor, the front mower the middle.
+  A tool with sections (a sprayer) keeps today's band: its sections that
+  are on, across its whole span. Where a tool's areas overlap or touch,
+  they're one band. Area counts the bands' total width.
+- Unchanged: the trail stays on the rig's track lengthwise (a rear tool's
+  band isn't moved back), its colours, the %, the panel's three layers.
+
+**Data contract.**
+
+| Topic, field | What | Game source | Verified |
+|---|---|---|---|
+| `fields[].farmlandId` | the field's farmland | `field.farmland.id` | in use (the field info panel) |
+| `farmlands[].farmId` | its owner farm, 0 = none | `farmland.farmId` | yes (DONE.md) |
+| `hello.farmId` / `myFarmId` | your farm | `g_localPlayer.farmId` | in use |
+| `vehicles` implement `workSpans` (new) | `[[from, to], ...]` metres across the rig, right of its centre line positive, one per work area, rounded to 0.1 m | each `spec_workArea.workAreas[i]`'s `start`, `width` and `height` nodes, `localToLocal` into the controlled vehicle's root component, x | **no**: the nodes and the sign of x (GIANTS' local +x is believed to be left), through `Api.lua`, checked live |
+| cab rig `can` (`lower`, `turnOn`), `lowered`, `turnedOn` | what the rule reads | as today | yes; `lowered` is only meaningful with `lower` (the game's source, above) |
+
+No new topic. `workWidth` stays as it is (the Harvester page shows it). A
+mod without `workSpans` gets today's band, `workWidth` wide on the track.
+Mod 0.14.0.
+
+**Plan.**
+- `mod/src/collectors/vehicles/Tools.lua`: `workSpansOf(object, root)`,
+  through `Api.lua` for the nodes; `mod/tests`: a fake mower with two
+  wings and a sprayer with one area; the version.
+- `web/src/data/selectors.js`: `isWorking(entry, impl)` (the rule above)
+  and `ownFieldAt(store, x, z)` (fieldAt, only your farm's fields);
+  `bandsOf(impl, entry)`: the merged spans, or today's sprayer band.
+- `web/src/data/coverage.js`: records with `isWorking`, on `ownFieldAt`,
+  a band per span (a run per tool and span).
+- `web/src/data/rates.js`: Area with `isWorking` and the bands' total width.
+- `web/src/widgets/fieldPanel.js`: the held field is let go outside the
+  view; "Not on your field"; the boom stays as it is.
+- Docs: Behaviour, Data contract, Plan, Acceptance, Decisions here;
+  THEMES.md's panel text; DONE.md after the live check.
+- Golden: `fixtures/golden_viewer.ndjson` doesn't change (the replay's mod
+  has no `workSpans`).
+
+**Acceptance.**
+
+Automated (written first):
+- [x] `isWorking`: a trailed sprayer (no `lower`) reading lowered and off
+  doesn't work, on it does; a mower lowered and off doesn't, lowered and on
+  does; a plough (lower only) lowered does; a tool with neither works by
+  its `turnedOn`; loader gear never.
+- [x] Coverage and Area: the folded, off Vantage moving over a field leave
+  no trail and count no hectares.
+- [x] Bands: spans `[[-4.6, -1.5], [1.5, 4.6]]` draw two bands and leave
+  the middle 3 m unpainted; overlapping or touching spans make one band;
+  a sprayer with sections off keeps today's band; without `workSpans`,
+  today's band. Area counts 6.2 m for the two wings.
+- [x] Ownership: a field on a farmland of another farm (or none) shows
+  "Not on your field" and records no trail; your field shows as today.
+- [x] Leaving: inside the margin the field stays (a headland turn); past
+  it "Not on your field", no arrow, the outline hidden; back on the field
+  its trail is still there.
+- [x] `mod/tests`: `workSpans` from a fake two-wing mower and a one-area
+  sprayer, in the vehicles collector's output; the version bumped.
+- [x] Replay in the browser pane, day and night at 1180×820 (a T7 with a
+  raised front mower and a butterfly mowing field 120, made ours).
+- [x] `python -m pytest mod/tests companion/tests tests` passes, the golden
+  unchanged.
+
+As built: the Area test's wings read ≈ 8 %, not 6.2 %: on 2 m cells a 3.1 m
+band covers two; one 9.2 m band would read ≈ 10 %. Area also takes a
+sprayer's sections that are on now (its band), not its whole width.
+
+Live check (in game; Solek, mod 0.14.0):
+- [ ] **T7.300 with the KDF 341 S front and the butterfly rear, mowing a
+  pass:** three bands, the wings left and right of the middle, the same
+  width as the game's mown swaths; Area counts the full width.
+- [ ] **The Vantage folded, then unfolded and off, driven over a field:**
+  no trail, Area doesn't move. **Turned on:** the trail starts. **Two
+  sections off on one side:** the band is on the side still on (the sign
+  of `workSpans`).
+- [ ] **A field that isn't yours:** "Not on your field". **Drive off yours
+  onto the road:** the field stays through a headland turn, goes past the
+  margin, and comes back with its trail when you return.
+
+**Later, in specs of their own** (unchanged from revision 2): progress
+kept by the companion per field and per tool, with the "Working Field 2?
+· Show Field 2" prompt; contracts and helping another farm (the game's
+land-access check).
+
 ## Behaviour
 
 **Layout (1180×820).** The usual chrome. The content area has:
@@ -244,9 +374,11 @@ only Also attached or "Nothing attached"; hidden on foot):
 - **A sprayer's boom:** a line in the text colour behind the dot at the
   tool's working width. Its sections that are off are grey.
 - **The trail (new):** where the rig's tools have worked on this field,
-  drawn as a solid band at the working width (the sections that are on,
-  so a narrower pass is narrower and sits on the side still on), clipped
-  to the field's outline. It's pale yellow for mowers and green for every
+  drawn as solid bands (revision 3: a band per work area, so a butterfly
+  mower's two wings are drawn either side of the tractor; a sprayer's band
+  is the sections that are on, so a narrower pass is narrower and sits on
+  the side still on), clipped to the field's outline. A tool draws only
+  while it works: on if it turns on, lowered if it lowers (revision 3). It's pale yellow for mowers and green for every
   other tool (spraying, sowing...): `--trail-mow` and `--trail-work`.
   - It's our estimate (Data contract), never the game's own map.
   - A trail is kept while the page is open. It's cleared when its tool is
@@ -260,11 +392,14 @@ only Also attached or "Nothing attached"; hidden on foot):
     panel's words: Weeding, Fertilizer, Lime...), or "Nothing" in muted
     text;
   - "This run ≈ 54 % of the field", while there's a trail.
-- **Off a field** (revision 2): the last field stays (its outline, trail
-  and rows), the arrow wherever the rig is, until the rig is in another
-  field. With no field yet (just got in, or not on one since): "Not on a
-  field", an empty map, no arrow, no crop or needs. Without the rig's
-  position (an older mod), the same.
+- **Only your fields** (revision 3): a field shows, and its trail records,
+  only when your farm owns its farmland.
+- **Off a field** (revisions 2 and 3): the field stays (its outline, trail
+  and rows), the arrow wherever the rig is, while the rig is inside the
+  panel's view (the field plus its margin). Past it, or with no field yet
+  (just got in), or on a field that isn't yours: "Not on your field", an
+  empty map, no arrow, no crop or needs. Back on the field its trail is
+  still there. Without the rig's position (an older mod), the same.
 - **What a vehicles message does** (revision 2): paints each run's newest
   stretch on the trail's canvas, moves the arrow by a transform, and
   changes the % when its rounded value moves. The outline is written only
@@ -355,13 +490,16 @@ then the column docked under them, as today.
 
 ## Data contract
 
-No mod change, and no new topic or field: everything this page shows is
-already sent and live.
-- **Mod → companion:** unchanged.
+No new topic. Revision 3 adds one field (mod 0.14.0); everything else this
+page shows was already sent and live.
+- **Mod → companion:**
   - `vehicles`: the controlled vehicle's `x`, `z`, `heading`, `speed`,
-    and each implement's `workWidth`.
-  - `cab.rig`: `lowered`, `turnedOn`, `width`, `selected`.
-  - `fields`, `field_outlines`, `crop_types`.
+    and each implement's `workWidth` and (revision 3) `workSpans`: each
+    work area's `[from, to]`, metres right of the controlled vehicle's
+    centre line, rounded to 0.1 m, left first; the AI's area types only.
+  - `cab.rig`: `can`, `lowered`, `turnedOn`, `width`, `selected`.
+  - `fields` (`farmlandId`), `farmlands` (`farmId`), `field_outlines`,
+    `crop_types`.
   - The map's `meta.json` and image: no longer read by the field panel
     (revision 2); the Map screen's own.
 - **Web** (`web/src/types.js`): no topic changes.
@@ -371,12 +509,15 @@ already sent and live.
     even-odd rule), or undefined. `widthSegments` and `widthMetres` (spec
     0011) moved here from `vehicleTools.js`, which the trail needs too.
   - `data/coverage.js` (new, beside `rates.js` and fed the same way):
-    - **When it records:** while a tool works. That's the same rule as
-      Area: lowered or turned on, moving faster than 0.5 km/h, with a
-      `workWidth`.
-    - **What it records:** for the field under the rig, the rig's path
-      as segments at that width, with the side sections that are off
-      left out (spec 0011's `width`).
+    - **When it records:** while a tool works, by `isWorking` (revision 3,
+      Area's rule too): on if it can turn on, lowered if it can lower, by
+      its `turnedOn` with neither, never loader gear; without the cab's
+      entry, lowered or on. And moving faster than 0.5 km/h, on a field of
+      yours (`ownFieldAt`), with a band.
+    - **What it records:** for the field under the rig, the rig's path as
+      segments, a run per band (`bandsOf`): a sprayer's sections that are
+      on (spec 0011's `width`), else each work area (`workSpans`, those
+      that touch or overlap as one), else `workWidth` on the track.
     - **The percentage:** the share of the field's 2 m cells under any
       segment, so passes that overlap count once.
     - **Its limits:** in memory only, at most 20,000 points per field
@@ -403,15 +544,18 @@ already sent and live.
     - Field rows: `fieldNeeds` and the growth stages from
       `fieldInfoPanel.js`.
 
-No game API names are new. The values above are read through names that
-are already verified:
+The values above are read through names that are already verified, but
+for revision 3's work areas:
 - `workWidth` from `getAIWorkAreaWidth`: THEMES.md, Implement screen as
   built; live in spec 0003's mowers.
 - The field outlines from `polygonPoints`: DONE.md, Phase 4, mod 0.4.0.
+- A farmland's `farmId`: DONE.md, Phase 0.
 
 | Name | Where from | State |
 |---|---|---|
-| (none new) | | |
+| `spec_workArea.workAreas[i].start`, `.width`, `.height` (nodes), `.type` | WorkArea.lua (the game's source) | unverified live: revision 3's live check |
+| `localToLocal(node, root, 0, 0, 0)`, its x (GIANTS' +x left) | engine; `Api.localX` | the call is used in Rig.lua; the sign unverified: the live check's sections |
+| `g_workAreaTypeManager:getWorkAreaTypeIsAIArea(type)` | WorkArea.lua (`getAIWorkAreaWidth`) | unverified live |
 
 ## Commands
 
@@ -477,6 +621,12 @@ None new.
     of it shows (0.14 by day, 1 at night); `--on-fill` for what's on and
     isn't a control; `--work-badge`, `--work-badge-ink`,
     `--work-badge-ring` for a working badge.
+  - Revision 3 (2026-11-07): `Tools.lua`'s `workSpansOf` and
+    `Api.localX` (mod 0.14.0); `selectors.js`'s `isWorking`, `bandsOf`,
+    `sectionBand` (coverage's `bandOf`, moved), `isOwnField` and
+    `ownFieldAt`; `coverage.js` a run per band; `rates.js` Area by
+    `isWorking` over the bands' width; `fieldPanel.js` lets the field go
+    past its view and says "Not on your field".
 - **Risks:**
   - the "on" look changes on every screen (Map, Harvester, Loader);
   - the field panel and three cards at 1133×744 (iPad mini);
@@ -500,8 +650,9 @@ Automated (each one a test that exists before the work is called built):
 - [x] `web/test.html`, field panel:
   - its viewBox is the field's bounds plus 15 % (at least 25 m since
     revision 2);
-  - off the field the last field stays (revision 2; "Not on a field"
-    before), with no field yet "Not on a field";
+  - off the field, inside its margin, the field stays (revision 2; past
+    it "Not on your field" since revision 3), with no field yet "Not on
+    your field";
   - the Needs chips match `fieldNeeds`;
   - no percentage without a trail.
 - [x] `web/test.html`, the page:
@@ -535,8 +686,8 @@ Live check (in game; Solek):
   - the strip shows the three in order, the Vantage selected;
   - pressing G in game moves the ring to the next tile;
   - the bottom bar shows speed, gear, fuel, DEF, wear and temperature;
-  - the panel says "Not on a field".
-- [ ] **Drive into a field:** the panel switches to it, with its number,
+  - the panel says "Not on your field" (revision 3).
+- [x] **Drive into a field:** the panel switches to it, with its number,
   crop and needs as the game's PDA field info shows them.
 - [ ] **Unfold, Turn on and spray two passes,** one with two sections
   off:
@@ -544,13 +695,13 @@ Live check (in game; Solek):
     narrower;
   - "≈ % of the field" is close to the share the game's map shows
     sprayed.
-- [ ] **Detach the Vantage:** its card and its trail go; the W 600 stays
+- [x] **Detach the Vantage:** its card and its trail go; the W 600 stays
   under Also attached.
 - [ ] **Samasz KDF 341 S front and XT 390 rear, mowing:**
   - All tools is in the column;
   - Raise all, Fold all and Turn off all act as today's All row did;
   - the trail is pale yellow.
-- [ ] **At night,** on every screen: nothing on screen is yellow (the
+- [x] **At night,** on every screen: nothing on screen is yellow (the
   orange "until full" aside); "on" buttons and the field number badges
   are steel grey. **By day,** "on" buttons are outlined.
 
@@ -568,10 +719,16 @@ Made while drafting; the review or the live check can change them.
 - **The trail lives in the viewer's memory,** like Area: it starts when
   the page opens and goes on a reload or a detach (Vincent, 2026-11-03:
   not kept by the companion).
-- **Off a field, the panel keeps the last field** (revision 2, Vincent,
-  2026-11-07). It showed the map around the rig before (Vincent,
-  2026-11-03), which needed the map image; the last field also keeps a
+- **Off a field, the panel keeps the field while the rig is in its view**
+  (revision 3, Vincent, 2026-11-07). Revision 2 kept the last field
+  however far the rig went; before that it showed the map around the rig
+  (2026-11-03), which needed the map image. The view's margin keeps a
   headland turn from changing the panel.
+- **Only your fields** (revision 3, Vincent, 2026-11-07): contracts and
+  helping another farm come in a spec of their own.
+- **A tool works when everything it has says so** (revision 3): fold isn't
+  part of it, since some tools lower through their fold, and a folded
+  sprayer can't be turned on.
 - **The bottom bar's readout:** speed, gear, fuel, DEF, wear and engine
   temperature. Rpm, fuel usage and cruise stay on the Map screen.
 - **The Loader page** takes the same strip and readout, so the band is
@@ -642,3 +799,28 @@ page's memory; off a field the panel shows the map around the rig.
   lost their background, border and padding, and every rule after them
   (Engine two columns wide, the compact layouts) was dropped. Fixed;
   `tests/test_theme_css.py` now fails on a style rule inside another.
+- 2026-11-07: Vincent ran the live check on Solek (no livewatch; the
+  stream had rotated by the time we looked). Passed: drive into a field
+  (number, crop, needs as the PDA), detach the Vantage, day and night on
+  every screen; mowing: All tools in the column, Raise, Fold and Turn off
+  all. Not passed:
+  - The panel takes any field, ours or not, and keeps the last one however
+    far the rig drives off it (revision 2's rule), so "Not on a field"
+    never comes back.
+  - The trail drew with the Vantage folded and not spraying. The cause, in
+    the game's Lua: the mod reads `getIsLowered(true)`, and for a tool on
+    a joint that doesn't lower (a trailed sprayer)
+    `Attachable:getIsLowered` returns that default, so the Vantage always
+    reads lowered and "lowered or turned on" holds.
+  - The rear mower (the butterfly behind the T7.300) left no trail of its
+    own: `workWidth` is `getAIWorkAreaWidth`, the widest single work area,
+    and the band sits on the rig's track, so its two side wings were never
+    drawn and the middle merged with the front mower's band.
+  The three are revision 3 (drafted the same day).
+- 2026-11-07: revision 3 approved and built (mod 0.14.0): only your
+  fields, the field let go past the panel's view, "Not on your field";
+  `isWorking` for the trail and Area; a band per work area (`workSpans`).
+  test.html all green (four new checks, the panel's off-field checks
+  moved inside the margin), pytest 120, the golden unchanged; in the pane
+  a butterfly behind a T7 leaves two wings and an unmown middle, day and
+  night. The live check is Vincent's (the revision's three boxes).

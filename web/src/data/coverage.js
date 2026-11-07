@@ -4,21 +4,21 @@
 // the rig's path, each tool's working width and the cab's state, never the
 // game's own sprayed or mowed map.
 //
-// Fed as rates.js is (the vehicles topic). A tool records while it works,
-// by Area's rule: lowered (not loader gear) or turned on, the rig faster
-// than 0.5 km/h, with a working width. Its band is the sections that are on
-// (specs/0011's width), so a narrower pass is narrower and shifted to the
-// side still on. The share of a field done counts its 2 m cells under any
-// band, so passes that overlap count once.
+// Fed as rates.js is (the vehicles topic). A tool records while it works
+// (selectors' isWorking, as Area: on if it turns on, lowered if it lowers),
+// the rig faster than 0.5 km/h, on a field of yours (revision 3). Its bands
+// are bandsOf's: a sprayer's sections that are on (specs/0011), so a
+// narrower pass is narrower and shifted to the side still on; else each of
+// its work areas (a butterfly mower's wings), else its working width. A
+// band is a run of its own. The share of a field done counts its 2 m cells
+// under any band, so passes that overlap count once.
 //
 // In memory only, in world metres. At most 20,000 points a field: past
 // that the oldest runs lose every other point (the share is kept in the
 // cells, so it doesn't change). A tool's trail goes when it's detached, and
 // everything when you change vehicles or get out, as Area does.
 
-import {
-  cabOf, controlledVehicle, fieldAt, implementsOf, isLoaderGear, outlineBounds, rigEntry, widthMetres, widthSegments,
-} from "./selectors.js";
+import { bandsOf, cabOf, controlledVehicle, implementsOf, isWorking, outlineBounds, ownFieldAt, rigEntry } from "./selectors.js";
 
 export const CELL_M = 2;
 export const MAX_POINTS = 20000;
@@ -28,7 +28,6 @@ const MAX_STEP_M = 30;
 const RUN_POINTS = 500;
 const MIN_KMH = 0.5;
 
-/** @typedef {import("../types.js").RigWidth} RigWidth */
 /** @typedef {import("../types.js").FieldOutline} FieldOutline */
 /**
  * One run: a band of one width along its middle line, x and z in turn.
@@ -51,28 +50,6 @@ const MIN_KMH = 0.5;
  * @property {number} points
  * @property {number} version changes with its trails
  */
-
-/**
- * The band across the track: how wide, and how far its middle sits to the
- * right of the rig's track (negative: left), from the sections that are on;
- * the whole working width without sections.
- * @param {RigWidth|undefined} w
- * @param {number} workWidth metres
- * @returns {{w: number, o: number}}
- */
-export function bandOf(w, workWidth) {
-  if (!w) return { w: workWidth, o: 0 };
-  const on = widthSegments(w);
-  if (!on.length) return { w: workWidth, o: 0 };
-  const metres = widthMetres(w) ? /** @type {number[]} */ (w.sections) : on.map(() => workWidth / on.length);
-  const all = metres.reduce((a, b) => a + b, 0);
-  const first = on.indexOf(true);
-  const last = on.lastIndexOf(true);
-  if (first < 0) return { w: 0, o: 0 };
-  const from = metres.slice(0, first).reduce((a, b) => a + b, 0);
-  const to = metres.slice(0, last + 1).reduce((a, b) => a + b, 0);
-  return { w: to - from, o: (from + to) / 2 - all / 2 };
-}
 
 /**
  * A field's cells: those whose middle is inside its outline (even-odd, a
@@ -150,9 +127,13 @@ function quadCells(grid, cell, q, each) {
 export function createCoverage(store, { maxPoints = MAX_POINTS, cell = CELL_M } = {}) {
   /** @type {Map<number, FieldCover>} */
   const fields = new Map();
-  /** where each tool's open run is: its field, the rig's last spot and band */
-  /** @type {Map<number, {field: number, x: number, z: number, w: number, o: number, run: Run}>} */
+  /** where each band's open run is ("tool/band"): its field, the rig's last spot and band */
+  /** @type {Map<string, {field: number, x: number, z: number, w: number, o: number, run: Run}>} */
   const open = new Map();
+  /** forget a tool's open runs @param {number} id */
+  const close = (id) => {
+    for (const key of open.keys()) if (key.startsWith(`${id}/`)) open.delete(key);
+  };
   /** @type {unknown} */
   let vehicleId;
   /** @type {unknown} */
@@ -212,7 +193,7 @@ export function createCoverage(store, { maxPoints = MAX_POINTS, cell = CELL_M } 
 
   /** Forget a tool: its trail on every field. @param {number} id */
   function drop(id) {
-    open.delete(id);
+    close(id);
     for (const f of fields.values()) {
       const t = f.trails.get(id);
       if (!t) continue;
@@ -242,17 +223,15 @@ export function createCoverage(store, { maxPoints = MAX_POINTS, cell = CELL_M } 
     const cab = cabOf(store);
     const x = /** @type {any} */ (v).x, z = /** @type {any} */ (v).z;
     const heading = /** @type {any} */ (v).heading;
-    const outline = typeof x === "number" && typeof z === "number" ? fieldAt(store, x, z) : undefined;
+    const outline = typeof x === "number" && typeof z === "number" ? ownFieldAt(store, x, z) : undefined;
     for (const impl of implementsOf(v)) {
       if (typeof impl.id !== "number") continue;
       const id = impl.id;
       ids.add(id);
       const entry = rigEntry(cab, id);
-      const state = entry || impl;
-      const working = (state.lowered && !isLoaderGear(entry, impl)) || state.turnedOn;
-      const wide = typeof impl.workWidth === "number" && impl.workWidth > 0;
-      if (!outline || !working || !wide || !((v.speed ?? 0) > MIN_KMH)) {
-        open.delete(id);
+      const bands = bandsOf(impl, entry).filter((b) => b.w > 0);
+      if (!outline || !isWorking(entry, impl) || !bands.length || !((v.speed ?? 0) > MIN_KMH)) {
+        close(id);
         continue;
       }
       const f = coverOf(outline);
@@ -261,34 +240,38 @@ export function createCoverage(store, { maxPoints = MAX_POINTS, cell = CELL_M } 
         t = { tool: id, kind: /MOWER/i.test(impl.category || "") ? "mow" : "work", runs: [], cells: new Uint8Array(f.mask.length) };
         f.trails.set(id, t);
       }
-      const band = bandOf(entry?.width, /** @type {number} */ (impl.workWidth));
-      const last = open.get(id);
-      const h = typeof heading === "number" ? (heading * Math.PI) / 180
-        : last ? Math.atan2(x - last.x, -(z - last.z)) : 0;
-      // the band's middle: o metres to the right of the track
-      const mid = (/** @type {number} */ o) => [x + o * Math.cos(h), z + o * Math.sin(h)];
-      const here = mid(band.o);
-      const joined = last && last.field === outline.id && Math.hypot(x - last.x, z - last.z) <= MAX_STEP_M;
-      let run = joined ? /** @type {NonNullable<typeof last>} */ (last).run : undefined;
-      if (run && (run.w !== band.w || run.o !== band.o || run.pts.length / 2 >= RUN_POINTS)) {
-        // a new width (or a long run): a new run from the last spot
-        const prev = /** @type {NonNullable<typeof last>} */ (last);
-        const from = band.o === run.o ? run.pts.slice(-2)
-          : [prev.x + band.o * Math.cos(h), prev.z + band.o * Math.sin(h)];
-        run = { w: band.w, o: band.o, pts: from, seq: ++seq };
-        t.runs.push(run);
+      // the bands this message: any beyond them close
+      for (const key of open.keys()) if (key.startsWith(`${id}/`) && Number(key.slice(key.indexOf("/") + 1)) >= bands.length) open.delete(key);
+      bands.forEach((band, i) => {
+        const trail = /** @type {Trail} */ (t);
+        const key = `${id}/${i}`;
+        const last = open.get(key);
+        const h = typeof heading === "number" ? (heading * Math.PI) / 180
+          : last ? Math.atan2(x - last.x, -(z - last.z)) : 0;
+        // the band's middle: o metres to the right of the track
+        const here = [x + band.o * Math.cos(h), z + band.o * Math.sin(h)];
+        const joined = last && last.field === outline.id && Math.hypot(x - last.x, z - last.z) <= MAX_STEP_M;
+        let run = joined ? /** @type {NonNullable<typeof last>} */ (last).run : undefined;
+        if (run && (run.w !== band.w || run.o !== band.o || run.pts.length / 2 >= RUN_POINTS)) {
+          // a new width (or a long run): a new run from the last spot
+          const prev = /** @type {NonNullable<typeof last>} */ (last);
+          const from = band.o === run.o ? run.pts.slice(-2)
+            : [prev.x + band.o * Math.cos(h), prev.z + band.o * Math.sin(h)];
+          run = { w: band.w, o: band.o, pts: from, seq: ++seq };
+          trail.runs.push(run);
+          f.points += 1;
+        }
+        if (!run) {
+          run = { w: band.w, o: band.o, pts: [], seq: ++seq };
+          trail.runs.push(run);
+        }
+        const prevPt = run.pts.length ? run.pts.slice(-2) : undefined;
+        run.pts.push(here[0], here[1]);
         f.points += 1;
-      }
-      if (!run) {
-        run = { w: band.w, o: band.o, pts: [], seq: ++seq };
-        t.runs.push(run);
-      }
-      const prevPt = run.pts.length ? run.pts.slice(-2) : undefined;
-      run.pts.push(here[0], here[1]);
-      f.points += 1;
-      if (prevPt) paint(f, t, prevPt, here, band.w);
+        if (prevPt) paint(f, trail, prevPt, here, band.w);
+        open.set(key, { field: outline.id, x, z, w: band.w, o: band.o, run });
+      });
       f.version++;
-      open.set(id, { field: outline.id, x, z, w: band.w, o: band.o, run });
       if (f.points > maxPoints) merge(f);
     }
     // detached: its trail is over

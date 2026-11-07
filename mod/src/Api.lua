@@ -68,3 +68,16 @@ function Api.fieldId(field)
     end
     return type(id) == "number" and id or nil
 end
+
+-- a node's x in another node's frame (the engine's localToLocal), or nil;
+-- for the work areas' spans (specs/0013 revision 3, unverified there)
+function Api.localX(node, toNode)
+    if localToLocal == nil or node == nil or toNode == nil then
+        return nil
+    end
+    local ok, x = pcall(localToLocal, node, toNode, 0, 0, 0)
+    if not ok or type(x) ~= "number" or x ~= x then
+        return nil
+    end
+    return x
+end

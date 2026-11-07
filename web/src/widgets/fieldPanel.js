@@ -10,14 +10,16 @@
 // - Under it: the field's number and area, its crop and stage over a bar of
 //   its stages, what it needs (the Map's field panel's words) and how much
 //   of it this run has done, while there's a trail.
-// Off a field the last field stays, until another field; with none yet,
-// "Not on a field". Hidden on foot and with three working tools or more:
+// Only fields your farm owns (revision 3). Off the field it stays while the
+// rig is inside the panel's view (the field plus its margin), so a headland
+// turn keeps it; past that, or with none yet, "Not on your field". Hidden on foot and with three working tools or more:
 // their cards need the width.
 // A vehicles message writes nothing in the outline and adds no element: it
 // paints a stretch, moves the arrow and changes the % when it moves.
 
-import { cabOf, cardsOf, controlledVehicle, fieldAt, implementById, outlineBounds, screenRig, widthMetres, widthSegments }
-  from "../data/selectors.js";
+import {
+  cabOf, cardsOf, controlledVehicle, implementById, isOwnField, outlineBounds, ownFieldAt, screenRig, widthMetres, widthSegments,
+} from "../data/selectors.js";
 import { coverageOf } from "../data/coverage.js";
 import { cropCatalog, cropName, growthClass } from "../map/fieldStyle.js";
 import { fieldNeeds, growthProgress } from "../panels/fieldInfoPanel.js";
@@ -154,7 +156,7 @@ export function fieldPanel(store, opts = {}) {
 
   /** the vehicle the field is held for: another one starts with none */
   let vehicleId = /** @type {unknown} */ (undefined);
-  /** the field shown: the last one the rig was in */
+  /** the field shown: the last of yours the rig was in, while it's in its view */
   let heldId = /** @type {number|undefined} */ (undefined);
   /** the outline drawn, and its view */
   let shown = /** @type {FieldOutline|undefined} */ (undefined);
@@ -312,8 +314,15 @@ export function fieldPanel(store, opts = {}) {
     if (hide || !v) return;
     const x = /** @type {any} */ (v).x, z = /** @type {any} */ (v).z;
     const placed = typeof x === "number" && typeof z === "number";
-    const here = placed ? fieldAt(store, x, z) : undefined;
+    const here = placed ? ownFieldAt(store, x, z) : undefined;
     if (here) heldId = here.id;
+    else if (heldId !== undefined) {
+      // off the field: kept inside its view (a headland turn), let go past it
+      const held = outlineById(store, heldId);
+      const box = held && (held === shown && view ? view : fieldView(held.points));
+      const inView = !!box && placed && x >= box[0] && x <= box[0] + box[2] && z >= box[1] && z <= box[1] + box[3];
+      if (!inView || !isOwnField(store, heldId)) heldId = undefined;
+    }
     const outline = outlineById(store, heldId);
 
     // the outline: written only when the field changes
@@ -339,7 +348,7 @@ export function fieldPanel(store, opts = {}) {
     const info = JSON.stringify([outline?.id, field, units, catalog.fruits.size]);
     if (info !== lastInfo) {
       lastInfo = info;
-      title.textContent = outline ? `Field ${outline.id}` : "Not on a field";
+      title.textContent = outline ? `Field ${outline.id}` : "Not on your field";
       area.textContent = typeof field?.areaHa === "number" ? areaText(field.areaHa, units) : "";
       const growing = field && typeof field.fruitTypeIndex === "number";
       cropRow.hidden = !growing;
@@ -375,6 +384,6 @@ export function fieldPanel(store, opts = {}) {
     boxH = height;
     paint();
   });
-  for (const key of ["vehicles", "cab", "fields", "field_outlines", "crop_types"]) store.subscribe(key, render);
+  for (const key of ["vehicles", "cab", "fields", "farmlands", "field_outlines", "crop_types"]) store.subscribe(key, render);
   return root;
 }

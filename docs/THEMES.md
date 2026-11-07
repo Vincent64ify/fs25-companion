@@ -1411,6 +1411,8 @@ The Vehicle page gives every part one job, after the canvas
   yellow for mowers) under it; the rig as a dark dot with a white ring and
   a heading arrow, a sprayer's boom; then the field's number, area, crop,
   stage bar, needs as chips and "This run ≈ 54 % of the field".
+  Revision 3: only your fields, and "Not on your field" past the view's
+  margin; a band per work area, so a butterfly mower draws two wings.
 - **Bottom bar:** the tractor's numbers, as on the Map screen.
 - **Compact:** one column, the strip scrolling sideways, the cards, the
   field panel 240 tall (the outline beside the rows), the column docked under.

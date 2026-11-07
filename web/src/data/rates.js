@@ -10,7 +10,7 @@
 // samples, when the line fits badly (unsteady: a refill, stop and go) or
 // when the level barely moves.
 
-import { controlledVehicle, implementsOf, isLoaderGear, rigEntry, cabOf } from "./selectors.js";
+import { bandsOf, cabOf, controlledVehicle, implementsOf, isWorking, rigEntry } from "./selectors.js";
 
 export const RATE_WINDOW_MS = 60000;
 export const RATE_MIN_SPAN_MS = 20000;
@@ -129,11 +129,12 @@ export function createRates(store, now = () => performance.now()) {
       sample(impl.id, impl.fills);
       if (typeof impl.id !== "number") continue;
       ids.add(impl.id);
-      // working: lowered, or turned on (a sprayer), as the cab has it now
-      const state = rigEntry(cab, impl.id) || impl;
-      const working = (state.lowered && !isLoaderGear(rigEntry(cab, impl.id), impl)) || state.turnedOn;
-      if (working && impl.workWidth && impl.workWidth > 0 && (v.speed ?? 0) > 0.5 && dt > 0) {
-        const ha = ((v.speed ?? 0) / 3.6) * (dt / 1000) * impl.workWidth / 10000;
+      // working as the cab has it now (selectors' isWorking), over its
+      // bands' width: a butterfly mower's wings both count (specs/0013)
+      const entry = rigEntry(cab, impl.id);
+      const width = bandsOf(impl, entry).reduce((sum, b) => sum + b.w, 0);
+      if (isWorking(entry, impl) && width > 0 && (v.speed ?? 0) > 0.5 && dt > 0) {
+        const ha = ((v.speed ?? 0) / 3.6) * (dt / 1000) * width / 10000;
         areas.set(impl.id, (areas.get(impl.id) || 0) + ha);
       }
     }
