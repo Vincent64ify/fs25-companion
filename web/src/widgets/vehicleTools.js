@@ -25,7 +25,7 @@
 import {
   MORE_CAPABILITIES, allActions, alsoAttached, buttonCapsOf, cabOf, cardsOf, controlledVehicle, entryModel, fillMax,
   fillName, fillPct, fillStop, fillsOf, foldingText, implementById, kindLabel, lowersInRig, moreCount, screenRig, vehicleKind,
-  widthMetres, widthSegments,
+  sectionsSpraying, widthMetres, widthSegments,
 } from "../data/selectors.js";
 import { areaText, lengthText, lengthUnit, lengthValue, speedUnit, speedValue, unitsOf } from "../data/units.js";
 import { minutesText, ratesOf, timeLeft } from "../data/rates.js";
@@ -337,17 +337,19 @@ export { widthMetres, widthSegments };
 
 /**
  * "8 / 9 sections · 30 / 33 m" (Vincent, 2026-11-01); the sections alone
- * until the mod has their widths.
+ * until the mod has their widths. The sections counted: those spraying,
+ * else those set by hand (specs/0013 revision 4).
  * @param {RigWidth} w
  * @param {import("../data/units.js").Units} units
+ * @param {boolean[]} [on]
  */
-export function widthLine(w, units) {
-  const on = widthSegments(w);
+export function widthLine(w, units, on = widthSegments(w)) {
   const sections = `${on.filter(Boolean).length} / ${on.length} sections`;
   const m = widthMetres(w);
   if (!m) return sections;
+  const used = /** @type {number[]} */ (w.sections).reduce((sum, x, i) => sum + (on[i] ? x : 0), 0);
   const n = (/** @type {number} */ x) => Math.round(lengthValue(x, units));
-  return `${sections} · ${n(m.used)} / ${n(m.all)} ${lengthUnit(units)}`;
+  return `${sections} · ${n(used)} / ${n(m.all)} ${lengthUnit(units)}`;
 }
 
 /**
@@ -520,11 +522,11 @@ function widthBlock(send, onWhy) {
      * @param {RigWidth|undefined} w
      * @param {ToolButton[]} four
      * @param {import("../data/units.js").Units} units
+     * @param {boolean[]} [on] the sections lit: spraying, else set by hand (specs/0013 revision 4)
      */
-    render(w, four, units) {
+    render(w, four, units, on = w ? widthSegments(w) : []) {
       el.hidden = !w;
       if (!w) return;
-      const on = widthSegments(w);
       const key = on.join();
       if (key !== lastStrip) {
         lastStrip = key;
@@ -534,7 +536,7 @@ function widthBlock(send, onWhy) {
           return seg;
         }));
       }
-      line.textContent = widthLine(w, units);
+      line.textContent = widthLine(w, units, on);
       buttons.el.hidden = four.length === 0;
       buttons.set(four);
     },
@@ -685,7 +687,9 @@ function toolCard(send) {
       const all = toolButtons(e);
       more.render(model, moreCount(e), all.filter((b) => b.more), compact);
       buttons.set(all.filter((b) => !b.more && !b.key.startsWith("width:")), more.tile());
-      width.render(e.width, compact ? [] : all.filter((b) => b.key.startsWith("width:")), units);
+      // the sections the nozzles spray while on, else those set by hand (specs/0013 revision 4)
+      width.render(e.width, compact ? [] : all.filter((b) => b.key.startsWith("width:")), units,
+        sectionsSpraying(e, implementById(v, e.id)));
       const rows = tankRows(rigTanks([e], v, rates));
       const tKey = JSON.stringify(rows);
       if (tKey !== lastTanks) {

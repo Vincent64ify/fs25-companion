@@ -125,6 +125,78 @@ local function workSpansOf(object, root)
     return spans
 end
 
+-- Precision Farming's nozzles (its ExtendedSprayerEffects): the table is
+-- named after the mod ("spec_<mod>.extendedSprayerEffects"), so its key is
+-- found once and kept, as the yield's is. Nil without Precision Farming.
+local nozzleKey
+local function nozzlesOf(object)
+    if nozzleKey == nil then
+        for key, value in pairs(object) do
+            if type(key) == "string" and key:find("^spec_") and key:lower():find("extendedsprayereffects$")
+                and type(value) == "table" then
+                nozzleKey = key
+                break
+            end
+        end
+    end
+    local spec = nozzleKey ~= nil and object[nozzleKey] or nil
+    if type(spec) ~= "table" or type(spec.sprayerEffects) ~= "table" then
+        return nil
+    end
+    return spec.sprayerEffects
+end
+
+-- what the boom sprays now (specs/0013 revision 4): the stretches whose
+-- Precision Farming nozzles are on (effectData.isActive, each frame by
+-- spot spraying, pulse width modulation or a whole section), {from, to}
+-- metres right of the controlled vehicle's centre line as workSpansOf's.
+-- A nozzle covers half the gap to each neighbour, the boom's ends the gap
+-- to the one beside. {} when none is on; nil without the nozzles
+-- (Precision Farming off, a tool without them): the web then goes by the
+-- sections set by hand. The names are unverified (the revision's live check).
+local function spraySpansOf(object, root)
+    local rootNode = type(root) == "table" and root.rootNode or nil
+    if object.spec_sprayer == nil or rootNode == nil then
+        return nil
+    end
+    local effects = nozzlesOf(object)
+    if effects == nil then
+        return nil
+    end
+    local nozzles = {}
+    for _, effect in pairs(effects) do
+        if type(effect) == "table" and effect.effectNode ~= nil then
+            local x = Api.localX(effect.effectNode, rootNode)
+            if x ~= nil then
+                nozzles[#nozzles + 1] = { at = -x, on = effect.isActive == true }
+            end
+        end
+    end
+    local n = #nozzles
+    if n == 0 then
+        return nil
+    end
+    table.sort(nozzles, function(a, b) return a.at < b.at end)
+    local spans = {}
+    for i, nozzle in ipairs(nozzles) do
+        if nozzle.on then
+            local before = i > 1 and (nozzle.at - nozzles[i - 1].at) / 2 or (n > 1 and (nozzles[2].at - nozzle.at) / 2 or 0.25)
+            local after = i < n and (nozzles[i + 1].at - nozzle.at) / 2 or (n > 1 and (nozzle.at - nozzles[n - 1].at) / 2 or 0.25)
+            local from, to = nozzle.at - before, nozzle.at + after
+            local last = spans[#spans]
+            if last ~= nil and from <= last[2] + 1e-6 then
+                last[2] = to
+            else
+                spans[#spans + 1] = { from, to }
+            end
+        end
+    end
+    for _, span in ipairs(spans) do
+        span[1], span[2] = Geo.round(span[1], 1), Geo.round(span[2], 1)
+    end
+    return spans
+end
+
 -- a combine's crop: the last fruit it took in, as its fill type
 -- ({name = "wheat", title = "Wheat"}); nil before it has harvested
 local function cropOf(object)
@@ -211,6 +283,7 @@ local function collectImplements(vehicle, depth, out, root)
                 speedLimit = speedLimitOf(object),
                 workWidth = workWidthOf(object),
                 workSpans = workSpansOf(object, root),
+                spraySpans = spraySpansOf(object, root),
                 crop = cropOf(object),
             }
             if depth < MAX_IMPLEMENT_DEPTH then

@@ -236,10 +236,12 @@ export const mainFill = (fills) => fills.find((f) => f.level > 0) || fills[0];
  * pto missing for an implement without one.
  * speedLimit (km/h), workWidth (m) and crop since the Implement screen;
  * workSpans since mod 0.14.0: each work area's [from, to], metres right of
- * the rig's centre line (specs/0013 revision 3).
+ * the rig's centre line (specs/0013 revision 3); spraySpans since 0.15.0:
+ * the stretches Precision Farming's nozzles spray, the same way ([] when
+ * none; absent without its nozzles: revision 4).
  * @typedef {{id?: number, name?: string, brand?: string, typeName?: string, category?: string, categoryTitle?: string,
  *   depth?: number, lowered?: boolean, turnedOn?: boolean, wear?: number, pto?: boolean,
- *   hitch?: number, fills?: Fill[], speedLimit?: number, workWidth?: number, workSpans?: number[][],
+ *   hitch?: number, fills?: Fill[], speedLimit?: number, workWidth?: number, workSpans?: number[][], spraySpans?: number[][],
  *   crop?: {name?: string, title?: string}}} Implement
  */
 
@@ -395,6 +397,8 @@ export function isWorking(entry, impl) {
 /**
  * The bands a working tool covers across the rig (specs/0013 revision 3),
  * each {w: metres wide, o: its middle, metres right of the track}:
+ * - what Precision Farming's nozzles spray (spraySpans, revision 4), none
+ *   when none sprays;
  * - with sections (a sprayer's width), the sections that are on, across
  *   its working width (specs/0011);
  * - else its work areas (workSpans), those that touch or overlap as one: a
@@ -407,23 +411,63 @@ export function isWorking(entry, impl) {
  */
 export function bandsOf(impl, entry) {
   const width = typeof impl?.workWidth === "number" && impl.workWidth > 0 ? impl.workWidth : undefined;
+  if (Array.isArray(impl?.spraySpans)) return spanBands(impl.spraySpans);
   const w = /** @type {any} */ (entry)?.width;
   if (w && width && widthSegments(w).length) return [sectionBand(w, width)];
-  const spans = (Array.isArray(impl?.workSpans) ? /** @type {number[][]} */ (impl?.workSpans) : [])
+  const bands = spanBands(impl?.workSpans);
+  if (bands.length) return bands;
+  return width ? [{ w: width, o: 0 }] : [];
+}
+
+/**
+ * Spans across the rig ([from, to] metres right of its centre line) as
+ * bands, those that touch or overlap as one.
+ * @param {unknown} list
+ * @returns {{w: number, o: number}[]}
+ */
+function spanBands(list) {
+  const spans = (Array.isArray(list) ? list : [])
     .filter((p) => Array.isArray(p) && typeof p[0] === "number" && typeof p[1] === "number" && p[1] > p[0])
     .map((p) => [p[0], p[1]])
     .sort((a, b) => a[0] - b[0]);
-  if (spans.length) {
-    /** @type {number[][]} */
-    const merged = [];
-    for (const p of spans) {
-      const last = merged[merged.length - 1];
-      if (last && p[0] <= last[1] + 1e-6) last[1] = Math.max(last[1], p[1]);
-      else merged.push(p);
-    }
-    return merged.map(([from, to]) => ({ w: to - from, o: (from + to) / 2 }));
+  /** @type {number[][]} */
+  const merged = [];
+  for (const p of spans) {
+    const last = merged[merged.length - 1];
+    if (last && p[0] <= last[1] + 1e-6) last[1] = Math.max(last[1], p[1]);
+    else merged.push(p);
   }
-  return width ? [{ w: width, o: 0 }] : [];
+  return merged.map(([from, to]) => ({ w: to - from, o: (from + to) / 2 }));
+}
+
+/**
+ * The boom's sections, left to right as widthSegments: while the tool is
+ * on and Precision Farming says what its nozzles spray (spraySpans), a
+ * section is lit when they cover a quarter of it (its metres from the
+ * game's section widths, else the working width split evenly, the boom
+ * centred on the rig); otherwise the sections set by hand (specs/0013
+ * revision 4).
+ * @param {import("../types.js").RigEntry|undefined} entry with its width
+ * @param {Implement|undefined} impl
+ * @returns {boolean[]}
+ */
+export function sectionsSpraying(entry, impl) {
+  const w = /** @type {any} */ (entry)?.width;
+  if (!w) return [];
+  const manual = widthSegments(w);
+  const spans = impl?.spraySpans;
+  if (/** @type {any} */ (entry).turnedOn !== true || !Array.isArray(spans)) return manual;
+  const all = typeof impl?.workWidth === "number" && impl.workWidth > 0 ? impl.workWidth : undefined;
+  const metres = widthMetres(w) ? /** @type {number[]} */ (w.sections) : all ? manual.map(() => all / manual.length) : undefined;
+  if (!metres) return manual;
+  let from = -metres.reduce((a, b) => a + b, 0) / 2;
+  return metres.map((m) => {
+    const a = from, b = from + m;
+    from = b;
+    const cover = spans.reduce((sum, p) => (Array.isArray(p) && typeof p[0] === "number" && typeof p[1] === "number"
+      ? sum + Math.max(0, Math.min(b, p[1]) - Math.max(a, p[0])) : sum), 0);
+    return m > 0 && cover >= m / 4;
+  });
 }
 
 /**

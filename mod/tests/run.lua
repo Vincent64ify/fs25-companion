@@ -1560,6 +1560,47 @@ test("vehicles topic: each work area's span across the rig (specs/0013 revision 
     g_workAreaTypeManager, g_localPlayer, g_currentMission = nil, nil, nil
 end)
 
+test("vehicles topic: what Precision Farming's nozzles spray (specs/0013 revision 4)", function()
+    loadVehicles()
+    getWorldTranslation = function() return 0, 0, 0 end
+    localDirectionToWorld = function() return 0, 0, -1 end
+    FillType = { UNKNOWN = 0 }
+    g_storeManager, g_brandManager, g_fillTypeManager, g_fruitTypeManager, g_workAreaTypeManager = nil, nil, nil, nil, nil
+    -- nine nozzles 3 m apart across a 27 m boom: node 200 + i at x = 12 - 3 (i - 1)
+    -- (GIANTS' +x left), the middle three on
+    localToLocal = function(node, to)
+        assert(to == 1, "into the tractor's root node")
+        return 12 - 3 * (node - 201), 0, 0
+    end
+    local effects = {}
+    for i = 1, 9 do
+        effects[i] = { effectNode = 200 + i, isActive = i >= 4 and i <= 6 }
+    end
+    local boom = { id = 41, typeName = "sprayer", getFullName = function() return "Boom" end, spec_sprayer = {},
+        ["spec_FS25_precisionFarming.extendedSprayerEffects"] = { sprayerEffects = effects } }
+    local spreader = { id = 42, typeName = "sprayer", getFullName = function() return "Spreader" end, spec_sprayer = {} }
+    local tractor = { id = 40, typeName = "tractor", rootNode = 1, spec_motorized = {},
+        getFullName = function() return "T7" end,
+        attached = { { object = boom }, { object = spreader } },
+        getAttachedImplements = function(self) return self.attached end }
+    for _, o in ipairs({ boom, spreader }) do
+        o.getAttacherVehicle = function() return tractor end
+    end
+    g_localPlayer = { getCurrentVehicle = function() return tractor end }
+    g_currentMission = { vehicleSystem = { vehicles = { tractor } } }
+    local collect = function() return Companion.Collectors.Vehicles.collect({}).vehicles[1].implements end
+    local impl = collect()
+    eq(Json.encode(impl[1].spraySpans), "[[-4.5,4.5]]", "the middle three nozzles: 9 m in the middle")
+    eq(impl[2].spraySpans, nil, "no Precision Farming nozzles")
+    effects[1].isActive, effects[9].isActive = true, true
+    eq(Json.encode(collect()[1].spraySpans), "[[-13.5,-10.5],[-4.5,4.5],[10.5,13.5]]", "the ends: the gap to the one beside")
+    for _, e in ipairs(effects) do
+        e.isActive = false
+    end
+    eq(Json.encode(collect()[1].spraySpans), "[]", "none on")
+    localToLocal, g_localPlayer, g_currentMission = nil, nil, nil
+end)
+
 test("harvester screen: straw, its key, worked area and Precision Farming's yield", function()
     load("src/collectors/Cab.lua")
     local Cab = Companion.Collectors.Cab

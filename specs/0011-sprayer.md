@@ -37,7 +37,9 @@ the vehicle's own card, with no Detach and no wear (the band has both).
   - a strip with one segment per section, left to right as seen from the
     cab, a side's outer sections off first, the middle one always on, the
     off ones grey with a dashed outline (as an unavailable control,
-    specs/0010);
+    specs/0010). Since spec 0013 revision 4: while the sprayer is on with
+    Precision Farming's nozzles, a section is lit while its nozzles spray,
+    and the line counts those;
   - under it, the sections and the width in use, both: "8 / 9 sections ·
     30 / 33 m" (Vincent, 2026-11-01). The metres need each section's width;
     until the mod has them, the line is "8 / 9 sections" alone, never an

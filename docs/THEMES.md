@@ -1413,6 +1413,8 @@ The Vehicle page gives every part one job, after the canvas
   stage bar, needs as chips and "This run ≈ 54 % of the field".
   Revision 3: only your fields, and "Not on your field" past the view's
   margin; a band per work area, so a butterfly mower draws two wings.
+  Revision 4: with Precision Farming's nozzles, the trail, the boom and the
+  card's section strip show what sprays.
 - **Bottom bar:** the tractor's numbers, as on the Map screen.
 - **Compact:** one column, the strip scrolling sideways, the cards, the
   field panel 240 tall (the outline beside the rows), the column docked under.

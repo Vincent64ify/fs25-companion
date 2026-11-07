@@ -18,7 +18,8 @@
 // paints a stretch, moves the arrow and changes the % when it moves.
 
 import {
-  cabOf, cardsOf, controlledVehicle, implementById, isOwnField, outlineBounds, ownFieldAt, screenRig, widthMetres, widthSegments,
+  cabOf, cardsOf, controlledVehicle, implementById, isOwnField, outlineBounds, ownFieldAt, screenRig, sectionsSpraying,
+  widthMetres,
 } from "../data/selectors.js";
 import { coverageOf } from "../data/coverage.js";
 import { cropCatalog, cropName, growthClass } from "../map/fieldStyle.js";
@@ -199,7 +200,14 @@ export function fieldPanel(store, opts = {}) {
     const dpr = window.devicePixelRatio || 1;
     const palette = document.documentElement.dataset.palette || "";
     if (fieldId === undefined || !view) {
-      if (painted.field !== undefined) ctx.clearRect(0, 0, canvas.width, canvas.height);
+      if (painted.field !== undefined) {
+        // out of the field's fit and clip first, or the clear lands in world
+        // metres near the map's origin and misses the trail
+        if (clipped) ctx.restore();
+        clipped = false;
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+      }
       painted.field = undefined;
       return;
     }
@@ -295,8 +303,9 @@ export function fieldPanel(store, opts = {}) {
   function boomOf(v) {
     const sprayer = screenRig(v, cabOf(store)).find((e) => e.width && e.unfolded !== false);
     if (!sprayer?.width) return undefined;
-    const on = widthSegments(sprayer.width);
-    const all = implementById(v, sprayer.id)?.workWidth;
+    const impl = implementById(v, sprayer.id);
+    const on = sectionsSpraying(sprayer, impl);
+    const all = impl?.workWidth;
     const metres = widthMetres(sprayer.width) ? /** @type {number[]} */ (sprayer.width.sections)
       : typeof all === "number" && all > 0 ? on.map(() => all / on.length) : undefined;
     return on.length && metres ? { on, metres } : undefined;

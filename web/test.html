@@ -2481,6 +2481,61 @@ check("calm (revision 3): bands from the work areas: two wings, the middle left;
   Math.round(wingRates.area(3) * 10000)],
   [[[3.1, 48], [3.1, 54]], true, [{ w: 6, o: 1 }], [{ w: 7, o: 1 }], [{ w: 10, o: 0 }], [], 620]);
 
+// revision 4: what Precision Farming's nozzles spray (spraySpans), and
+// without them the sections set by hand
+const allOn9 = { left: 4, leftMax: 4, right: 4, rightMax: 4, center: true };
+const segs = (on) => on.map((o) => (o ? "■" : "□")).join("");
+check("calm (revision 4): bandsOf: the nozzles spraying win over the sections and work areas; two stretches, two bands; none, "
+  + "no band; sectionsSpraying lights the sections they cover while on, the hand-set ones when off or without them", [
+  sel.bandsOf({ workWidth: 33, workSpans: [[-16.5, 16.5]], spraySpans: [[-5.5, 5.5]] }, { width: allOn9 }),
+  sel.bandsOf({ workWidth: 33, spraySpans: [[-16.5, -10], [2, 5.5]] }, undefined),
+  sel.bandsOf({ workWidth: 33, spraySpans: [] }, { width: allOn9 }),
+  segs(sel.sectionsSpraying({ turnedOn: true, width: allOn9 }, { workWidth: 33, spraySpans: [[-5.5, 5.5]] })),
+  segs(sel.sectionsSpraying({ turnedOn: true, width: { ...allOn9, sections: [3, 4, 4, 4, 3, 4, 4, 4, 3] } },
+    { workWidth: 33, spraySpans: [[-16.5, -9.5]] })),
+  segs(sel.sectionsSpraying({ turnedOn: false, width: { ...allOn9, left: 2 } }, { workWidth: 33, spraySpans: [] })),
+  segs(sel.sectionsSpraying({ turnedOn: true, width: { ...allOn9, left: 2 } }, { workWidth: 33 }))],
+  [[{ w: 11, o: 0 }], [{ w: 6.5, o: -13.25 }, { w: 3.5, o: 3.75 }], [], "□□□■■■□□□", "■■□□□□□□□", "□□■■■■■■■",
+    "□□■■■■■■■"]);
+const nozzled = (spraySpans) => {
+  const r = covRig({ tools: [{ ...vantage, spraySpans }], entries: [{ id: 2, can: ["fold", "turnOn", "detach"], turnedOn: true,
+    width: allOn9 }] });
+  r.pass(51);
+  const st = createStore();
+  let now = 0;
+  const ra = rt.createRates(st, () => now);
+  for (let i = 0; i <= 20; i++) {
+    now = i * 500;
+    st.set("vehicles", { controlledId: 1, vehicles: [{ id: 1, speed: 36, implements: [{ depth: 1, turnedOn: true, ...vantage,
+      spraySpans }] }] });
+  }
+  return [r.c.trails(1)[0]?.runs.map((run) => run.w) ?? [], near(r.c.percent(1) ?? 0, 11 * spraySpans.length, 2),
+    Math.round((ra.area(2) || 0) * 10000)];
+};
+check("calm (revision 4): three of nine sections spraying: one band a third wide, a third of the area; none spraying: nothing",
+  [nozzled([[-5.5, 5.5]]), nozzled([])], [[[11], true, 1100], [[], true, 0]]);
+// the card's strip and its line, and the panel's boom, from the nozzles
+const pfFix = JSON.parse(JSON.stringify(rigFix.sprayer));
+for (const v of pfFix.vehicles.vehicles) for (const i of v.implements || []) if (i.id === 1031) i.spraySpans = [[-5.5, 5.5]];
+for (const e of pfFix.cab.rig) if (e.id === 1031) e.turnedOn = true;
+const pfPage = toolsPage(pfFix.vehicles, pfFix.cab);
+const pfStrip = () => [...pfPage.cardsEl.querySelectorAll(".tool-width-seg")].map((e) => (e.dataset.on === "true" ? "■" : "□")).join("");
+const pfOn = [pfStrip(), q(pfPage.cardsEl, ".tool-width-line")];
+const pfPanelS = createStore();
+pfPanelS.set("field_outlines", { fields: [square100] });
+pfPanelS.set("fields", { fields: [{ id: 1, farmlandId: 1 }] });
+pfPanelS.set("farmlands", { farmlands: [{ id: 1, farmId: 1 }] });
+const pfPanel = fpw.fieldPanel(pfPanelS, { coverage: { trails: () => [], percent: () => undefined, version: () => 0 },
+  watchSize: (_el, cb) => cb(300, 300) });
+const pfVehicles = JSON.parse(JSON.stringify(pfFix.vehicles));
+for (const v of pfVehicles.vehicles) if (v.id === pfVehicles.controlledId) Object.assign(v, { x: 50, z: 50, heading: 90 });
+pfPanelS.set("cab", pfFix.cab);
+pfPanelS.set("vehicles", pfVehicles);
+const boomLit = () => pfPanel.querySelectorAll(".field-boom-on").length;
+const pfBoom = boomLit();
+check("calm (revision 4): the card's strip, its line and the panel's boom light the sections the nozzles spray", [pfOn, pfBoom],
+  [["□□□■■■□□□", "3 / 9 sections"], 3]);
+
 // the field panel: the field the rig is in, its number, area, crop, stage
 // and needs; "≈ % of the field" while there's a trail; off a field, the
 // last field stays (revision 2)
@@ -2522,9 +2577,10 @@ check("calm: field panel: the needs are the Map panel's words", fieldNeeds(field
 // field; the trail on a canvas, each message painting its newest stretch;
 // the arrow moved by a transform; nothing painted while the page is hidden
 const lightS = createStore();
-lightS.set("field_outlines", { fields: [square100, { id: 9, points: [200, 0, 300, 0, 300, 100, 200, 100] }] });
+const farField = { id: 11, points: [1000, 1000, 1100, 1000, 1100, 1100, 1000, 1100] };
+lightS.set("field_outlines", { fields: [square100, { id: 9, points: [200, 0, 300, 0, 300, 100, 200, 100] }, farField] });
 lightS.set("crop_types", { fruits: [wheatFruit], levels: { spray: 2 } });
-lightS.set("fields", { fields: [field1, { id: 9, farmlandId: 2 }] });
+lightS.set("fields", { fields: [field1, { id: 9, farmlandId: 2 }, { id: 11, farmlandId: 2 }] });
 lightS.set("farmlands", { farmlands: [{ id: 1, farmId: 1 }, { id: 2, farmId: 1 }] });
 lightS.set("hello", { mapId: "m" });
 lightS.set("mapAssets", { mapId: "m", hash: "h" });
@@ -2604,12 +2660,13 @@ check("calm (revision 2): field panel: off the field, inside its margin, it stay
 // still there; a field of another farm (or nobody's) is as off a field
 for (const x of [40, 45, 50]) lightAt(x, 50, 90, 1);
 const backTrail = lightCov.percent(1) !== undefined;
+const trailBefore = lightAlpha(45, 50);
 lightAt(124, 50);
 const inMargin = lightRows();
 lightAt(126, 50);
-const pastMargin = lightRows();
+const pastMargin = [...lightRows(), lightAlpha(45, 50)];
 lightAt(50, 50);
-const backRows = [...lightRows(), lightCov.percent(1) !== undefined];
+const backRows = [...lightRows(), lightCov.percent(1) !== undefined, lightAlpha(45, 50)];
 lightS.set("farmlands", { farmlands: [{ id: 1, farmId: 3 }, { id: 2, farmId: 1 }] });
 const theirBefore = lightCov.points(1);
 lightAt(55, 50);
@@ -2619,11 +2676,24 @@ const theirSame = lightCov.points(1) === theirBefore;
 lightS.set("farmlands", { farmlands: [{ id: 1, farmId: 0 }, { id: 2, farmId: 1 }] });
 lightAt(50, 50);
 const nobodyRows = lightRows();
-check("calm (revision 3): field panel: past the margin Not on your field; back on it the trail is still there; another farm's "
-  + "field or nobody's: Not on your field, no trail recorded", [backTrail, inMargin, pastMargin, backRows, theirRows,
+// a field far from the map's origin (Solek's are): leaving it empties the canvas too
+const farAlpha = (x, z) => {
+  const fit = fpw.fitView(fpw.fieldView(farField.points), 300, 300);
+  const dpr = lightCanvas.width / 300;
+  return lightCtx.getImageData(Math.round((fit.x0 + x * fit.k) * dpr), Math.round((fit.z0 + z * fit.k) * dpr), 1, 1).data[3];
+};
+for (const x of [1040, 1045, 1050]) lightAt(x, 1050);
+const farBefore = [q(light, ".field-title"), farAlpha(1045, 1050)];
+lightAt(1200, 1050);
+const farAfter = [q(light, ".field-title"), farAlpha(1045, 1050)];
+check("calm (revision 3): field panel: past the margin Not on your field and the trail's canvas empty; back on it the trail is "
+  + "still there; another farm's field or nobody's: Not on your field, no trail recorded", [backTrail, trailBefore, inMargin,
+  pastMargin, backRows, theirRows,
   theirSame, nobodyRows],
-  [true, ["Field 1", false, false], ["Not on your field", true, true], ["Field 1", false, false, true],
+  [true, 255, ["Field 1", false, false], ["Not on your field", true, true, 0], ["Field 1", false, false, true, 255],
     ["Not on your field", true, true], true, ["Not on your field", true, true]]);
+check("calm (revision 3): field panel: leaving a field far from the map's origin empties the trail's canvas", [farBefore, farAfter],
+  [["Field 11", 255], ["Not on your field", 0]]);
 check("calm: a tank emptying says how long it lasts; filling, when it's full", [tankRows([tank(500, 18, false)])[0].when,
   tankRows([tank(850, 4, true)])[0].when], ["≈ 18 min left", "full in ≈ 4 min"]);
 check("calm: theme check: a widget added to the column is checked", checkTheme({ id: "x", palettes: [], css: "",

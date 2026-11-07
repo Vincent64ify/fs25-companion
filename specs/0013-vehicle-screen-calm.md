@@ -1,7 +1,7 @@
 # 0013: Vehicle page, calm
 
-Status: built (live check run 2026-11-07: three boxes open); revision 2 live-checked on the iPad (a light field panel); revision 3 built, live check open (your fields, a trail only while working, every mower)
-Mod: 0.14.0 (revision 3; no change before) · Started: 2026-11-03 · Design: the canvas [FS25 Companion: Vehicle screen, calm](https://claude.ai/artifact/JApsdXjoSFwsddKv2kNYZ3) (private, on claude.ai; approved by Vincent on 2026-11-03), a THEMES.md section at build; specs [0003](0003-implement-screen.md) (the page), [0010](0010-tidy-states-and-motion.md) (the states), [0012](0012-card-buttons.md) (the buttons)
+Status: built (live check run 2026-11-07: three boxes open); revision 2 live-checked on the iPad (a light field panel); revision 3 live-checked but two boxes (your fields, a trail only while working, every mower); revision 4 built, live check open (what Precision Farming's nozzles spray)
+Mod: 0.15.0 (revision 4; 0.14.0 revision 3; no change before) · Started: 2026-11-03 · Design: the canvas [FS25 Companion: Vehicle screen, calm](https://claude.ai/artifact/JApsdXjoSFwsddKv2kNYZ3) (private, on claude.ai; approved by Vincent on 2026-11-03), a THEMES.md section at build; specs [0003](0003-implement-screen.md) (the page), [0010](0010-tidy-states-and-motion.md) (the states), [0012](0012-card-buttons.md) (the buttons)
 
 ## Goal
 
@@ -274,7 +274,7 @@ band covers two; one 9.2 m band would read ≈ 10 %. Area also takes a
 sprayer's sections that are on now (its band), not its whole width.
 
 Live check (in game; Solek, mod 0.14.0):
-- [ ] **T7.300 with the KDF 341 S front and the butterfly rear, mowing a
+- [x] **T7.300 with the KDF 341 S front and the butterfly rear, mowing a
   pass:** three bands, the wings left and right of the middle, the same
   width as the game's mown swaths; Area counts the full width.
 - [ ] **The Vantage folded, then unfolded and off, driven over a field:**
@@ -289,6 +289,114 @@ Live check (in game; Solek, mod 0.14.0):
 kept by the companion per field and per tool, with the "Working Field 2?
 · Show Field 2" prompt; contracts and helping another farm (the game's
 land-access check).
+
+## Revision 4: what the nozzles spray (Precision Farming on and off)
+
+Drafted 2026-11-07 from revision 3's live check (the Log), approved by
+Vincent and built the same day. This section is the revision whole;
+Behaviour, Data contract, Plan, Acceptance and Decisions below say the
+same where they changed.
+
+**Why.** With Precision Farming's automatic spraying, the game sprayed
+with about three of the Vantage's nine sections, while the card's strip
+said 9 of 9 and the trail stayed full width. In Precision Farming's Lua
+(`ExtendedSprayerEffects`, `WeedSpotSpray`, `ExtendedSprayer`):
+- the boom's nozzles are switched one by one (pulse width modulation, spot
+  spraying: weeds, bare ground, ground already fertilized), or a whole
+  section at a time without those, each frame;
+- a nozzle on a section you switched off by hand is always off;
+- the boom's sections (`leftSide`, `rightSide`), all the mod reads, never
+  change.
+
+The dashboard must work the same with Precision Farming off (a save
+without it), where today's sections are the truth.
+
+**What the player sees.**
+- **Precision Farming on, the sprayer turned on:**
+  - the card's section strip lights a section while any of its nozzles
+    sprays, and the line under it says so ("3 / 9 sections · 11 / 33 m");
+  - the field panel's boom lights the same sections;
+  - the trail is drawn only where nozzles spray: a band per stretch of
+    nozzles side by side that are on, so a spot-sprayed pass leaves
+    patches, an edge pass a narrower band;
+  - Area counts the width that sprays.
+- **The sprayer turned off** (Precision Farming on or off): the strip shows
+  the sections you've set by hand, as today, so you see what will spray.
+- **Precision Farming off, or a tool without its nozzles** (a spreader, a
+  slurry tanker): exactly revision 3, the sections you've set by hand.
+- Nothing else changes: the width buttons still set the sections by hand
+  (spec 0011), Precision Farming switches nozzles within them.
+
+**Data contract.**
+
+| Topic, field | What | Game source | Verified |
+|---|---|---|---|
+| `vehicles` implement `spraySpans` (new) | while the tool has Precision Farming's nozzles: `[[from, to], ...]` metres right of the controlled vehicle's centre line (as `workSpans`), the stretches whose nozzles are on, left first, rounded to 0.1 m; `[]` when none is on; absent without those nozzles | the tool's `spec_<Precision Farming's mod name>.extendedSprayerEffects` (found by its suffix, as the yield's table is), its `sprayerEffects`: each `effectData.isActive` and `effectData.effectNode`, `localToLocal` into the root | **no**: the table, its fields, and that the ground is sprayed only under nozzles that are on (`updateWorkAreaSubSectionData`); checked live |
+| a nozzle's width | half the gap to each neighbour (the boom's two ends: the gap to the one beside) | the nozzles' positions | our estimate |
+
+Sent at the vehicles topic's 2 Hz, not in the cab: spot spraying switches
+nozzles many times a second, and the cab is sent when it changes. No new
+topic. Mod 0.15.0.
+
+**How the web uses it** (`selectors.js`):
+- `bandsOf`: `spraySpans` when sent, merged as `workSpans` are; `[]`
+  draws nothing. Before them, as revision 3: the sections set by hand,
+  else `workSpans`, else `workWidth`.
+- `sectionsSpraying(entry, impl)` (new), for the strip and the boom: while
+  the tool is on and `spraySpans` is sent, a section is lit when a span
+  covers at least a quarter of it (its metres from `width.sections`, else
+  the working width split evenly, the boom centred on the rig); otherwise
+  `widthSegments`, as today.
+
+**Plan.**
+- Mod: `Tools.lua`'s `spraySpansOf(object, root)` beside `workSpansOf`,
+  through `Api.lua`; the nozzle table found once by its suffix;
+  `mod/tests`: a fake boom of nine nozzles, three on, and a tool without
+  nozzles; the version.
+- Web: `bandsOf` and `sectionsSpraying` in `selectors.js`; the card's
+  strip and `widthLine` (`vehicleTools.js`) and the panel's boom
+  (`fieldPanel.js`) use `sectionsSpraying`; `coverage.js` and `rates.js` unchanged (they take
+  `bandsOf`).
+- Docs: Behaviour, Data contract, Plan, Acceptance, Decisions here; spec
+  0011's strip (a pointer here); THEMES.md's panel text.
+- Golden: unchanged (the replay sends no `spraySpans`).
+
+**Acceptance.**
+
+Automated (written first):
+- [x] `mod/tests`: nine nozzles across a 27 m boom, the middle three on:
+  `spraySpans` is one span of about 9 m in the middle; none on: `[]`;
+  a tool without the nozzle table: no `spraySpans`.
+- [x] `bandsOf`: `spraySpans` win over the sections and `workSpans`; two
+  stretches give two bands; `[]` gives none; without them, revision 3's
+  bands (the existing checks still pass).
+- [x] `sectionsSpraying`: on, spans over three middle sections light
+  those three; off, the sections set by hand; no `spraySpans`, the
+  sections set by hand.
+- [x] Coverage and Area: a pass with three of nine sections spraying draws
+  one band a third wide and counts a third of the width; `[]` draws and
+  counts nothing.
+- [x] The card's strip and the panel's boom light the sections spraying
+  (a rig with `spraySpans`), and the sections set by hand without them.
+- [x] Replay in the browser pane, day and night at 1180×820 (a 6R with a
+  33 m boom on field 120, its nozzles spraying the middle or the left
+  third in turn).
+- [x] `python -m pytest mod/tests companion/tests tests` passes, the golden
+  unchanged.
+
+Live check (in game; Solek, mod 0.15.0):
+- [ ] **The Vantage with Precision Farming's automatic spraying, a pass
+  where the game sprays with only some sections:** the strip lights those
+  sections and the count says so; the trail is as wide as what sprays and
+  sits on that side; it matches the game's sprayed map.
+- [ ] **Turned off:** the strip shows the sections set by hand.
+- [ ] **Two sections off by hand, Precision Farming's automation off (if
+  the sprayer allows):** the strip and trail as revision 3.
+- [ ] **Leaving a field and coming back** (revision 3's fix): the outline
+  and the trail both go past the margin, and both come back.
+- [ ] **Precision Farming off** (a save without it, if one can be made):
+  the strip and trail follow the sections set by hand. Otherwise this stays
+  in NEXT.md with the four width buttons.
 
 ## Behaviour
 
@@ -372,12 +480,15 @@ only Also attached or "Nothing attached"; hidden on foot):
   rig as a dark dot with a white ring and a heading arrow. It doesn't move
   with the rig.
 - **A sprayer's boom:** a line in the text colour behind the dot at the
-  tool's working width. Its sections that are off are grey.
+  tool's working width. Its sections that are off are grey: while it
+  sprays with Precision Farming's nozzles, those none of whose nozzles
+  spray (revision 4), else those set off by hand.
 - **The trail (new):** where the rig's tools have worked on this field,
   drawn as solid bands (revision 3: a band per work area, so a butterfly
   mower's two wings are drawn either side of the tractor; a sprayer's band
   is the sections that are on, so a narrower pass is narrower and sits on
-  the side still on), clipped to the field's outline. A tool draws only
+  the side still on; revision 4: with Precision Farming's nozzles, only
+  where they spray), clipped to the field's outline. A tool draws only
   while it works: on if it turns on, lowered if it lowers (revision 3). It's pale yellow for mowers and green for every
   other tool (spraying, sowing...): `--trail-mow` and `--trail-work`.
   - It's our estimate (Data contract), never the game's own map.
@@ -496,7 +607,10 @@ page shows was already sent and live.
   - `vehicles`: the controlled vehicle's `x`, `z`, `heading`, `speed`,
     and each implement's `workWidth` and (revision 3) `workSpans`: each
     work area's `[from, to]`, metres right of the controlled vehicle's
-    centre line, rounded to 0.1 m, left first; the AI's area types only.
+    centre line, rounded to 0.1 m, left first; the AI's area types only;
+    and (revision 4, mod 0.15.0) `spraySpans`, the stretches Precision
+    Farming's nozzles spray, the same way (`[]` none; absent without its
+    nozzles).
   - `cab.rig`: `can`, `lowered`, `turnedOn`, `width`, `selected`.
   - `fields` (`farmlandId`), `farmlands` (`farmId`), `field_outlines`,
     `crop_types`.
@@ -556,6 +670,7 @@ for revision 3's work areas:
 | `spec_workArea.workAreas[i].start`, `.width`, `.height` (nodes), `.type` | WorkArea.lua (the game's source) | unverified live: revision 3's live check |
 | `localToLocal(node, root, 0, 0, 0)`, its x (GIANTS' +x left) | engine; `Api.localX` | the call is used in Rig.lua; the sign unverified: the live check's sections |
 | `g_workAreaTypeManager:getWorkAreaTypeIsAIArea(type)` | WorkArea.lua (`getAIWorkAreaWidth`) | unverified live |
+| `spec_<mod>.extendedSprayerEffects.sprayerEffects[i]`: `isActive`, `effectNode` | Precision Farming's ExtendedSprayerEffects.lua | unverified live: revision 4's live check |
 
 ## Commands
 
@@ -627,6 +742,11 @@ None new.
     `ownFieldAt`; `coverage.js` a run per band; `rates.js` Area by
     `isWorking` over the bands' width; `fieldPanel.js` lets the field go
     past its view and says "Not on your field".
+  - Revision 4 (2026-11-07): `Tools.lua`'s `nozzlesOf` and `spraySpansOf`
+    (mod 0.15.0); `selectors.js`'s `bandsOf` takes `spraySpans` first,
+    `sectionsSpraying` (new); `vehicleTools.js`'s strip and `widthLine` and
+    `fieldPanel.js`'s boom light the sections spraying. The panel clears
+    its canvas out of the field's fit (revision 3's live check).
 - **Risks:**
   - the "on" look changes on every screen (Map, Harvester, Loader);
   - the field panel and three cards at 1133×744 (iPad mini);
@@ -682,7 +802,7 @@ Automated (each one a test that exists before the work is called built):
   golden unchanged.
 
 Live check (in game; Solek):
-- [ ] **ARION 410, Berthoud Vantage 4300, W 600, parked by a field:**
+- [x] **ARION 410, Berthoud Vantage 4300, W 600, parked by a field:**
   - the strip shows the three in order, the Vantage selected;
   - pressing G in game moves the ring to the next tile;
   - the bottom bar shows speed, gear, fuel, DEF, wear and temperature;
@@ -697,7 +817,7 @@ Live check (in game; Solek):
     sprayed.
 - [x] **Detach the Vantage:** its card and its trail go; the W 600 stays
   under Also attached.
-- [ ] **Samasz KDF 341 S front and XT 390 rear, mowing:**
+- [x] **Samasz KDF 341 S front and XT 390 rear, mowing:**
   - All tools is in the column;
   - Raise all, Fold all and Turn off all act as today's All row did;
   - the trail is pale yellow.
@@ -726,6 +846,10 @@ Made while drafting; the review or the live check can change them.
   headland turn from changing the panel.
 - **Only your fields** (revision 3, Vincent, 2026-11-07): contracts and
   helping another farm come in a spec of their own.
+- **Precision Farming on and off** (revision 4, Vincent, 2026-11-07):
+  its nozzles are an extra the dashboard uses only when the mod sends
+  them; without them, the sections set by hand. Turned off, the strip
+  shows the sections set by hand, so you see what will spray.
 - **A tool works when everything it has says so** (revision 3): fold isn't
   part of it, since some tools lower through their fold, and a folded
   sprayer can't be turned on.
@@ -824,3 +948,30 @@ page's memory; off a field the panel shows the map around the rig.
   moved inside the margin), pytest 120, the golden unchanged; in the pane
   a butterfly behind a T7 leaves two wings and an unmown middle, day and
   night. The live check is Vincent's (the revision's three boxes).
+- 2026-11-07: Vincent ran revision 3's live check (mod 0.14.0, Solek).
+  Passed: the T7.300's mowers draw three bands, the wings either side, and
+  Area counts the full width; the Vantage folded or off draws nothing,
+  turned on it draws; a field that isn't ours says "Not on your field", a
+  headland turn keeps ours, the road past the margin lets it go. Ticked
+  with them: the page's first box ("Not on your field") and the mowing box
+  (pale yellow). Not passed:
+  - Leaving the field hid the outline but left the trail. The clear ran in
+    the field's fit and clip, in world metres near the map's origin, so on
+    Solek (fields 800 m from it) it missed. Fixed the same day: out of the
+    fit and clip before the clear; a test with a field far from the origin
+    (test.html all green). Back on the field still to be seen live.
+  - Precision Farming's automatic spraying: the game sprayed with about
+    three sections, the card's strip said 9 of 9 and the trail stayed full
+    width. In Precision Farming's Lua (`ExtendedSprayerEffects`,
+    `WeedSpotSpray`), its spot spraying and pulse width modulation turn
+    each nozzle on and off (`effectData.isActive`, its `sectionIndex`) and
+    never touch the boom's sections (`leftSide`, `rightSide`), which are all
+    the mod reads. Revision 4 drafted the same day (Precision Farming on and
+    off, Vincent).
+- 2026-11-07: revision 4 approved and built (mod 0.15.0): `spraySpans` from
+  Precision Farming's nozzles; the trail, Area, the card's strip and line
+  and the panel's boom follow them while the sprayer is on, the sections
+  set by hand otherwise or without Precision Farming. test.html all green
+  (three new checks), pytest 120, the golden unchanged; in the pane a 33 m
+  boom spraying a third leaves 11 m bands and "3 / 9 sections · 11 / 33 m",
+  day and night. The live check is Vincent's (the revision's five boxes).
