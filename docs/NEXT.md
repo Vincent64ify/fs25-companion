@@ -17,16 +17,6 @@ Things to fix next, in no particular order. Longer-term ideas are under
     it; `canTipIfEmpty` false does the same on an empty tank. Our reason
     ("This side only opens its door"); unverified whether the game's key
     does anything else on that side (the door).
-- **The other buttons' answers:** since spec 0003 revision 2 (mod 0.8.14)
-  fold, lower and turn on answer ok only once the tools moved, Tip since
-  revision 3 (mod 0.8.16), and spec 0012's switches (Rotate, Create
-  fields, Automatic drop, Doubled rate, the rate) once their state reads
-  back (mod 0.13.0). Pipe, Tip side and Cover (back since spec 0012:
-  `implement.cover`, no `checked` in its ack on 2026-11-07) still answer
-  once their key ran; each gets the same check in its rig's spec.
-  Live (2026-10-31): Tip answered ok and nothing tipped over a sale
-  point that doesn't take the load and on land not ours ("You don't
-  have access to this land"); spec 0003's Log.
 - **AI worker opens the game's worker screen** (spec 0008's live check,
   2026-10-31): `TOGGLE_AI` does nothing in a vehicle with no job set up
   (the L90H, the T7.300), so the button can't hire. Vincent: a tap

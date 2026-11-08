@@ -272,6 +272,20 @@ function SpikeRigs.act(target, name, value, part)
     elseif name == "PRECISIONFARMING_SPRAY_AMOUNT_MODE" and type(pf) == "table" then
         pf.sprayAmountAutoMode = not pf.sprayAmountAutoMode
         return
+    elseif name == "TOGGLE_TIPSIDE" and type(target.spec_trailer) == "table" then
+        -- specs/0014: the next side, back to the first after the last
+        -- (DONE.md, a trailer's tip keys)
+        local spec = target.spec_trailer
+        spec.preferedTipSideIndex = (spec.preferedTipSideIndex or 1) % spec.tipSideCount + 1
+        return
+    elseif name == "TOGGLE_COVER" and type(target.spec_cover) == "table" then
+        target.spec_cover.state = target.spec_cover.state == 0 and 1 or 0
+        return
+    elseif name == "TOGGLE_PIPE" and type(target.spec_pipe) == "table" then
+        local pipe = target.spec_pipe
+        pipe.targetState = pipe.targetState == 1 and 2 or 1
+        pipe.currentState = 0
+        return
     end
     local width = target.spec_variableWorkWidth
     if (name == "VARIABLE_WORK_WIDTH_LEFT" or name == "VARIABLE_WORK_WIDTH_RIGHT") and type(width) == "table" then

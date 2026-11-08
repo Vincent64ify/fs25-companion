@@ -101,6 +101,11 @@ up to date until the live check.
   section strip follow Precision Farming's nozzles, the sections set by
   hand without them) too. The spec is live-checked; Precision Farming off
   stays in NEXT.md.
+- Every card button now answers ok only once the game moved: Pipe, Tip
+  side and Cover (and Cover all) joined the others in spec
+  [0014](../specs/0014-checked-pipe-tipside-cover.md) (mod 0.16.0),
+  live-checked on 2026-11-08 on the CH7.70, the EDK 650s and the
+  Aerosem with the FH 2200.
 - The code review of 2026-10-30 ([REVIEW-2026-10-30.md](REVIEW-2026-10-30.md))
   found seven issues. F5 to F7 are fixed (mod 0.8.12), and F1 is fixed and
   confirmed in game (spec [0004](../specs/0004-acks-survive-rotation.md),

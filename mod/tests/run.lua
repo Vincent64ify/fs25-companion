@@ -3413,14 +3413,138 @@ test("commands, checked: ok once the tools moved, else which didn't and why", fu
     eq(tostring(front.lowered) .. tostring(rear.lowered), "falsefalse")
     root.spec_attacherJoints.attacherJointCombos = nil
     g_time = nil
-    -- an unchecked action answers as before
-    run, root, byId, pressed = spikeCommands("trailers")
-    ack = run("implement.tipSide", 1003)
-    eq(ack.ok, true)
-    eq(ack.checked, nil)
     C.CHECK_MAX_FRAMES = 240
     g_inputBinding = nil
     localToLocal = nil
+end)
+
+-- specs/0014: Tip side ok once the side stepped, else Nothing moved
+test("commands, checked: Tip side once the side stepped (specs/0014)", function()
+    if TMP_DIR == nil then
+        return
+    end
+    local C = Companion.Commands
+    C.CHECK_MAX_FRAMES = 5
+    local run, _, byId = spikeCommands("trailers")
+    local spec = byId[1003].spec_trailer
+    local count = spec.tipSideCount
+    eq(count >= 2, true, "a trailer that tips more than one way")
+    spec.preferedTipSideIndex = 1
+    for i = 1, count do
+        local ack = run("implement.tipSide", 1003)
+        eq(ack.ok, true, "side " .. i .. ": " .. tostring(ack.reason))
+        eq(ack.checked, true)
+        eq(#ack.unmoved, 0)
+    end
+    eq(spec.preferedTipSideIndex, 1, "back to the first after the last")
+    byId[1003].stuck = true
+    local ack = run("implement.tipSide", 1003)
+    byId[1003].stuck = nil
+    eq(ack.ok, false)
+    eq(ack.reason, "Nothing moved")
+    eq(ack.unmoved[1].id, 1003)
+    C.CHECK_MAX_FRAMES = 240
+    g_inputBinding = nil
+    localToLocal = nil
+end)
+
+-- specs/0014: Pipe, Cover and Cover all ok once they moved; keys that act
+-- as the game's (each tool's own event), unless the tool is stuck
+local function actingInputs(map)
+    local nameActions, actionEvents = {}, {}
+    for name, targets in pairs(map) do
+        local action = { name = name }
+        nameActions[name] = action
+        actionEvents[action] = {}
+        for _, t in ipairs(targets) do
+            table.insert(actionEvents[action], { isActive = true, targetObject = t.object,
+                callback = function()
+                    if not t.object.stuck then
+                        t.act(t.object)
+                    end
+                end })
+        end
+    end
+    g_inputBinding = { nameActions = nameActions, actionEvents = actionEvents }
+end
+
+test("commands, checked: Pipe, Cover and Cover all once they moved (specs/0014)", function()
+    if TMP_DIR == nil then
+        return
+    end
+    local C = Companion.Commands
+    C.CHECK_MAX_FRAMES = 5
+    local combine, cutter, trailer = harvestRig()
+    -- a second cover, on the header, for Cover all
+    cutter.spec_cover = { hasCovers = true, state = 0, covers = { {} } }
+    local function flipCover(o) o.spec_cover.state = o.spec_cover.state == 0 and 1 or 0 end
+    actingInputs({
+        TOGGLE_PIPE = { { object = combine, act = function(o)
+            o:setPipeState(o.spec_pipe.targetState == 1 and 2 or 1)
+        end } },
+        TOGGLE_COVER = { { object = trailer, act = flipCover }, { object = cutter, act = flipCover } },
+    })
+    local dir = TMP_DIR .. "/c0014_"
+    local write = commandStubs(dir)
+    local commands = Companion.Commands.new(dir, "S14", function() end)
+    local n = 0
+    local function run(action, value, tool)
+        n = n + 1
+        write(n, "S14", action, nil, value, tool)
+        for _ = 1, 300 do
+            local ack = commands:poll()
+            if ack ~= nil then
+                return ack
+            end
+        end
+        error(action .. ": no ack")
+    end
+    -- Pipe: ok once its target state is out, then in
+    local ack = run("tool.pipe", 1, 20)
+    eq(ack.ok, true, "pipe out: " .. tostring(ack.reason))
+    eq(ack.checked, true)
+    eq(combine.spec_pipe.targetState, 2)
+    eq(run("tool.pipe", 1, 20).already, true, "out already")
+    ack = run("tool.pipe", 0, 20)
+    eq(ack.ok, true, "pipe in: " .. tostring(ack.reason))
+    eq(ack.checked, true)
+    combine.stuck = true
+    ack = run("tool.pipe", 1, 20)
+    combine.stuck = nil
+    eq(ack.ok, false)
+    eq(ack.reason, "Nothing moved")
+    eq(ack.unmoved[1].id, 20)
+    -- Cover: the trailer's, by its id, open then closed
+    ack = run("implement.cover", 22)
+    eq(ack.ok, true, "uncover: " .. tostring(ack.reason))
+    eq(ack.checked, true)
+    eq(trailer.spec_cover.state, 1)
+    ack = run("implement.cover", 22)
+    eq(ack.ok, true, "cover: " .. tostring(ack.reason))
+    eq(trailer.spec_cover.state, 0)
+    trailer.stuck = true
+    ack = run("implement.cover", 22)
+    eq(ack.ok, false)
+    eq(ack.reason, "Nothing moved")
+    -- Cover all: the stuck one named, the other opened
+    ack = run("implement.coverAll", 1)
+    trailer.stuck = nil
+    eq(ack.ok, false)
+    eq(ack.checked, true)
+    eq(#ack.unmoved, 1)
+    eq(ack.unmoved[1].id, 22)
+    eq(ack.reason, "Tipper: Nothing moved")
+    eq(cutter.spec_cover.state, 1, "the header's opened")
+    ack = run("implement.coverAll", 1)
+    eq(ack.ok, true, "the rest: " .. tostring(ack.reason))
+    eq(trailer.spec_cover.state, 1)
+    ack = run("implement.coverAll", 0)
+    eq(ack.ok, true, "cover all: " .. tostring(ack.reason))
+    eq(ack.checked, true)
+    eq(trailer.spec_cover.state .. cutter.spec_cover.state, "00")
+    C.CHECK_MAX_FRAMES = 240
+    g_inputBinding = nil
+    g_localPlayer = nil
 end)
 
 -- spec 0003 revision 3: a trailer has two tip keys, both active; the game

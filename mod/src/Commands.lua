@@ -258,9 +258,10 @@ local AIMED = {
     FOLD_IMPLEMENT = { cap = "fold", inputs = { "IMPLEMENT_EXTRA2" }, check = "fold" },
     TURN_ON_IMPLEMENT = { cap = "turnOn", inputs = { "IMPLEMENT_EXTRA" }, check = "turnOn" },
     TOGGLE_DISCHARGE = { cap = "tip", inputs = { "TOGGLE_TIPSTATE", "TOGGLE_TIPSTATE_GROUND" }, check = "tip" },
-    TOGGLE_COVER = { cap = "cover", inputs = { "TOGGLE_COVER" } },
-    TOGGLE_PIPE = { cap = "pipe", inputs = { "TOGGLE_PIPE" } },
-    TOGGLE_TIPSIDE = { cap = "tipSide", inputs = { "TOGGLE_TIPSIDE" } },
+    -- specs/0014: checked too
+    TOGGLE_COVER = { cap = "cover", inputs = { "TOGGLE_COVER" }, check = "cover" },
+    TOGGLE_PIPE = { cap = "pipe", inputs = { "TOGGLE_PIPE" }, check = "pipe" },
+    TOGGLE_TIPSIDE = { cap = "tipSide", inputs = { "TOGGLE_TIPSIDE" }, check = "tipSide" },
     -- specs/0011: the width keys, one per side (inputBinding.xml; unverified)
     WIDTH_LEFT = { cap = "width", inputs = { "VARIABLE_WORK_WIDTH_LEFT" } },
     WIDTH_RIGHT = { cap = "width", inputs = { "VARIABLE_WORK_WIDTH_RIGHT" } },
@@ -378,7 +379,7 @@ local function comboNext(root)
 end
 
 -- the checks the All row's jobs make, by the readings' kind
-local CHECKED = { lower = true, fold = true, turnOn = true, tip = true }
+local CHECKED = { lower = true, fold = true, turnOn = true, tip = true, cover = true }
 
 -- the levels a tool could unload, summed (FillUnit's fillUnits)
 local function unloadLevel(object)
@@ -422,6 +423,11 @@ local function readings(object)
         bales = e.bales ~= nil and e.bales.count or nil,
         unloading = type(fillUnit) == "table" and fillUnit.unloadingFillUnitsRunning == true,
         unloadLevel = unloadLevel(object),
+        -- specs/0014: the pipe's target state (Pipe), the side's index
+        -- (Trailer), the cover open (Cover), as the cab reads them
+        pipeOut = (e.pipe or {}).out,
+        tipSideIndex = (e.tipSide or {}).index,
+        coverOpen = (e.cover or {}).open,
     }
 end
 
@@ -464,6 +470,16 @@ local function moved(t, now)
         return now.bales == 0
     elseif t.kind == "unload" then
         return now.unloading or now.unloadLevel < t.before.unloadLevel
+    elseif t.kind == "pipe" then
+        return now.pipeOut == t.want
+    elseif t.kind == "tipSide" then
+        return now.tipSideIndex ~= nil and now.tipSideIndex ~= t.before.tipSideIndex
+    elseif t.kind == "cover" then
+        -- a one-shot (a card's) flips it; Cover all asks open or closed
+        if t.want == nil then
+            return now.coverOpen ~= nil and now.coverOpen ~= t.before.coverOpen
+        end
+        return now.coverOpen == t.want
     end
     return now.on == t.want
 end

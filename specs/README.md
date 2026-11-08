@@ -52,3 +52,4 @@ behaviour, in Behaviour too: the spec always says what the code does now.
 | [0011](0011-sprayer.md) | Sprayer: Fold, Turn on, the working width | live-checked (closed with 0012's check; Precision Farming off not checked: NEXT.md) | 0.12.4 |
 | [0012](0012-card-buttons.md) | Card buttons: what a tool has, what it can do now | live-checked (every rig on the farm; Tip's fade on a side that can't tip: NEXT.md) | 0.13.3 |
 | [0013](0013-vehicle-screen-calm.md) | Vehicle page, calm: rig strip, tool cards, field panel, no yellow at night | live-checked with revisions 2 to 4 (Precision Farming off not checked: NEXT.md) | 0.15.0 |
+| [0014](0014-checked-pipe-tipside-cover.md) | Pipe, Tip side and Cover answer once they moved | live-checked | 0.16.0 |

@@ -363,6 +363,17 @@ These results override any API guesses later in this document.
     header's `lowered` alone, and stops while it's raised at the headland.
   - The header's `workWidth` (the cutter's work areas, Tools.lua's
     `workWidthOf`) gives a trail as wide as the header on the field.
+- Spec 0014, checked answers for Pipe, Tip side and Cover (confirmed by
+  Vincent, 2026-11-08, Solek, mod 0.16.0):
+  - `spec_pipe.targetState` flips the frame `TOGGLE_PIPE` is taken (the
+    CH7.70, out and in). With the engine off the key does nothing and the
+    game gives no reason of its own.
+  - `spec_trailer.preferedTipSideIndex` steps one side per press in the
+    frame of the press, from the last side back to the first (the EDK
+    650: Left, Right, Back, Grain door), also on a trailer that isn't
+    selected.
+  - `spec_cover.state` reads back open or closed the frame `TOGGLE_COVER`
+    is taken (the Aerosem and the FH 2200, each and all).
 
 ---
 
