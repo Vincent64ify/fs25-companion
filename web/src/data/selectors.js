@@ -635,12 +635,13 @@ export function isWorkingThing(e, v) {
 }
 
 /**
- * The cards, in driving order (rear tools on the left, the vehicle in its
- * place, front tools on the right).
+ * The cards, from the front of the rig to the back: the strip's driving
+ * order read from its right, so the trailer on the tractor sits above the
+ * one behind it, a front mower above the rear one (spec 0013 revision 5).
  * @param {Vehicle|undefined} v
  * @param {import("../types.js").Cab|undefined} cab
  */
-export const cardsOf = (v, cab) => drivingOrder(screenRig(v, cab)).filter((e) => isWorkingThing(e, v));
+export const cardsOf = (v, cab) => drivingOrder(screenRig(v, cab)).filter((e) => isWorkingThing(e, v)).reverse();
 
 /**
  * Also attached: each tool with no card, in driving order; a carried bag
@@ -704,7 +705,10 @@ export function allActions(cards) {
   });
   add("tip", (list) => {
     const on = list.every((e) => e.discharging === true);
-    return { action: "implement.tipAll", value: on ? 0 : 1, on, label: on ? "Stop all" : "Tip all" };
+    // none the game lets tip (the engine off, a door-only side: specs/0015)
+    const blocked = !on && list.every((e) => e.canNow?.tip === false);
+    return { action: "implement.tipAll", value: on ? 0 : 1, on, label: on ? "Stop all" : "Tip all",
+      unavailable: blocked || undefined, note: blocked ? list[0].whyNot?.tip || "Not now" : undefined };
   });
   // value 1: open; lit while all are open, as each card's Cover
   add("cover", (list) => {

@@ -50,6 +50,7 @@ behaviour, in Behaviour too: the spec always says what the code does now.
 | [0009](0009-one-way-to-run-each-action.md) | One way to run each action (SIMPLIFY S4) | live-checked (the All row's keys fixed on the way) | 0.11.2 |
 | [0010](0010-tidy-states-and-motion.md) | Tidy states, surfaces and motion | live-checked (revision 2: selecting) | no change |
 | [0011](0011-sprayer.md) | Sprayer: Fold, Turn on, the working width | live-checked (closed with 0012's check; Precision Farming off not checked: NEXT.md) | 0.12.4 |
-| [0012](0012-card-buttons.md) | Card buttons: what a tool has, what it can do now | live-checked (every rig on the farm; Tip's fade on a side that can't tip: NEXT.md) | 0.13.3 |
-| [0013](0013-vehicle-screen-calm.md) | Vehicle page, calm: rig strip, tool cards, field panel, no yellow at night | live-checked with revisions 2 to 4 (Precision Farming off not checked: NEXT.md) | 0.15.0 |
+| [0012](0012-card-buttons.md) | Card buttons: what a tool has, what it can do now | live-checked (every rig on the farm; Tip's fade on a side that can't tip: spec 0015) | 0.13.3 |
+| [0013](0013-vehicle-screen-calm.md) | Vehicle page, calm: rig strip, tool cards, field panel, no yellow at night | live-checked with revisions 2 to 4 (Precision Farming off not checked: NEXT.md); revision 5 live-checked (cards front to back); revision 6 built (failures on the button only) | 0.15.0 |
 | [0014](0014-checked-pipe-tipside-cover.md) | Pipe, Tip side and Cover answer once they moved | live-checked | 0.16.0 |
+| [0015](0015-trailer-tip-fades.md) | Trailer: Tip fades when the game won't tip | live-checked (the engine off; the side fades removed: NEXT.md) | 0.17.1 |

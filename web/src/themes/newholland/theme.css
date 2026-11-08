@@ -1234,9 +1234,6 @@ button { font: inherit; color: inherit; }
 /* the cards say "Nothing attached" */
 .screen[data-screen="vehicle"] .veh-strip-none { display: none !important; }
 
-/* All tools, the column's third group: a failed answer's note under it */
-.control-group.tools-all .tool-note { position: static; margin: 8px 0 0; }
-
 .tool-cards { display: flex; flex-direction: column; min-width: 0; }
 .tool-list { display: grid; grid-template-columns: minmax(0, 1fr); align-content: start; gap: 12px; }
 .tool-list:empty { display: none; }
@@ -1262,22 +1259,6 @@ button { font: inherit; color: inherit; }
    strip shows which is selected, the card doesn't (specs/0013) */
 .tool-card:has(> .tool-head[data-pick="true"]) { cursor: pointer; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
 .tool-head { display: flex; flex: none; align-items: center; gap: 12px; min-width: 0; border-radius: 12px; }
-/* a faded button's reason after a tap: over the card's foot, so nothing moves */
-.tool-note {
-  position: absolute;
-  right: 12px;
-  bottom: 12px;
-  left: 12px;
-  margin: 0;
-  padding: 10px 14px;
-  border-radius: 12px;
-  background: var(--text);
-  color: var(--surface);
-  font-size: 15px;
-  font-weight: 600;
-  line-height: 1.3;
-}
-.tool-note[hidden] { display: none; }
 .tool-badge {
   display: grid;
   flex: none;

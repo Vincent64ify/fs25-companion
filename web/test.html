@@ -1634,6 +1634,16 @@ check("loader gear: no Lowered or Raised on the strip's tiles, and no card", [
   impS.tileState(bucketEntry, loaderVehicle()), impS.tileState({ ...bucketEntry, lowered: false }, loaderVehicle()),
   sel.cardsOf(loaderVehicle(), gearCab(true)).map((e) => e.id)],
   ["", "", []]);
+// spec 0013 revision 5 (Vincent, 2026-11-08): the cards from the front of
+// the rig to the back, the strip's order read from the tractor: the
+// trailer on the tractor above the one behind it, a front mower above
+// the rear one
+const RIG_ORDER = {};
+for (const name of ["trailers", "mowers"]) RIG_ORDER[name] = await (await fetch(`fixtures/rigs/${name}.json`)).json();
+const cardIds = (name) => sel.cardsOf(RIG_ORDER[name].vehicles.vehicles.find((v) => v.id === RIG_ORDER[name].vehicles.controlledId)
+  || RIG_ORDER[name].vehicles.vehicles[0], RIG_ORDER[name].cab).map((e) => e.id);
+check("tool cards: front of the rig to the back (revision 5)", [cardIds("trailers"), cardIds("mowers")],
+  [[1003, 1004], [994, 996]]);
 const gearStore = createStore();
 const gearGroup = controlGroup({ label: "Implement", controls: ["implementLowered", "lowerAll"] }, gearStore);
 gearStore.set("vehicles", { controlledId: 1, vehicles: [loaderVehicle({ bucket: 0 })] });
@@ -1842,14 +1852,15 @@ const madeNote = () => madePage.cardsEl.querySelector(".tool-note");
 const sentBefore = madePage.sent.length;
 tap(madeButtons[0]);
 await Promise.resolve();
-const noteShown = [madeButtons[0].title, madeNote()?.hidden, madePage.sent.length - sentBefore];
+const noteShown = [madeButtons[0].title, madeNote() === null, madePage.sent.length - sentBefore];
 const foldedTurnOn = vt.toolButtons({ id: 51, depth: 1, can: ["fold", "turnOn"], unfolded: false, turnedOn: false,
   canNow: { turnOn: false } }).find((b) => b.key === "turnOn");
 check("tools: a faded button shows no reason, on hover or on a tap; folded, Turn on is faded", [
   noteShown, foldedTurnOn?.unavailable],
   [["", true, 0], true]);
-// revision 2: an ok means the tools moved; "Nothing moved" (or the game's
-// words) shows on the card, and on the All row; the dashboard waits 5 s (Fold all may raise first, then the check)
+// revision 2: an ok means the tools moved; a "Nothing moved" answer shows
+// "Failed" on the button tapped, the reason only in its title, and no note
+// on the card or the All row (Vincent, 2026-11-08: nothing but the button)
 const failPage = (() => {
   const s = createStore();
   const send = () => Promise.resolve({ ok: false, reason: "Nothing moved" });
@@ -1859,16 +1870,19 @@ const failPage = (() => {
   s.set("cab", rigFix.mowers.cab);
   return { cardsEl, allEl };
 })();
-tap(failPage.cardsEl.querySelector(".tool-card .control"));
-tap(failPage.allEl.querySelector(".control"));
+const failCardBtn = failPage.cardsEl.querySelector(".tool-card .control");
+const failAllBtn = failPage.allEl.querySelector(".control");
+tap(failCardBtn);
+tap(failAllBtn);
 for (let i = 0; i < 4; i++) await Promise.resolve();
-const allNote = failPage.allEl.querySelector(".tool-note");
+const failShown = (b) => [b.querySelector(".control-label")?.textContent, b.title, "error" in b.dataset];
 // live (0.8.14): the game's Lower all ran the tractor's 2 s combo; the mod
 // waits for it, then 1 s, at most 8 s: the dashboard waits 10 s
-check("tools: a \"Nothing moved\" answer shows on its card and on the All row; the wait is 10 s", [
-  failPage.cardsEl.querySelector(".tool-note")?.textContent, failPage.cardsEl.querySelector(".tool-note")?.hidden,
-  allNote?.textContent, allNote?.hidden, COMMAND_TIMEOUT_MS],
-  ["Nothing moved", false, "Nothing moved", false, 10000]);
+check("tools: a \"Nothing moved\" answer shows Failed on its button only, card and All row; the wait is 10 s", [
+  failShown(failCardBtn), failShown(failAllBtn),
+  failPage.cardsEl.querySelectorAll(".tool-note").length + failPage.allEl.querySelectorAll(".tool-note").length,
+  COMMAND_TIMEOUT_MS],
+  [["Failed", "Nothing moved", true], ["Failed", "Nothing moved", true], 0, 10000]);
 // live (0.8.8): the engine off, the fold keys only got the game's warning;
 // Fold all is faded with it when no tool may fold, but not for a lowered
 // one (Fold all raises it first)
@@ -1890,6 +1904,19 @@ check("tools: the engine off, Unfold all and Lower all are faded with the game's
   [offAll?.label, offAll?.unavailable, offAll?.note], [loweredAll?.label, loweredAll?.unavailable === true],
   [lowerOff?.label, lowerOff?.unavailable, lowerOff?.note]],
   [["Unfold all", true, "Please start the engine first"], ["Fold all", false], ["Lower all", true, "Please start the engine first"]]);
+// specs/0015: Tip all faded with the first reason when every trailer's Tip
+// is; live while one still tips
+const tipAllOf = (cards) => sel.allActions(cards).find((a) => a.cap === "tip");
+const doorOnly = { tip: "This side only opens its door" };
+const tipAllOff = tipAllOf([
+  { id: 1, depth: 1, can: ["tip"], discharging: false, canNow: { tip: false }, whyNot: doorOnly },
+  { id: 2, depth: 1, can: ["tip"], discharging: false, canNow: { tip: false }, whyNot: { tip: "Please start the engine first" } }]);
+const tipAllOne = tipAllOf([
+  { id: 1, depth: 1, can: ["tip"], discharging: false, canNow: { tip: false }, whyNot: doorOnly },
+  { id: 2, depth: 1, can: ["tip"], discharging: false }]);
+check("tools: Tip all faded with the first reason when no trailer may tip, live while one may (specs/0015)", [
+  [tipAllOff?.label, tipAllOff?.unavailable, tipAllOff?.note], [tipAllOne?.label, tipAllOne?.unavailable === true]],
+  [["Tip all", true, "This side only opens its door"], ["Tip all", false]]);
 // specs/0012: our fixed list, each in its row's order, the main row then
 // More's; an older mod's other keys are ignored
 check("tools: every capability's button in its row's order, labelled with what a tap does; More's after", vt.toolButtons({
@@ -2122,7 +2149,7 @@ await Promise.resolve();
 check("tools: the All row: lit while all are on, labelled with what a tap does; Turn on all waits while one is folded", [
   // faded with no reason at all: no line, no title, no note on a tap (2026-11-01)
   ...allShown, [allButtons[2].querySelector(".control-value")?.textContent || "", allButtons[2].title,
-    mixed.allEl.querySelector(".tool-note")?.hidden], mixed.sent, allOn.sent],
+    mixed.allEl.querySelector(".tool-note") === null], mixed.sent, allOn.sent],
   [["Fold all:on", "Raise all:on", "Turn off all:on", "Stop all:on", "Cover all:on"],
     // one folded, one not: Fold all, as the game's key does (spike 0.0.5, revision 2)
     ["Fold all:off", "Lower all:off", "Turn on all:unavailable", "Tip all:off", "Uncover all:off"], ["", "", true],
@@ -2143,21 +2170,22 @@ heads[0].click();
 heads[1].click();
 await Promise.resolve();
 check("tools: the head selects the tool in game (not the selected one again)", [heads.map((e) => e.dataset.pick ?? ""),
-  headPage.sent], [["", "true"], [["implement.select", 994]]]);
+  headPage.sent], [["true", ""], [["implement.select", 994]]]);
 
 // specs/0010 revision 2: a tap anywhere on a card selects its tool; a tap
 // on one of its buttons presses only that button
 const bodyPage = toolsPage(rigFix.mowers.vehicles, rigFix.mowers.cab);
 const bodyCards = [...bodyPage.cardsEl.querySelectorAll(".tool-card")];
 const pointerClick = (el) => el.dispatchEvent(new MouseEvent("click", { bubbles: true, detail: 1 }));
-pointerClick(bodyCards[0].querySelector(".tool-stats") ?? bodyCards[0]);
+// the selected rear mower's card is second since revision 5 (front first)
+pointerClick(bodyCards[1].querySelector(".tool-stats") ?? bodyCards[1]);
 await Promise.resolve();
 const selectedAgain = bodyPage.sent.length;
-pointerClick(bodyCards[1].querySelector(".tool-stats") ?? bodyCards[1]);
+pointerClick(bodyCards[0].querySelector(".tool-stats") ?? bodyCards[0]);
 await Promise.resolve();
 // a button on the other (unselected) card, on a fresh page
 const btnPage = toolsPage(rigFix.mowers.vehicles, rigFix.mowers.cab);
-const bodyBtn = /** @type {HTMLElement} */ (btnPage.cardsEl.querySelectorAll(".tool-card")[1]
+const bodyBtn = /** @type {HTMLElement} */ (btnPage.cardsEl.querySelectorAll(".tool-card")[0]
   .querySelector(".control:not([data-state='unavailable'])"));
 tap(bodyBtn);
 pointerClick(bodyBtn);

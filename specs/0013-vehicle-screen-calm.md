@@ -1,6 +1,6 @@
 # 0013: Vehicle page, calm
 
-Status: live-checked (2026-11-07; Precision Farming off not checked: NEXT.md), with revisions 2 (a light field panel), 3 (your fields, a trail only while working, every mower) and 4 (what Precision Farming's nozzles spray)
+Status: live-checked (2026-11-07; Precision Farming off not checked: NEXT.md), with revisions 2 (a light field panel), 3 (your fields, a trail only while working, every mower) 4 (what Precision Farming's nozzles spray) 5 (the cards from the front of the rig to the back; no mod change; live-checked 2026-11-08) and 6 (a failed answer shows only on its button)
 Mod: 0.15.0 (revision 4; 0.14.0 revision 3; no change before) · Started: 2026-11-03 · Design: the canvas [FS25 Companion: Vehicle screen, calm](https://claude.ai/artifact/JApsdXjoSFwsddKv2kNYZ3) (private, on claude.ai; approved by Vincent on 2026-11-03), a THEMES.md section at build; specs [0003](0003-implement-screen.md) (the page), [0010](0010-tidy-states-and-motion.md) (the states), [0012](0012-card-buttons.md) (the buttons)
 
 ## Goal
@@ -430,8 +430,10 @@ and the ground shows under them.
 - **The tractor's tile** shows no warnings: low fuel or a hot engine turns
   its number orange in the bottom bar, so it isn't shown twice.
 
-**Tool cards** (a card per working thing, spec 0003), stacked in driving
-order:
+**Tool cards** (a card per working thing, spec 0003), stacked from the
+front of the rig to the back: the strip's driving order read from the
+tractor, so the trailer on the tractor is above the one behind it and a
+front mower above the rear one (revision 5, Vincent, 2026-11-08):
 - **Head:** the badge (the "on" look while working, below), the model
   (18 px), "Berthoud · Sprayers · Rear" under it. The Working chip goes:
   the badge says it.
@@ -454,6 +456,11 @@ order:
 - **Buttons:** drawn exactly as the column's (84 × 80, icon over a 13 px
   label), in one row from the left, never stretched to the card's width.
   - What they are, their labels and their fading are spec 0012's.
+  - A press the game answers not ok shows **"Failed"** in place of the
+    button's label for a few seconds, the reason only in its title
+    (`ui/control.js`). Nothing else: no note on the card or under the All
+    tools group, no toast or notification anywhere (revision 6, Vincent,
+    2026-11-08).
   - **More** (spec 0012) is the row's last button: a chevron, "More",
     and its count ("2") as the button's value line under it; a tap opens
     or closes the More row under the main one (its buttons 84 × 80 too).
@@ -1000,3 +1007,23 @@ page's memory; off a field the panel shows the map around the rig.
   tile's model name (`entryModel`), so a new vehicle's name shows once the
   `vehicles` topic brings it after the cab. A test.html check for it
   (failed before the fix); test.html all green, pytest 120.
+- 2026-11-08: revision 5 (Vincent, during spec 0015's live check on the
+  Vestrum 100 with two EDK 650): the cards read backwards. They were
+  stacked in the strip's driving order, the trailer farthest from the
+  tractor on top. Now from the front of the rig to the back
+  (`cardsOf` reverses `drivingOrder`): the first trailer on top, a front
+  mower above the rear one, a tipper truck above its container. The strip
+  is unchanged. `test.html` "tool cards: front of the rig to the back"
+  (failed before); the mowers and truck fixtures' expected cards swapped
+  in `fixtures/rig_fixtures.py` and regenerated; two card-tap checks follow
+  the new order. test.html all green (315), pytest 120. Seen live on the
+  Vestrum: parsnips (first trailer) on top, wheat below.
+- 2026-11-08: revision 5 live-checked (Vincent: "card order works
+  perfectly").
+- 2026-11-08: revision 6 (Vincent): a failed answer shows only on its
+  button ("Failed"). The card's dark note over its foot and the line
+  under All tools ("Nothing moved", the game's words) are gone
+  (`reasonNote` and its `onWhy` plumbing in `vehicleTools.js`, the
+  `.tool-note` rules in theme.css). test.html: the failed-answer check
+  now reads "Failed" on the tapped button and no note anywhere; 315
+  green. Seen live on the Vestrum: no note element, no console error.

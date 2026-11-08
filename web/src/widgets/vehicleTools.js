@@ -4,7 +4,7 @@
 // as a card with all its buttons, under the rig strip.
 // - toolsAll: the column's All tools group, a button for each thing two or
 //   more cards share (Unfold all, Lower all, Turn on all, Tip all).
-// - toolCards: a card per working thing in driving order, the vehicle in
+// - toolCards: a card per working thing, front of the rig to the back, the vehicle in
 //   its place when it works by itself (a sprayer, a tipper truck), each as
 //   tall as its content. A card has a button for each capability the mod
 //   sends (`can`, read from what the tool is: specs/0012), from our fixed
@@ -50,8 +50,6 @@ const CALL_TRAILER_PCT = 80;
 const CALL_TRAILER_MIN = 3;
 // this many cards or more: the compact form (head, buttons, main meter)
 const COMPACT_FROM = 3;
-// how long a failed answer's reason stays on its card
-const NOTE_SHOWN_MS = 3000;
 // the tool models whose More is open, in this browser (specs/0012: a
 // convenience only)
 const MORE_STORE = "fs25companion.moreOpen";
@@ -355,21 +353,14 @@ export function widthLine(w, units, on = widthSegments(w)) {
 /**
  * A row of buttons kept across renders, so a tap's pending state survives
  * the cab's next update. Each sends its command; pending until the ack,
- * then until its state changes (at most 1.5 s). A failed answer ("Nothing
- * moved", the game's words: revision 2) hands its reason to `onWhy`. An
- * unavailable one is only faded: no reason on hover or on a tap (Vincent,
- * 2026-11-01).
+ * then until its state changes (at most 1.5 s). A failed answer shows on
+ * the button itself, "Failed" (ui/control.js), and nowhere else: no note
+ * on the card or the column (Vincent, 2026-11-08). An unavailable one is
+ * only faded: no reason on hover or on a tap (Vincent, 2026-11-01).
  * @param {Send} send
- * @param {(why: string) => void} [onWhy]
  * @param {string} [className] the grid's class: the column's own in the column
  */
-function buttonRow(send, onWhy, className = "tool-buttons") {
-  const sent = send;
-  send = async (action, value, tool, side) => {
-    const result = await sent(action, value, tool, side);
-    if (!result.ok && result.reason) onWhy?.(result.reason);
-    return result;
-  };
+function buttonRow(send, className = "tool-buttons") {
   const el = h("div", { className });
   /** @type {Map<string, {ui: ReturnType<typeof createControl>, b: ToolButton}>} */
   const shown = new Map();
@@ -484,35 +475,16 @@ function tankRow(/** @type {ReturnType<typeof tankRows>[number]} */ t) {
   return row;
 }
 
-/** A failed answer's reason ("Nothing moved", the game's words), for a few seconds. */
-function reasonNote() {
-  const el = h("p", { className: "tool-note" });
-  el.hidden = true;
-  el.setAttribute("role", "status");
-  /** @type {ReturnType<typeof setTimeout>|undefined} */
-  let timer;
-  return {
-    el,
-    show(/** @type {string} */ why) {
-      clearTimeout(timer);
-      el.textContent = why;
-      el.hidden = false;
-      timer = setTimeout(() => { el.hidden = true; }, NOTE_SHOWN_MS);
-    },
-  };
-}
-
 /**
  * The card's working width (specs/0011): the strip, its line and the four
  * buttons; hidden on a tool without sections.
  * @param {Send} send
- * @param {(why: string) => void} onWhy
  */
-function widthBlock(send, onWhy) {
+function widthBlock(send) {
   const strip = h("div", { className: "tool-width-strip" });
   strip.setAttribute("aria-hidden", "true");
   const line = h("span", { className: "tool-width-line" });
-  const buttons = buttonRow(send, onWhy);
+  const buttons = buttonRow(send);
   const el = h("div", { className: "tool-width" }, h("div", { className: "tool-width-head" }, strip, line), buttons.el);
   el.hidden = true;
   let lastStrip = "";
@@ -574,16 +546,15 @@ function rememberMore(/** @type {string} */ model, /** @type {boolean} */ open) 
  * the tool's model in this browser. Compact (three cards or more) keeps the
  * button, faded and closed. None on a tool with nothing under More.
  * @param {Send} send
- * @param {(why: string) => void} onWhy
  */
-function moreBlock(send, onWhy) {
+function moreBlock(send) {
   const value = h("span", { className: "control-value" });
   const toggle = /** @type {HTMLButtonElement} */ (h("button", { className: "control tool-more-toggle" },
     h("span", { className: "icon tool-more-chevron" }), h("span", { className: "control-label", text: "More" }), value));
   toggle.dataset.value = "";
   toggle.type = "button";
   toggle.dataset.control = "more";
-  const buttons = buttonRow(send, onWhy);
+  const buttons = buttonRow(send);
   const el = h("div", { className: "tool-more" }, buttons.el);
   el.hidden = true;
   let model = "";
@@ -634,12 +605,11 @@ function toolCard(send) {
   const sub = h("span", { className: "tool-sub" });
   let head = h("header", { className: "tool-head" }, badge, h("div", { className: "tool-text" }, name, sub));
   const stats = h("div", { className: "tool-stats" });
-  const note = reasonNote();
-  const buttons = buttonRow(send, note.show);
-  const width = widthBlock(send, note.show);
-  const more = moreBlock(send, note.show);
+  const buttons = buttonRow(send);
+  const width = widthBlock(send);
+  const more = moreBlock(send);
   const tanks = h("div", { className: "tool-tanks" });
-  const el = h("section", { className: "tool-card" }, head, stats, buttons.el, more.el, width.el, tanks, note.el);
+  const el = h("section", { className: "tool-card" }, head, stats, buttons.el, more.el, width.el, tanks);
   // a tap anywhere on the card selects its tool, as the head does; its
   // buttons only press (specs/0010, revision 2)
   el.addEventListener("click", (ev) => {
@@ -702,7 +672,7 @@ function toolCard(send) {
 }
 
 /**
- * The cards: one per working thing, in driving order, as many as fit at
+ * The cards: one per working thing, front of the rig to the back, as many as fit at
  * 1180 × 820 (full width alone, two side by side, compact from three).
  * Without a vehicle, a line saying so; with nothing attached, "Nothing
  * attached".
@@ -753,17 +723,15 @@ export function toolCards(store, opts = {}) {
  * share, lit while every one of them is on; Turn on all waits while one is
  * folded ("Unfold first"). Their parts decide the buttons (specs/0012), so
  * the group comes with the rig and stays while it's the same. A failed
- * answer's note shows under it.
+ * answer shows on its button, "Failed", as on a card.
  * @type {import("./widget.js").CreateWidget}
  */
 export function toolsAll(store, opts = {}) {
   /** @type {Send} */
   const send = /** @type {any} */ (opts).send || sendCommand;
-  // a failed answer names the tools that didn't move (revision 2)
-  const note = reasonNote();
-  const buttons = buttonRow(send, note.show, "control-grid");
+  const buttons = buttonRow(send, "control-grid");
   const root = h("section", { className: "control-group tools-all" },
-    h("h2", { className: "control-group-label", text: "All tools" }), buttons.el, note.el);
+    h("h2", { className: "control-group-label", text: "All tools" }), buttons.el);
   root.setAttribute("aria-label", "All tools");
   if (opts.id) root.id = opts.id;
   const render = () => {

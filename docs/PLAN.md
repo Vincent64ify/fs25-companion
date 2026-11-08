@@ -106,6 +106,11 @@ up to date until the live check.
   [0014](../specs/0014-checked-pipe-tipside-cover.md) (mod 0.16.0),
   live-checked on 2026-11-08 on the CH7.70, the EDK 650s and the
   Aerosem with the FH 2200.
+- Tip fades with the engine off, as Fold and Lower do (spec
+  [0015](../specs/0015-trailer-tip-fades.md), mod 0.17.1), live-checked
+  on 2026-11-08. The same day the tool cards turned front of the rig to
+  back, and a failed press shows only on its button (spec 0013
+  revisions 5 and 6).
 - The code review of 2026-10-30 ([REVIEW-2026-10-30.md](REVIEW-2026-10-30.md))
   found seven issues. F5 to F7 are fixed (mod 0.8.12), and F1 is fixed and
   confirmed in game (spec [0004](../specs/0004-acks-survive-rotation.md),

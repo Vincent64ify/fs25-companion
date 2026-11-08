@@ -56,15 +56,16 @@ SHOP = {
     531: ("CLAAS", "tractorsM", "Tractors M"),
 }
 
-# what the Vehicle page must show for each rig: the cards in driving order,
+# what the Vehicle page must show for each rig: the cards from the front of
+# the rig to the back (spec 0013 revision 5),
 # each "model: button:state, ..." (unavailable: the game says not now);
 # Also attached, each "line: buttons"; the All row; the plain tractor's
 # Attach; each card's More, "model: buttons" (specs/0012), its tile the
 # main row's last
 EXPECT = {
     "mowers": {
-        "cards": ["XT 390: Raise:on, Fold:on, Turn on:off, Detach:unavailable",
-                  "KDF 341 S: Raise:on, Fold:unavailable, Turn on:off, Detach:off"],
+        "cards": ["KDF 341 S: Raise:on, Fold:unavailable, Turn on:off, Detach:off",
+                  "XT 390: Raise:on, Fold:on, Turn on:off, Detach:unavailable"],
         "selected": "XT 390",
         "also": [],
         "all": ["Fold all:on", "Raise all:on", "Turn on all:off"],
@@ -115,8 +116,8 @@ EXPECT = {
         "all": [],
     },
     "truck": {
-        "cards": ["Push-Off Container: Lower:off, Tip:off, Tip side:off, Detach:unavailable",
-                  "Arocs 4133 + TECTRUM RS26: Fold:on"],
+        "cards": ["Arocs 4133 + TECTRUM RS26: Fold:on",
+                  "Push-Off Container: Lower:off, Tip:off, Tip side:off, Detach:unavailable"],
         "selected": "Push-Off Container",
         "also": [],
         "all": [],

@@ -124,8 +124,8 @@
  },
  "expect": {
   "cards": [
-   "Push-Off Container: Lower:off, Tip:off, Tip side:off, Detach:unavailable",
-   "Arocs 4133 + TECTRUM RS26: Fold:on"
+   "Arocs 4133 + TECTRUM RS26: Fold:on",
+   "Push-Off Container: Lower:off, Tip:off, Tip side:off, Detach:unavailable"
   ],
   "selected": "Push-Off Container",
   "also": [],

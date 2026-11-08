@@ -3,20 +3,13 @@
 Things to fix next, in no particular order. Longer-term ideas are under
 **Later** in [PLAN.md](PLAN.md).
 
-- **Tip fades when the game won't tip** (for the trailer's spec; rule 2
-  of [spec 0012](../specs/0012-card-buttons.md)): two cases where Tip
-  stays live and answers "Nothing moved" after its check's wait, both
-  on the Vestrum 100 with two EDK 650:
-  - The engine off (spec 0008's live check, 2026-10-31): the game only
-    says to start the engine. Fold and lower are refused at once with
-    the game's words (`VehicleState.powered`); Tip should be too.
-  - The grain door side (spec 0012's live check, 2026-11-07, mod
-    0.13.2): the other sides tipped. Not the second trailer: the game's
-    Trailer.lua reads each tip side's XML `canTip` ("if false, only back
-    door control is allowed") and `getCanDischargeToGround` is false for
-    it; `canTipIfEmpty` false does the same on an empty tank. Our reason
-    ("This side only opens its door"); unverified whether the game's key
-    does anything else on that side (the door).
+- **A trailer with a door-only tip side** (spec 0015, 2026-11-08):
+  Trailer.lua lets a tip side's XML say `canTip="false"` ("only back door
+  control") or `canTipIfEmpty="false"`; the game then hides its tip keys
+  there and Tip answers "Failed". Spec 0015 built a fade for both and
+  removed it: no trailer on the farm has such a side (the EDK 650's Grain
+  door doesn't). If one turns up, fade Tip there from
+  `spec_trailer.tipSides[currentTipSideIndex or preferedTipSideIndex]`.
 - **AI worker opens the game's worker screen** (spec 0008's live check,
   2026-10-31): `TOGGLE_AI` does nothing in a vehicle with no job set up
   (the L90H, the T7.300), so the button can't hire. Vincent: a tap

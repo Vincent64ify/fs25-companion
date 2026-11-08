@@ -3696,6 +3696,84 @@ test("capabilities: tipTo follows the tip key the game shows, else getCanDischar
     localToLocal = nil
 end)
 
+-- specs/0015: Tip fades with the engine off (Dischargeable's powered keys,
+-- live 0.17.0), never while tipping. Nothing else fades it: a side's
+-- canTip / canTipIfEmpty aren't read (0.17.1: no trailer here has them)
+test("capabilities, trailer: Tip fades with the engine off, not while tipping, nothing else (specs/0015)", function()
+    local VS = Companion.VehicleState
+    local root, byId = SpikeRigs.rig(spikeDump("trailers"), SIDES)
+    local rear = byId[1004]
+    local function why(id)
+        for _, e in ipairs(VS.rig(root)) do
+            if e.id == id then
+                return e.canNow ~= nil and e.canNow.tip == false and e.whyNot.tip or nil
+            end
+        end
+    end
+    eq(why(1004), nil, "the engine on: live")
+    -- the engine off: the game's words, as Fold's
+    root.engineOff = true
+    eq(why(1004), SpikeRigs.START_ENGINE)
+    eq(why(1003), SpikeRigs.START_ENGINE)
+    -- tipping: Stop is never faded (the game stops it with the engine)
+    rear.spec_dischargeable.currentDischargeState = 2
+    eq(why(1004), nil, "Stop stays live")
+    rear.spec_dischargeable.currentDischargeState = 0
+    root.engineOff = nil
+    -- a side the XML says can't tip, or can't tip empty: not read, live
+    rear.spec_trailer.tipSideCount = 4
+    rear.spec_trailer.tipSides = { { canTip = true }, { canTip = false, canTipIfEmpty = false }, {}, {} }
+    rear.spec_trailer.preferedTipSideIndex = 2
+    rear.spec_fillUnit.fillUnits[1].fillLevel = 0
+    eq(why(1004), nil, "no fade by side (0.17.1)")
+    g_inputBinding = nil
+    localToLocal = nil
+end)
+
+test("commands, trailer: a faded Tip is refused at once, Stop still runs (specs/0015)", function()
+    if TMP_DIR == nil then
+        return
+    end
+    local C = Companion.Commands
+    C.CHECK_MAX_FRAMES = 5
+    local run, root, byId, pressed = spikeCommands("trailers")
+    local front, rear = byId[1003], byId[1004]
+    showTip(front, "TOGGLE_TIPSTATE_GROUND")
+    showTip(rear, "TOGGLE_TIPSTATE_GROUND")
+    SpikeRigs.registerKeys(root)
+    -- the engine off: refused at once with the game's words, nothing pressed
+    root.engineOff = true
+    pressed()
+    local ack, frames = run("tool.tip", 1, 1004)
+    eq(ack.ok, false)
+    eq(ack.reason, SpikeRigs.START_ENGINE)
+    eq(frames, 1, "at once, no wait")
+    ack = run("implement.tipAll", 1)
+    eq(ack.ok, false)
+    eq(pressed(), "", "nothing pressed")
+    root.engineOff = nil
+    -- tipping, then the engine off (the game would stop it; here it
+    -- keeps going): Stop still runs
+    eq(run("tool.tip", 1, 1004).ok, true)
+    root.engineOff = true
+    -- the mock's keys do nothing with the engine off: this one stops
+    rear.onKey = function()
+        rear.spec_dischargeable.currentDischargeState = 0
+    end
+    ack = run("tool.tip", 0, 1004)
+    eq(ack.ok, true, "stop with the engine off: " .. tostring(ack.reason))
+    rear.onKey = nil
+    root.engineOff = nil
+    eq(run("tool.tip", 1, 1003).ok, true)
+    root.engineOff = true
+    eq(run("tool.tip", 1, 1004).reason, SpikeRigs.START_ENGINE, "start refused")
+    root.engineOff = nil
+    run("tool.tip", 0, 1003)
+    C.CHECK_MAX_FRAMES = 240
+    g_inputBinding = nil
+    localToLocal = nil
+end)
+
 -- Sprayer (specs/0011) -------------------------------------------------------
 
 -- the width keys as the probe may find them live (spike 0.0.4 didn't);

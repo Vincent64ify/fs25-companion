@@ -566,6 +566,11 @@ local function nowOf(object, out, has)
         local why = Api.tryCall(object, "getTurnedOnNotAllowedWarning")
         refuse("turnOn", false, type(why) == "string" and why or power == false and noPower or nil)
     end
+    -- specs/0015: Tip needs power (Dischargeable's tip keys are powered
+    -- ones; live 0.17.0), never faded while tipping: Stop stays
+    if has.tip and out.discharging ~= true then
+        refuse("tip", power, noPower)
+    end
     -- FillUnit.unloadFillUnits does nothing while it runs, nor without a
     -- level to unload (which of the two the game shows: unverified)
     if has.unload then

@@ -158,8 +158,8 @@
  },
  "expect": {
   "cards": [
-   "XT 390: Raise:on, Fold:on, Turn on:off, Detach:unavailable",
-   "KDF 341 S: Raise:on, Fold:unavailable, Turn on:off, Detach:off"
+   "KDF 341 S: Raise:on, Fold:unavailable, Turn on:off, Detach:off",
+   "XT 390: Raise:on, Fold:on, Turn on:off, Detach:unavailable"
   ],
   "selected": "XT 390",
   "also": [],

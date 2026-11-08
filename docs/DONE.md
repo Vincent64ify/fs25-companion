@@ -374,6 +374,15 @@ These results override any API guesses later in this document.
     selected.
   - `spec_cover.state` reads back open or closed the frame `TOGGLE_COVER`
     is taken (the Aerosem and the FH 2200, each and all).
+- Spec 0015, Tip with the engine off (confirmed by Vincent, 2026-11-08,
+  Solek, the Vestrum 100 with two EDK 650, mod 0.17.0):
+  - Dischargeable's tip keys are powered ones: `getIsPowered` false with
+    the engine off ("Please start the engine first!"), true again from
+    "starting", before `engineOn`.
+  - The EDK 650's Grain door is an ordinary tip side (its XML has no
+    `canTip`): a trailer hitched behind blocks its discharge line, and
+    the game warns "This action cannot be performed here"
+    (`getCanDischargeAtPosition`); detached, it tips.
 
 ---
 
