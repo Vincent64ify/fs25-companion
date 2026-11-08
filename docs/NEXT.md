@@ -73,8 +73,3 @@ Things to fix next, in no particular order. Longer-term ideas are under
   a button for it when the game shows it. It isn't one of the tool's
   keys (it comes from the station, the game's activatable objects; names
   unverified), so it needs its own spec.
-- **The design system artifact** needs a refresh (THEMES.md): spec 0011
-  added four icons (`widthLeftIn`, `widthLeftOut`, `widthRightIn`,
-  `widthRightOut`) and the width strip, and the selected tool card lost
-  its tint (2026-11-01); spec 0012 added the card's More button and its
-  open row (no new icon, 2026-11-03).

@@ -446,12 +446,12 @@ section is what T1 and T3 build from; the artboards are the picture.
 The design system
 [FS25 Companion](https://claude.ai/artifact/LBCPbVhewCFvKcYyEFE9GH)
 (private, on claude.ai) is what new canvases are built from: the tokens of
-both palettes, Archivo, the 74 icons of `web/src/ui/icons.js`, and the
+both palettes, Archivo, the 81 icons of `web/src/ui/icons.js`, and the
 shared parts as components (`Screen`, status bar, tab bar, control column
-and groups, cards, readout card, rig tiles and links, chips, meters).
+and groups, cards, readout card, rig tiles and links, tool cards, chips, meters).
 The code stays the source of truth: **when `theme.css`, `icons.js` or the
 values in this section change, refresh the design system in the same
-change.** Built from commit `0ccf814`; refreshed for specs/0010 (2026-11-01) and specs/0013 (2026-11-07: the night palette, "on", where you are, working badges, the rig on the ground; revision 2's trail tokens).
+change.** Built from commit `0ccf814`; refreshed for specs/0010 (2026-11-01) and specs/0013 (2026-11-07: the night palette, "on", where you are, working badges, the rig on the ground; revision 2's trail tokens) and for the tool card (2026-11-08: seven icons, 81 now; `ToolCard` with More, its open row and the width row of specs/0011 and 0012; no selected tint on the card).
 
 ### Type
 
