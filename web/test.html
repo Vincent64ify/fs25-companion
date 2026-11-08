@@ -1511,6 +1511,10 @@ stripS.set("vehicles", { controlledId: 1, vehicles: [{ ...seedVehicle(), impleme
 stripS.set("cab", { inVehicle: true, implements: [], rig: [seedCab().rig[0]] });
 check("vehicle screen: rig strip: the vehicle alone, Nothing attached", [stripShow(), vBand.querySelector(".veh-strip-none").hidden],
   [[`T7.315 HD|PTO on · ${(1240).toLocaleString()} h`], false]);
+// NEXT.md: the cab comes first, the vehicles topic with the new name up to 500 ms later
+stripS.set("vehicles", { controlledId: 1, vehicles: [{ ...seedVehicle(), name: "Fendt 942 Vario", brand: "Fendt", implements: [] }] });
+check("vehicle screen: rig strip: a new vehicle's name shows once the vehicles topic brings it", stripShow(),
+  [`942 Vario|PTO on · ${(1240).toLocaleString()} h`]);
 
 // the load card: what's on the loader, else every tank in the rig
 const loadS = createStore();

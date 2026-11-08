@@ -996,3 +996,7 @@ page's memory; off a field the panel shows the map around the rig.
   and the page's spraying box. Precision Farming off stays open (NEXT.md,
   with the four width buttons). The names verified move to DONE.md; spec
   live-checked.
+- 2026-11-08: small fix from NEXT.md: the rig strip's key now holds each
+  tile's model name (`entryModel`), so a new vehicle's name shows once the
+  `vehicles` topic brings it after the cab. A test.html check for it
+  (failed before the fix); test.html all green, pytest 120.

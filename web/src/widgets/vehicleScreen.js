@@ -278,7 +278,8 @@ export function rigStrip(store, opts = {}) {
     const v = controlledVehicle(store);
     const cab = cabOf(store);
     const order = v ? drivingOrder(screenRig(v, cab)) : [];
-    const key = JSON.stringify(order.map((e) => [e, stripState(e, v), entryKind(e, v),
+    // the model's name comes from the vehicles topic, which can arrive after the cab
+    const key = JSON.stringify(order.map((e) => [e, entryModel(e, v), stripState(e, v), entryKind(e, v),
       fillsOf(/** @type {any} */ (detailOf(e, v))).map((f) => [Math.round(fillPct(f)), fillMax(f)])]));
     if (key !== lastStrip) {
       lastStrip = key;

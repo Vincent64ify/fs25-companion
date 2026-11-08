@@ -68,13 +68,6 @@ Things to fix next, in no particular order. Longer-term ideas are under
   a save without Precision Farming, if there ever is one, with spec 0013
   revision 4's last box: the strip and the trail follow the sections set
   by hand (no `spraySpans`).
-- **The rig strip's names** (seen building spec 0012, 2026-11-03): the
-  Vehicle page band's strip is rebuilt only when its key changes
-  (`vehicleScreen.js`), and the key leaves out the model's name, which
-  comes from the `vehicles` topic. Getting into another vehicle, the cab
-  arrives first (every frame) and the vehicles topic up to 500 ms later,
-  so the vehicle's tile can keep the last vehicle's name. Add
-  `entryModel(e, v)` to the key.
 - **Refill on the dashboard** (Vincent, spec 0011's live check,
   2026-11-02): at a fill station the game offers Refill for the sprayer;
   a button for it when the game shows it. It isn't one of the tool's
