@@ -1341,6 +1341,17 @@ first look are in the spec,
     night) when on.
   - **Call a trailer:** the meter turns orange, the chip shows and the
     band's "until full" turns orange and pulses.
+- **Revision 3 (2026-11-08, built, no mod change):** the field panel, on
+  the canvas [FS25 Companion: Harvester with field panel](https://claude.ai/artifact/AK7xCVArrBaBXyhMWf2gT9)
+  (harvesting by day, nearly full at night, a headland turn with the
+  header raised). The grid's rows are 88 | auto | 1fr: the Combine card
+  spans both lower rows; on the right the Header card at its content's
+  height (about 256 px) over the field panel (about 310, its map about
+  190). The Header card is compact: the lift on one line (caption, state,
+  bar), the Header and Fold tiles 80 tall (`.control-tiles[data-short]`),
+  Width / Limit / Wear as small stat tiles like the Vehicle page's tool
+  cards. The panel is spec 0013's in its compact variant: no Needs row.
+  Narrow screens: one column, the panel 240 tall after the Header card.
 - **Layout (revision 1, replaced):** the rig band (the Implement screen's), then the work card
   (Header lift, Thresher, Pipe, Straw, Speed against the limit) and the
   grain tank under it, the details beside them (header and combine wear,

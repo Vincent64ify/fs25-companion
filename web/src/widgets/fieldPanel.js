@@ -9,7 +9,8 @@
 //   sections that are off grey): one element moved by a CSS transform.
 // - Under it: the field's number and area, its crop and stage over a bar of
 //   its stages, what it needs (the Map's field panel's words) and how much
-//   of it this run has done, while there's a trail.
+//   of it this run has done, while there's a trail. The compact variant
+//   (the Harvester page, specs/0001 revision 3) leaves out what it needs.
 // Only fields your farm owns (revision 3). Off the field it stays while the
 // rig is inside the panel's view (the field plus its margin), so a headland
 // turn keeps it; past that, or with none yet, "Not on your field". Hidden on foot and with three working tools or more:
@@ -145,14 +146,18 @@ export function fieldPanel(store, opts = {}) {
   const stages = h("div", { className: "field-stages" });
   stages.setAttribute("aria-hidden", "true");
   const cropRow = h("div", { className: "field-crop-row" }, h("div", { className: "field-row" }, crop, stage), stages);
+  // the compact variant (the Harvester page, specs/0001 revision 3) has no
+  // Needs row: the field you harvest needs harvesting, and the map needs the room
+  const compact = opts.variant === "compact";
   const needList = h("span", { className: "field-need-list" });
   const needs = h("div", { className: "field-needs" }, h("span", { className: "veh-cap", text: "Needs" }), needList);
   const coverText = h("b");
   const cover = h("div", { className: "field-row field-cover" }, h("span", { text: "This run" }), coverText);
   cover.hidden = true;
-  const root = h("section", { className: "field-panel" },
-    mapBox, h("div", { className: "field-facts" }, h("div", { className: "field-row" }, title, area), cropRow, needs, cover));
+  const root = h("section", { className: "field-panel" }, mapBox, h("div", { className: "field-facts" },
+    h("div", { className: "field-row" }, title, area), cropRow, ...(compact ? [] : [needs]), cover));
   root.setAttribute("aria-label", "Field");
+  if (compact) root.dataset.variant = "compact";
   if (opts.id) root.id = opts.id;
 
   /** the vehicle the field is held for: another one starts with none */
@@ -373,7 +378,7 @@ export function fieldPanel(store, opts = {}) {
         }));
       }
       needs.hidden = !field;
-      if (field) {
+      if (field && !compact) {
         const list = fieldNeeds(field, catalog);
         needList.replaceChildren(...(list.length ? list.map((need) => h("span", { className: "field-need", text: need }))
           : [h("span", { className: "field-needs-none", text: "Nothing" })]));

@@ -1,6 +1,6 @@
 # 0001: Harvester screen
 
-Status: live-checked (revision 2, mod 0.8.4, 2026-10-25)
+Status: live-checked (revision 2, mod 0.8.4, 2026-10-25); revision 3 (the field panel) built, live check open
 Mod: 0.8.4 · Started: 2026-10-25 · Design: [THEMES.md, Harvester screen](../docs/THEMES.md#harvester-screen-mod-083-2026-10-25),
 canvas [FS25 Companion: Harvester screen](https://claude.ai/artifact/7arT5R4WwC9qJTTi3i99aL)
 
@@ -14,6 +14,112 @@ one tap on what you read changes it. It's the Vehicle tab's other page, not
 a fourth tab. Combines first; forage, beet, potato and cotton harvesters
 come later, once their keys are seen in game.
 
+## Revision 3: the field panel
+
+Approved by Vincent and built on 2026-11-08 (no mod change). Design: the
+canvas [FS25 Companion: Harvester with field panel](https://claude.ai/artifact/AK7xCVArrBaBXyhMWf2gT9)
+(private, on claude.ai), columns as today (1.62fr | 1fr). As built at
+1180×820: the Header card 254 px, the field panel 310, its map 190. This
+section is the revision whole; Behaviour, Data contract and Acceptance
+below say the same.
+
+**Why.** Since spec 0013 the Vehicle page shows the field you're working
+and how much of it this run has done. The Harvester page doesn't, though
+a harvest is where "how much is left" matters most (Vincent, 2026-11-08).
+
+**What the player sees.**
+- **Layout (1180×820):** the band across the top, as now. Under it the
+  Combine card on the left (1.62fr), as now, the full height. The right
+  column (1fr) is split: the Header card on top, at the height of its
+  content (about half), and the field panel under it, taking the rest.
+  The control column is unchanged.
+- **The field panel** is spec 0013's, the same widget with the same rules
+  (`fieldPanel`, revisions 2 and 3): only fields your farm owns; the
+  field's outline, view fixed to the field; the combine's dot and heading
+  arrow; the trail and "This run ≈ 54 % of the field"; the field's number
+  and area, its crop and stage ("Ready to harvest") over the stages bar.
+  No Needs row here: the field you harvest needs harvesting, and the row
+  costs the map about 35 px (the widget's `compact` variant; the Vehicle
+  page keeps the row). Off the field it keeps the last field while the
+  combine is in the panel's view; past that "Not on your field".
+- **The trail** is the header's: it records while the header is working
+  (`isWorking`: lowered, and turned on if it turns on) and the combine
+  moves faster than 0.5 km/h on a field of yours, as wide as the header's
+  working width (the Working width the card shows). Raised at the
+  headland: no trail. Same colour as other work (the "work" green): no
+  new colour.
+- **No header attached:** the card is the compact "No header" card; the
+  panel still shows the field and the dot, with no trail.
+- **A compact Header card**, so it fits half the column without
+  scrolling:
+  - Head: the header's model and "Header", as now.
+  - Lift: one line, "Lift" and Raised / Lowered (a % between) on the left,
+    its bar beside it, no Raised / Lowered labels under the bar.
+  - Tiles: Header and Fold, the same state tiles, 80 tall instead of
+    104 (the Combine card's stay 104).
+  - Stats: the three rows become three small stat tiles in one line, as
+    the Vehicle page's tool cards have them (spec 0013): Width
+    ("7.6 m"), Limit ("10 km/h", "none"), Wear ("12 %").
+- **Narrow screens** (the existing one-column layout): band, Combine,
+  Header, field panel, in that order.
+
+**What doesn't change:** the band, the Combine card, the tiles' actions,
+Call a trailer, the column, the screen picking, units, day and night.
+
+**Data contract.** Nothing new from the mod or the backend; no mod
+version bump. Web only:
+- `web/src/themes/newholland/theme.js`: `{ widget: "fieldPanel",
+  variant: "compact" }` as a fourth slot in the `harvester` group.
+- `web/src/themes/newholland/theme.css`: the group's rows
+  `88px auto minmax(0, 1fr)`, the Combine card across rows 2 and 3; the
+  compact Header card (`.harv-lift` on one line,
+  `.control-tiles[data-short]` 80 tall, `.harv-small-stat`); narrow
+  screens: one column, the panel 240 tall.
+- `web/src/widgets/harvesterScreen.js`: `headerCard`'s lift line, short
+  tiles and stat tiles.
+- `web/src/widgets/fieldPanel.js`: the `compact` variant leaves the Needs
+  row out (`data-variant="compact"` on the panel).
+- Nothing in `coverage.js`: a lowered, turned-on header with a working
+  width already records, as any tool does.
+
+| Name | Where from | State |
+|---|---|---|
+| a header's `workWidth` (the cutter's work areas) | `mod/src/collectors/vehicles/Tools.lua` | shown live as the card's Working width (spec 0001 live check), never used for a trail |
+| a header's rig entry `lowered` and `turnedOn` while harvesting (what `isWorking` reads) | `cab.rig` | unverified for a header: the combine turns the thresher on; whether the header's own entry says turned on is not seen yet |
+| the combine's `x`, `z`, `heading` | vehicles topic | verified (spec 0013) |
+
+**Acceptance (automated, written before the code):**
+- [x] `web/test.html` "harvester screen: field panel: under the Header
+  card, without the Needs row" (the theme's slots and the compact
+  variant; the Vehicle page keeps Needs) and "harvester screen: field
+  panel: the header's trail at its working width while lowered; raised or
+  no header, none" (a 7.6 m band, about 6 % of a 100 m field in one pass).
+- [x] `web/test.html` "harvester screen: tiles" and "the band, the Combine
+  card and the Header card" pass with the compact card: Width, Limit and
+  Wear as stat tiles, no rows or bar labels, the tiles short.
+- [x] Replay in the browser pane at 1180×820, day and night, against the
+  canvas (a combine faked over field 63, the farm's own in the Solek
+  replay): Header card 254 px and fits, the panel 310, its map 190, tiles
+  143 × 80, nothing overflows; the trail and "≈ %" grow while lowered and
+  stop when raised (the job then reads Ready).
+
+**Live check** (no mod change; restart the client; a combine with a
+header, on a field of yours):
+- [ ] Harvest a pass: the trail follows the header, about its width, and
+  "This run ≈ %" rises.
+- [ ] Raise the header at the headland: no trail while raised; it goes on
+  when lowered again.
+- [ ] The panel's crop and stage match the field ("Ready to harvest"
+  before, the stubble's state after, as the Map's field panel shows it).
+- [ ] On the iPad, the Harvester page still shows at once (opening it,
+  getting in the combine).
+
+**Open questions.**
+- ~~Is half the column enough for the map, or columns 1.4fr | 1fr?~~
+  Half the column, as on the approved canvas (2026-11-08).
+- If the header's entry doesn't say turned on while harvesting, the trail
+  should follow the combine's thresher instead: settle at the live check.
+
 ## Behaviour
 
 - **Picking the screen:** with the setting Screen for what I drive (Settings
@@ -22,9 +128,10 @@ come later, once their keys are seen in game.
   Tractor otherwise. A tap on the Vehicle tab while it's shown opens a menu,
   Tractor / Harvester. A pick by hand stays until what you drive changes.
   With the setting off, the tab stays on Tractor unless you pick.
-- **Layout (1180×820):** the content area holds the band and, under it, two
-  cards side by side: Combine (wider) and Header. The control column on the
-  right starts at the top, as on every screen. No rig band, no Details
+- **Layout (1180×820):** the content area holds the band and, under it,
+  the Combine card (wider) and, beside it, the Header card over the field
+  panel (revision 3). The control column on the right starts at the top,
+  as on every screen. No rig band, no Details
   column, no Show on map (the bottom nav opens the Map), no PTO chip.
 - **Band:** the job and "CH7.70 with SuperFlex 25FT" on the left (the model
   alone without a header); four numbers on the right, always shown:
@@ -54,14 +161,17 @@ come later, once their keys are seen in game.
   - Combine wear, with its bar.
 - **Header card:**
   - Head: the header's model and "Header".
-  - Lift: Raised / Lowered with its bar (a % while it's between).
-  - Tiles: Header (Down / Up, lit while lowered; one tap lowers or raises)
-    and Fold (Folded / Unfolded, Folding… while it moves). Fold only when
-    the header folds.
-  - Rows: working width, speed limit ("none" without one), header wear
-    with its bar.
+  - Lift: one line, "Lift", Raised / Lowered (a % while it's between) and
+    its bar (revision 3).
+  - Tiles, 80 tall (revision 3): Header (Down / Up, lit while lowered; one
+    tap lowers or raises) and Fold (Folded / Unfolded, Folding… while it
+    moves). Fold only when the header folds.
+  - Small stat tiles (revision 3): Width, Limit ("none" without one),
+    Wear.
   - Without a header attached, the card says "No header" and the band's
     limit reads "no limit".
+- **Field panel** (revision 3): spec 0013's, compact (no Needs row), under
+  the Header card; the trail is the header's.
 - **Call a trailer:** at 80% of where the tank stops (its capacity, or the
   weight limit when that comes first) or 3 minutes before full, the meter
   turns orange, a "Call a trailer" chip shows under it, and the band's
@@ -278,3 +388,10 @@ header and a trailer, with and without Precision Farming):
   Call a trailer and the pulse confirmed. All ten boxes ticked; the API
   names are in DONE.md (`setIsSwathActive` stays unverified: the key was
   live, so the fallback never ran). Status live-checked.
+- 2026-11-08: revision 3 drafted (the field panel under a compact Header
+  card), with a canvas; waiting for approval.
+- 2026-11-08: revision 3 approved by Vincent and built (web only, no mod
+  change): pytest (120) and `web/test.html` (312) pass; replay checked at
+  1180×820 by day and night with a faked combine on field 63. Changed from
+  the draft: the Needs row goes through the widget's `compact` variant
+  rather than a `needs` option. Live check open.

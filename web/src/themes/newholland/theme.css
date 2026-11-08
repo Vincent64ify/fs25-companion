@@ -1469,16 +1469,18 @@ button { font: inherit; color: inherit; }
 
 /* --- Harvester screen: the Vehicle tab's page for a combine (specs/0001) ------ */
 
-/* the band over the Combine and Header cards */
+/* the band over the Combine card and, beside it, the Header card at its
+   content's height over the field panel, which takes the rest (revision 3) */
 .slot-group[data-group="harvester"] {
   display: grid;
   grid-template-columns: minmax(0, 1.62fr) minmax(0, 1fr);
-  grid-template-rows: 88px minmax(0, 1fr);
+  grid-template-rows: 88px auto minmax(0, 1fr);
   gap: 12px;
   min-width: 0;
   min-height: 0;
 }
 .slot:has(> .harv-band) { grid-column: 1 / -1; }
+.slot:has(> .harv-combine) { grid-row: 2 / 4; }
 
 /* the band: the readout card's colours, day and night */
 .harv-band {
@@ -1618,15 +1620,21 @@ button { font: inherit; color: inherit; }
 .harv-wear > div > div { display: flex; justify-content: space-between; }
 .harv-wear .widget-meter { width: auto; }
 
-/* the header: its lift, tiles and rows */
-.harv-header-body { display: flex; flex: 1; flex-direction: column; gap: 14px; }
-.harv-lift { display: flex; flex-direction: column; gap: 8px; }
-.harv-lift > div:first-child { display: flex; align-items: baseline; justify-content: space-between; }
-.harv-lift b { font-size: 15px; font-weight: 700; }
+/* the header, compact (revision 3): the lift on one line, tiles 80 tall,
+   small stat tiles as the Vehicle page's cards have them (.tool-stat) */
+.harv-header { gap: 12px; }
+.harv-header-body { display: flex; flex-direction: column; gap: 12px; }
+.harv-lift { display: grid; grid-template-columns: auto auto minmax(0, 1fr); align-items: center; gap: 10px; }
+.harv-lift b { min-width: 64px; font-size: 15px; font-weight: 700; }
 .harv-bar { display: block; height: 10px; overflow: hidden; border-radius: 999px; background: var(--line); }
 .harv-bar > i { display: block; height: 100%; border-radius: 999px; background: var(--on); transition: width var(--t-slow) var(--ease); }
-.harv-bar-labels { display: flex; justify-content: space-between; font-size: 11px; color: var(--muted); }
-.harv-rows { display: flex; flex-direction: column; margin-top: auto; }
+.control-tiles[data-short="true"] .control.control-tile { height: 80px; padding: 10px 12px; }
+.control-tiles[data-short="true"] .control-tile .control-value { font-size: 20px; }
+.harv-small-stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+.harv-small-stat { display: flex; flex-direction: column; gap: 2px; min-width: 0; padding: 6px 10px; border-radius: 10px; background: var(--line); }
+.harv-small-stat .harv-cap { font-size: 11px; }
+.harv-small-stat b { overflow: hidden; font-size: 15px; font-weight: 700; line-height: 1.2; font-variant-numeric: tabular-nums;
+  text-overflow: ellipsis; white-space: nowrap; }
 
 /* a shared tab's menu (Vehicle: Tractor or Harvester), over the tab */
 .tab-menu {
@@ -1824,6 +1832,8 @@ button { font: inherit; color: inherit; }
      the control dock */
   .screen[data-screen="harvester"] { grid-template-columns: minmax(0, 1fr); align-content: start; }
   .slot-group[data-group="harvester"] { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto; }
+  .slot-group[data-group="harvester"] .slot:has(> .harv-combine) { grid-row: auto; }
+  .slot-group[data-group="harvester"] .field-panel { height: 240px; }
   .screen[data-screen="harvester"] .slot-group, .screen[data-screen="harvester"] .slot,
   .screen[data-screen="harvester"] .control-column { min-height: auto; }
   .harv-band { flex-wrap: wrap; padding: 14px 20px; }

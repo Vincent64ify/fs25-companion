@@ -414,8 +414,9 @@ export function combineCard(store, opts = {}) {
 }
 
 /**
- * The Header card: the lift, the Header and Fold tiles, working width,
- * speed limit and wear; "No header" without one.
+ * The Header card, compact so the field panel fits under it (revision 3):
+ * the lift on one line, the Header and Fold tiles 80 tall, and working
+ * width, speed limit and wear as small stat tiles; "No header" without one.
  * @type {import("./widget.js").CreateWidget}
  */
 export function headerCard(store, opts = {}) {
@@ -424,22 +425,21 @@ export function headerCard(store, opts = {}) {
   const liftValue = h("b");
   const liftBar = h("i");
   const lift = h("div", { className: "harv-lift" },
-    h("div", {}, h("span", { className: "harv-cap", text: "Lift" }), liftValue),
-    h("span", { className: "harv-bar" }, liftBar),
-    h("div", { className: "harv-bar-labels" }, h("span", { text: "Raised" }), h("span", { text: "Lowered" })));
+    h("span", { className: "harv-cap", text: "Lift" }), liftValue, h("span", { className: "harv-bar" }, liftBar));
   const tiles = controlTiles(["header", "fold"], store, send);
-  /** @param {string} id @param {string} iconName @param {string} label */
-  const row = (id, iconName, label) => {
+  tiles.dataset.short = "true";
+  /** @param {string} id @param {string} label */
+  const stat = (id, label) => {
     const value = h("b");
-    const el = h("div", { className: "harv-row" }, icon(iconName), h("span", { text: label }), value);
-    el.dataset.row = id;
+    const el = h("div", { className: "harv-small-stat" }, h("span", { className: "harv-cap", text: label }), value);
+    el.dataset.stat = id;
     return { el, value };
   };
-  const width = row("width", "workWidth", "Working width");
-  const limit = row("limit", "speed", "Speed limit");
-  const wear = wearRow("Header wear");
+  const width = stat("width", "Width");
+  const limit = stat("limit", "Limit");
+  const wear = stat("wear", "Wear");
   const body = h("div", { className: "harv-header-body" }, lift, tiles,
-    h("div", { className: "harv-rows" }, width.el, limit.el, wear.el));
+    h("div", { className: "harv-small-stats" }, width.el, limit.el, wear.el));
   const root = h("section", { className: "harv-card harv-header" }, head.el, body);
   root.setAttribute("aria-label", "Header");
   if (opts.id) root.id = opts.id;
@@ -463,7 +463,7 @@ export function headerCard(store, opts = {}) {
     width.value.textContent = typeof d?.workWidth === "number" && d.workWidth > 0 ? lengthText(d.workWidth, units) : "–";
     limit.value.textContent = typeof d?.speedLimit === "number" && d.speedLimit > 0
       ? `${Math.round(speedValue(d.speedLimit, units))} ${speedUnit(units)}` : "none";
-    wear.set(d?.wear);
+    wear.value.textContent = typeof d?.wear === "number" ? `${Math.round(100 * d.wear)}%` : "–";
   };
   store.subscribe("vehicles", render);
   store.subscribe("cab", render);

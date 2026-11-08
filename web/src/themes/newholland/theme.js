@@ -91,15 +91,18 @@ export default {
     },
     {
       // the Vehicle tab's other page, for a combine (specs/0001): the band
-      // over the Combine and Header cards (rows 88 | 1fr, columns
-      // 1.62fr | 1fr), then the column with Lights and Drive; the cards'
-      // tiles are the combine's and the header's buttons
+      // over the Combine card (1.62fr) and, beside it, the Header card over
+      // the field panel (1fr; revision 3: rows 88 | auto | 1fr), then the
+      // column with Lights and Drive; the cards' tiles are the combine's and
+      // the header's buttons. The field panel is the Vehicle page's without
+      // its Needs row (the field you harvest needs harvesting).
       id: "harvester", label: "Harvester", icon: "harvester", tab: "vehicle", choice: "Harvester", when: "harvester",
       slots: [
         { group: "harvester", slots: [
           { widget: "harvestBand" },
           { widget: "combineCard" },
           { widget: "headerCard" },
+          { widget: "fieldPanel", variant: "compact" },
         ] },
         // the header's buttons are on its card; Attach is on Vehicle
         { controls: true },

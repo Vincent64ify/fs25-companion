@@ -1372,13 +1372,16 @@ check("harvester screen: the band, the Combine card and the Header card, nearly 
   q(hCombine, ".harv-tank-name"), q(hCombine, ".harv-tank-pct"), hCombine.querySelector(".fill-meter").dataset.level,
   hCombine.querySelector(".harv-call").hidden, q(hCombine, ".harv-tank-litres"),
   [...hCombine.querySelectorAll(".harv-stat small")].map((e) => e.textContent), q(hCombine, ".harv-wear b"),
-  q(hHeader, ".harv-card-name"), q(hHeader, ".harv-lift b"), [...hHeader.querySelectorAll(".harv-row b")].map((e) => e.textContent),
-  q(hHeader, ".harv-wear b"), hHeader.querySelectorAll(".control-tile:not([hidden])").length],
+  q(hHeader, ".harv-card-name"), q(hHeader, ".harv-lift b"),
+  // spec 0001 revision 3: the compact card, Width, Limit and Wear as small stat tiles, no rows
+  [...hHeader.querySelectorAll(".harv-small-stat")].map((s) => `${q(s, ".harv-cap")}:${q(s, "b")}`),
+  hHeader.querySelectorAll(".harv-row, .harv-wear, .harv-bar-labels").length,
+  hHeader.querySelector(".control-tiles").dataset.short, hHeader.querySelectorAll(".control-tile:not([hidden])").length],
   ["Harvesting · Wheat", "Big Combine with Cutter 9",
     ["tank:91%:grain tank", "full:≈ 1min:until full:alert", "yield:8.4t/ha:yield", "speed:6.8km/h:limit 10 km/h"],
     "Big Combine", "Combine", "Harvesting", "active", "Grain tank · Wheat", "91", "warn", false, `${(8460).toLocaleString()} / ${(9300).toLocaleString()} L · 6.6 t`,
     ["92% of potential", "last minute", "since you got in", "this combine"], "2%",
-    "Cutter 9", "Lowered", ["7.6 m", "10 km/h"], "1%", 2]);
+    "Cutter 9", "Lowered", ["Width:7.6 m", "Limit:10 km/h", "Wear:1%"], 0, "true", 2]);
 harvS.set("vehicles", harvVehicles({ level: 544, speed: 0, header: false, pf: false, run: 0.02 }));
 harvS.set("cab", harvCab({ turnedOn: false, header: false }));
 check("harvester screen: standing, no header, no Precision Farming", [
@@ -1402,6 +1405,13 @@ check("theme: the Harvester screen's slots and its column", [
   [...harvScreen.querySelectorAll(".control-tile")].map((t) => t.dataset.tile)],
   [[true, true, true, false, false, false], ["Lights", "Drive"], ["Cruise −", "Cruise", "Cruise +", "Engine", "AI worker"], 0,
     ["thresher", "pipe", "straw", "header", "fold"]]);
+// spec 0001 revision 3: the field panel under the Header card, the compact
+// variant (no Needs row: the field you harvest needs harvesting)
+const harvSlots = [...harvScreen.querySelectorAll('.slot-group[data-group="harvester"] > .slot > *')];
+check("harvester screen: field panel: under the Header card, without the Needs row", [
+  harvSlots.map((e) => ["harv-band", "harv-combine", "harv-header", "field-panel"].find((c) => e.classList.contains(c))), harvScreen.querySelector(".field-panel")?.dataset.variant,
+  !!harvScreen.querySelector(".field-panel .field-needs"), !!appI.querySelector('.screen[data-screen="vehicle"] .field-panel .field-needs')],
+  [["harv-band", "harv-combine", "harv-header", "field-panel"], "compact", false, true]);
 // specs/0012: the Map screen's column has Lights and Drive; the Implement
 // group went (a tool is worked from its card)
 const mapGroups = [...appI.querySelectorAll('.screen[data-screen="map"] .control-column .control-group')];
@@ -2380,6 +2390,27 @@ const covRig = ({ tools = [sprayer10], entries = [{ id: 2, turnedOn: true }], ma
   return { c, at, pass, rig };
 };
 const near = (a, b, within = 1) => typeof a === "number" && typeof b === "number" && Math.abs(a - b) <= within;
+// spec 0001 revision 3: a combine's header leaves the trail, at its working
+// width, while it's lowered and turned on; raised, none; no header, none
+const combinePass = ({ lowered = true, header = true } = {}) => {
+  const s = createStore();
+  const c = cov.createCoverage(s);
+  s.set("field_outlines", { fields: [square100] });
+  s.set("fields", { fields: [{ id: 1, farmlandId: 1 }] });
+  s.set("farmlands", { farmlands: [{ id: 1, farmId: 1 }] });
+  for (let x = 0; x <= 100; x += 5) {
+    s.set("cab", { inVehicle: true, rig: [{ id: 20, depth: 0, can: ["turnOn"], turnedOn: true },
+      ...(header ? [{ id: 21, depth: 1, side: "front", can: ["lower", "turnOn", "fold", "detach"], lowered, turnedOn: true }] : [])] });
+    s.set("vehicles", { controlledId: 20, vehicles: [{ id: 20, name: "Big Combine", category: "harvesters", x, z: 51, heading: 90,
+      speed: 6, implements: header ? [{ id: 21, depth: 1, name: "Cutter 9", category: "cutters", workWidth: 7.6 }] : [] }] });
+  }
+  // 7.6 m covers three rows of 2 m cells along the 100 m pass: about 6 %
+  const pct = c.percent(1);
+  return [pct === undefined ? "none" : near(pct, 6, 1), c.trails(1).map((t) => [t.tool, t.kind, t.runs[0]?.w])];
+};
+check("harvester screen: field panel: the header's trail at its working width while lowered; raised or no header, none", [
+  combinePass(), combinePass({ lowered: false }), combinePass({ header: false })],
+  [[true, [[21, "work", 7.6]]], ["none", []], ["none", []]]);
 const once = covRig();
 once.pass(51);
 const oncePct = once.c.percent(1);

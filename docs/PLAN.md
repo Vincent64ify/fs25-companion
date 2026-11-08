@@ -6,7 +6,7 @@ it relies on, are in [DONE.md](DONE.md). Small fixes go in
 [specs/](../specs/README.md): written and approved before the code, kept
 up to date until the live check.
 
-## Where things stand (2026-11-07)
+## Where things stand (2026-11-08)
 
 - Phases 0 to 4 of the rework are built and run live on Windows (Solek, and
   Kinlaig, a paid DLC map): the file stream, the client and backend, and the
@@ -34,7 +34,9 @@ up to date until the live check.
   combine, picked by itself from what you drive (a setting, on by default)
   or from the tab's menu; a band with the tank, until full, yield and
   speed, then Combine and Header cards whose tiles are their buttons.
-  Confirmed in game on 2026-10-25 with mod 0.8.4.
+  Confirmed in game on 2026-10-25 with mod 0.8.4. Revision 3 (2026-11-08,
+  built, waiting for a live check): the Vehicle page's field panel under a
+  compact Header card, with the header's trail and "≈ % of the field".
 - The Vehicle screen redesign is done (mod 0.8.6, spec
   [0002](../specs/0002-vehicle-screen.md)): the band with the rig strip,
   Load with the session's tally, Target. Confirmed in game on 2026-10-26
