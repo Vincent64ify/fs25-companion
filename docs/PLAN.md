@@ -34,9 +34,10 @@ up to date until the live check.
   combine, picked by itself from what you drive (a setting, on by default)
   or from the tab's menu; a band with the tank, until full, yield and
   speed, then Combine and Header cards whose tiles are their buttons.
-  Confirmed in game on 2026-10-25 with mod 0.8.4. Revision 3 (2026-11-08,
-  built, waiting for a live check): the Vehicle page's field panel under a
-  compact Header card, with the header's trail and "≈ % of the field".
+  Confirmed in game on 2026-10-25 with mod 0.8.4. Revision 3, confirmed
+  in game on 2026-11-08 (no mod change): the Vehicle page's field panel
+  under a compact Header card, with the header's trail and "≈ % of the
+  field".
 - The Vehicle screen redesign is done (mod 0.8.6, spec
   [0002](../specs/0002-vehicle-screen.md)): the band with the rig strip,
   Load with the session's tally, Target. Confirmed in game on 2026-10-26

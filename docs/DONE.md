@@ -355,6 +355,14 @@ These results override any API guesses later in this document.
     suffix), its `sprayerEffects[i].isActive` and `.effectNode`: the
     stretches whose nozzles are on match the game's sprayed map. Its
     automatic spraying never changes the boom's `leftSide` / `rightSide`.
+- Spec 0001 revision 3, the Harvester page's field panel (confirmed by
+  Vincent, 2026-11-08, Solek, a New Holland CH7.70 with a SuperFlex 25FT,
+  mod 0.15.0):
+  - A header's rig entry can only `lower` and `detach`: turning on is
+    the combine's (`[fold, turnOn, pipe]`). So the trail follows the
+    header's `lowered` alone, and stops while it's raised at the headland.
+  - The header's `workWidth` (the cutter's work areas, Tools.lua's
+    `workWidthOf`) gives a trail as wide as the header on the field.
 
 ---
 

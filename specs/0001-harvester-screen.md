@@ -1,6 +1,6 @@
 # 0001: Harvester screen
 
-Status: live-checked (revision 2, mod 0.8.4, 2026-10-25); revision 3 (the field panel) built, live check open
+Status: live-checked (revision 2, mod 0.8.4, 2026-10-25; revision 3, the field panel, 2026-11-08)
 Mod: 0.8.4 · Started: 2026-10-25 · Design: [THEMES.md, Harvester screen](../docs/THEMES.md#harvester-screen-mod-083-2026-10-25),
 canvas [FS25 Companion: Harvester screen](https://claude.ai/artifact/7arT5R4WwC9qJTTi3i99aL)
 
@@ -79,13 +79,15 @@ version bump. Web only:
   tiles and stat tiles.
 - `web/src/widgets/fieldPanel.js`: the `compact` variant leaves the Needs
   row out (`data-variant="compact"` on the panel).
-- Nothing in `coverage.js`: a lowered, turned-on header with a working
-  width already records, as any tool does.
+- Nothing in `coverage.js`: a lowered header with a working width already
+  records, as any tool does. The header can't turn on (live check), so
+  `isWorking` reads its `lowered` alone: driving with the header down and
+  the thresher off also leaves a trail.
 
 | Name | Where from | State |
 |---|---|---|
-| a header's `workWidth` (the cutter's work areas) | `mod/src/collectors/vehicles/Tools.lua` | shown live as the card's Working width (spec 0001 live check), never used for a trail |
-| a header's rig entry `lowered` and `turnedOn` while harvesting (what `isWorking` reads) | `cab.rig` | unverified for a header: the combine turns the thresher on; whether the header's own entry says turned on is not seen yet |
+| a header's `workWidth` (the cutter's work areas) | `mod/src/collectors/vehicles/Tools.lua` | verified (DONE.md, spec 0001 revision 3) |
+| a header's rig entry: `can` is `[lower, detach]`, so `isWorking` reads `lowered` | `cab.rig` | verified (DONE.md, spec 0001 revision 3) |
 | the combine's `x`, `z`, `heading` | vehicles topic | verified (spec 0013) |
 
 **Acceptance (automated, written before the code):**
@@ -105,20 +107,22 @@ version bump. Web only:
 
 **Live check** (no mod change; restart the client; a combine with a
 header, on a field of yours):
-- [ ] Harvest a pass: the trail follows the header, about its width, and
+- [x] Harvest a pass: the trail follows the header, about its width, and
   "This run ≈ %" rises.
-- [ ] Raise the header at the headland: no trail while raised; it goes on
+- [x] Raise the header at the headland: no trail while raised; it goes on
   when lowered again.
-- [ ] The panel's crop and stage match the field ("Ready to harvest"
+- [x] The panel's crop and stage match the field ("Ready to harvest"
   before, the stubble's state after, as the Map's field panel shows it).
-- [ ] On the iPad, the Harvester page still shows at once (opening it,
+- [x] On the iPad, the Harvester page still shows at once (opening it,
   getting in the combine).
 
 **Open questions.**
 - ~~Is half the column enough for the map, or columns 1.4fr | 1fr?~~
   Half the column, as on the approved canvas (2026-11-08).
-- If the header's entry doesn't say turned on while harvesting, the trail
-  should follow the combine's thresher instead: settle at the live check.
+- ~~If the header's entry doesn't say turned on while harvesting?~~ It
+  can't turn on at all (`[lower, detach]`); the trail follows the header
+  lowered, and that was right in game (2026-11-08). With the thresher off
+  and the header down it would draw too: not changed unless it bothers.
 
 ## Behaviour
 
@@ -395,3 +399,10 @@ header and a trailer, with and without Precision Farming):
   1180×820 by day and night with a faked combine on field 63. Changed from
   the draft: the Needs row goes through the widget's `compact` variant
   rather than a `needs` option. Live check open.
+- 2026-11-08: revision 3 live check (Solek, field 147, Wheat, the CH7.70
+  with a SuperFlex 25FT, mod 0.15.0) with Vincent: all four boxes
+  confirmed (the trail at the header's width and the % rising, none while
+  raised, crop and stage, the iPad showing it at once). The stream showed
+  the header's `can` as `[lower, detach]`: the trail follows it lowered.
+  No errors in the log; every press acknowledged. Status live-checked;
+  the API facts are in DONE.md.
