@@ -60,7 +60,14 @@ selection is put back as today.
   Fold all's key goes the way the tool it's pressed on folds next, for
   every tool whose next fold goes that way, so the mod presses it on a
   tool not in the asked state yet (the selected one if it's pending);
-  mixed states need no per-tool path any more. Turn on all's key flips
+  mixed states need no per-tool path any more. Folding, it first raises
+  the pending tools lowered on their joint, and presses the key only on
+  a pending tool: the game's Lower all lowers a folded front mower
+  (Ctrl+V the same), and the key pressed on it would unfold it (mod
+  0.16.1). Fold all ends everything folded and up (Vincent, 0.16.2): a
+  folded tool still lowered on its joint is raised by its own Lower,
+  checked (named if it doesn't rise); with nothing left to fold, that
+  Lower is all it does. Turn on all's key flips
   every tool, so the mod presses it only when every tool needs turning;
   otherwise each pending tool's own Turn on. (Both found in this live
   check, read in the game's own scripts: `gameSource.zip`.)
@@ -335,3 +342,27 @@ failure.
   reverse cruise diagnostic came from the moved `state/Motor.lua`).
   Live-checked (Vincent), mod 0.11.2. Verified names into DONE.md.
   `Commands.lua` ends at 1,280 lines with the All row fixes.
+- 2026-11-08: found on 0.16.0 (the T7.300, KDF 341 S front, KDD 941 STH
+  rear selected, both raised and folded). Lower all, the game's key
+  (Ctrl+V the same, Vincent): the front lowered at once, still folded
+  ("Folding is not allowed while the tool is lowered."); the rear
+  unfolded through its fold and lowered 2 s later. Fold all then, three
+  times: the front raised and unfolded, the rear didn't move, "Samasz
+  KDD 941 STH: Nothing moved". Fold all raised every tool lowered on its
+  joint, the folded front too, and pressed the key on the last one
+  raised; on the folded front the key unfolds. Fixed (mod 0.16.1): only
+  pending tools are raised and pressed on; test in `run.lua` ("commands,
+  checked"). Lower all lowering a folded front mower is the game's own
+  and stays.
+- 2026-11-08: rerun on 0.16.1, same rig and setup (after a restart Lower
+  all took each tool's Lower: the key's next press would raise). Lower
+  all: the front lowered folded, the rear unfolded and lowered, ok.
+  Fold all: ok, the key once on the rear one, which rose and folded; the
+  front untouched, still lowered. Vincent: Fold all should end it up
+  too. Mod 0.16.2: a folded tool lowered on its joint is raised by its
+  Lower, checked, never the key; tests in `run.lua`.
+- 2026-11-08: rerun on 0.16.2, same rig and setup. Lower all as on
+  0.16.1 (each tool's Lower, ok). Fold all: ok, checked; the folded
+  front raised by its Lower, then the key once on the rear, which rose
+  and folded; both ended folded and up, the rear selected as before.
+  Vincent: each mower moved once, as listed.

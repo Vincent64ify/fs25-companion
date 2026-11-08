@@ -3285,6 +3285,44 @@ test("commands, checked: ok once the tools moved, else which didn't and why", fu
     eq(ack.ok, true, "mixed unfold all: " .. tostring(ack.reason))
     eq(pressed(), "996:FOLD_ALL_IMPLEMENTS", "on the folded rear one")
     eq(front:getIsUnfolded() and rear:getIsUnfolded(), true, "both unfolded")
+    -- live (0.16.0, 2026-11-08): the game's Lower all lowers the front one
+    -- folded (Ctrl+V the same) and the rear one through its fold. Fold all
+    -- then: the key goes on the rear one, the only one to fold; it used to
+    -- go on the front one, which unfolded it (its next fold) and left the
+    -- rear one. The folded front one is raised by its Lower, never the key
+    -- (Vincent: Fold all ends everything folded and up, 0.16.2)
+    front:setFoldState(front:getToggledFoldDirection())
+    front.lowered, rear.lowered = true, true
+    eq(front:getIsUnfolded(), false)
+    eq(rear:getIsUnfolded(), true)
+    eq(root:getSelectedVehicle().id, 996, "the rear one selected, as live")
+    pressed()
+    ack = run("implement.foldAll", 1)
+    eq(ack.ok, true, "fold all, the front one lowered folded: " .. tostring(ack.reason))
+    eq(pressed(), "992:LOWER_IMPLEMENT,996:FOLD_ALL_IMPLEMENTS", "the front one raised, the key on the rear one")
+    eq(front:getIsUnfolded() or rear:getIsUnfolded(), false, "both folded")
+    eq(front.lowered, false, "the folded front one raised")
+    eq(root:getSelectedVehicle().id, 996, "the selection put back")
+    eq(run("implement.foldAll", 1).already, true, "folded and up: already")
+    -- all folded, one still lowered: only its Lower, checked
+    front.lowered = true
+    pressed()
+    ack = run("implement.foldAll", 1)
+    eq(ack.ok, true, "raise the folded one: " .. tostring(ack.reason))
+    eq(ack.checked, true)
+    eq(ack.via, "LOWER_IMPLEMENT")
+    eq(pressed(), "992:LOWER_IMPLEMENT", "no fold key")
+    eq(front.lowered, false)
+    -- it doesn't rise: named
+    front.lowered, front.stuck = true, true
+    ack = run("implement.foldAll", 1)
+    front.stuck = nil
+    eq(ack.ok, false)
+    eq(ack.reason, "Nothing moved")
+    eq(ack.unmoved[1].id, 994)
+    front.lowered, rear.lowered = false, false
+    run("implement.foldAll", 0)
+    eq(front:getIsUnfolded() and rear:getIsUnfolded(), true)
     -- Turn on all: the game's key, checked; one that doesn't move is named
     pressed()
     ack = run("implement.turnOnAll", 1)

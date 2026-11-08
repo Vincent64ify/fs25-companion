@@ -303,3 +303,13 @@ out.
   open the game's worker screen instead: NEXT.md) and the "update the
   mod" check (the mod and the companion always move together). The
   states the commands compare are in DONE.md.
+- 2026-11-08: round 2's one-off Lower all "Nothing moved" (13:46:35) is
+  explained: the mowers had been raised one by one, and the game's Lower
+  all key goes the opposite way of its own last press (found in spec
+  0009's live check), so on 0.10.0 that press raised (nothing moved) and
+  its double lowered them about 3 s late. Fixed in mod 0.11.1 (spec
+  0009, `comboNext`). Rechecked on 0.16.0 (the T7.300, KDF 341 S, KDD
+  941 STH, both raised and unfolded): three Lower alls after the game's
+  key raised (the key, ok; the rear selected for one), two after each
+  card's Raise (each tool's Lower, ok, both down in the second of the
+  press). Vincent: each mower lowered once per press. Out of NEXT.md.

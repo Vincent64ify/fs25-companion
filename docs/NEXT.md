@@ -23,14 +23,6 @@ Things to fix next, in no particular order. Longer-term ideas are under
   should open the game's AI job screen (pick the job there), and stop a
   worker that runs. Opening that screen from the mod needs a game GUI
   call that isn't verified: find it first.
-- **Lower all answered "Nothing moved" once** (spec 0008's live check,
-  2026-10-31, T7.300 with the KDF 341 S and KDD 941 STH, both raised and
-  unfolded, game in focus): the front lowered about 3 s after the press
-  instead of at once, after the check's 1 s, and the doubled Lower all
-  pressed the key again (both ended lowered). The same press a minute
-  later was clean ([spec 0008](../specs/0008-commands-say-the-state.md)'s
-  Log). The frames rotated away; next time, keep a copy of the stream and
-  see whether the combo ran (`attacherJointCombos.isRunning`).
 - **Time estimates and the game's time scale** (Vincent, 2026-10-31):
   the "time left" estimates (fuel and DEF range, a seed or spray tank
   empty, a grain tank full) must take the game's speed into account (x1,

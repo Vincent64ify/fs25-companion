@@ -774,15 +774,52 @@ end
 -- So, when folding, those are raised first (each one's Lower, as its card
 -- does) and the key waits until the game lets them fold (at most
 -- SETTLE_FRAMES). Pressed on the last one raised (it's selected then),
--- else the selected tool if it's pending, else the first pending.
+-- else the selected tool if it's pending, else the first pending. Only
+-- pending tools are raised or pressed on: one in the asked state already
+-- would turn the key the other way (live 0.16.0: the game's Lower all
+-- lowered the front mower folded; pressed on it, Fold all unfolded it and
+-- left the rear one). Folding ends everything folded and up (Vincent,
+-- 0.16.2): a folded tool still lowered on its joint is raised by its
+-- Lower, checked, never by the key; with nothing to fold, only that.
 local function foldAllJob(vehicle, value)
     local folding = value == 1
     local tools, pending = allTools(vehicle, "fold", folding)
     if #tools == 0 then
         return newJob(vehicle, {}, { "nothing folds" })
     end
-    if #pending == 0 then
+    local isPending = {}
+    for _, t in ipairs(pending) do
+        isPending[t] = true
+    end
+    -- folded already but lowered on its joint (the game's Lower all lowers
+    -- a folded front mower): raised by its Lower
+    local stowed, stowedBlocked = {}, {}
+    for _, t in ipairs(folding and tools or {}) do
+        local e = t.e
+        if not isPending[t] and e.lowered == true and hasCap(e, "lower")
+            and not VehicleState.foldLowers(t.object) then
+            if e.canNow ~= nil and e.canNow.lower == false then
+                stowedBlocked[#stowedBlocked + 1] = e.whyNot ~= nil and e.whyNot.lower or "not allowed now"
+            else
+                stowed[#stowed + 1] = t
+            end
+        end
+    end
+    if #pending == 0 and #stowed == 0 then
+        if #stowedBlocked > 0 then
+            return newJob(vehicle, {}, { stowedBlocked[1] })
+        end
         return ALREADY
+    end
+    local steps, check = {}, {}
+    for _, t in ipairs(stowed) do
+        steps[#steps + 1] = { object = t.object, aim = AIMED.LOWER_IMPLEMENT, quiet = true }
+        check[#check + 1] = checkOf(t.object, t.depth, "lower", false)
+    end
+    if #pending == 0 then
+        local job = newJob(vehicle, steps)
+        job.check = check
+        return job
     end
     local selected = Api.tryCall(VehicleState.rootOf(vehicle), "getSelectedVehicle")
     local at = nil
@@ -791,8 +828,8 @@ local function foldAllJob(vehicle, value)
             at = t.object
         end
     end
-    local steps, raised, blocked = {}, {}, {}
-    for _, t in ipairs(tools) do
+    local raised, blocked = {}, {}
+    for _, t in ipairs(pending) do
         local e = t.e
         if folding and e.lowered == true and hasCap(e, "lower") and e.canNow ~= nil and e.canNow.fold == false
             and e.canNow.lower ~= false and not VehicleState.foldLowers(t.object) then
@@ -804,7 +841,7 @@ local function foldAllJob(vehicle, value)
         end
     end
     -- none the game lets fold (the engine off): its words, nothing pressed
-    if #blocked == #tools then
+    if #blocked == #pending then
         return newJob(vehicle, {}, { blocked[1] })
     end
     local aim = { cap = "fold", inputs = { "FOLD_ALL_IMPLEMENTS" } }
@@ -818,7 +855,7 @@ local function foldAllJob(vehicle, value)
         return true
     end }
     local job = newJob(vehicle, steps)
-    job.check = {}
+    job.check = check
     for _, t in ipairs(pending) do
         job.check[#job.check + 1] = checkOf(t.object, t.depth, "fold", folding)
     end
