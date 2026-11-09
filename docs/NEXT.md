@@ -44,8 +44,3 @@ spec, and features waiting for one. Longer-term ideas are in
   a button for it when the game shows it. It isn't one of the tool's
   keys (it comes from the station, the game's activatable objects; names
   unverified), so it needs its own spec.
-- **The mod's comments still name PLAN.md** (docs cleanup, 2026-11-09):
-  `mod/src/Commands.lua` (lines 2 and 132) and `mod/src/state/Rig.lua`
-  (line 15) point at PLAN.md's old Controls section. It's now
-  ARCHITECTURE.md (Commands) and GAME-API.md (Controls C0 to C3). Fix
-  them with the next mod change: comments alone aren't worth a version.

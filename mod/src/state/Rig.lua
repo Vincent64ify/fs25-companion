@@ -12,7 +12,7 @@ Companion.VehicleState = VehicleState
 
 -- Rig (Controls C3) ---------------------------------------------------------
 -- The tractor and everything attached, and which tool each implement key
--- acts on. Verified live with the selection spike (mod 0.6.4, PLAN.md C3):
+-- acts on. Verified live with the selection spike (mod 0.6.4, GAME-API.md C3):
 -- root:setSelectedObject(entry of root.selectableObjects) selects one tool
 -- directly; a joint's z in its vehicle's frame says front (>= 0) or rear;
 -- some keys stay with a tool that isn't selected (fold stayed on the

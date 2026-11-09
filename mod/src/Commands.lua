@@ -1,5 +1,5 @@
 -- Commands.lua
--- Runs the dashboard's commands (docs/PLAN.md, Controls). The companion
+-- Runs the dashboard's commands (docs/ARCHITECTURE.md, Commands). The companion
 -- writes one file per command, numbered from 1 per game session, with the
 -- dashboard's action name (specs/0007) and the state it wants (specs/0008;
 -- hello says so: commands.actions 3):
@@ -129,7 +129,7 @@ end
 
 -- Selection (C3) -----------------------------------------------------------
 -- The dashboard picks a tool and the game selects it, as G would after
--- enough presses (PLAN.md C3, verified in the selection spike).
+-- enough presses (verified in the selection spike: docs/GAME-API.md, C3).
 
 -- select the tool (or the tractor) with this id
 local function selectTarget(vehicle, _, id)
