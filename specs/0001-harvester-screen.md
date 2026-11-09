@@ -1,7 +1,7 @@
 # 0001: Harvester screen
 
 Status: live-checked (revision 2, mod 0.8.4, 2026-10-25; revision 3, the field panel, 2026-11-08)
-Mod: 0.8.4 · Started: 2026-10-25 · Design: [THEMES.md, Harvester screen](../docs/THEMES.md#harvester-screen-mod-083-2026-10-25),
+Mod: 0.8.4 · Started: 2026-10-25 · Design: [THEMES.md, Harvester screen](../docs/THEMES.md#harvester-page),
 canvas [FS25 Companion: Harvester screen](https://claude.ai/artifact/7arT5R4WwC9qJTTi3i99aL)
 
 ## Goal
@@ -86,8 +86,8 @@ version bump. Web only:
 
 | Name | Where from | State |
 |---|---|---|
-| a header's `workWidth` (the cutter's work areas) | `mod/src/collectors/vehicles/Tools.lua` | verified (DONE.md, spec 0001 revision 3) |
-| a header's rig entry: `can` is `[lower, detach]`, so `isWorking` reads `lowered` | `cab.rig` | verified (DONE.md, spec 0001 revision 3) |
+| a header's `workWidth` (the cutter's work areas) | `mod/src/collectors/vehicles/Tools.lua` | verified (GAME-API.md, spec 0001 revision 3) |
+| a header's rig entry: `can` is `[lower, detach]`, so `isWorking` reads `lowered` | `cab.rig` | verified (GAME-API.md, spec 0001 revision 3) |
 | the combine's `x`, `z`, `heading` | vehicles topic | verified (spec 0013) |
 
 **Acceptance (automated, written before the code):**
@@ -240,11 +240,11 @@ All additions; Protocol v1 is unchanged.
 
 | Name | Where from | State |
 |---|---|---|
-| `fillType.massPerLiter` | FillTypeManager | verified (DONE.md, Harvester screen) |
-| `spec_combine.swath.isAvailable`, `.chopper.isAvailable`, `isSwathActive` | Combine.lua | verified (DONE.md, Harvester screen) |
-| `spec_combine.workedHectars`, `workedHectarsInitial` | Combine.lua | verified (DONE.md, Harvester screen) |
-| `spec_<mod>.extendedCombine` `lastYieldWeight`, `lastYieldPercentage`, `lastYieldPotential` | Precision Farming, ExtendedCombine | verified (DONE.md, Harvester screen) |
-| `TOGGLE_CHOPPER` input | Combine.lua | verified (DONE.md, Harvester screen) |
+| `fillType.massPerLiter` | FillTypeManager | verified (GAME-API.md, Harvester screen) |
+| `spec_combine.swath.isAvailable`, `.chopper.isAvailable`, `isSwathActive` | Combine.lua | verified (GAME-API.md, Harvester screen) |
+| `spec_combine.workedHectars`, `workedHectarsInitial` | Combine.lua | verified (GAME-API.md, Harvester screen) |
+| `spec_<mod>.extendedCombine` `lastYieldWeight`, `lastYieldPercentage`, `lastYieldPotential` | Precision Farming, ExtendedCombine | verified (GAME-API.md, Harvester screen) |
+| `TOGGLE_CHOPPER` input | Combine.lua | verified (GAME-API.md, Harvester screen) |
 | `setIsSwathActive` (fallback) | Combine.lua | unverified (not needed: the key was live) |
 
 ## Commands
@@ -390,7 +390,7 @@ header and a trailer, with and without Precision Farming):
   Until full, throughput and Call a trailer still to check in game.
 - 2026-10-25: live check done: until full, throughput (after "measuring…"),
   Call a trailer and the pulse confirmed. All ten boxes ticked; the API
-  names are in DONE.md (`setIsSwathActive` stays unverified: the key was
+  names are in GAME-API.md (`setIsSwathActive` stays unverified: the key was
   live, so the fallback never ran). Status live-checked.
 - 2026-11-08: revision 3 drafted (the field panel under a compact Header
   card), with a canvas; waiting for approval.
@@ -405,4 +405,4 @@ header and a trailer, with and without Precision Farming):
   raised, crop and stage, the iPad showing it at once). The stream showed
   the header's `can` as `[lower, detach]`: the trail follows it lowered.
   No errors in the log; every press acknowledged. Status live-checked;
-  the API facts are in DONE.md.
+  the API facts are in GAME-API.md.

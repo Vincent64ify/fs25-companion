@@ -10,7 +10,7 @@ on Windows and macOS ([spec 0006](../specs/0006-one-local-process.md)).
 From the repository root:
 
 ```bash
-pip install -r companion/requirements.txt
+pip install -r requirements.txt
 
 # open http://localhost:8123, or the LAN address it prints
 python -m companion

@@ -49,7 +49,7 @@ Trailer.lua):
 
 | Name | Where from | State |
 |---|---|---|
-| `TOGGLE_TIPSTATE`, `TOGGLE_TIPSTATE_GROUND` are powered keys (`addPoweredActionEvent`) | Dischargeable.lua | verified (DONE.md, spec 0015: faded with the engine off, live again at "starting") |
+| `TOGGLE_TIPSTATE`, `TOGGLE_TIPSTATE_GROUND` are powered keys (`addPoweredActionEvent`) | Dischargeable.lua | verified (GAME-API.md, spec 0015: faded with the engine off, live again at "starting") |
 
 ## Commands
 

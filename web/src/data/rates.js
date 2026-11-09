@@ -1,5 +1,5 @@
 // @ts-check
-// Estimates from the dashboard alone (docs/THEMES.md, Implement screen):
+// Estimates from the dashboard alone (docs/THEMES.md, Tool cards):
 // how fast each tank fills or empties, from its level over the last 60 s,
 // and the area each tool has worked since it was attached (or the page
 // opened). Nothing here comes from the game but the levels, the speed and

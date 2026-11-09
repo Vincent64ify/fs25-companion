@@ -1,7 +1,7 @@
 # 0009: One way to run each action
 
 Status: live-checked
-Mod: 0.11.2 · Started: 2026-10-31 · Plan: [SIMPLIFY.md, S4](../docs/SIMPLIFY.md#s4-one-way-to-run-each-action-spec-0009)
+Mod: 0.11.2 · Started: 2026-10-31 · Plan: SIMPLIFY.md, S4
 
 ## Goal
 
@@ -102,12 +102,12 @@ Game API names, by what happens to them:
 
 | Name | Where from | State |
 |---|---|---|
-| `g_inputBinding.nameActions`, `.actionEvents`, event `callback`, `targetObject`, `isActive`, `displayIsVisible` | the key path | verified ([DONE.md](../docs/DONE.md#verified-game-api-facts), C0, spike 0.0.8) |
-| `setSelectedObject`, `getSelectedVehicle` | select by id (kept) | verified (DONE.md, C3) |
-| `detachImplementByObject`, `isDetachAllowed`, `getAttacherVehicle` | Detach (kept) | ran live (0003, 0008 logs); `detachImplementByObject` moves into DONE.md at this live check |
-| `setCruiseControlMaxSpeed`, `spec_drivable.cruiseControl.maxSpeed`, `.speedReverse` | the cruise set speed (kept) | ran live (0008 log); moves into DONE.md at this live check |
+| `g_inputBinding.nameActions`, `.actionEvents`, event `callback`, `targetObject`, `isActive`, `displayIsVisible` | the key path | verified ([GAME-API.md](../docs/GAME-API.md), C0, spike 0.0.8) |
+| `setSelectedObject`, `getSelectedVehicle` | select by id (kept) | verified (GAME-API.md, C3) |
+| `detachImplementByObject`, `isDetachAllowed`, `getAttacherVehicle` | Detach (kept) | ran live (0003, 0008 logs); `detachImplementByObject` moves into GAME-API.md at this live check |
+| `setCruiseControlMaxSpeed`, `spec_drivable.cruiseControl.maxSpeed`, `.speedReverse` | the cruise set speed (kept) | ran live (0008 log); moves into GAME-API.md at this live check |
 | `getCruiseControlSpeed` | `cruise.up` / `down` | goes |
-| `spec_attacherJoints.attacherJointCombos.direction` (-1 raising) | where Lower all's key goes next | verified (DONE.md, Lower all's timing, spike 0.0.7); a press reverses it: `AttacherJoints:startAttacherJointCombo` (gameSource.zip), live in step 2b |
+| `spec_attacherJoints.attacherJointCombos.direction` (-1 raising) | where Lower all's key goes next | verified (GAME-API.md, Lower all's timing, spike 0.0.7); a press reverses it: `AttacherJoints:startAttacherJointCombo` (gameSource.zip), live in step 2b |
 | `FOLD_ALL_IMPLEMENTS`: the pressed tool's `getToggledFoldDirection` for every tool going that way | Fold all | `Foldable.actionEventFoldAll` (gameSource.zip); live recheck: step 2c |
 | `TURN_ON_ALL_IMPLEMENTS`: every tool `setIsTurnedOn(not getIsTurnedOn())` | Turn on all | `TurnOnVehicle.actionEventTurnOnAll` (gameSource.zip); live recheck: step 2c |
 | `setLightsTypesMask`, `setBeaconLightsVisibility`, `setTurnLightState`, `Lights.TURNLIGHT_*`, `startMotor`, `stopMotor`, `setCruiseControlState` | switch fallbacks | go (never verified) |
@@ -295,7 +295,7 @@ failure.
   lowered), each card's Raise (83, 84), Lower all again (85): the key
   pressed, "Nothing moved". So the game's key doesn't follow the tools:
   it goes the opposite way of its own last press
-  (`attacherJointCombos.direction`, DONE.md: -1 raising). The mod's
+  (`attacherJointCombos.direction`, GAME-API.md: -1 raising). The mod's
   "lowers every tool while one is raised" holds only until a card moves
   a tool. From before S4 (0003 revision 2); fix to come: press the key
   only when its next direction is the asked one, else each tool's Lower.
@@ -340,7 +340,7 @@ failure.
   answers not ok were the three found above (60, 85, and the first Fold
   all on 0.11.1), none "not available now"; no Lua error in log.txt (the
   reverse cruise diagnostic came from the moved `state/Motor.lua`).
-  Live-checked (Vincent), mod 0.11.2. Verified names into DONE.md.
+  Live-checked (Vincent), mod 0.11.2. Verified names into GAME-API.md.
   `Commands.lua` ends at 1,280 lines with the All row fixes.
 - 2026-11-08: found on 0.16.0 (the T7.300, KDF 341 S front, KDD 941 STH
   rear selected, both raised and folded). Lower all, the game's key

@@ -1,6 +1,6 @@
 // @ts-check
 // The Harvester screen (specs/0001-harvester-screen.md; look in docs/THEMES.md,
-// Harvester screen): the Vehicle tab's other page, for a combine.
+// Harvester page): the Vehicle tab's other page, for a combine.
 // - harvestBand: the job and the rig, then the grain tank, until full, the
 //   yield and the speed against the header's limit.
 // - combineCard: the grain tank with Call a trailer, the Thresher, Pipe and

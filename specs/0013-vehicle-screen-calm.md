@@ -218,7 +218,7 @@ changed.
 | Topic, field | What | Game source | Verified |
 |---|---|---|---|
 | `fields[].farmlandId` | the field's farmland | `field.farmland.id` | in use (the field info panel) |
-| `farmlands[].farmId` | its owner farm, 0 = none | `farmland.farmId` | yes (DONE.md) |
+| `farmlands[].farmId` | its owner farm, 0 = none | `farmland.farmId` | yes (GAME-API.md) |
 | `hello.farmId` / `myFarmId` | your farm | `g_localPlayer.farmId` | in use |
 | `vehicles` implement `workSpans` (new) | `[[from, to], ...]` metres across the rig, right of its centre line positive, one per work area, rounded to 0.1 m | each `spec_workArea.workAreas[i]`'s `start`, `width` and `height` nodes, `localToLocal` into the controlled vehicle's root component, x | **no**: the nodes and the sign of x (GIANTS' local +x is believed to be left), through `Api.lua`, checked live |
 | cab rig `can` (`lower`, `turnOn`), `lowered`, `turnedOn` | what the rule reads | as today | yes; `lowered` is only meaningful with `lower` (the game's source, above) |
@@ -240,7 +240,7 @@ Mod 0.14.0.
 - `web/src/widgets/fieldPanel.js`: the held field is let go outside the
   view; "Not on your field"; the boom stays as it is.
 - Docs: Behaviour, Data contract, Plan, Acceptance, Decisions here;
-  THEMES.md's panel text; DONE.md after the live check.
+  THEMES.md's panel text; GAME-API.md after the live check.
 - Golden: `fixtures/golden_viewer.ndjson` doesn't change (the replay's mod
   has no `workSpans`).
 
@@ -669,17 +669,17 @@ page shows was already sent and live.
 
 The values above are read through names that are already verified, but
 for revision 3's work areas:
-- `workWidth` from `getAIWorkAreaWidth`: THEMES.md, Implement screen as
+- `workWidth` from `getAIWorkAreaWidth`: GAME-API.md, the Implement screen's readings, as
   built; live in spec 0003's mowers.
-- The field outlines from `polygonPoints`: DONE.md, Phase 4, mod 0.4.0.
-- A farmland's `farmId`: DONE.md, Phase 0.
+- The field outlines from `polygonPoints`: GAME-API.md, Phase 4, mod 0.4.0.
+- A farmland's `farmId`: GAME-API.md, Phase 0.
 
 | Name | Where from | State |
 |---|---|---|
-| `spec_workArea.workAreas[i].start`, `.width`, `.height` (nodes), `.type` | WorkArea.lua (the game's source) | verified 2026-11-07 (DONE.md) |
-| `localToLocal(node, root, 0, 0, 0)`, its x (GIANTS' +x left) | engine; `Api.localX` | verified 2026-11-07: +x left (DONE.md) |
-| `g_workAreaTypeManager:getWorkAreaTypeIsAIArea(type)` | WorkArea.lua (`getAIWorkAreaWidth`) | verified 2026-11-07 (DONE.md) |
-| `spec_<mod>.extendedSprayerEffects.sprayerEffects[i]`: `isActive`, `effectNode` | Precision Farming's ExtendedSprayerEffects.lua | verified 2026-11-07 (DONE.md) |
+| `spec_workArea.workAreas[i].start`, `.width`, `.height` (nodes), `.type` | WorkArea.lua (the game's source) | verified 2026-11-07 (GAME-API.md) |
+| `localToLocal(node, root, 0, 0, 0)`, its x (GIANTS' +x left) | engine; `Api.localX` | verified 2026-11-07: +x left (GAME-API.md) |
+| `g_workAreaTypeManager:getWorkAreaTypeIsAIArea(type)` | WorkArea.lua (`getAIWorkAreaWidth`) | verified 2026-11-07 (GAME-API.md) |
+| `spec_<mod>.extendedSprayerEffects.sprayerEffects[i]`: `isActive`, `effectNode` | Precision Farming's ExtendedSprayerEffects.lua | verified 2026-11-07 (GAME-API.md) |
 
 ## Commands
 
@@ -1001,7 +1001,7 @@ page's memory; off a field the panel shows the map around the rig.
   sections off by hand follow; leaving a field takes the outline and trail
   away and back. Ticked with them: revision 3's Vantage and fields boxes
   and the page's spraying box. Precision Farming off stays open (NEXT.md,
-  with the four width buttons). The names verified move to DONE.md; spec
+  with the four width buttons). The names verified move to GAME-API.md; spec
   live-checked.
 - 2026-11-08: small fix from NEXT.md: the rig strip's key now holds each
   tile's model name (`entryModel`), so a new vehicle's name shows once the

@@ -22,7 +22,7 @@ v1); say so if `v` must change.
 - **Web** (selectors, widgets): what reads it.
 
 Game API names used, each one **verified** (with its place in
-[DONE.md](../docs/DONE.md)) or **unverified** (behind the guards in
+[GAME-API.md](../docs/GAME-API.md)) or **unverified** (behind the guards in
 `mod/src/Api.lua`):
 
 | Name | Where from | State |

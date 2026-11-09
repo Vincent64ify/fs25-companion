@@ -1,7 +1,8 @@
-# Next fixes
+# Next
 
-Things to fix next, in no particular order. Longer-term ideas are under
-**Later** in [PLAN.md](PLAN.md).
+Things to do next, in no particular order: small fixes, which need no
+spec, and features waiting for one. Longer-term ideas are in
+[PLAN.md](PLAN.md).
 
 - **AI worker opens the game's worker screen** (spec 0008's live check,
   2026-10-31): `TOGGLE_AI` does nothing in a vehicle with no job set up
@@ -22,12 +23,14 @@ Things to fix next, in no particular order. Longer-term ideas are under
   per game hour?); then say which time each estimate shows (real minutes,
   game time, or "until 14:30" on the game clock) and convert. Needs a
   spec (mod, protocol field and screens).
-- **Code review of 2026-10-30:** seven findings (F1 to F7) in
-  [REVIEW-2026-10-30.md](REVIEW-2026-10-30.md), with its suggested order.
-  F2 is fixed ([spec 0005](../specs/0005-tailer-sees-every-new-file.md),
-  client only, live-checked); F3 and F4 matter before a hosted relay. F1 is fixed
-  ([spec 0004](../specs/0004-acks-survive-rotation.md), mod 0.8.13,
-  live-checked); F5 (mod 0.8.12), F6 and F7 are fixed (2026-10-30).
+- **A viewer that stops reading can stall the others** (code review of
+  2026-10-30, its F4, the one finding still open): the hub sends to each
+  viewer in turn and waits for each (`companion/server.py`, `broadcast`),
+  with no deadline. A tablet that stops taking data while its connection
+  stays open would hold up the updates and the command answers for
+  everyone. To do: a bounded queue and a sender per viewer, the latest
+  state replacing the old, and a deadline that drops a stalled viewer;
+  the test is a viewer whose send never returns.
 - **A sprayer without Precision Farming** (specs 0011 and 0012, not
   checked): every sprayer in the save has Precision Farming's sprayer
   part, so its four width buttons (Left in / out, Right in / out, faded
@@ -41,3 +44,8 @@ Things to fix next, in no particular order. Longer-term ideas are under
   a button for it when the game shows it. It isn't one of the tool's
   keys (it comes from the station, the game's activatable objects; names
   unverified), so it needs its own spec.
+- **The mod's comments still name PLAN.md** (docs cleanup, 2026-11-09):
+  `mod/src/Commands.lua` (lines 2 and 132) and `mod/src/state/Rig.lua`
+  (line 15) point at PLAN.md's old Controls section. It's now
+  ARCHITECTURE.md (Commands) and GAME-API.md (Controls C0 to C3). Fix
+  them with the next mod change: comments alone aren't worth a version.

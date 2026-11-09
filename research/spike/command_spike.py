@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Drive the command spike (spike C0 in docs/PLAN.md, "Controls").
+"""Drive the command spike (spike C0; its results are in docs/GAME-API.md).
 
 The FS25_CommandSpike mod checks modSettings/FS25_CommandSpike/cmd/ every
 frame for the next command file, runs it, and reports to results.ndjson.

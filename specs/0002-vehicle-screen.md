@@ -1,7 +1,7 @@
 # 0002: Vehicle and Loader screens
 
 Status: live-checked (revision 2, 2026-10-27; revision 1, mod 0.8.6, 2026-10-26)
-Mod: 0.8.6 · Started: 2026-10-25 · Design: [THEMES.md, Vehicle screen](../docs/THEMES.md#t4-vehicle-screen)
+Mod: 0.8.6 · Started: 2026-10-25 · Design: [THEMES.md, Vehicle screen](../docs/THEMES.md#the-vehicle-tab)
 (revised by this spec),
 canvas [FS25 Companion: Vehicle screen](https://claude.ai/artifact/UCGXbQrd4gTozRk67NcnWw)
 
@@ -232,17 +232,17 @@ from a spike first (Plan, step 1); this table changes with its results.
 
 | Name | Where from | State |
 |---|---|---|
-| `AttacherJoints.jointTypeNameToInt` (read backwards for a name) | AttacherJoints.lua, registerJointType | verified (DONE.md, Vehicle screen): 24 names, e.g. 1 implement, 7 frontloader, 12 attachableFrontloader |
-| `spec_dynamicMountAttacher.dynamicMountedObjects` (keys are the objects) | DynamicMountAttacher.lua | verified (DONE.md, Vehicle screen) |
-| `object.isPallet` | Pallet.lua | verified (DONE.md, Vehicle screen): true on a pallet, typeName pallet |
-| `spec_bigBag` on a bigbag, and how a lifter holds it | BigBag.lua | verified (DONE.md, Vehicle screen): a bag is its own vehicle (typeName bigBag, `isPallet` true); a lifter holds it as an attached implement by joint type "bigBag", so it is a rig member; on bare tines it hangs by physics, not recorded |
-| `getFillUnitAllowsFillType(index, fillType)` | FillUnit.lua | verified (DONE.md, Vehicle screen): answers true |
-| `getFillUnitFreeCapacity(index, fillType, farmId)` | FillUnit.lua | verified (DONE.md, Vehicle screen): answers (0 on a full pallet) |
-| attacher joint `jointType` (the number registered) | AttacherJoints.lua | verified (DONE.md, Vehicle screen): a number on the joint |
-| `spec_shovel` on a bucket (the loader's tool) | Shovel.lua | verified (DONE.md, Vehicle screen): on the bucket (typeName shovelLeveler), which hangs by joint type "wheelLoader" |
+| `AttacherJoints.jointTypeNameToInt` (read backwards for a name) | AttacherJoints.lua, registerJointType | verified (GAME-API.md, Vehicle screen): 24 names, e.g. 1 implement, 7 frontloader, 12 attachableFrontloader |
+| `spec_dynamicMountAttacher.dynamicMountedObjects` (keys are the objects) | DynamicMountAttacher.lua | verified (GAME-API.md, Vehicle screen) |
+| `object.isPallet` | Pallet.lua | verified (GAME-API.md, Vehicle screen): true on a pallet, typeName pallet |
+| `spec_bigBag` on a bigbag, and how a lifter holds it | BigBag.lua | verified (GAME-API.md, Vehicle screen): a bag is its own vehicle (typeName bigBag, `isPallet` true); a lifter holds it as an attached implement by joint type "bigBag", so it is a rig member; on bare tines it hangs by physics, not recorded |
+| `getFillUnitAllowsFillType(index, fillType)` | FillUnit.lua | verified (GAME-API.md, Vehicle screen): answers true |
+| `getFillUnitFreeCapacity(index, fillType, farmId)` | FillUnit.lua | verified (GAME-API.md, Vehicle screen): answers (0 on a full pallet) |
+| attacher joint `jointType` (the number registered) | AttacherJoints.lua | verified (GAME-API.md, Vehicle screen): a number on the joint |
+| `spec_shovel` on a bucket (the loader's tool) | Shovel.lua | verified (GAME-API.md, Vehicle screen): on the bucket (typeName shovelLeveler), which hangs by joint type "wheelLoader" |
 | the engine's temperature warning level: `motorTemperature.warningTemperature`, `valueWarning` or `warning` (guesses) | Motorized.lua | not there (spike, 2026-10-26: the electric Merlo and the diesel Volvo L90H alike): motorTemperature has only value, valueMin 20, valueMax 120 and heating rates; motorFan switches on at 95 °C, off at 85 |
-| `fillType.massPerLiter` | FillTypeManager | verified (DONE.md, Harvester screen) |
-| attacher joint front / rear (`jointTransform` z) | AttacherJoints.lua | verified (PLAN.md, C3) |
+| `fillType.massPerLiter` | FillTypeManager | verified (GAME-API.md, Harvester screen) |
+| attacher joint front / rear (`jointTransform` z) | AttacherJoints.lua | verified (GAME-API.md, C3) |
 
 ## Commands
 
@@ -572,7 +572,7 @@ Live check, revision 2 (no mod change: reload the dashboard):
   0.8.6; the Merlo EW25.5-90 with forks and a bigbag lifter, the Volvo
   L90H with its bucket, a Fliegl trailer and a seeder). "Fuel" on the Merlo turned out to be a dashboard tab
   opened before the update; a reload showed "Battery". The game API
-  names in the Data contract table are moved to DONE.md. Status:
+  names in the Data contract table are moved to GAME-API.md. Status:
   live-checked.
 - 2026-10-26: revision 2 drafted with Vincent: the page is a loader
   page, so it becomes Loader, picked by itself like Harvester; a plain

@@ -1,7 +1,7 @@
 # 0008: Commands say the state they want
 
 Status: live-checked
-Mod: 0.10.0 · Started: 2026-10-31 · Plan: [SIMPLIFY.md, S3](../docs/SIMPLIFY.md#s3-commands-say-the-state-they-want-spec-0008)
+Mod: 0.10.0 · Started: 2026-10-31 · Plan: SIMPLIFY.md, S3
 
 ## Goal
 
@@ -84,21 +84,21 @@ Readings the mod compares, and whether each is confirmed in game:
 
 | Reading (cab field) | Name | Where from | State |
 |---|---|---|---|
-| engine on, starting (`engineOn`, `engineState`) | `getIsMotorStarted()` | Motorized | verified ([DONE.md, Engine on](../docs/DONE.md#verified-since-phase-0)) |
-| lowered (`lowered`) | `getIsLowered(true)` | AttacherJoints | verified (C2; lag while rising, spike 0.0.6, [DONE.md](../docs/DONE.md#verified-since-phase-0)) |
+| engine on, starting (`engineOn`, `engineState`) | `getIsMotorStarted()` | Motorized | verified ([GAME-API.md, Engine on](../docs/GAME-API.md#verified-since-phase-0)) |
+| lowered (`lowered`) | `getIsLowered(true)` | AttacherJoints | verified (C2; lag while rising, spike 0.0.6, [GAME-API.md](../docs/GAME-API.md#verified-since-phase-0)) |
 | turned on (`turnedOn`) | `getIsTurnedOn()` | TurnOnVehicle | verified (C2, spec 0003) |
 | unfolded, fold moving (`unfolded`, `foldMoving`) | `getIsUnfolded()`, `spec_foldable.foldMoveDirection` | Foldable | verified (C2; direction in spikes 0.0.5 and 0.0.6) |
-| tipping (`discharging`) | `getDischargeState()` | Dischargeable | verified ([DONE.md](../docs/DONE.md#verified-since-phase-0), spike 0.0.8) |
-| straw swath (`straw.swath`) | `spec_combine.isSwathActive` | Combine | verified ([DONE.md, Harvester screen](../docs/DONE.md#verified-since-phase-0)) |
-| light stage (`lights.stage`, `stages`) | `spec_lights.lightsTypesMask`, the light states | Lights | seen live (C1: the dots step like the key), not in DONE.md |
-| high beam, beacon, hazard, turn L / R (`lights.*`) | `lightsTypesMask` bit 8, `beaconLightsActive`, `turnLightState` | Lights | seen live (C2: the buttons lit with the game), not in DONE.md |
-| cruise on (`cruise.state`) | `getCruiseControlState()` | Drivable | seen live (C2), not in DONE.md; the T6 check is still open |
-| AI worker (`aiActive`) | `getIsAIActive()` | AIJobVehicle | the name in [DONE.md, Phase 0](../docs/DONE.md#phase-0-spike-on-solek-windows-2026-10-20); its value seen live in C2 |
-| pipe out, moving (`pipe.out`) | `spec_pipe.targetState`, `currentState` | Pipe | seen live (spec 0001's pipe button), not in DONE.md |
+| tipping (`discharging`) | `getDischargeState()` | Dischargeable | verified ([GAME-API.md](../docs/GAME-API.md#verified-since-phase-0), spike 0.0.8) |
+| straw swath (`straw.swath`) | `spec_combine.isSwathActive` | Combine | verified ([GAME-API.md, Harvester screen](../docs/GAME-API.md#verified-since-phase-0)) |
+| light stage (`lights.stage`, `stages`) | `spec_lights.lightsTypesMask`, the light states | Lights | seen live (C1: the dots step like the key), not in GAME-API.md |
+| high beam, beacon, hazard, turn L / R (`lights.*`) | `lightsTypesMask` bit 8, `beaconLightsActive`, `turnLightState` | Lights | seen live (C2: the buttons lit with the game), not in GAME-API.md |
+| cruise on (`cruise.state`) | `getCruiseControlState()` | Drivable | seen live (C2), not in GAME-API.md; the T6 check is still open |
+| AI worker (`aiActive`) | `getIsAIActive()` | AIJobVehicle | the name in [GAME-API.md, Phase 0](../docs/GAME-API.md#phase-0-spike-on-solek-windows-2026-10-20); its value seen live in C2 |
+| pipe out, moving (`pipe.out`) | `spec_pipe.targetState`, `currentState` | Pipe | seen live (spec 0001's pipe button), not in GAME-API.md |
 | the light key's cycle after the last stage | `TOGGLE_LIGHTS` | Lights | unverified: the job reads after each press, so it works either way |
 
-The "seen live, not in DONE.md" rows count as verified (Vincent,
-2026-10-31); this spec's live check moves them into DONE.md.
+The "seen live, not in GAME-API.md" rows count as verified (Vincent,
+2026-10-31); this spec's live check moves them into GAME-API.md.
 
 ## Commands
 
@@ -205,9 +205,9 @@ together, so version checks aren't live-checked).
 ## Decisions
 
 Decided by Vincent (2026-10-31):
-- The readings seen live in C1, C2 and spec 0001 but not in DONE.md
+- The readings seen live in C1, C2 and spec 0001 but not in GAME-API.md
   (lights, beacon, turn lights, cruise on, AI, pipe) count as verified;
-  this spec's live check moves their names into DONE.md.
+  this spec's live check moves their names into GAME-API.md.
 - The All row (Lower all, Fold all, Turn on all) takes the asked state
   in S3.
 - The mod ships as 0.10.0; the gate is `hello.commands.actions = 3`.
@@ -274,7 +274,7 @@ out.
   the game's keys; every double `already`. Vincent: each mower moved once
   per step. One hiccup: the first Lower all (13:46:35, both raised and
   unfolded, game in focus) answered "Nothing moved" for both, the front
-  lowered about 3 s after the press (DONE.md: at once), and its double,
+  lowered about 3 s after the press (GAME-API.md: at once), and its double,
   finding the rear still raised, pressed the key again; both ended
   lowered. The same Lower all again at 13:47:52 was clean (ok, then
   `already`). The stream had rotated, so the frames are gone; in NEXT.md
@@ -302,7 +302,7 @@ out.
 - 2026-10-31: live-checked. Vincent left out the AI worker (it should
   open the game's worker screen instead: NEXT.md) and the "update the
   mod" check (the mod and the companion always move together). The
-  states the commands compare are in DONE.md.
+  states the commands compare are in GAME-API.md.
 - 2026-11-08: round 2's one-off Lower all "Nothing moved" (13:46:35) is
   explained: the mowers had been raised one by one, and the game's Lower
   all key goes the opposite way of its own last press (found in spec

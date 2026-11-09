@@ -4,7 +4,7 @@ The probes that found out how the game works, and the data they
 recorded. Nothing here is part of the product: the mod, the companion and
 the dashboard don't load it, and the tests touch only
 `mod/tests/test_spike_keys.py` (the spike mod's key tracer). What they
-proved is in [DONE.md, Verified game API facts](../docs/DONE.md#verified-game-api-facts):
+proved is in [GAME-API.md](../docs/GAME-API.md):
 read that, not the code, for what's true.
 
 | What | Proved | Notes |

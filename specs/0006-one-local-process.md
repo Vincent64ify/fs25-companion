@@ -1,7 +1,7 @@
 # 0006: One local process
 
 Status: live-checked
-Mod: no change · Started: 2026-10-31 · Plan: [SIMPLIFY.md, S1](../docs/SIMPLIFY.md#s1-one-local-process-spec-0006)
+Mod: no change · Started: 2026-10-31 · Plan: SIMPLIFY.md, S1
 
 ## Goal
 
@@ -10,7 +10,7 @@ file, keeps the latest state, writes commands, and serves the dashboard and
 its WebSocket. The player sees the same dashboard; the code loses the relay
 between two halves of one process (pairing, roles, the outbox, upload
 tokens, hashed uploads). Local first: a hosted relay comes back later as an
-add-on ([Hosted later](../docs/SIMPLIFY.md#hosted-later)).
+add-on ([Hosted later](../docs/PLAN.md#later)).
 
 ## Behaviour
 

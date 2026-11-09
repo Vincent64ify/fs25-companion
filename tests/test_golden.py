@@ -1,4 +1,4 @@
-"""Golden replay test (docs/SIMPLIFY.md, S0): what a viewer receives.
+"""Golden replay test: what a viewer receives.
 
 Runs `python -m companion --replay fixtures/solek_v1.ndjson` in this
 process, as it is, with two changes:

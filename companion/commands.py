@@ -14,7 +14,7 @@ numbered from 1 per game session (the hello's sessionId), continuing from
 hello.commands.next when the companion starts mid-session. Each file is
 written as <n>.xml.tmp, read back once, then renamed: the rename makes it
 appear whole, and the read-back takes the ~4 ms first-open cost off the
-game's frame (C0, docs/PLAN.md). The mod answers with a command_ack in the
+game's frame (C0, docs/GAME-API.md). The mod answers with a command_ack in the
 stream; the file is deleted then.
 
 A command that can't be written (no game session, replay, a mod before

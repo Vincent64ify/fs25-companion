@@ -1,7 +1,7 @@
 # 0007: The protocol in one place
 
 Status: live-checked
-Mod: 0.9.0 · Started: 2026-10-31 · Plan: [SIMPLIFY.md, S2](../docs/SIMPLIFY.md#s2-the-protocol-in-one-place-spec-0007)
+Mod: 0.9.0 · Started: 2026-10-31 · Plan: SIMPLIFY.md, S2
 
 ## Goal
 

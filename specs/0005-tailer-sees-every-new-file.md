@@ -1,7 +1,7 @@
 # 0005: The client notices every new stream file
 
 Status: live-checked
-Mod: no change · Started: 2026-10-30 · From: [code review F2](../docs/REVIEW-2026-10-30.md#f2--file-replacement-is-missed-when-the-stream-regrows-past-its-old-offset)
+Mod: no change · Started: 2026-10-30 · From: code review F2
 
 ## Goal
 

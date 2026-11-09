@@ -2,7 +2,7 @@
 
 Status: live-checked (closed 2026-10-31: see [Closed](#closed-2026-10-31))
 Mod: 0.8.17 · Started: 2026-10-26 · Design: canvas [FS25 Companion: Vehicle vs Implement](https://claude.ai/artifact/HvFL9rUTBC7cbDtnNH8WaT)
-(option A), [THEMES.md, Implement screen](../docs/THEMES.md#implement-screen-design-2026-10-24) (replaced)
+(option A), [THEMES.md, Implement screen](../docs/THEMES.md#tool-cards) (replaced)
 
 ## Goal
 
@@ -25,7 +25,7 @@ checks the rule, and real rigs dumped from the game are the tests.
 ## Closed (2026-10-31)
 
 Closed by Vincent with what's confirmed in game, so the
-[Simplify](../docs/SIMPLIFY.md) phases have a fixed thing to keep. The
+Simplify phases have a fixed thing to keep. The
 rest is no longer one spec: each capability gets its own small one,
 after the Simplify phases, confirmed in game before it gets a button.
 
@@ -139,8 +139,8 @@ check).
 |---|---|---|
 | `getFoldAnimTime()`, `spec_foldable.foldMoveDirection` (1 folded, 0 unfolded on the KDF; the KDD 0 working, 0.317 raised, 1 folded; direction -1 unfolding, 1 folding, 0 still) | Foldable.lua | seen live (spikes 0.0.5, 0.0.6) |
 | `getIsLowered`, `getIsTurnedOn` | AttacherJoints.lua, TurnOnVehicle.lua | verified (C2); the lag while rising seen live (spike 0.0.6) |
-| `LOWER_ALL_IMPLEMENTS`: one handler, the tractor's; the mod's press acts as Ctrl+V | InputBinding.lua | seen live (spikes 0.0.5, 0.0.6; DONE.md) |
-| `spec_attacherJoints.attacherJointCombos.isRunning`, `duration`: Lower all's combo, the rear tools moving when it ends | AttacherJoints.lua | seen live (spike 0.0.7, two tractors; DONE.md) |
+| `LOWER_ALL_IMPLEMENTS`: one handler, the tractor's; the mod's press acts as Ctrl+V | InputBinding.lua | seen live (spikes 0.0.5, 0.0.6; GAME-API.md) |
+| `spec_attacherJoints.attacherJointCombos.isRunning`, `duration`: Lower all's combo, the rear tools moving when it ends | AttacherJoints.lua | seen live (spike 0.0.7, two tractors; GAME-API.md) |
 
 **Plan.**
 1. Mod (`Commands.lua`): each checked action's job knows the asked
@@ -468,7 +468,7 @@ All additions; Protocol v1 is unchanged. "Seen in spike 0.0.4" means on
 Vincent's rigs on 2026-10-27 (front and rear mowers, two tippers, a
 trailed sprayer with sections, a rotating plow, a baler-wrapper, a front
 weight, a hook-lift truck with a container); the dumps are in
-`mod/tests/fixtures/spike0003/`. They move to DONE.md after the live
+`mod/tests/fixtures/spike0003/`. They move to GAME-API.md after the live
 check.
 
 - **Mod → backend** (`cab`):
@@ -504,9 +504,9 @@ check.
 
 | Name | Where from | State |
 |---|---|---|
-| `setFoldState(getToggledFoldDirection())`, `setIsTurnedOn`, `getIsTurnedOn`, `foldable`, `unfolded`, `canTurnOn`, `getIsLowered` | Foldable.lua, TurnOnVehicle.lua, VehicleState.lua | verified (PLAN.md, C2) |
-| `setSelectedObject` (select a tool), `isDetachAllowed` | Vehicle.lua, AttacherJoints.lua | verified (PLAN.md, C3) |
-| `LOWER_ALL_IMPLEMENTS`, pipe, discharge, cover (keys and fields) | inputBinding.xml, Pipe.lua, Dischargeable.lua, Cover.lua | built (mod 0.8.0); live check open (PLAN.md, Open checks) |
+| `setFoldState(getToggledFoldDirection())`, `setIsTurnedOn`, `getIsTurnedOn`, `foldable`, `unfolded`, `canTurnOn`, `getIsLowered` | Foldable.lua, TurnOnVehicle.lua, VehicleState.lua | verified (GAME-API.md, C2) |
+| `setSelectedObject` (select a tool), `isDetachAllowed` | Vehicle.lua, AttacherJoints.lua | verified (GAME-API.md, C3) |
+| `LOWER_ALL_IMPLEMENTS`, pipe, discharge, cover (keys and fields) | inputBinding.xml, Pipe.lua, Dischargeable.lua, Cover.lua | verified (GAME-API.md: Lower all's timing, the states a command compares, spec 0014) |
 | `getAIWorkAreaWidth()`, `getSpeedLimit()` | WorkArea.lua, Vehicle.lua | built (mod 0.8.0); live check open |
 | the census: `g_vehicleTypeManager.types`, each with `name` and `specializationNames` (a mod's carry its prefix, "FS25_precisionFarming.extendedSprayer") | VehicleTypeManager.lua | seen in spike 0.0.4: 196 types |
 | `setSelectedObject` on every tool, and putting the selection back | Vehicle.lua | seen in spike 0.0.4: all 7 rigs, restored each time |
@@ -1074,13 +1074,13 @@ Vincent's to answer. Judging tested in `client/tests/test_rig_check.py`.
   I's key and stopped, the rear's Unload here; on land not ours Tip
   "Nothing moved" and nothing tipped (the game warned we have no access).
   Confirmed by Vincent. Revision 3 live-checked; the trailers' box
-  ticked (no cover on the EDK 650). The tip facts move to DONE.md. Seen
+  ticked (no cover on the EDK 650). The tip facts move to GAME-API.md. Seen
   once: the run's first reading had the front trailer's `tipTo` still
   "object" after driving off the sale point; it read "ground" by the
   press (the rig was likely still settling). Next rigs: sprayer, plow,
   baler, weight, truck, Attach.
 - 2026-10-31: closed with Vincent (while planning
-  [SIMPLIFY.md](../docs/SIMPLIFY.md)): what's confirmed stays, the cover,
+  SIMPLIFY.md): what's confirmed stays, the cover,
   Rotate, the bale counter and Attach are hidden until their own specs,
   the open rigs move out (Closed). Mod 0.8.17: `extraKeys` leaves the
   hidden capabilities' keys among the other keys (`BUTTON_CAPS`). Web:

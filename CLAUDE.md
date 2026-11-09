@@ -12,14 +12,19 @@ Leaflet), which shows it and sends commands back.
   ([specs/README.md](specs/README.md) has the workflow). No spec yet → draft
   one from `specs/_template.md` (or `/spec new <name>`) and get it approved
   before writing code. Small fixes go in `docs/NEXT.md` and need no spec.
-- **Ground rules** are in [docs/PLAN.md](docs/PLAN.md#ground-rules): same on
-  Windows and macOS, no build step, one piece per feature, world meters,
-  never break the game (unverified game API names go through
-  `mod/src/Api.lua`), Protocol v1 (topics gain fields freely).
+- **Ground rules** are in
+  [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md#ground-rules), with how the
+  parts work together: same on Windows and macOS, no build step, one piece
+  per feature, world meters, never break the game (unverified game API
+  names go through `mod/src/Api.lua`), Protocol v1 (topics gain fields
+  freely).
 - **Game API facts** that are confirmed live are in
-  [docs/DONE.md](docs/DONE.md#verified-game-api-facts). Anything not there
-  is unverified: say so in the spec's Data contract table.
+  [docs/GAME-API.md](docs/GAME-API.md). Anything not there is unverified:
+  say so in the spec's Data contract table.
 - **Design** (look, layout, icons) is in [docs/THEMES.md](docs/THEMES.md).
+- **One home per fact.** A feature's detail and its status live in its
+  spec and the table in `specs/README.md`, nowhere else. `docs/PLAN.md` is
+  only later ideas; it keeps no history and no checks.
 
 ## While you code
 
@@ -55,5 +60,5 @@ python -m pytest mod/tests companion/tests tests
 
 - Tick the automated boxes, set the spec's Status to built, add a Log line.
 - After a live check: tick the boxes Vincent confirmed, move verified API
-  names into DONE.md, set Status to live-checked, update the table in
-  `specs/README.md` and "Where things stand" in PLAN.md.
+  names into `docs/GAME-API.md` (and out of its "Not verified yet" list),
+  set Status to live-checked, and update the table in `specs/README.md`.

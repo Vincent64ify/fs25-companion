@@ -274,7 +274,7 @@ function SpikeRigs.act(target, name, value, part)
         return
     elseif name == "TOGGLE_TIPSIDE" and type(target.spec_trailer) == "table" then
         -- specs/0014: the next side, back to the first after the last
-        -- (DONE.md, a trailer's tip keys)
+        -- (GAME-API.md, a trailer's tip keys)
         local spec = target.spec_trailer
         spec.preferedTipSideIndex = (spec.preferedTipSideIndex or 1) % spec.tipSideCount + 1
         return

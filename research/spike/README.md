@@ -188,8 +188,8 @@ spec 0012's Live check ("Probe first").
 
 ## Command spike (C0)
 
-`FS25_CommandSpike` checks the command channel planned for Controls (see
-[PLAN.md](../../docs/PLAN.md#after-that-controls-control-the-game-from-the-dashboard)):
+`FS25_CommandSpike` checked the command channel before Controls was built
+(its results: [GAME-API.md](../../docs/GAME-API.md#c0-the-command-channel)):
 the mod looks for `modSettings/FS25_CommandSpike/cmd/<n>.xml` every frame,
 runs it as a game action and reports to `results.ndjson`.
 `command_spike.py` writes the commands and times the round trip.

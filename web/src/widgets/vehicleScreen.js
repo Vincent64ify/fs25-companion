@@ -1,6 +1,6 @@
 // @ts-check
 // The Vehicle and Loader screens (specs/0002-vehicle-screen.md; look in
-// docs/THEMES.md, Vehicle screen): the Vehicle tab's pages for yard work
+// docs/THEMES.md, The Vehicle tab): the Vehicle tab's pages for yard work
 // with a loader (Loader) and for everything else (Vehicle, its tools'
 // cards in vehicleTools.js, specs/0003); hasLoader picks between them.
 // - rigStrip: every vehicle in the rig as a tile in driving order (the

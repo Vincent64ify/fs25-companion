@@ -1,66 +1,57 @@
 # Themes and layouts
 
-> **Status:** plan accepted on 2026-10-22; T0 (design) done on 2026-10-23,
-> see "Design result (T0)"; T1 (foundation) done on 2026-10-23, see "As
-> built (T1)"; T2 (our icon set) done on 2026-10-23, see "As built (T2)";
-> T3 (New Holland chrome and Map screen) done on 2026-10-23, see "As built
-> (T3)"; T4 (Vehicle screen) done on 2026-10-23, see "As built (T4)"; T5
-> (responsive pass, full screen, home screen) done on 2026-10-23, see "As
-> built (T5)"; T6 (more data from the game) built on 2026-10-24, see "As
-> built (T6)", and waiting for a live check. The Default theme was removed
-> on 2026-10-24 (see "Default removed"): New Holland style is the only
-> theme, and the default, until more brands come.
+The design of the dashboard: how it looks, how it's laid out, and why. A
+theme recreates the in-cab terminal of a tractor brand with a modern
+finish. There is one for now: **New Holland style**, after the IntelliView
+12, in a day and a night palette.
 
-## Goal
+What a screen does (its behaviour, data and checks) is in its spec; this
+file has its look, with a link to the spec. The values here are the ones
+in `web/src/themes/newholland/theme.css`: change them together.
 
-The user chooses how the dashboard looks. A theme recreates the in-cab
-terminal of a tractor brand (layout, colours, feel) with a modern finish.
-- **First theme:** New Holland style, after the IntelliView 12.
-- **Default theme:** the original dashboard, kept through T6, removed on
-  2026-10-24. New Holland style is now the default.
+- [Words](#words) and [Decisions](#decisions)
+- [Research: the IntelliView 12](#research-the-intelliview-12)
+- [The look](#the-look)
+- [Layout](#layout)
+- [Screens](#screens): Map, and the Vehicle tab's pages
+- [The map in themes](#the-map-in-themes)
+- [Icons](#icons), [Controls](#controls), [Settings](#settings)
+- [Design system](#design-system): type, palettes, depth, motion, radii,
+  measurements, the layout grid
+- [Responsive](#responsive)
+- [How a theme is built](#how-a-theme-is-built)
+- [Later](#later)
 
-## Words used in this plan
+## Words
 
 | Word | Meaning |
 |---|---|
 | Theme | A complete look: chrome, screens, palettes. "New Holland style". |
 | Palette | A theme's colours for day or for night. |
 | Size class | compact, regular or wide. Layouts adapt to the screen's size, not to a device model. |
-| Chrome | The parts around the screens: status bar, value column, control column, tab bar. |
-| Screen | One page of the terminal, picked with a tab (the IntelliView's "run screens"): Map, Vehicle. |
+| Chrome | The parts around the screens: status bar, control column, tab bar. |
+| Screen | One page of the terminal, picked with a tab: Map, Vehicle. A tab can hold several pages (Vehicle, Loader, Harvester), picked by what you drive. |
 | Slot | A place in the chrome or on a screen that holds a widget, a control or the map. |
-| Widget | A live value or list: speed, fuel, implements, clock... |
-| Control | A button for a game action. It shows state only until the "control the game" project wires it. |
-| Map frame | The one Leaflet map plus its overlays (field panel, notes), moved into whichever map slot is visible. |
+| Widget | A live value or list: speed, fuel, the tool cards, the clock... |
+| Control | A button for a game action. It shows the game's state, and a press sends a command. |
+| Map frame | The one Leaflet map plus its overlays (land panel, notes), moved into whichever map slot is visible. |
 
 ## Decisions
 
 | Topic | Decision |
 |---|---|
-| Default theme | Removed on 2026-10-24 (see "Default removed"). Until then: the original layout, plus a Settings button at the header's left. |
-| Settings entry | The same in every theme: a "Settings" button with the sliders icon, top-left, opening a panel that starts with Theme. The same button opens and closes it (shown pressed while open); the panel has no close button and sits in the main area, under the header, never over it (T0 review). |
-| First theme | New Holland style, based on the IntelliView 12 (T7 LWB, T7 HD, T8, T9). |
-| Naming | Brand + "style" in the selector, with the note "Inspired by the IntelliView 12. Not affiliated with New Holland." No logos, emblems or official artwork. Internal id: `newholland`. |
+| First theme | New Holland style, based on the IntelliView 12 (T7 LWB, T7 HD, T8, T9). It is the only theme, and the default, until more brands come. |
+| Naming | Brand + "style" in the selector, with the note "Inspired by the IntelliView 12. Not affiliated with New Holland." Internal id: `newholland`. |
+| Trademarks | Brand names as text only. No logos, emblems, photos or official artwork, in the app or on a design canvas. |
 | What a theme changes | Everything: its own chrome and screens, not just colours. |
-| Screens (v1) | Map and Vehicle. Implement is designed; Fields, Farm, Work and Yard come later (see Later). |
-| Customising | Fixed layouts now. Layouts are stored as data, so an edit mode can come later. |
+| Look | Modern first. The IntelliView 12 gives the structure, colours and feel; dated parts are modernised. |
 | Night mode | A manual Day / Night switch, saved per device. Nothing switches by itself. |
 | Targets | Landscape tablets of any brand and second PC monitors. Phones keep working (compact class) but aren't a design target. |
-| Look | Modern first. The IntelliView 12 gives the structure, colours and feel; dated parts are modernised. |
-| Controls | Every theme reserves a control column now. |
-| Icons | Our own SVG set, drawn in the cab-symbol style. Nothing is extracted from the game for icons (changed from "game first" on 2026-10-23; see Icons). |
-| Design tool | Claude Design, before any theme code. |
+| Controls | Every screen has the control column: Lights and Drive. A tool is worked from its card, never from the column ([specs/0012](../specs/0012-card-buttons.md)). |
+| Icons | Our own SVG set, drawn in the cab-symbol style. Nothing is extracted from the game for icons (see Icons). |
+| Customising | Fixed layouts. Layouts are stored as data, so an edit mode can come later. |
 | Theme choice | Per device (localStorage), with a URL override for bookmarks. |
-
-## Out of scope
-
-These are left out of this project:
-- Wiring controls to the game: that's the separate "control the game"
-  project. This one only shows their state.
-- Guidance lines, ISOBUS implement screens, camera feeds.
-- Implements, Fields and Farm screens; layout editing; other brands. All of
-  these are under **Later**.
-- A light palette for the Default theme.
+| Design tool | Claude Design: a screen is drawn on a canvas, built from the design system, and approved before code follows it. |
 
 ## Research: the IntelliView 12
 
@@ -109,139 +100,249 @@ These are left out of this project:
   - [New Holland identity 2023](https://agriculture.newholland.com/en-gb/europe/new-holland-world/news/2023/new-holland-of-the-future)
   - [run screen photo](https://media.sandhills.com/img.axd?id=10028904894&wid=4326205933&rwl=False&p=&ext=&w=614&h=460&t=&lp=&c=True&wt=False&sz=Max&rt=0&checksum=LfPvtNsn%2bRPkTxxY45H4VcrUI49ZutZ2vu3WMvGZiPw%3d)
 
-## The New Holland style
+## The look
 
-### Regular layout (tablets)
+- **Keep from the IntelliView 12:**
+  - the structure: status bar, main area, control column, tabs;
+  - dark blue, white and yellow;
+  - big numbers, ✓ states, icon toolbars on the map's edge.
+- **Modernise:**
+  - generous spacing and a clear type scale;
+  - softer radii and subtle elevation instead of bevels and grid lines;
+  - one colour per state (ok, warn, alarm, on);
+  - short transitions;
+  - gauges as clean arcs or bars, not dials;
+  - one icon weight throughout;
+  - night as a palette of its own, not an inversion.
+- **Controls first:** game controls are the main content of the chrome, as
+  a button grid that reflows to its width. Speed, fuel and the other values
+  are a slim readout in the tab bar.
+- **One look per state** ([specs/0010](../specs/0010-tidy-states-and-motion.md)):
+  a lit fill only ever means "on"; lift only on what you can press or what
+  floats; readouts and cards are flat. The values are under Palettes, Depth
+  and Motion.
+- **Calm** ([specs/0013](../specs/0013-vehicle-screen-calm.md)): every part
+  of a page has one job, the tractor's numbers stay in the bottom bar, and
+  the night palette has no yellow.
+- **Readable in a cab:** values readable at arm's length, WCAG AA contrast
+  in both palettes, and touch targets of at least 44 px.
+- **Light on older tablets:** no blur, and `prefers-reduced-motion`
+  respected.
+
+## Layout
+
+The regular layout, for tablets:
 
 ```
 ┌──────────────────────────────── status bar ─────────────────────────────────┐
-│ ⚙  ⚠ alerts          ( Day 6 · 09:44 )          ☁ 20°C   $999,999   ◉ live │
-├───────────┬────────────────────────────────────────────────┬────────────────┤
-│ value     │                                                │ controls       │
-│ column    │                 main area                      │ (state only)   │
-│           │        the selected screen fills it            │                │
-│ speed     │                                                │ lights         │
-│ gear      │   Map screen: the map in any shape, with a     │ high beam      │
-│ rpm       │   toolbar on its edge (zoom, recentre,         │ beacon         │
-│ fuel      │   whole map, layers)                           │ hazard         │
-│ temp      │                                                │ implement ↓/↑  │
-│ wear      │                                                │ implement on   │
-├───────────┴────────────────────────────────────────────────┴────────────────┤
-│   [ MAP ]   [ VEHICLE ]                                    room for 7 tabs  │
+│ ⚙ Settings  map · ⚠ alerts    ( Spring · Day 6 · 09:44 )    ☁ 20°C  $  ◉  ⛶ │
+├────────────────────────────────────────────────────────────┬────────────────┤
+│                                                            │ LIGHTS         │
+│                        main area                           │ ▢ ▢ ▢          │
+│              the selected screen fills it                  │ ▢ ▢ ▢          │
+│                                                            │ DRIVE          │
+│   Map: the map, with a toolbar on its edge                 │ ▢ ▢ ▢          │
+│   Vehicle: the rig strip, the tool cards, the field panel  │ ▢ ▢            │
+├────────────────────────────────────────────────────────────┴────────────────┤
+│  [ MAP ]  [ VEHICLE ▾ ]            speed · gear · fuel · …   (the readout)  │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
-- **Status bar:**
-  - a settings button, which opens a sheet with the theme and Day / Night;
-  - alerts (low fuel, hot engine), from data we already have;
-  - the in-game day and time in a centre pill;
-  - weather and temperature, and money;
-  - the connection to the game (live, waiting or offline), in the place of
-    the terminal's signal icons.
-- **Value column:** big-number tiles, each with an icon, label, value and
-  unit.
-- **Control column:** the control zone (see Controls).
-- **Tab bar:** one tab per screen. It's designed for up to seven, like the
-  real terminal; v1 has two.
-  - Every tab shows its icon and label whenever they fit. Only when the bar
-    runs out of room (compact) do the unselected tabs drop to icons; the
-    selected one keeps its label (T0 review).
-
-### Screens (v1)
-
-- **Map:** the map fills the main area, whatever its shape. The field panel
-  and farmland popups work as today.
-- **Vehicle:**
-  - an InfoView-style hero readout of speed, rpm and gear;
-  - condition tiles: fuel, engine temp, wear, hours;
-  - the attached implements, each lowered or raised, on or off, and its
-    wear;
-  - the vehicle card: its shop picture, name and brand, and a button that
-    shows it on the Map screen. No mini-map: at that size it was too small
-    to be useful (T0 review).
-  - every tab shows its icon and label here, since this screen has no
-    tab-bar readout.
-- **Implement** (2026-10-24) and the Vehicle tab's **Harvester** page
-  (2026-10-25) came after v1: see their sections under Phases. The
-  Vehicle page above was redesigned on 2026-10-26 (spec 0002): see
-  [Vehicle screen redesign](#vehicle-screen-redesign-spec-0002-mod-085-2026-10-26).
-
-### Compact and wide
-
-- **Compact** (narrower than 900 px, or portrait):
-  - the same status bar and tab bar;
-  - the map on top, then a control dock under it with the three groups
-    (Lights, Drive, Implement) side by side;
-  - unselected tabs drop to icons, and the readout keeps speed, rpm and
-    fuel.
+- **Status bar:** the Settings button, the map's name and the alerts (low
+  fuel, hot engine, wear); the season, day and time in a centre pill;
+  weather and temperature, money, the connection to the game (live,
+  waiting or offline) and the full-screen button.
+- **Control column:** labelled groups of buttons, the same on every
+  screen: Lights (Lights, High beam, Beacon, Hazard, Turn L, Turn R) and
+  Drive (Cruise −, Cruise, Cruise +, Engine, AI worker). The Vehicle page
+  adds All tools with two working tools or more.
+- **Tab bar:** one tab per screen, designed for up to seven like the real
+  terminal. Every tab shows its icon and label whenever they fit; only
+  when the bar runs out of room (compact) do the unselected tabs drop to
+  icons. The rest of the bar is the readout: the tractor's numbers for the
+  screen that shows (see Layout grid).
+- **Compact** (narrower than 900 px, or portrait): the same status bar and
+  tab bar; the screen on top, then the control groups docked under it,
+  side by side.
 - **Wide** (1600 px and up): the main area grows. Each tab stays one
-  screen: the Map tab is the map and the controls, and Vehicle keeps its
-  own tab. Showing Map and Vehicle side by side was tried in T0 and
-  turned down.
+  screen; Map and Vehicle side by side was tried and turned down.
+
+## Screens
+
+### Map
+
+The map fills the main area, whatever its shape, beside the control
+column. A toolbar floats on its left edge (zoom in and out; recentre,
+which follows; whole map; layers), the Layers panel opens beside it, the
+land panel sits top-right and a metric scale bottom-right. The tab bar's
+readout: speed, gear, rpm, fuel, engine temperature, fuel usage and, while
+cruise control holds one, its speed.
+
+### The Vehicle tab
+
+One tab, three pages: **Vehicle**, **Loader** and **Harvester**. The tab
+picks the page from what you drive (Settings, "Screen for what I drive",
+on by default), and its menu picks one by hand; the tab names its page.
+
+#### Vehicle page
+
+After the canvas
+[FS25 Companion: Vehicle screen, calm](https://claude.ai/artifact/JApsdXjoSFwsddKv2kNYZ3)
+(approved 2026-11-03). Behaviour, data and checks:
+[specs/0013](../specs/0013-vehicle-screen-calm.md), and
+[specs/0003](../specs/0003-implement-screen.md) for the cards.
+
+- **Layout:** the rig strip across the top, on the ground; under it the
+  tool cards (as tall as their content) with Also attached at the bottom,
+  and the field panel on the right; the column as on every screen, with
+  an All tools group under Drive for two working tools or more. Three
+  working tools or more: no field panel, the cards in spec 0003's grid.
+- **Strip:** tiles on a card's surface with lift, sharing the width; the
+  game's selected tool is where you are (a tint and a 2 px ring). Links
+  are a line with a neutral chip, dashed while raised.
+- **Cards:** the badge (outlined while working by day, steel at night),
+  the model, the line under it; the stats on small quiet tiles; the tanks
+  with an 8 px meter; the section strip in the muted and line colours;
+  buttons 84 × 80, More the row's last.
+- **Field panel** (revision 2, 2026-11-07: no map image, for speed): the
+  field's outline in the muted colour on the card, the view fixed to the
+  field; the trail in solid `--trail-work` green (`--trail-mow` pale
+  yellow for mowers) under it; the rig as a dark dot with a white ring and
+  a heading arrow, a sprayer's boom; then the field's number, area, crop,
+  stage bar, needs as chips and "This run ≈ 54 % of the field".
+  Revision 3: only your fields, and "Not on your field" past the view's
+  margin; a band per work area, so a butterfly mower draws two wings.
+  Revision 4: with Precision Farming's nozzles, the trail, the boom and the
+  card's section strip show what sprays.
+- **Bottom bar:** the tractor's numbers, as on the Map screen.
+- **Compact:** one column, the strip scrolling sideways, the cards, the
+  field panel 240 tall (the outline beside the rows), the column docked under.
+
+#### Tool cards
+
+A card per tool on the Vehicle page
+([specs/0012](../specs/0012-card-buttons.md) for its buttons,
+[specs/0011](../specs/0011-sprayer.md) for a sprayer's section strip).
+
+- **Buttons:** a fixed list, read from what the tool is, and only faded by
+  the game's "not now"; a button never comes or goes. A label says what a
+  tap will do ("Lower" / "Raise", "Unfold" / "Fold"). A press that failed
+  says "Failed" on its button, nowhere else.
+- **More:** the main row's last button, **More · n** (how many are under
+  it, a chevron), lit while open. Open, its buttons are a lower row
+  (64 px) under the main row, and the card shows its compact body (no
+  stats, the main tank's meter alone) so they fit at 1180 × 820. Compact
+  cards keep More's button, faded.
+- **Tanks:** a meter per fill unit with its litres and a time estimate,
+  shown as "≈" and hidden while the rate is unsteady. The tank that runs
+  out first gets a "Runs out first" chip, a tank filling up "Call a
+  trailer".
+- **The weight limit** (the game's Trailer Fill Limit): a fill bar is
+  shaded past the limit with a tick where it stops, and a lock + MAX badge
+  sits beside the level once it's reached.
+- **The hitch icon** is traced from the game's Attach Tool prompt (a bar
+  into a ball, a thick ring open towards it), filled.
+
+#### Loader page
+
+For yard work with a loader, after the canvas
+[FS25 Companion: Vehicle screen](https://claude.ai/artifact/UCGXbQrd4gTozRk67NcnWw).
+Behaviour, data and checks: [specs/0002](../specs/0002-vehicle-screen.md).
+
+- **Layout:** the rig strip over the Load card and the Target card, side
+  by side; Load takes the full width when no Target shows. The column and
+  the bottom bar are the Vehicle page's.
+- **Rig strip:** the rig's tiles in driving order, joined by links: a line
+  with a chip naming the coupling, solid while the tool is lowered, dashed
+  while raised.
+- **Cards:** Load: the load in 24 px type with its litres and tonnes, a
+  big meter for a bucket, then This session with Reset (a column-style
+  button). Target: badge, name, category and distance, "≈ n more loads"
+  in the accent colour, the unit's meter and the weight meter; dimmed out
+  of range; a green Full chip.
+- **Compact:** one column, the strip scrolls sideways, Target under Load,
+  the column docked under them.
+
+#### Harvester page
+
+For a combine, after the canvases
+[FS25 Companion: Harvester screen](https://claude.ai/artifact/7arT5R4WwC9qJTTi3i99aL)
+and
+[FS25 Companion: Harvester with field panel](https://claude.ai/artifact/AK7xCVArrBaBXyhMWf2gT9).
+Behaviour, data and checks: [specs/0001](../specs/0001-harvester-screen.md).
+Combines first; forage, beet, potato and cotton harvesters later, once
+their keys are seen in game.
+
+- **Layout:** a band in the content area (the job; tank %, until full,
+  yield, speed against the limit), then the Combine card (grain tank,
+  Thresher / Pipe / Straw tiles, Yield, Throughput, This run, Total, wear)
+  beside the Header card over the field panel. The grid's rows are
+  88 | auto | 1fr: the Combine card spans both lower rows; on the right
+  the Header card at its content's height (about 256 px) over the field
+  panel (about 310, its map about 190). The column: Lights and Drive.
+- **Tiles:** the combine's and the header's buttons are state tiles on
+  their cards: the caption, the icon, the state in big type; lit when on.
+- **Header card:** compact: the lift on one line (caption, state, bar),
+  the Header and Fold tiles 80 tall (`.control-tiles[data-short]`),
+  Width / Limit / Wear as small stat tiles like the tool cards'.
+- **Field panel:** the Vehicle page's in its compact variant: no Needs
+  row.
+- **Call a trailer:** the meter turns orange, the chip shows and the
+  band's "until full" turns orange and pulses.
+- **Narrow screens:** one column, the panel 240 tall after the Header
+  card.
 
 ## The map in themes
 
-- **Default:** unchanged. It keeps the square box, the corner buttons, and
-  today's follow zoom.
-- **Any shape:** in the New Holland style, a map slot can be any rectangle:
-  tall, wide or square.
-  - `constrainTo` and `coverZoom` in `map/mapView.js` already fit any box:
-    the playable area covers the slot, and you pan along the long side.
-  - The square-box CSS (`#map-wrap` aspect-ratio) moves into the Default
-    theme's CSS.
-- **Edge toolbar:** zoom, recentre, whole map and layers become a vertical
-  icon toolbar on the map's edge.
+- **Any shape:** a map slot can be any rectangle: tall, wide or square.
+  `constrainTo` and `coverZoom` in `map/mapView.js` fit any box: the
+  playable area covers the slot, and you pan along the long side.
+- **Edge toolbar:** zoom, recentre, whole map and layers are a vertical
+  icon toolbar on the map's edge. Popups keep clear of it (76 px), and the
+  land panel drops to the bottom-right corner when a popup would cover it.
 - **Slot zoom:** the smaller the slot, the closer the default zoom, centred
   on the player or vehicle with follow on.
   - A pure `defaultZoom({x, y})` takes the slot's short side `s` and shows a
     span of `clamp(s² / 900, 80 m, whole map)` across it.
   - That's about 100 m across a 300 px mini-map, and about 1.1 km across a
-    1000 px main area.
-  - It never goes below the cover zoom. T4 kept the numbers: with no
-    mini-map, the only slot is the Map screen's (about 505 m across at
-    1180×820). Whether that's close enough in a cab is checked in game.
+    1000 px main area; about 505 m across the Map screen at 1180×820.
+  - It never goes below the cover zoom.
 - **Your zoom wins:**
   - You can zoom and pan any map slot.
   - Each slot remembers your zoom and whether follow is on.
   - Recentre turns follow on and goes back to the slot's default zoom.
   - When a slot changes size (rotation, window resize), it moves to the new
     default zoom, unless you zoomed by hand.
-- **Small slots,** with a short side under about 400 px (none in v1; for
+- **Small slots,** with a short side under about 400 px (none today; for
   later screens or a compact layout):
   - they keep zoom, pan and recentre, plus a button that opens the spot on
     the Map screen;
-  - no Layers panel, field panel or popups, since those would cover the
+  - no Layers panel, land panel or popups, since those would cover the
     whole slot.
 - **One map frame:**
   - There is one Leaflet map, with all layers, the legend, popups and the
-    field panel. Its frame moves into the visible screen's map slot.
+    land panel. Its frame moves into the visible screen's map slot.
   - Rule: at most one map slot is visible at a time.
-  - After every move, the map re-measures itself (`invalidateSize`).
+  - After every move the map re-measures itself, never while hidden.
+- **Map colours** (hotspots, farmland shading, crops, vehicle markers) are
+  the same in every theme and palette, so the map always reads like the
+  PDA.
 
 ## Icons
 
-- **Our own set, decided 2026-10-23.** Every icon is an SVG we draw and
-  ship with the dashboard. Nothing is read from the game for icons.
+- **Our own set.** Every icon is an SVG we draw and ship with the
+  dashboard. Nothing is read from the game for icons.
   - **Why:** the goal is an installer that touches as little of the user's
-    computer as it can. Extracting the game's symbol sheet meant a DDS
-    crop, a sprite, a cache on disk, an upload and an `icon_assets`
-    message, all to save drawing 24 glyphs. The SVG fallback had to cover
-    every icon anyway (macOS, replay), so the game sprite only added a
-    second look to keep in step.
-  - **What it gives:** one look everywhere (live, replay, macOS, hosted
-    relay), nothing written to disk, nothing uploaded, no request to load
-    icons, and no question about showing game artwork. The icons are ours,
-    under the project's licence.
+    computer as it can. One look everywhere (live, replay, macOS), nothing
+    written to disk, nothing to load, and no question about showing game
+    artwork. The icons are ours, under the project's licence.
   - **What it costs:** the exact cab glyphs. Ours follow the same
     conventions (ISO 7000 and cab warning-light symbols are standard
-    shapes), drawn from scratch, never traced from game textures.
-  - T0 checked the game's sheets: `dashboardSymbols_diffuse.dds` is about
-    110 white masks on a 128 px grid, and the HUD and key glyphs are inside
-    the encrypted `dataS.gar`. The 24-icon map written from it,
-    `client/icon_atlas.json`, is removed in T2.
+    shapes), drawn from scratch, never traced from game textures. The one
+    exception is the hitch icon, traced from the game's Attach Tool
+    prompt.
 - **Style:**
-  - drawn on a 24 × 24 grid, shown at 26 px in controls (T0
-    measurements) and scaled freely;
+  - drawn on a 24 × 24 grid and scaled freely (28 px in controls);
   - 2 px strokes, round caps and joins, 2 px corner radius, solid fills
     only where the symbol needs a mass (fuel drop, battery);
   - one colour: `stroke` and `fill` use `currentColor`, so a theme colours
@@ -256,192 +357,40 @@ These are left out of this project:
   unless it has a title). No sprite file, no fetch, so it works offline on
   a LAN. An unknown name returns an empty placeholder of the same size and
   logs once, so a layout never moves.
-- **First icon set** (49):
-  - **Vehicle:** speed, rpm, gear, diesel, electric charge, methane, engine,
-    engine temperature, wear, hours, position, tractor.
-  - **Controls:** lights, high beam, beacon, hazard, turn left / right,
-    cruise control, PTO, hitch up / down, implement on, AI worker, engine
-    on.
-  - **Alerts:** warning, battery, oil, check engine, frost.
-  - **Status bar:** clock, day, season, sun, cloudy, rain, fog, storm,
-    temperature, money, connection, settings, day / night.
-  - **Map and tabs:** map, zoom in / out, recentre, whole map, layers.
-  - **Vehicle types** (6, added in T4) for the vehicle card and the
-    implement rows: harvester, loader, trailer, truck, implement, weight
-    (the tractor is in Vehicle).
+- **The set:** 81 icons, listed by group in `ICON_GROUPS`.
 - **Contact sheet:** `web/tools/icons.html` shows every icon at 16, 26 and
-  48 px, in both palettes, on a card and in a badge. It's how icons are
-  reviewed, and the set is approved there before T3 uses it.
-
-## Vehicle pictures
-
-- **Where:** the vehicle card on the Vehicle screen, beside the readout
-  card: the same picture the in-game shop shows, with the vehicle's name
-  and brand. It's decoration, never needed.
-- **Source:** each vehicle's XML names its store image in
-  `<storeData><image>`, shipped as a `.dds` next to the XML. Checked in
-  T0: base game `data/vehicles/newHolland/t7/store_t7.dds`; mod
-  `FS25_volvoL90.zip` → `vehicles/volvo/l90/store_l90.dds`.
-- **Decided 2026-10-23: later, not in T4.** This would be the only thing
-  besides the map overview that reads the game install for images. Unlike
-  icons, a shop picture can't be drawn by us, and the card works without
-  one, so the pipeline below (one more read, cache and upload) waits (see
-  Later). T4's card shows the vehicle's kind as a large icon, with the
-  same layout, so a picture can take its place without moving anything.
-- **Pipeline** (like the map overview):
-  1. The mod adds the store item's image path to each vehicle (from the
-     store manager, by the vehicle's config file). Today it sends only the
-     name.
-  2. The client reads it from the game folder or the mod's zip, converts
-     DDS → PNG, hashes, caches and uploads it with the client token.
-  3. The dashboard shows it when it arrives.
-- **No picture:** paid DLCs are encrypted, and a mod may have none. Then
-  the vehicle card keeps its place and shows a large icon for the
-  vehicle's category (tractor, harvester, loader...) with the name and
-  brand, so the layout doesn't move.
-- **Rights:** like the overview image, pictures come from the user's own install,
-  are served only by their own backend, and are never committed or
-  uploaded to claude.ai.
+  48 px, in both palettes, on a card and in a badge, and in context (the
+  status bar, the map toolbar, the tab bar, the control column). It's how
+  icons are reviewed before a screen uses them.
 
 ## Controls
 
-The themes first showed the controls as state only, as planned below. Since
-Controls C1 and C2 (2026-10-24, see [PLAN.md](PLAN.md)) they send commands
-through the command channel and show the game's state from `cab`.
-
 - **Component:** `web/src/ui/control.js`, an icon button with four states:
-  off, on, pending, unavailable. Touch targets are at least 48 px.
-- **First set,** from data the mod already sends:
-  - lights, high beam, beacon, hazard, turn signals (`lights`);
-  - engine on (`engineOn`);
-  - implement lowered and implement on (`implements`).
-- **Behaviour:** they show as indicators with no press feedback until the
-  command channel exists. The controls project then wires them without
-  changing the themes.
+  off, on, pending and unavailable. Their looks are under Palettes.
+- **What it shows:** the game's state, from the `cab` topic. A press shows
+  pending on touch-down, then the game's state once the answer is in; a
+  press that failed says "Failed" on the button.
+- **Steps and values:** the lights' stages show as dots under the label,
+  one per stage the vehicle has, lit up to the current one; Cruise shows
+  its set speed.
+- **Cruise −, Cruise and Cruise +** always sit together, in that order.
+- **One control per action:** nothing on screen at once offers the same
+  action twice (the ground rules in [ARCHITECTURE.md](ARCHITECTURE.md#ground-rules)).
 
-## Architecture (web)
+## Settings
 
-- **Selectors** (`web/src/data/selectors.js`): pure functions moved out of
-  the panels. Examples: `controlledVehicle(store)`, `fuelPct(v)`,
-  `wearPct(v)`, `clock(env)`, `money(env, hello)`, `weatherName(env)`,
-  `alerts(v)`.
-- **Widgets** (`web/src/widgets/*.js`): one module per value or list. Each
-  is `create(store, {variant})` and returns an element.
-  - The variants (`row`, `tile`, `hero`, `strip`) differ in markup only;
-    themes style them.
-  - A widget hides itself when its data is missing.
-- **Themes are data, rendered by one shared renderer**
-  (`web/src/themes/render.js`):
+- **Settings entry:** the same in every theme: a "Settings" button with
+  the sliders icon, top-left in the status bar. The same button opens and
+  closes the panel (shown pressed while open); the panel has no close
+  button and sits in the main area, under the status bar, never over it.
+  The backdrop and Escape close it too.
+- **The panel:** Theme cards with layout thumbnails and the theme's note;
+  Day / Night, applied at once; then Screen: Full screen, Keep screen on
+  and "Screen for what I drive". Settings also shows the controls' round
+  trip (tap to the game's answer).
+- Choosing a theme saves it and reloads the page.
 
-  ```js
-  // web/src/themes/newholland/theme.js
-  export default {
-    id: "newholland",
-    label: "New Holland style",
-    note: "Inspired by the IntelliView 12. Not affiliated with New Holland.",
-    palettes: ["day", "night"],
-    mapControls: "edge",                       // Default: "corners"
-    chrome: {
-      status: ["menu", "alerts", "clock", "weather", "money", "connection"],
-      values: ["speed", "gear", "rpm", "fuel", "engineTemp", "wear"],
-      controls: ["lights", "highBeam", "beacon", "hazard", "implementLowered", "implementOn"],
-    },
-    screens: [
-      { id: "map", label: "Map", icon: "map", slots: [{ map: "full" }] },
-      { id: "vehicle", label: "Vehicle", icon: "tractor", slots: [
-        { widget: "speed", variant: "hero" }, /* ... */ { map: "mini" } ] },
-    ],
-  };
-  ```
-
-  - CSS lives in `themes/<id>/theme.css`, scoped to
-    `[data-theme="<id>"][data-palette="day|night"]`, with a grid template
-    per size class through container queries.
-  - The data form is what makes a later layout editor possible.
-- **Default is a theme with its own `build()`:** it recreates today's
-  `index.html` markup exactly, so it can't drift. `index.html` shrinks to an
-  empty `#app`.
-- **Startup** (`main.js`):
-  1. read the theme choice;
-  2. build the chrome and screens;
-  3. create the map frame in the visible map slot;
-  4. add the layers, legend and follow as today;
-  5. place the widgets;
-  6. connect.
-
-  Screens are built once and switched with `hidden`.
-- **Split UI from logic,** so the New Holland style can put the controls on
-  the map's edge:
-  - `legend.js`: `buildLegend(map, layers)` returns the panel. Default wraps
-    it in today's Leaflet control (same markup and classes); New Holland
-    opens it from the edge toolbar.
-  - `followControl.js`: the follow logic (state, `tick`, `onNewMap`, whole
-    map, recentre) is separate from Default's corner buttons.
-  - `createMapView(el, {zoomControl})`: New Holland draws its own zoom
-    buttons.
-- **Choice and persistence:**
-  - localStorage keys:
-    - `fs25companion.theme`: `default` or `newholland`
-    - `fs25companion.palette`: `day` or `night`
-    - `fs25companion.screen`: per theme
-    - `fs25companion.mapSlots`: zoom and follow per theme and slot
-
-    Every read and write goes through try/catch, as in `legend.js`.
-  - The URL can override: `?theme=newholland&palette=night`, which combines
-    with `?pair=` and `?backend=`.
-  - Switching theme reloads the page.
-- **Tokens:** move the hard-coded interface colours to tokens:
-  - background, surfaces, text, muted, accent, second accent, ok, warn,
-    alarm, active, border, radius, shadow, fonts;
-  - Leaflet's controls and popups, the legend, the field panel.
-
-  Default's token values are today's colours. Map colours (hotspots,
-  farmland shading, crops, vehicle markers) stay the same in every theme, so
-  the map always reads like the PDA.
-- **Fonts:** chosen in T0. Either the system stack or a self-hosted OFL font
-  in `web/vendor/fonts/`, never a CDN, because the dashboard may run on a
-  LAN without internet. Live values use tabular numerals.
-- **Browsers:** Safari 16+ (iPadOS 16), Chrome/Edge 110+ and Firefox 110+.
-  They all support container queries, `dvh` and `:has`.
-
-## Modern look (the design brief for T0)
-
-- **Keep from the IntelliView 12:**
-  - the structure: status bar, value column, main area, control column,
-    tabs;
-  - dark blue, white and yellow;
-  - big-number tiles, ✓ states, icon toolbars on the map's edge.
-- **Modernise:**
-  - generous spacing and a clear type scale;
-  - softer radii and subtle elevation instead of bevels and grid lines;
-  - one colour per state (ok, warn, alarm, active);
-  - short transitions;
-  - gauges as clean arcs or bars, not dials;
-  - one icon weight throughout;
-  - night as a palette of its own, not an inversion.
-- **Depth, not flat** (direction-board review, 2026-10-23): soft vertical
-  gradients on surfaces, a light top highlight, a crisp edge and a real
-  drop shadow; icons in colour-filled badges, like the IntelliView's menu
-  cards.
-- **Controls first** (same review): game controls are the main content of
-  the chrome, as a button grid that reflows to its width. Speed, fuel and
-  the other values are minor on the Map screen, a compact strip of chips;
-  big hero numbers belong on the Vehicle screen.
-- **Readable in a cab:** values readable at arm's length (hero numbers of
-  40 px or more on tablets), WCAG AA contrast in both palettes, and touch
-  targets of at least 48 px.
-- **Light on older tablets:** no large blurs, and `prefers-reduced-motion`
-  respected.
-- **Check against** current car dashboards and the newest terminals
-  (FendtONE, John Deere G5) for what "modern in a cab" looks like.
-
-## Design result (T0)
-
-Approved on 2026-10-23 in the Claude Design artifact
-"FS25 Companion: NH style direction board" (private, on claude.ai). This
-section is what T1 and T3 build from; the artboards are the picture.
-
-### Design system (2026-10-25)
+## Design system
 
 The design system
 [FS25 Companion](https://claude.ai/artifact/LBCPbVhewCFvKcYyEFE9GH)
@@ -601,13 +550,7 @@ yellow ([specs/0013](../specs/0013-vehicle-screen-calm.md)).
   drop temp, then gear.
 - **Tab labels:** shown whenever they fit (see Tab bar).
 
-### Icons
-
-- T0 mapped 24 icons to the game's dashboard symbol sheet and drew the
-  rest as SVG (2 px strokes, round caps and joins). Since 2026-10-23 the
-  whole set is our SVG, in the same style (see Icons).
-
-## Responsive (tablets vary a lot)
+## Responsive
 
 - **No standard tablet size.** Sizes in CSS pixels, landscape:
 
@@ -630,827 +573,72 @@ yellow ([specs/0013](../specs/0013-vehicle-screen-calm.md)).
 - **Size classes, not devices:** compact below 900 px or portrait; regular
   for tablets; wide from 1600 px.
 - **Browser bars:** a tablet browser's own bars take up part of the height
-  (`dvh`, plus safe areas for the iPad home indicator). In T5:
-  - a fullscreen button, where the browser allows it;
-  - a web-app manifest, so the dashboard can be added to the home screen
-    and open without browser bars;
-  - keep-awake where the browser allows it. That needs HTTPS, so not on a
-    plain LAN address.
+  (`dvh`, plus safe areas for the iPad home indicator). So:
+  - **Full screen** (`ui/screenMode.js`): a button at the status bar's
+    right end and a toggle in Settings, where the browser has full screen
+    (not on iPhones, nor in the home-screen app, which has no bars
+    anyway). Browsers leave full screen when the page reloads.
+  - **Home screen** (`web/manifest.json`): on an iPad, Safari's Share →
+    Add to Home Screen opens the dashboard without bars, on the LAN
+    address too. Chrome on Android needs HTTPS or localhost for that; on
+    the LAN it adds a plain shortcut.
+  - **Keep screen on** (Settings): only on a secure page, `localhost` or
+    HTTPS. A tablet on `http://<PC IP>:8123` doesn't get it; there the
+    device's own auto-lock setting is the way.
+  - **Safe areas:** the status bar and the tab bar grow into the iPad's
+    status bar and home indicator, with their content kept clear.
+- **Sizes checked,** each in day and night, with the Solek replay:
+  1024×600, 1024×768, 1133×744, 1180×820 (the reference), 1194×834,
+  1280×800, 1280×720, 1366×768, 1376×1032, 1920×1080, 2560×1440,
+  3440×1440, 768×1024, 800×1280, 820×1180, 844×390 and 390×844. Nothing
+  overflows, there's no horizontal scroll, and no button is under 44 px.
 - **Input:** touch and mouse both work everywhere.
+- **Browsers:** Safari 16+ (iPadOS 16), Chrome/Edge 110+ and Firefox 110+.
+  They all support container queries, `dvh` and `:has`.
 
-## Phases
+## How a theme is built
 
-Each phase ends with:
-- tests green;
-- an "As built" note in `docs/THEMES.md`;
-- a commit (pushed on request).
+- **A theme is data** (`web/src/themes/<id>/theme.js`), drawn by the one
+  renderer, `themes/render.js`:
+  - `id`, `label`, `note`, `palettes`, `css`;
+  - `chrome`: the status bar's widgets (`start`, `centre`, `end`) and the
+    control groups;
+  - `screens`: each with an `id`, `label`, `icon`, its `slots` and its
+    `readout` for the tab bar. A slot is the map (`{map}`), a widget (its
+    id, or `{widget, variant}`), a group of slots (`{group, slots}`, for
+    the theme's CSS grid) or the control column (`{controls: true}`, with
+    `add` for a group of its own). A screen may share another's tab
+    (`tab`), name itself in the tab's menu (`choice`) and say when the tab
+    picks it (`when`).
+- `checkTheme()` reports unknown widgets, controls and icons, and a screen
+  with more than one map slot. Screens are built once and switched with
+  `hidden`.
+- **CSS:** `themes/<id>/theme.css` holds the day palette on `:root` and
+  the night palette under `[data-palette="night"]`, with a grid per size
+  class. Only the active theme's CSS is loaded.
+- **Widgets** (`web/src/widgets/`, listed by id in `index.js`): each takes
+  the store and a variant and returns an element; the variants differ
+  in markup only, and themes style them. A widget hides itself when its
+  data is missing. **Selectors** (`web/src/data/selectors.js`) are the
+  pure reads of the store they share.
+- **Which theme:** the URL wins (`?theme=newholland&palette=night`, for
+  bookmarks), then the device's saved choice, then the first theme in
+  `registry.js`. Switching theme reloads the page.
+- **Saved per device** (localStorage, every read and write through
+  try/catch): `fs25companion.theme`, `.palette`, `.screen` (the last
+  screen, per theme), `.mapSlots` (zoom and follow per theme and slot),
+  `.legend` (the layers shown), `.keepAwake`, `.autoPick` (Screen for what
+  I drive) and `.moreOpen` (the tool cards whose More is open).
+- **Fonts:** Archivo, self-hosted in `web/vendor/fonts/`, never a CDN,
+  because the dashboard may run on a LAN without internet.
+- **A new theme** is a folder under `themes/` added to `THEMES` in
+  `registry.js`, plus a design pass.
 
-### T0: Design in Claude Design
+## Later
 
-1. Done: this plan is `docs/THEMES.md`. PLAN.md links to it in place of the
-   "Screens and themes" idea, and its controls idea is corrected (no key
-   glyphs from `dataS.gar`).
-2. Inspect the game's atlases locally: convert them in the scratchpad and
-   look. Then write `client/icon_atlas.json`.
-3. **Direction board:** two or three directions side by side, each a
-   palette (day and night swatches), a type pairing, and a sample of the
-   chrome (a status bar, a value tile, a control, a tab). One direction is
-   picked, or parts of several are combined, before the style frame.
-   Picked on 2026-10-23: **C · Deep Blue** (Archivo, soft radii, depth,
-   pill tabs with icon-only inactive screens, values as a slim readout in
-   the tab bar). It's a direction, not a final design: later artboards
-   keep refining it.
-4. **Style frame:** the Map screen at 1180×820 in the day palette, in the
-   chosen direction, reviewed and revised until the look is approved.
-   Approved on 2026-10-23: status bar, map with a floating edge toolbar
-   and field panel, a 268 px control column in labelled groups (Lights,
-   Drive, Implement), and the tab bar with the slim readout.
-5. Then the Vehicle screen, the night palette, the settings sheet, and
-   Default's Theme button.
-   Vehicle screen approved on 2026-10-23: InfoView-style readout card
-   (speed arc, gear, rpm), four condition tiles, the attached implements
-   list, and the same chrome as the Map screen (no tab-bar readout on this
-   screen). Revised after review: the vehicle card with its shop picture
-   replaces the mini-map, and every tab shows its label.
-   Night palette approved on 2026-10-23 (Map and Vehicle): deep navy
-   surfaces, faint highlights and dark shadows; "on" states and the
-   selected tab turn yellow with dark text; brighter state colours; map
-   colours unchanged, map overlays on dark glass.
-   Settings approved on 2026-10-23: the Settings panel (Theme cards with
-   layout thumbnails, Day / Night switch) in the main area under the
-   header, toggled by the header's Settings button; in Default, the same
-   Settings button at the header's left with a small Theme panel.
-6. Then the other sizes: 1280×800, compact at about 800 px wide, and
-   1920×1080 (wide).
-   Approved on 2026-10-23: 1280×800 and 1920×1080 keep the regular
-   layout with a bigger map; compact (800×1280 portrait) docks the three
-   control groups under the map.
-7. Write the approved tokens, measurements and layout grid into
-   `docs/THEMES.md`. Done: see "Design result (T0)".
-
-- **How reviewing works:**
-  - The artboards live in a private Claude Design artifact on claude.ai.
-  - Comments on the artboards drive the revisions.
-  - Each artboard is approved explicitly before code follows it.
-- **Reference images:** the artifact holds links, written notes and our own
-  wireframes. It holds no photos or game textures, since those belong to New
-  Holland and GIANTS.
-- **Done when:** a direction is picked, every artboard is approved, and `docs/THEMES.md` has the
-  tokens, layouts and icon map.
-
-### T1: Foundation (web, no visible change)
-
-- Add selectors, widgets, the theme contract and renderer, and Default as a
-  theme with its own `build()`.
-- Split the legend and follow logic from their UI, move the map frame, and
-  turn the colours into tokens.
-- `vehiclePanel.js` and `envPanel.js` become widgets. `fieldInfoPanel.js`
-  stays, placed in the map frame.
-- **Done when:** Default's layout boxes and styles match the reference taken
-  before T1 (see Verification), and test.html and pytest are green.
-
-#### As built (T1)
-
-Done on 2026-10-23. Default looks and behaves as before.
-- **Startup** (`main.js`): choose the theme, set `data-theme` (and
-  `data-palette`) on `<html>`, load the theme's stylesheet, build the
-  theme into `#app`, then the map, its layers and the theme's map controls.
-  `index.html` is an empty `#app`.
-- **Theme contract** (`themes/render.js`): `id`, `label`, `note`,
-  `palettes`, `mapControls` ("corners" or "edge"), `css`, then either
-  `chrome` and `screens` as data or a `build(app, store, frame)` of its
-  own. `checkTheme()` reports unknown widget ids and screens with more than
-  one map slot. The renderer draws the status bar, value column, screens,
-  an empty control column (controls come with T3) and the tab bar; it
-  switches screens with `hidden` and moves the map frame. It's tested with
-  a sample theme in test.html; T3 gives it its real markup.
-- **Theme choice** (`themes/registry.js`): `?theme=` and `?palette=`, then
-  `fs25companion.theme` and `fs25companion.palette`, then Default. Saving
-  the choice comes with the Settings panel (T3).
-- **Default** (`themes/default/`): `theme.js` builds the old markup from
-  widgets, `theme.css` holds its layout (the square map box, header,
-  cards), `mapControls.js` its corner buttons (Follow and Map, the Layers
-  toggle). Only the active theme's CSS is loaded, so its selectors need no
-  theme prefix.
-- **Selectors** (`data/selectors.js`): `controlledVehicle`, `vehicleName`,
-  `fuelPct`, `wearPct`, `engineTemp`, `operatingHours`, `implementsOf`,
-  `clock`, `weatherName`, `temperatureRange`, `money`, `farmMoney`,
-  `connectionStatus`. `alerts()` waits for the status bar (T3), which
-  will set its thresholds.
-- **Widgets** (`widgets/`): grouped by topic rather than one file per
-  value: `vehicle.js` (vehicleName, speed, rpm, gear, fuel, wear,
-  engineTemp, hours, position), `farm.js` (weather, temperature, clock, day,
-  money, mapName, playerName), `implements.js`, `status.js` (connection,
-  protocolError), all listed in `widgets/index.js`. Value widgets come from
-  one `valueWidget()` with the variants `row`, `gauge`, `title` and `tile`;
-  `hero` and `strip` come with T3 and T4. `whenMissing: "dash"` keeps
-  Default's "–" where other themes hide the widget.
-- **Map:** `map/mapFrame.js` is the frame (map, hint, field panel).
-  `legend.js` builds the panel only (`buildLegend`), `followControl.js`
-  is the follow logic only (`createFollow`, with `onChange`, `wholeMap`),
-  and `createMapView(el, {zoomControl})` can leave out Leaflet's zoom
-  buttons.
-- **Tokens** (`style.css`): font, background, surface, border, text,
-  muted, accent and its text, ok / warn / alarm with their fills, radii,
-  shadow, map overlays, map buttons and Leaflet popups, with Default's
-  values. Map colours (`--map-*`, markers, hotspots, fields) are fixed. A
-  second accent waits for T3, the first theme to use one.
-- **Backend:** the dashboard's files are served with `Cache-Control:
-  no-cache` (a cheap 304 on each load). Testing showed a browser running the
-  new `index.html` with a cached old `main.js`.
-- **Checked:** `web/tools/layoutProbe.js` records the boxes and computed
-  styles of the header, map, panel, cards and map controls. Run on fresh
-  loads at 1280×800, 1920×1080 and 390×844 before and after: no box moved
-  and no style changed, except that the map buttons, legend and popups now
-  use the one `--font` stack (`system-ui` comes first in both, so the
-  same font shows). The JS-only ids on the values (`#speed`, `#fuel`, ...)
-  are gone. Follow, whole map, Layers, legend toggles, popups and the
-  field panel work as before. test.html (87 checks) and pytest (75) pass.
-
-### T2: Our icon set (web only)
-
-- `web/src/ui/icons.js`: the 49 icons of the first set (see Icons) as path
-  data, and `icon(name, {title})`.
-- `web/tools/icons.html`: the contact sheet, every icon at 16, 26 and
-  48 px, in both palettes, on a card and in a badge.
-- Remove `client/icon_atlas.json`. No client or backend change.
-- test.html: every name in the first set exists, each draws inside its
-  24 × 24 box, and an unknown name gives a same-size placeholder.
-- **Done when:** the set is approved on the contact sheet, and test.html is
-  green.
-
-#### As built (T2)
-
-Done on 2026-10-23. All 49 icons approved, in five batches.
-- **Module** (`ui/icons.js`): `icon(name, {title})` returns an inline
-  `<svg>` (24 × 24 box, 2 px strokes, round caps and joins, currentColor),
-  `aria-hidden` unless it has a title. `hasIcon(name)` checks a name, and
-  `ICON_GROUPS` lists the set by group, in the sheet's order. An unknown
-  name gives an empty icon of the same size and logs once.
-- **Groups:** Vehicle (12), Alerts (5), Status bar (13), Map and tabs (6)
-  and Controls (13). Engine on moved from Vehicle to Controls, since it's a
-  control; it shares its drawing with Engine.
-- **Shared drawings:** the engine block (engine, engine on, engine speed,
-  engine fault), the dial (speed, cruise), the hitch arm (raise, lower),
-  the small splined gear (PTO, implement on), the cloud (the weather), and
-  `around()`, which turns one stroke round the centre (sun, frost). Dots
-  are filled with no stroke, so they keep their size.
-- **References:** the ISO symbols in the IntelliView 12 guide (InfoView
-  warning lights and gauges on p. 4, the top bar on p. 8, the map toolbar
-  on p. 9, transmission modes on p. 20, the armrest keypad and side menu
-  on p. 23), drawn from scratch, never traced. The guide was viewed locally
-  and uploaded nowhere. Symbols with no cab equivalent (weather, season,
-  money, map) use common shapes in the same style.
-- **Changed in review:** cruise, PTO, raise, lower, implement on and engine
-  were redrawn after the guide; money became a wallet (a banknote read as
-  a camera, a coin stack as a database), currency-free; whole map became
-  view corners round a field (a framed ring also read as a camera).
-- **Contact sheet** (`tools/icons.html`): the icons in context (value
-  tiles, the map toolbar and tab bar, the status bar with a weather strip,
-  alert chips, the control column) in day and night, then one card per
-  icon with a keyline view, the sizes and the badge. It's published as the
-  private artifact "FS25 Companion icon sheet", with `icons.js` beside it.
-- **Removed:** `client/icon_atlas.json`. Nothing reads the game for icons.
-- **Checked:** test.html (91 checks, 5 for icons: every listed icon is
-  drawn, no name twice, each fits its box, the unknown-name placeholder,
-  and the title handling). Every batch was rendered in the browser pane at
-  120, 48, 26 and 16 px before review.
-
-### T3: New Holland style: chrome and Map screen
-
-- Status bar, value column, control column (indicators) and tab bar.
-- The settings sheet with theme and Day / Night, and Default's Theme button.
-- The Map screen: any shape, edge toolbar, slot zoom, and the Layers panel
-  from the toolbar.
-- `popupPlacement.js` gets the right box to avoid from the theme.
-- **Done when:** the Map screen matches the approved artboards at all
-  sizes, in both palettes.
-
-#### As built (T3)
-
-Done on 2026-10-23. Choose it in Settings, or with `?theme=newholland`.
-- **Theme data** (`themes/newholland/theme.js`): the status bar in three
-  parts (`start`: map name, alerts, protocol error; `centre`: day and
-  time; `end`: weather, money, connection), the control groups, and two
-  screens. Map is the map plus the control column, with the tab-bar
-  readout (speed, gear, rpm, fuel, engine temp). Vehicle is, until T4, the
-  vehicle's name, value tiles and the implements card.
-- **Renderer** (`themes/render.js`): a status bar can be a list or
-  `{start, centre, end}`; widgets are named by id or `{widget, variant}`; a
-  screen slot can be `{controls: true}` (the theme's control groups); a
-  screen's `readout` shows in the tab bar only while that screen does;
-  tabs carry their icon. `checkTheme()` now also reports unknown controls
-  and icons. No value column: the approved artboards moved the values to
-  the readout, so `chrome.values` stays optional.
-- **Controls** (`ui/control.js`, `widgets/controls.js`): a button with
-  `data-state` off, on, pending or unavailable, `aria-pressed`, and
-  `aria-disabled` until the controls project wires it. Thirteen controls
-  read the mod's data: lights, high beam, beacon, hazard, turn left and
-  right (`lights`), engine (`engineOn`), AI worker (`isAI`), raise, lower
-  and work (`implements`); cruise and PTO show as unavailable until T6
-  sends them. On foot, everything is unavailable. The Implement group's
-  label adds the first implement's name (the group went with
-  [specs/0012](../specs/0012-card-buttons.md)). Fold and "next tool" from
-  the artboard wait for data and icons.
-- **New widgets and variants:** `dayClock` (the centre pill: season, day,
-  time), `weatherNow` (weather icon and the day's temperatures), `alerts`
-  (chips from `alerts()` in `selectors.js`: fuel under 15 % warns and
-  under 5 % alarms, engine at 100 °C warns and at 110 °C alarms, wear from
-  80 % warns), `connection` variant `dot`, and the value variants `text`
-  and `readout` (with a meter for fuel). Value widgets gained an icon, a
-  level (`data-level` warn / alarm) and a meter.
-- **Settings** (`ui/settings.js`): the same button and panel in both
-  themes. Theme cards with layout thumbnails, then Day / Night for a theme
-  with palettes. Choosing a theme saves it, drops `?theme=` and
-  `?palette=` from the URL (keeping `?pair=` and `?backend=`) and reloads.
-  Day / Night applies at once and is saved. The panel sits in the main
-  area under the header, with a backdrop; the backdrop, Escape or the
-  button close it.
-- **Default:** the Settings button at the header's left and a small Theme
-  panel (no thumbnails). The button overhangs the header's padding, so the
-  header keeps its height: `layoutProbe.js` at 1280×800, 1920×1080 and
-  390×844 against the last commit shows only the title moving right of
-  the button and `main` becoming `position: relative`.
-- **Map** (`themes/newholland/mapControls.js`): one toolbar on the map's
-  left edge (zoom in and out; recentre, which follows, and whole map;
-  layers), the Layers panel opening beside it (closed at start), and a
-  metric scale bottom-right. The field panel sits top-right and drops to
-  the bottom-right corner when a popup would cover it.
-- **Slot zoom** (`mapView.js` `defaultZoom`, `followControl.js`
-  `slotZoom`): following zooms to the slot's own zoom and keeps it as the
-  slot changes size, until you zoom by hand (wheel, pinch, double-click,
-  the zoom buttons); recentre goes back to it. Measured: about 505 m
-  across the 676 px map at 1180×820, 150 m across a phone's. The per-slot
-  memory is T4.
-- **Popups** (`popupPlacement.js`): the theme passes `inset`, the strip
-  popups keep clear of (New Holland: 76 px for the toolbar). The class the
-  field panel gets is now `moved`; each theme's CSS says where it goes.
-- **Saved per device:** `fs25companion.screen` (the last screen, per
-  theme), plus the theme and palette keys from T1.
-- **Font:** Archivo 400, 500, 600 and 700 in `web/vendor/fonts/` (from
-  `@fontsource/archivo` 5.2.8, Latin and Latin Extended subsets, about
-  110 KB in all, with `OFL.txt`). `archivo.css` declares them and only
-  New Holland's `theme.css` imports it, so Default keeps its system font.
-  The browser fetches a weight or subset only when text uses it.
-- **Checked:** test.html (113 checks, 22 new: season names, fuel levels,
-  alerts, control states and labels, every control's icon, the readout and
-  pill, theme checks, the renderer's parts, the Settings panel, the URL
-  without theme, slot zoom, the popup inset) and pytest (75). In the
-  browser pane with the replay and a sample vehicle: 1180×820 in day and
-  night against the Map and Settings artboards; 1133×744, 1194×834,
-  1280×800, 1366×768, 1376×1032, 1920×1080, 2560×1440, 3440×1440, 800×1280
-  and 820×1180 portrait and 390×844, with no horizontal scroll, no
-  overflowing column or tab bar, and every button 44 px or more. Phones
-  scroll the screen, with the map at least as tall as its toolbar.
-- **To confirm in game:** `env.season` is read as 0 = spring (like the
-  game's Season enum); the replay says "Summer" on day 1, so check it
-  against the in-game calendar.
-
-### T4: Vehicle screen
-
-- The hero readout, condition tiles and implements.
-- The vehicle card with its shop picture (see Vehicle pictures) and its
-  Show-on-map button.
-- Per-slot map memory and recentre.
-- Tune the slot-zoom numbers.
-- **Done when:** it matches the artboards, and moving between screens keeps
-  each map slot's view.
-
-#### As built (T4)
-
-Done on 2026-10-23. The shop picture is left for later (see Vehicle
-pictures). Its readout card, vehicle card and condition row were replaced
-on 2026-10-26 by the
-[redesign](#vehicle-screen-redesign-spec-0002-mod-085-2026-10-26); the
-renderer, kinds, gear and map memory below still hold.
-- **Layout** (`themes/newholland/theme.js`): the Vehicle screen is a
-  `vehicle` group (columns `1fr | 300`, rows `296 | 116 | 1fr`) holding the
-  readout card, the vehicle card, a `conditions` group of four tiles and the
-  implements, then the same control column as the Map screen. Compact
-  stacks them and docks the controls underneath; under 720 px it's one
-  card per row and two tiles per row.
-- **Renderer** (`themes/render.js`): a slot can be `{group, slots}`, drawn
-  as a `.slot-group` with `data-group` for the theme's CSS, and a widget
-  slot can set `whenMissing`. `checkTheme()` looks inside groups.
-  `renderTheme()` also returns `mapScreen`, the first screen with a map
-  slot.
-- **Readout card** (`widgets/vehicleScreen.js` `vehicleReadout`): what the
-  vehicle is doing (`activity()`: on foot, AI worker, working with the
-  implement's name, driving, standing, parked), an Engine on / off pill,
-  the speed arc (full scale 50, 80 or 120 km/h, kept per vehicle once
-  reached), the gear box and engine speed with a bar of its top rpm. Under
-  500 px of content the arc shrinks and the speed goes to 80 px; under
-  420 px the gear and rpm go under the arc.
-- **Vehicle card** (`vehicleCard`): the vehicle's kind as a large icon,
-  the name without its brand ("T7.315 HD"), "Brand · Category", and Show
-  on map, which dispatches a bubbling `showonmap` event; `main.js` shows
-  the Map screen and recentres, so the map follows the vehicle at the
-  slot's zoom.
-- **Condition tiles:** a `condition` variant of the value widgets: badge
-  and label, number, unit and a `detail` (fuel's litres, or kWh), then a
-  bar (`bar`, or `meter`) or a `note` (hours: "Hour meter"). Engine temp's
-  bar is full at 140 °C. Warn and alarm colour the border, badge, number
-  and bar.
-- **Implements:** a `rows` variant: kind icon (yellow while working),
-  name, the shop category, Lowered / Raised and Working / Off chips, and a
-  wear bar; "Nothing attached" when empty. Default's card is unchanged.
-- **Mod** (`Vehicles.lua`): the controlled vehicle and each implement get
-  `category` and `categoryTitle` from their store item
-  (`g_storeManager:getItemByXMLFilename(configFileName)`,
-  `getCategoryByName`), the vehicle also `brand`
-  (`g_brandManager:getBrandByIndex`, skipping NONE), and implements their
-  `typeName`. All guarded and cached per vehicle id, cleared per map;
-  confirmed live the same day.
-- **Gear** (fixed after the first live test): `getGear()` gave nothing in
-  FS25, so the mod reads the vehicle's `getGearInfoToDisplay()` (the
-  gear's name, group and automatic), and the dashboard shows reverse as
-  "R1" or "R3H". Under the label the readout card shows "Automatic" (a
-  CVT's "D") and the range, unless the gear's name already carries it
-  ("3H").
-- **Kinds** (`selectors.js` `vehicleKind`): the shop category first, then
-  the type name, matched by pattern (tools, headers and wagons before
-  loaders and harvesters); unknown motorized vehicles are tractors,
-  anything else an implement. `kindLabel` uses the shop's category name
-  when there is one.
-- **Per-slot map memory** (`followControl.js`, key
-  `fs25companion.mapSlots`, slot `newholland/map`): following or not, the
-  zoom you chose while following, and the centre and zoom where you left
-  it when not following, restored on the same map. Recentre clears your
-  zoom. Only zooms you make count: framing a new map no longer overwrote
-  it. Default keeps `fs25companion.follow`.
-- **Hidden screens** (`mapView.js` `remeasure`): the map skips
-  `invalidateSize` while its box is 0 × 0, so a hidden Map screen keeps its
-  size and view, and switching back moves nothing.
-- **Also fixed:** the phone rule that hid the tab-bar readout's fuel meter
-  hid every meter; it's now scoped to the readout.
-- **Checked:** test.html (127 checks, 14 new: kinds, labels, model name,
-  activity, speed scale, rpm, the readout and vehicle cards on foot and
-  driving, Show on map, condition tiles, implement rows, groups in the
-  theme check and renderer, per-slot memory across reloads) and pytest
-  (75, the mod's brand and category included). In the browser pane, with
-  the replay plus a sample vehicle: 1180×820 in day and night against the
-  Vehicle artboards; 1133×744, 1280×800, 1376×1032, 1920×1080, 800×1280
-  portrait and 390×844 with no horizontal scroll, no card overflowing and
-  every button 44 px or more; switching screens and reloading keep the
-  map's view; Show on map follows at the slot's zoom. Default's
-  `layoutProbe.js` at 1280×800 matches the last commit (one live value's
-  text width aside).
-
-### T5: Responsive pass and tablet polish
-
-- Run the viewport matrix (see Verification) and fix what it finds.
-- The compact class, the fullscreen button and the home-screen manifest.
-- **Done when:** the matrix passes in both palettes.
-
-#### As built (T5)
-
-Done on 2026-10-23.
-- **The matrix found one layout fault:** the Vehicle screen at 1024 px wide
-  (1024×600 and 1024×768, small Android tablets and old iPads). The
-  readout card's column is under 420 px there, so gear and rpm went under
-  the arc and were cut off; at 600 tall the implements card was squeezed
-  to 18 px.
-  - The readout card now has three steps: under 500 px a 260 px arc; from
-    340 to 419 px a 180 px arc, 52 px speed and a smaller gear box, still
-    side by side; under 340 px (phones) the side under the arc.
-  - The implements row is at least 150 px, and the Vehicle screen scrolls
-    when the window is too short for that, instead of squeezing.
-- **Full screen** (`ui/screenMode.js`): the Fullscreen API on the whole
-  page (`requestFullscreen`, or Safari's prefixed one before 16.4). Two
-  ways in, in New Holland: a button at the status bar's right end (widget
-  `fullscreen`, `widgets/screen.js`, pressed and turned to "leave" while
-  on), and a Full screen toggle in Settings under a new Screen group. Default
-  has only the Settings toggle, so its header doesn't change. Neither
-  shows where the browser has no full screen (iPhones) or in the home-screen
-  app, which already has no browser bars. Browsers leave full screen when
-  the page reloads, so switching theme leaves it too; the Settings note
-  says so.
-- **Keep screen on** (Settings, Screen): the Screen Wake Lock API, saved per
-  device (`fs25companion.keepAwake`), taken again when the page shows
-  after being hidden. It only shows on a secure page: `localhost`, or
-  HTTPS. A tablet on `http://<PC IP>:8123` doesn't get it; there the
-  device's own auto-lock setting is the way.
-- **Home screen** (`web/manifest.json`, `index.html`): name, icons,
-  `display: fullscreen` (iOS uses standalone), and the Apple meta tags
-  (`apple-mobile-web-app-capable`, a translucent status bar). No
-  `start_url`, so the app opens the address it was added from, keeping
-  `?pair=` and `?theme=`. On iPad, Safari's Share → Add to Home Screen
-  works on the LAN address too. Chrome on Android needs HTTPS (or
-  localhost) to open it without bars; on the LAN it adds a plain shortcut.
-- **Safe areas:** `viewport-fit=cover`, and both themes pad by
-  `env(safe-area-inset-*)`: New Holland's status bar and tab bar grow into
-  the iPad's status bar and home indicator, with their content kept clear;
-  Default pads `#app`. The insets are 0 in a browser tab, so nothing moves
-  there.
-- **Icons:** `web/icons/icon.svg` (the favicon too) is our tractor icon on
-  Default's slate. `scripts/app_icons.py` draws the PNGs with Pillow:
-  192 and 512, rounded, and a maskable 512 and the 180 Apple touch icon,
-  full-square with the drawing inside the safe zone. Three new icons in
-  the set: `fullscreen`, `exitFullscreen` and `keepAwake`.
-- **Checked:** test.html (135 checks, 8 new: when full screen is offered,
-  keep-awake taking, releasing and saving the lock with a fake Wake Lock
-  API, the Screen group and its toggles, no group where neither is
-  supported, the status-bar button) and pytest (75). In the browser pane,
-  with the replay and a sample vehicle, a script checked horizontal
-  scroll, clipped content (both directions) and buttons under 44 px on
-  the Map screen, the Vehicle screen and with Settings open, in day and
-  night, at 1024×600, 1024×768, 1133×744, 1180×820, 1194×834, 1280×800,
-  1280×720, 1366×768, 1376×1032, 1920×1080, 2560×1440, 3440×1440, 768×1024,
-  800×1280, 820×1180, 844×390 and 390×844: all clean. Default's
-  `layoutProbe.js` at 1280×800, 1920×1080 and 390×844 matches the last
-  commit.
-- **Not checked here:** entering full screen. The app's browser pane gets
-  the request but never answers it, so it needs a real browser: Chrome or
-  Edge on the PC, and the tablets. The safe areas and the home-screen app
-  also need a real iPad.
-
-### T6: More data from the game (mod, can start any time)
-
-- Fuel usage, cruise control, DEF/AdBlue, fill levels of the vehicle and
-  implements, PTO, hitch position, AI worker state.
-- Units and currency from the game's settings, falling back to metric.
-- These build on the fuel work: consumer fill units with
-  `getFillUnitFillLevel`, and the spike's `controlledDetail` dump.
-- **Done when:** the values are in the stream, with tests. Widgets show them
-  as they arrive.
-
-#### As built (T6)
-
-Built on 2026-10-24. The names come from the FS22 script docs and are
-guarded like the old telemetry mod's; none is confirmed in FS25 yet (see
-PLAN.md, Open checks). A wrong guess leaves the value out, nothing breaks.
-- **Stream** (`Vehicles.lua`, controlled vehicle): `fuelUsage` (l/h, kWh/h
-  for electric: `spec_motorized.lastFuelUsageDisplay`, else
-  `lastFuelUsage`); `def` and `defCapacity` (the DEF consumer fill unit);
-  `cruise` `{state: off|on|full, speed, maxSpeed}` (km/h, from
-  `getCruiseControlState/Speed/MaxSpeed`, else `spec_drivable.cruiseControl`);
-  `pto` (true when an attached implement's PTO turns, missing without one);
-  `fills` (the vehicle's own fill units without fuel, DEF and air, and
-  without units the HUD hides: `{unit, level, capacity, fillType,
-  fillTitle}`, no fill type when empty). Each implement adds `pto`
-  (`spec_powerConsumer.ptoRpm > 0`, then `getDoConsumePtoPower()`), `hitch`
-  (0 raised to 1 lowered: the attacher joint's `moveAlpha` between its
-  `upperAlpha` and `lowerAlpha`; missing for a joint that doesn't move) and
-  `fills`. Every vehicle a worker drives adds `ai` `{job, description,
-  helper}` (`getJob()`, then `getCurrentHelper()`).
-- **Units** (`Env.lua`): `env.units` `{miles, fahrenheit, acres, currency}`
-  from `g_gameSettings:getValue` (`useMiles`, `useFahrenheit`, `useAcre`)
-  and `g_i18n:getCurrencySymbol(true)`, else the `moneyUnit` setting. The
-  mod keeps sending metric; `data/units.js` converts speeds, temperatures,
-  areas and money on the dashboard, and falls back to metric and "$" (as
-  before) without settings. Litres stay litres.
-- **Dashboard:** new widgets `fuelUsage`, `def` (meter, warns under 10 %,
-  alarm under 3 %, and an alert chip), `cruise` ("Off", "Full" or the set
-  speed), `cruiseSpeed` (a readout shown only while cruise holds a speed)
-  and `load` (the vehicle's first loaded unit). The Cruise and PTO controls
-  show the game's state. Implement rows get a PTO chip, "Hitch 40%" while
-  the hitch moves, and a meter per fill unit; the Default list says "PTO"
-  and "seeds 58%". An AI worker's popup and the readout card name its job.
-  Value widgets may take a `unit` function, so units follow the settings.
-- **Layouts:** New Holland's Map readout adds fuel usage and the cruise
-  speed (both dropped on compact); its condition row takes DEF and Load
-  only when there is data, as one row of five or six tiles, with smaller
-  numbers and no detail under 1100 px. Default's Vehicle card adds Fuel
-  usage, DEF, Cruise and Load rows, each hidden without data, so on foot
-  and with older mods it looks as before.
-- **Spike:** the `controlledDetail` dump adds the cruise getters and the
-  `spec_drivable`, `spec_attacherJoints`, `spec_powerConsumer` and
-  `spec_aiJobVehicle` tables, for the live check.
-
-### Implement screen (design, 2026-10-24)
-
-> Replaced (mod 0.8.7, 2026-10-29): the Implement tab merged into the
-> Vehicle page, a card per tool with a button for each thing its parts
-> allow: [specs/0003](../specs/0003-implement-screen.md). What follows is
-> the history of the tab as it was.
->
-> The card's buttons since mod 0.13.0 ([specs/0012](../specs/0012-card-buttons.md)):
-> a fixed list, read from what the tool is and only faded by the game's
-> "not now". The main row, its last button **More · n** (how many are
-> under it, a chevron), lit while open; open, More's buttons are a lower
-> row (64 px) under the main row, and the card shows its compact body (no
-> stats, the main tank's meter alone) so they fit at 1180 × 820. Compact
-> cards keep More's button, faded. The Map screen's Implement group went:
-> a tool is worked from its card.
-
-Approved by Vincent on 2026-10-24 in the Claude Design canvas
-"FS25 Companion: Implement screen" (board C · Hybrid, private, on
-claude.ai), then brought in line with the C3 decisions the same evening
-(this text wins where the canvas differs). It's the third of the seven
-tabs, **Implement**, after Map and Vehicle, in New Holland style (the only
-theme), and answers "what is my tool doing and when must I act", where
-Vehicle answers "how is my tractor". Built the same day (mod 0.8.0, see
-"As built" below), waiting for the live check.
-
-- **Layout (regular):** the usual chrome. The main area has rows
-  `132 | 1fr`; the detail row has columns `1fr | 250`; the control column
-  is 268 wide, as on the other screens.
-- **Rig band** (top, readout-card colours, the screen's main card): the
-  job in words ("Seeding", "Harvesting · Wheat", "Delivering · Grain mill"
-  for an AI worker), speed, PTO, when the first tank runs out, and the
-  **Engine** button, as on the Vehicle screen's readout card (blue while
-  on, a green dot while the engine runs). Under it, the rig from `cab.rig`
-  as tiles in driving order: rear tools on the left, the tractor, front
-  tools on the right; a tool on a tool (a bucket on a loader) sits next to
-  its parent. Each tile has its icon badge (yellow while working, as in
-  the Attached rows), name, state line and a thin bar per fill unit. With
-  one tool, the band shows just the tractor and that tool.
-- **Selected tile:** the tool the game has selected. The band is dark by
-  day and at night, so the selected tile always takes the night selection
-  (yellow, dark ink), the same colours as a selected Attached row at
-  night; on the Vehicle screen's light card by day that row is dark blue.
-- **Implement card** (the selected tool): its own ‹ › (and a swipe) to
-  select the previous or next tool, icon, name, category and side, a
-  Working chip; then four stat tiles: Lift (bar, Raised to Lowered,
-  "Hitch 40%" while it moves), Work, PTO, Speed against the tool's working
-  speed limit. Then the tool's buttons, the same controls as the Vehicle
-  screen's Implement group and working exactly like the game's keys:
-  **Lower / Raise** (one button, its label follows the state), **Work**,
-  **Fold / Unfold**, and **Detach**. PTO is a stat, not a button (the game
-  has no PTO key). A button whose key would act on another tool, through
-  the game's shortcut for an action only one tool has, shows that tool's
-  model under its label ("Fold" · "TERRIA 6040", brand dropped, "…" when
-  too long). A button the tool can't do is unavailable, not hidden. Then
-  its tanks: a big meter per fill unit with litres and a time estimate;
-  the tank that runs out first gets a "Runs out first" chip.
-- **Details card:** wear, working width, area done this run, folding
-  state, Show on map.
-- **Control column:** Lights and Drive as on Map and Vehicle, without the
-  Engine (it's on the rig band), plus All implements: **Lower all / Raise
-  all** (the game's lower-all key, one toggle) and **Hitch** (exactly the
-  Q key). The per-tool buttons live on the implement card, so the column
-  needs no Implement group here, and no Prev / Next tool (the card's ‹ ›
-  do that).
-- **Front loader:** a tile like any other, with state and Detach only: no
-  arm, tool or crane controls from the dashboard. Its tool (a bucket, a
-  bale fork) is selectable on its own, so it gets its own tile, with a
-  fill bar when it has a fill level. The implement card for either shows
-  the stats and Detach; Lower, Work and Fold are unavailable.
-- **Combines:** the harvester's own grain tank is a tile and the
-  implement card's tanks show it ("full in ≈ 3 min", "Call a trailer");
-  Pipe and Unload join its buttons.
-- **Trailers:** a Load stat (all trailers together) replaces Lift;
-  Tipping and Cover replace Work and PTO.
-- **Estimates** come from the dashboard alone: the fill level's change
-  over the last 60 s gives litres per minute, then minutes to empty or
-  full. Shown as "≈", hidden when the rate is unsteady or zero.
-- **Selecting = selecting in game** (Vincent, 2026-10-24, built in C3):
-  tapping a tile, ‹ › or a swipe selects that tool in game the same frame
-  (`implement.select`, `implement.previous` / `next`), so G is never
-  needed; G pressed in game moves the selected tile too. The dashboard
-  keeps no pick of its own.
-- **Data already sent:** T6: name, category, depth, lowered, turnedOn,
-  pto, hitch, wear, fills, ai job. C3: `cab.rig` (id, parent, depth,
-  side, selectable, selected, each tool's state), `cab.keys` (which tool
-  lower, fold and turn on would act on), each implement's `id` and
-  `brand`.
-- **New data the mod needs** (dashed purple on the boards):
-  - working speed limit (`getSpeedLimit`);
-  - working width (the work areas);
-  - pipe out or in, tipping or not, cover state;
-  - a combine's crop.
-- **Controls:** already built (C2, C3): Lower / Raise, Work, Fold, Hitch,
-  Select, Prev / Next tool, Detach, Engine, and the tool name on a button.
-  New with this screen: Lower all / Raise all, Pipe, Unload, Tipping and
-  Cover, each as the game's key. Until a control exists its button shows
-  as unavailable.
-- **Open:** compact (portrait) layout, likely the band as a scrolling row
-  and the card full width.
-
-#### As built (Implement screen, mod 0.8.0, 2026-10-24)
-
-- **Game names checked in the game's own scripts.** The SDK ships the game's
-  Lua (`sdk/debugger/gameSource.zip` in the install, read locally, never
-  committed): Pipe, Dischargeable, Trailer, Cover, WorkArea, Combine,
-  AttacherJoints and Vehicle. The new data and keys use those names.
-- **Mod:** each `cab.rig` entry (the vehicle too) gains `pipe {out, moving}`
-  (targetState above 1 is out, currentState differs while it moves),
-  `discharging` (getDischargeState not off), `trailer` and `cover {open}`;
-  the vehicle's entry gains `turnedOn` / `canTurnOn` (a combine threshing).
-  `cab.keys` gains `pipe` (TOGGLE_PIPE, O), `unload` (TOGGLE_TIPSTATE, I,
-  else TOGGLE_TIPSTATE_GROUND, Ctrl+I, whichever is live), `cover`
-  (TOGGLE_COVER, N) and `lowerAll` (LOWER_ALL_IMPLEMENTS, Ctrl+V). Each
-  implement in `vehicles` gains `speedLimit` (km/h, `getSpeedLimit()`, with
-  wear's cut), `workWidth` (m, `getAIWorkAreaWidth()`, else the widest work
-  area) and `crop` for a combine (`lastValidInputFruitType` as its fill
-  type); the vehicle gains `crop` and `speedLimit` (the rig's, while
-  something works).
-- **New actions** (backend, client, mod): `implement.lowerAll`,
-  `implement.pipe`, `implement.unload`, `implement.cover`, each its key's
-  events; without one, the game's own handler (the attacher joint combo,
-  the next pipe state, the next cover state). Unloading has no fallback.
-- **Web:** `widgets/implementScreen.js` (rigBand, implementCard,
-  implementDetails), `data/rates.js` (estimates), new controls in
-  `widgets/controls.js` (lowerAll, pipe, unload, cover, detach; a control
-  may send a value: Detach sends the selected tool's id), six icons
-  (lowerAll, pipe, unload, cover, workWidth, area), and a screen slot's
-  `add` for groups of its own ("All implements").
-- **Choices made while building:**
-  - The card's buttons: Lower, Work, Fold and Detach for every tool
-    (unavailable when it can't); a trailer swaps Work for Tipping and adds
-    Cover; a tool with a pipe adds Pipe and Unload. Labels say what a tap
-    does: "Pipe out" / "Pipe in", "Uncover" / "Cover", "Lower all" /
-    "Raise all" (lit while a tool is lowered); Tipping and Unload are lit
-    while it runs.
-  - Pipe, Unload and Cover are unavailable while the game has their key off
-    (its help doesn't offer it), unless they're on.
-  - The card shows the game's selection; with the tractor selected it shows
-    the tractor (a combine: its tank, Pipe and Unload). Detach is
-    unavailable for the vehicle itself.
-  - The band's chip shows the first tank to run out ("Fertilizer empty ≈ 22
-    min"), else the first to fill up. "Runs out first" marks a tank only
-    when the tool has two or more; "Call a trailer" shows on a filling tank
-    at 80 % or less than 3 minutes from full.
-  - Estimates: a straight line through the last 60 s of levels, shown after
-    20 s, hidden when it fits badly (R² under 0.8) or moves less than 0.1 %
-    of the tank a minute.
-  - Area this run: speed × working width while the tool is lowered or on,
-    since it was attached or the page opened; "≈", in the player's unit.
-  - The job: AI worker's job, then Tipping / Unloading, then the working
-    tool's job by its shop category ("Seeding", "Cultivating",
-    "Harvesting · Wheat"), else Driving, Standing or Parked.
-  - Compact (portrait): one column, the band's tiles scroll sideways.
-- **Checked without the game:** a replay of a made-up seeding rig (tractor,
-  cultivator with a seeder, front loader with a bucket) at 1180×820 day and
-  night and 820×1180: estimates appear after 20 s, "Runs out first" on the
-  fertilizer. `web/test.html` and the Python and Lua suites pass.
-
-#### Trailer Fill Limit and the hitch icon (mod 0.8.1, 2026-10-25)
-
-Confirmed live by Vincent: MAX at the weight limit, and the hitch icon.
-
-- **The game's rule** (FillUnit.lua, Vehicle.lua): with the Trailer Fill
-  Limit setting on (`missionInfo.trailerFillLimit`), a vehicle with a
-  maximum mass (`maxComponentMass`) takes no more load once
-  `getMaxComponentMassReached()`, in every unit at once, unless the unit has
-  `ignoreFillLimit`; the HUD then shows a lock and MAX. A seeder's
-  fertilizer can stop at 76% because the seed already weighs the rest.
-- **Mod:** each `fills` entry gains `maxReached` (the HUD's test) and
-  `limit`, the litres it stops at when below its capacity: its level at
-  MAX, else level + `getAvailableComponentMass()` ÷ the fill type's
-  `massPerLiter` (empty units have no type to weigh). Neither is sent with
-  the setting off.
-- **Web:** a fill bar is shaded past the limit with a tick where it stops
-  (card tanks, Attached rows, rig tiles); a lock + MAX badge beside the
-  level on the card and the Attached rows, " · MAX" on the Load stat, the
-  Vehicle screen's Load and the tiles' tooltips. "Full in" counts to the
-  limit; "Call a trailer" is 80% of the limit, or a tool with a pipe at MAX;
-  a tank at MAX reads "at its weight limit".
-- **Hitch icon:** traced from the game's Attach Tool prompt (a bar into a
-  ball, a thick ring open towards it), filled; on Hitch and both Detach
-  buttons, where Detach had the lift arrow.
-- **A combine unfolds itself (mod 0.8.2):** the game won't thresh until the
-  combine is unfolded, and the fold is the combine's own, not the
-  cutter's. The rig's vehicle entry gains `foldable` / `unfolded` /
-  `foldMoving` (VehicleState.fold, shared with the tools); `keyTool` takes
-  the vehicle's entry for the fold key only, so Fold follows F wherever it
-  points, naming the combine under the button when the cutter is
-  selected. `implement.fold` no longer needs an implement: its setter falls
-  back to the vehicle.
-
-### Harvester screen (mod 0.8.3, 2026-10-25)
-
-Decided with Vincent: a combine gets its own screen, the Vehicle tab's
-other page rather than a fourth tab. Its content is the Harvest artboard of
-the Implement screen canvas, in the built screens' look (dark band, white
-cards, the Day / Night palettes). Combines first; forage, beet, potato and
-cotton harvesters later, once their keys are seen in game.
-
-Behaviour, the data from the mod, the checks and what changed after the
-first look are in the spec,
-[specs/0001-harvester-screen.md](../specs/0001-harvester-screen.md).
-
-- **The Vehicle tab:** two screens share it, Vehicle (formerly Tractor)
-  and Harvester, with a
-  menu on the tab to switch. Renderer: a screen may share another's tab
-  (`tab`), name itself in its menu (`choice`) and say when the tab picks it
-  (`when`, a detector in `DETECT`).
-- **Revision 2 (2026-10-25, built, mod 0.8.4):** redesigned on its own
-  canvas, [FS25 Companion: Harvester screen](https://claude.ai/artifact/7arT5R4WwC9qJTTi3i99aL)
-  (harvesting by day, nearly full at night, standing without Precision
-  Farming). It replaced the layout below.
-  - **Layout:** a band in the content area (job; tank %, until full,
-    yield, speed against the limit), then a Combine card (grain tank,
-    Thresher / Pipe / Straw tiles, Yield, Throughput, This run, Total,
-    wear) beside a Header card (lift, Header and Fold tiles, width, limit,
-    wear). The column starts at the top: Lights and Drive (Cruise − /
-    Cruise / Cruise +, Engine, AI worker). No rig band, Details column,
-    Harvester group, Show on map or Unload.
-  - **Tiles:** the Implement screen's buttons grown into state tiles: the
-    caption, the icon, the state in big type; lit (blue by day, yellow by
-    night) when on.
-  - **Call a trailer:** the meter turns orange, the chip shows and the
-    band's "until full" turns orange and pulses.
-- **Revision 3 (2026-11-08, built, no mod change):** the field panel, on
-  the canvas [FS25 Companion: Harvester with field panel](https://claude.ai/artifact/AK7xCVArrBaBXyhMWf2gT9)
-  (harvesting by day, nearly full at night, a headland turn with the
-  header raised). The grid's rows are 88 | auto | 1fr: the Combine card
-  spans both lower rows; on the right the Header card at its content's
-  height (about 256 px) over the field panel (about 310, its map about
-  190). The Header card is compact: the lift on one line (caption, state,
-  bar), the Header and Fold tiles 80 tall (`.control-tiles[data-short]`),
-  Width / Limit / Wear as small stat tiles like the Vehicle page's tool
-  cards. The panel is spec 0013's in its compact variant: no Needs row.
-  Narrow screens: one column, the panel 240 tall after the Header card.
-- **Layout (revision 1, replaced):** the rig band (the Implement screen's), then the work card
-  (Header lift, Thresher, Pipe, Straw, Speed against the limit) and the
-  grain tank under it, the details beside them (header and combine wear,
-  working width, done this run, folding, Show on map). The column keeps
-  Lights and Drive and adds Harvester: Lower, Thresher, Fold, Pipe,
-  Unload, Straw swath. Lower all and Hitch stay on the Implement tab: a
-  third group wouldn't fit 820 px.
-- **Grain tank (revision 1, replaced):** level, MAX and the weight limit's shading, the estimate
-  and Call a trailer (as the Implement card's), "Filling at about … L per
-  minute" from the last minute, then Yield (t/ha), Of potential (%), This
-  run and Total (ha).
-
-### Vehicle screen redesign (spec 0002, mod 0.8.5, 2026-10-26)
-
-The Vehicle tab's default page, tuned for yard work with a loader, drawn
-on its own canvas,
-[FS25 Companion: Vehicle screen](https://claude.ai/artifact/UCGXbQrd4gTozRk67NcnWw)
-(a loader with a bucket by a trailer, a seeding rig without a loader, day
-and night). Behaviour, data and checks are in the spec,
-[specs/0002-vehicle-screen.md](../specs/0002-vehicle-screen.md).
-
-Revision 2 (2026-10-27): this page is now **Loader** (the loader icon),
-picked by itself like Harvester. A plain **Vehicle** page sits beside it
-on the same tab: the same band and strip over the Loads card at full
-width. Both use the same grid (`data-group="vehicle"`); Load takes the
-full width whenever no Target shows.
-
-- **Layout:** one readout card across the content area: "Vehicle", the
-  job (and an orange Engine hot chip), then Speed, Fuel, DEF and Wear on
-  the right, each a label, a 28 px number and a line under it; the rig
-  strip under them. Below, the Load card and the Target card side by
-  side; Load takes the full width without a loader. The column: Lights
-  and Drive, Engine two columns wide (on every screen that has it).
-- **Rig strip:** the Implement tab's rig tiles in driving order, joined
-  by links: an 84 px line with a chip naming the coupling, solid while the
-  tool is lowered, dashed while raised. Chips follow the night selection
-  (yellow) at night.
-- **Cards:** white cards as on Harvester. Load: the load in 24 px type
-  with its litres and tonnes, a big meter for a bucket, then This session
-  with Reset (a column-style button). Target: badge, name, category and
-  distance, "≈ n more loads" in the accent colour, the unit's meter and
-  the weight meter; dimmed out of range; a green Full chip.
-- **Compact:** one column, the strip scrolls sideways, Target under Load,
-  the column docked under them.
-
-### Vehicle page, calm (spec 0013, 2026-11-07)
-
-The Vehicle page gives every part one job, after the canvas
-[FS25 Companion: Vehicle screen, calm](https://claude.ai/artifact/JApsdXjoSFwsddKv2kNYZ3)
-(approved 2026-11-03). Behaviour, data and checks are in the spec,
-[specs/0013-vehicle-screen-calm.md](../specs/0013-vehicle-screen-calm.md).
-
-- **Layout:** the rig strip across the top, on the ground; under it the
-  tool cards (as tall as their content) with Also attached at the bottom,
-  and the field panel on the right; the column as on every screen, with
-  an All tools group under Drive for two working tools or more. Three
-  working tools or more: no field panel, the cards in spec 0003's grid.
-- **Strip:** tiles on a card's surface with lift, sharing the width; the
-  game's selected tool is where you are (a tint and a 2 px ring). Links
-  are a line with a neutral chip, dashed while raised.
-- **Cards:** the badge (outlined while working by day, steel at night),
-  the model, the line under it; the stats on small quiet tiles; the tanks
-  with an 8 px meter; the section strip in the muted and line colours;
-  buttons 84 × 80, More the row's last.
-- **Field panel** (revision 2, 2026-11-07: no map image, for speed): the
-  field's outline in the muted colour on the card, the view fixed to the
-  field; the trail in solid `--trail-work` green (`--trail-mow` pale
-  yellow for mowers) under it; the rig as a dark dot with a white ring and
-  a heading arrow, a sprayer's boom; then the field's number, area, crop,
-  stage bar, needs as chips and "This run ≈ 54 % of the field".
-  Revision 3: only your fields, and "Not on your field" past the view's
-  margin; a band per work area, so a butterfly mower draws two wings.
-  Revision 4: with Precision Farming's nozzles, the trail, the boom and the
-  card's section strip show what sprays.
-- **Bottom bar:** the tractor's numbers, as on the Map screen.
-- **Compact:** one column, the strip scrolling sideways, the cards, the
-  field panel 240 tall (the outline beside the rows), the column docked under.
-
-### Default removed (2026-10-24)
-
-The original dashboard no longer made sense next to New Holland style, so
-it is gone; the theme mechanism stays for the next brands.
-- **Removed:** `themes/default/` (its build, CSS and corner map buttons),
-  `web/tools/layoutProbe.js` (it recorded Default's layout), the theme
-  contract's `build()` and `mapControls` (only Default used them), the
-  implements widget's `card` variant, and Default's thumbnail in the
-  Settings panel.
-- **Default theme:** `THEMES` is `[newHolland]`, so with no choice, or a
-  saved `default` from before, a device shows New Holland style (Day).
-- **Map:** `main.js` always draws the edge toolbar, with slot zoom and the
-  slot's saved view. `fs25companion.follow` is no longer written.
-- **Settings:** the Theme group lists New Holland style only; a new theme
-  is a folder under `themes/` added to `THEMES` in `registry.js`.
-
-### Later
-
-- **More screens** (brainstorm, 2026-10-24): four more tabs, which fill the
-  tab bar's seven slots (Map, Vehicle, Implement, Fields, Farm, Work,
-  Yard). Not designed yet. Suggested order:
+- **More screens** (brainstorm, 2026-10-24): four more tabs beside Map and
+  Vehicle; the tab bar has room for seven. Not designed yet. Suggested
+  order:
   1. **Fields:** the fields as a to-do list: crop, growth stage, ready to
      harvest, and what each needs (lime, fertiliser, plough, weeds,
      rolling), most urgent first; tap one to see it on the Map. The
@@ -1468,74 +656,17 @@ it is gone; the theme mechanism stays for the next brands.
      feeding: headcount, food, water, straw, health and outputs to
      collect for each barn; running or not, missing inputs and full
      outputs for each production. Needs the most new mod data.
-- The shop picture on the vehicle card (see Vehicle pictures).
-- Layout editing.
-- More brands: Fendt FendtONE, John Deere G5, Massey Ferguson Datatronic,
-  Case IH AFS Pro, CLAAS CEMIS. Each is a theme folder plus a design pass.
-
-## Files
-
-- **Changed:** `web/index.html`, `web/style.css`, `web/src/main.js`,
-  `web/src/panels/*`, `web/src/map/legend.js`, `map/followControl.js`,
-  `map/mapView.js`, `map/popupPlacement.js`, `web/test.html`,
-  `mod/src/collectors/Vehicles.lua` (T4: brand and shop category).
-- **New:** `web/src/data/selectors.js`, `web/src/widgets/`,
-  `web/src/themes/render.js`, `themes/registry.js`, `themes/default/`
-  (removed 2026-10-24), `themes/newholland/`, `web/src/map/mapFrame.js`, `web/src/ui/dom.js`
-  (was `panels/dom.js`), `web/src/ui/icons.js`, `web/src/ui/control.js`,
-  `web/src/ui/settings.js`, `web/src/widgets/controls.js`,
-  `web/src/widgets/vehicleScreen.js`, `web/tools/layoutProbe.js` (removed
-  2026-10-24),
-  `web/tools/icons.html`, `web/src/ui/screenMode.js` and
-  `web/src/widgets/screen.js` (T5: full screen, keep-awake),
-  `web/manifest.json`, `web/icons/` and `scripts/app_icons.py` (T5: home
-  screen), `web/src/data/rates.js`, `web/src/data/units.js` and
-  `web/src/widgets/implementScreen.js` (Implement screen),
-  `web/src/widgets/harvesterScreen.js` (Harvester screen).
-- **Removed:** `client/icon_atlas.json` (T2).
-- **Docs:** `docs/THEMES.md` (this file), `docs/PLAN.md`.
-
-## Verification
-
-- **test.html:**
-  - selectors;
-  - theme registry, URL and localStorage parsing;
-  - `defaultZoom`;
-  - theme data checks: every widget id exists, and no screen has more than
-    one map slot;
-  - icons: every name used by a theme exists in `icons.js`.
-- **Browser pane,** with the `replay-solek` launch config:
-  - **Sizes:** 1133×744, 1180×820, 1194×834, 1280×800, 1376×1032,
-    1366×768, 1920×1080, 2560×1440, 3440×1440, one portrait and one phone
-    size. Each in day and night.
-  - **Layout:** nothing overflows, there's no horizontal scroll, and touch
-    targets are 48 px or more.
-  - **Map slots:** tall, wide and square slots fill with map. The edge
-    toolbar works. The slot zoom gets closer as the slot shrinks, your zoom
-    is kept per slot, and recentre resets it.
-  - Popups stay inside the map and clear of the field panel.
-  - Icons look the same live and in replay.
-  - Each screen matches its artboard.
-- **Default unchanged:**
-  - Before T1, a script records the position and size of the header, map
-    box, panel and each card, plus key computed styles, at 1280×800,
-    1920×1080 and 390×844.
-  - After each phase, the same script runs and is compared, alongside
-    screenshots.
-  - It compares geometry, not pixels, because the replay keeps moving.
-- **Live:**
-  - FS25 with the client, on a tablet over the LAN (`http://<PC IP>:8123`)
-    and on a second monitor.
-  - Drive a New Holland tractor and check the values, the indicators
-    (lights, beacon, implement), the icons and the Day / Night switch.
-
-## Risks
-
-| Risk | Handling |
-|---|---|
-| Our icons read less clearly than the game's | Standard symbol shapes, reviewed on the contact sheet at 16 px before T3. |
-| Moving the map between slots breaks its size | Re-measure after every move, never while hidden; tested in T4. |
-| The light day palette clashes with the map's PDA colours | Contrast checked in T0; map colours stay fixed. |
-| Tablet browser bars eat height | Fullscreen and home-screen install in T5. |
-| Older tablets are slow | Light effects, reduced motion, a test on the slowest tablet available. |
-| Trademarks | Brand names as text only, with "Not affiliated"; no logos, photos or artwork in the app or the artifact. |
+- **The shop picture** on a vehicle's card: the same picture the in-game
+  shop shows. Each vehicle's XML names its store image in
+  `<storeData><image>`, shipped as a `.dds` next to the XML (base game
+  `data/vehicles/newHolland/t7/store_t7.dds`; mod `FS25_volvoL90.zip` →
+  `vehicles/volvo/l90/store_l90.dds`). It waits because it would be the
+  only thing besides the map overview that reads the game install for
+  images: one more read, conversion and cache. Paid DLCs are encrypted
+  and a mod may have none, so the card must work without it. Like the
+  overview, a picture would come from the user's own install and never be
+  committed.
+- **Layout editing.**
+- **More brands:** Fendt FendtONE, John Deere G5, Massey Ferguson
+  Datatronic, Case IH AFS Pro, CLAAS CEMIS. Each is a theme folder plus a
+  design pass.

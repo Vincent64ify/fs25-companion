@@ -1,5 +1,5 @@
 /* New Holland style (themes/newholland/theme.js), after the IntelliView 12.
-   Values from docs/THEMES.md, "Design result (T0)": the day palette on
+   Values from docs/THEMES.md, "Design system": the day palette on
    :root, the night palette under [data-palette="night"]. Only this
    theme's CSS is loaded, so selectors need no theme prefix. */
 

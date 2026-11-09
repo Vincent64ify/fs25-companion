@@ -1,7 +1,7 @@
 # 0011: Sprayer
 
 Status: live-checked (closed 2026-11-07: Precision Farming off not checked)
-Mod: 0.12.4 · Started: 2026-11-01 · Design: [THEMES.md](../docs/THEMES.md#implement-screen-design-2026-10-24) (the card); spec [0003](0003-implement-screen.md) (moved out at its close)
+Mod: 0.12.4 · Started: 2026-11-01 · Design: [THEMES.md](../docs/THEMES.md#tool-cards) (the card); spec [0003](0003-implement-screen.md) (moved out at its close)
 
 ## Goal
 
@@ -141,8 +141,8 @@ Game API names used:
 
 | Name | Where from | State |
 |---|---|---|
-| `getIsTurnedOn`, `getCanBeTurnedOn`, `getTurnedOnNotAllowedWarning`, `IMPLEMENT_EXTRA` (turn on) | TurnOnVehicle.lua | verified (DONE.md, the mowers): not yet on a sprayer |
-| `getIsUnfolded`, `getIsFoldAllowed`, `IMPLEMENT_EXTRA2` (fold) | Foldable.lua | verified (DONE.md, the mowers): not yet on a sprayer |
+| `getIsTurnedOn`, `getCanBeTurnedOn`, `getTurnedOnNotAllowedWarning`, `IMPLEMENT_EXTRA` (turn on) | TurnOnVehicle.lua | verified (GAME-API.md, the mowers): not yet on a sprayer |
+| `getIsUnfolded`, `getIsFoldAllowed`, `IMPLEMENT_EXTRA2` (fold) | Foldable.lua | verified (GAME-API.md, the mowers): not yet on a sprayer |
 | `spec_variableWorkWidth.hasSections`, `leftSide`, `leftSideMax`, `rightSide`, `rightSideMax`, `hasCenter` | VariableWorkWidth.lua | seen in spike 0.0.4 (Berthoud Vantage 4300: 4 + 4 + centre); unverified while it changes |
 | `spec_variableWorkWidth.sections[i].width` | VariableWorkWidth.lua | seen live (0.12.0, the Berthoud): not metres, 1, 0.84, 0.65, 0.29, 0, then back to 1 (each section's place across the boom?); not read since 0.12.1 |
 | `spec_foldable.unfoldWarning` (the words while folded) | Foldable.lua | unverified |

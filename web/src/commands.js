@@ -1,5 +1,5 @@
 // @ts-check
-// Commands to the game (docs/PLAN.md, Controls): a control sends the state
+// Commands to the game (docs/ARCHITECTURE.md, Commands): a control sends the state
 // it wants, {"type":"command","id":"<unique>","action":"beacon.set",
 // "value":1} (and "tool", a rig id, for one tool's: specs/0008; "side",
 // left or right, for tool.width: specs/0011; no key: specs/0012) over the

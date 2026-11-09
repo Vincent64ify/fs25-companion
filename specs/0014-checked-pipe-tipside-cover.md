@@ -41,9 +41,9 @@ Game API names used (all already read by the cab topic):
 
 | Name | Where from | State |
 |---|---|---|
-| `spec_pipe.targetState` (> 1 out) | Pipe.lua | verified (DONE.md, the states the commands read) |
-| `spec_trailer.preferedTipSideIndex`, stepped by `TOGGLE_TIPSIDE` | Trailer.lua | verified (DONE.md, a trailer's tip keys) |
-| `spec_cover.state` (0 closed), toggled by `TOGGLE_COVER` | Cover.lua | verified (DONE.md, spec 0014: reads back the frame of the press) |
+| `spec_pipe.targetState` (> 1 out) | Pipe.lua | verified (GAME-API.md, the states the commands read) |
+| `spec_trailer.preferedTipSideIndex`, stepped by `TOGGLE_TIPSIDE` | Trailer.lua | verified (GAME-API.md, a trailer's tip keys) |
+| `spec_cover.state` (0 closed), toggled by `TOGGLE_COVER` | Cover.lua | verified (GAME-API.md, spec 0014: reads back the frame of the press) |
 
 ## Commands
 

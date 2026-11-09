@@ -14,23 +14,23 @@ we'll know it works; the code is built and checked against it.
 3. **Built:** the automated acceptance tests are written first, then the
    code until they pass. The Plan section is the checklist.
 4. **Live-checked:** the live check boxes are ticked in game. Verified API
-   names move to [DONE.md](../docs/DONE.md), the spec's status changes, and
-   the Log says when.
+   names move to [GAME-API.md](../docs/GAME-API.md), the spec's status
+   changes in the table below, and the Log says when.
 
 Where the other docs fit:
-- [PLAN.md](../docs/PLAN.md): the roadmap, the ground rules, and which spec
-  is next. Its Open checks point here for features that have a spec.
-- [DONE.md](../docs/DONE.md): what's built and the verified game API facts.
+- [ARCHITECTURE.md](../docs/ARCHITECTURE.md): how the parts work together,
+  and the ground rules.
+- [GAME-API.md](../docs/GAME-API.md): the verified game API facts.
 - [THEMES.md](../docs/THEMES.md): the design (look, layout, research). A
   spec links to its design section instead of copying it.
-- [NEXT.md](../docs/NEXT.md): small fixes that don't need a spec.
+- [NEXT.md](../docs/NEXT.md): small fixes that don't need a spec, and
+  features waiting for one.
+- [PLAN.md](../docs/PLAN.md): later ideas.
 
-**From 2026-10-25 on, feature detail lives here.** A feature's behaviour,
-data contract, commands, checks and log go in its spec and nowhere else.
-THEMES.md keeps only its look and layout, with a link to the spec; DONE.md
-gets a one-line entry and the API facts once they're verified. Features
-built before this (T0 to T6, the Implement screen) stay as they are in
-THEMES.md.
+**Feature detail lives here, and only here.** A feature's behaviour, data
+contract, commands, checks and log go in its spec; its status goes in the
+table below. THEMES.md keeps only its look and layout, with a link to the
+spec; GAME-API.md gets the API facts once they're verified.
 
 A fix found during a live check goes in the spec's Log and, if it changes
 behaviour, in Behaviour too: the spec always says what the code does now.
@@ -54,3 +54,33 @@ behaviour, in Behaviour too: the spec always says what the code does now.
 | [0013](0013-vehicle-screen-calm.md) | Vehicle page, calm: rig strip, tool cards, field panel, no yellow at night | live-checked with revisions 2 to 4 (Precision Farming off not checked: NEXT.md); revision 5 live-checked (cards front to back); revision 6 live-checked (failures on the button only) | 0.15.0 |
 | [0014](0014-checked-pipe-tipside-cover.md) | Pipe, Tip side and Cover answer once they moved | live-checked | 0.16.0 |
 | [0015](0015-trailer-tip-fades.md) | Trailer: Tip fades when the game won't tip | live-checked (the engine off; the side fades removed: NEXT.md) | 0.17.1 |
+
+## Before the specs
+
+Built before 2026-10-25, with no spec of their own:
+
+- **Phases 0 to 4** (2026-10-20): the file stream, the companion, and the
+  Leaflet map with the PDA's places, every vehicle, farmlands and fields.
+  They run live on Windows (Solek, and Kinlaig, a paid DLC map).
+- **Themes T0 to T6** (2026-10-23 and 24): the New Holland style with its
+  chrome, Map and Vehicle screens, tablet sizes and full screen. T6's game
+  data is built, its names not confirmed in game
+  ([GAME-API.md](../docs/GAME-API.md#not-verified-yet)).
+  The design is in [THEMES.md](../docs/THEMES.md).
+- **Controls C0 to C3** (2026-10-24, mod 0.7.1): the command channel, then
+  lights, cruise, engine, AI worker and the tools from the dashboard, down
+  to picking one tool. They work live on Windows.
+- **The Implement screen** (mod 0.8.0), merged into the Vehicle page by
+  spec 0003.
+
+Two plans from that time are done and became specs: the code review of
+2026-10-30 (F1 and F2 are specs 0004 and 0005, F5 to F7 were fixed in mod
+0.8.12, F4 is in [NEXT.md](../docs/NEXT.md), F3 waits for a hosted relay)
+and the Simplify plan (S1 to S4 are specs 0006 to 0009).
+
+Older specs still name `DONE.md`, `SIMPLIFY.md` and
+`REVIEW-2026-10-30.md`. They were removed on 2026-11-09, with the history
+that was in PLAN.md and THEMES.md (how T0 to T6 and the Implement screen
+were built): the game API facts are now in
+[GAME-API.md](../docs/GAME-API.md), and the rest is in git
+(`git show b92423b:docs/DONE.md`).

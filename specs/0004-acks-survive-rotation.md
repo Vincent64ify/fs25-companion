@@ -1,7 +1,7 @@
 # 0004: Command answers survive a stream rotation
 
 Status: live-checked
-Mod: 0.8.13 · Started: 2026-10-30 · From: [code review F1](../docs/REVIEW-2026-10-30.md#f1--rotation-discards-command-acknowledgements-and-can-strand-cruise-controls)
+Mod: 0.8.13 · Started: 2026-10-30 · From: code review F1
 
 ## Goal
 
@@ -12,7 +12,7 @@ hadn't read yet is gone: a `command_ack` lost there shows "no answer"
 although the game acted, and a lost `cruise.set` answer leaves Cruise −
 and + stuck until the game session changes (the client waits for that
 answer before it writes the next speed). The stream rotates about every
-5 minutes (seen on Kinlaig, DONE.md), so it's rare, but it can't be
+5 minutes (seen on Kinlaig, GAME-API.md), so it's rare, but it can't be
 noticed or worked around from the dashboard.
 
 ## Behaviour
