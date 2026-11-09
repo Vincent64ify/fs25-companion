@@ -705,7 +705,7 @@ export function allActions(cards) {
   });
   add("tip", (list) => {
     const on = list.every((e) => e.discharging === true);
-    // none the game lets tip (the engine off, a door-only side: specs/0015)
+    // none the game lets tip (the engine off: specs/0015)
     const blocked = !on && list.every((e) => e.canNow?.tip === false);
     return { action: "implement.tipAll", value: on ? 0 : 1, on, label: on ? "Stop all" : "Tip all",
       unavailable: blocked || undefined, note: blocked ? list[0].whyNot?.tip || "Not now" : undefined };

@@ -106,8 +106,10 @@ Live check (Solek, mod 0.17.0, the Vestrum 100 with the two EDK 650,
 
 - Only the engine fade: the side fades (`canTip`, `canTipIfEmpty`)
   follow the game's script but no trailer on the farm has such a side,
-  so nothing could check them (Vincent, 2026-11-08: remove). NEXT.md
-  keeps a note for a trailer that has one.
+  so nothing could check them (Vincent, 2026-11-08: remove).
+- Not coming back for a trailer that has such a side (Vincent,
+  2026-11-09): the game shows no tip key there, and Tip's "Failed" on
+  the button covers it. The NEXT.md note went.
 - No fade by position (land access, room on the ground, a sale point
   that doesn't take the load): it changes as the trailer moves and the
   game checks it on the press; the check's answer covers it.
@@ -152,3 +154,5 @@ Live check (Solek, mod 0.17.0, the Vestrum 100 with the two EDK 650,
   off, Stop while tipping, a can't-tip side staying live; Tip all with
   the engine off refused at once). NEXT.md notes them for a trailer that
   has such a side. Live-checked.
+- 2026-11-09: the door-only side dropped for good (Decisions); the
+  NEXT.md note removed.

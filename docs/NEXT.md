@@ -3,13 +3,6 @@
 Things to fix next, in no particular order. Longer-term ideas are under
 **Later** in [PLAN.md](PLAN.md).
 
-- **A trailer with a door-only tip side** (spec 0015, 2026-11-08):
-  Trailer.lua lets a tip side's XML say `canTip="false"` ("only back door
-  control") or `canTipIfEmpty="false"`; the game then hides its tip keys
-  there and Tip answers "Failed". Spec 0015 built a fade for both and
-  removed it: no trailer on the farm has such a side (the EDK 650's Grain
-  door doesn't). If one turns up, fade Tip there from
-  `spec_trailer.tipSides[currentTipSideIndex or preferedTipSideIndex]`.
 - **AI worker opens the game's worker screen** (spec 0008's live check,
   2026-10-31): `TOGGLE_AI` does nothing in a vehicle with no job set up
   (the L90H, the T7.300), so the button can't hire. Vincent: a tap
