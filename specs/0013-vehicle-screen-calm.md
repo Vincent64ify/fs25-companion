@@ -1,6 +1,6 @@
 # 0013: Vehicle page, calm
 
-Status: live-checked (2026-11-07; Precision Farming off not checked: NEXT.md), with revisions 2 (a light field panel), 3 (your fields, a trail only while working, every mower) 4 (what Precision Farming's nozzles spray) 5 (the cards from the front of the rig to the back; no mod change; live-checked 2026-11-08) and 6 (a failed answer shows only on its button)
+Status: live-checked (2026-11-07; Precision Farming off not checked: NEXT.md), with revisions 2 (a light field panel), 3 (your fields, a trail only while working, every mower) 4 (what Precision Farming's nozzles spray) 5 (the cards from the front of the rig to the back; no mod change; live-checked 2026-11-08) and 6 (a failed answer shows only on its button; live-checked 2026-11-09)
 Mod: 0.15.0 (revision 4; 0.14.0 revision 3; no change before) · Started: 2026-11-03 · Design: the canvas [FS25 Companion: Vehicle screen, calm](https://claude.ai/artifact/JApsdXjoSFwsddKv2kNYZ3) (private, on claude.ai; approved by Vincent on 2026-11-03), a THEMES.md section at build; specs [0003](0003-implement-screen.md) (the page), [0010](0010-tidy-states-and-motion.md) (the states), [0012](0012-card-buttons.md) (the buttons)
 
 ## Goal
@@ -1027,3 +1027,9 @@ page's memory; off a field the panel shows the map around the rig.
   `.tool-note` rules in theme.css). test.html: the failed-answer check
   now reads "Failed" on the tapped button and no note anywhere; 315
   green. Seen live on the Vestrum: no note element, no console error.
+- 2026-11-09: revision 6 live-checked (Solek, mod 0.17.1, the Vestrum 100
+  with two EDK 650, the first on the Grain door blocked by the second):
+  Tip answered "Nothing moved"; its button read "Failed" (red) about 1 s
+  after the press, the reason only in its title, no note on the card or
+  under All tools. Vincent: the same on his screen, and the game's own
+  warning in game.
