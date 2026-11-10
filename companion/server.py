@@ -40,13 +40,21 @@
 
     GET /api/maps/<mapId>/<hash>/{overview.png, overview_2048.png, meta.json}
                        from the map cache (map_assets.py)
+
+Each viewer has its own queue and sender (Viewer), so a tablet that stops
+reading never holds up the others (code review of 2026-10-30, F4). One that
+falls MAX_QUEUED messages behind gets the latest state instead of its
+backlog: the connect messages again (protocol_error always, null when
+there is none), then the command answers it was holding. One whose send is
+stuck for SEND_DEADLINE_S is closed and dropped.
 """
 
+import asyncio
 import json
 import logging
-from collections import OrderedDict
+from collections import OrderedDict, deque
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import Any, Deque, Dict, List, Optional, Set, Tuple
 
 from fastapi import APIRouter, FastAPI, HTTPException, WebSocket
 from fastapi.responses import FileResponse
@@ -63,15 +71,57 @@ WEB_DIR = Path(__file__).resolve().parents[1] / "web"
 # unanswered commands kept; the oldest is dropped beyond this
 MAX_PENDING_COMMANDS = 32
 MAX_COMMAND_ID = 64
+# a viewer this many messages behind gets the latest state instead
+MAX_QUEUED = 256
+# a viewer whose send takes longer than this is dropped
+SEND_DEADLINE_S = 10.0
 
 Envelope = Dict[str, Any]
 
 
-async def safe_send(ws: WebSocket, msg: Any) -> None:
-    try:
-        await ws.send_text(msg if isinstance(msg, str) else json.dumps(msg))
-    except Exception:
-        pass
+def text(msg: Any) -> str:
+    return msg if isinstance(msg, str) else json.dumps(msg)
+
+
+class Viewer:
+    """One viewer's socket, its queue and the task that sends it. ``put``
+    never waits: a slow viewer only slows itself."""
+
+    def __init__(self, ws: WebSocket, hub: "Hub") -> None:
+        self.ws = ws
+        self.hub = hub
+        # (message text, whether it is a command answer)
+        self.queue: Deque[Tuple[str, bool]] = deque()
+        self.wake = asyncio.Event()
+        self.gone = False
+
+    def put(self, msg: Any, answer: bool = False) -> None:
+        if self.gone:
+            return
+        if len(self.queue) >= MAX_QUEUED:
+            # behind: the latest state replaces the backlog; the answers stay, after it
+            answers = [item for item in self.queue if item[1]]
+            self.queue.clear()
+            for state in self.hub.connect_messages(resync=True):
+                self.queue.append((text(state), False))
+            self.queue.extend(answers)
+        self.queue.append((text(msg), answer))
+        self.wake.set()
+
+    async def send_all(self) -> None:
+        """Sends the queue until the socket fails or a send misses the deadline."""
+        while True:
+            while not self.queue:
+                self.wake.clear()
+                await self.wake.wait()
+            payload, _ = self.queue.popleft()
+            try:
+                await asyncio.wait_for(self.ws.send_text(payload), SEND_DEADLINE_S)
+            except asyncio.TimeoutError:
+                log.warning("dropped a viewer that took more than %g s to take a message", SEND_DEADLINE_S)
+                return
+            except Exception:
+                return
 
 
 def in_order(envelopes: List[Envelope], session: Optional[str]) -> List[Envelope]:
@@ -103,24 +153,35 @@ class Hub:
     back through put_ack."""
 
     def __init__(self) -> None:
-        self.viewers: Set[WebSocket] = set()
+        self.viewers: Set[Viewer] = set()
         self.store = StateStore()
         self.writer: Any = None
         self.protocol_error: Optional[str] = None
         self.map_assets: Optional[Dict[str, Any]] = None
-        # server ref -> (viewer socket, the viewer's own id)
-        self.commands: "OrderedDict[str, Tuple[WebSocket, str]]" = OrderedDict()
+        # server ref -> (viewer, the viewer's own id)
+        self.commands: "OrderedDict[str, Tuple[Viewer, str]]" = OrderedDict()
         self.command_seq = 0
         self.invalid = 0
         self._own_acks: List[Envelope] = []
 
     async def broadcast(self, msg: Any) -> None:
-        payload = msg if isinstance(msg, str) else json.dumps(msg)
+        payload = text(msg)
         for viewer in list(self.viewers):
-            await safe_send(viewer, payload)
+            viewer.put(payload)
 
     def snapshot_message(self) -> Dict[str, Any]:
         return {"type": "snapshot", "topics": self.store.snapshot()}
+
+    def connect_messages(self, resync: bool = False) -> List[Dict[str, Any]]:
+        """What a viewer gets on connect; ``resync``: again, after it fell
+        behind, when a cleared protocol error must reach it too."""
+        msgs = [self.snapshot_message()]
+        if self.map_assets is not None:
+            msgs.append(self.map_assets)
+        msgs.append({"type": "client_status", "connected": True})
+        if self.protocol_error or resync:
+            msgs.append({"type": "protocol_error", "message": self.protocol_error})
+        return msgs
 
     # from the game
 
@@ -184,9 +245,9 @@ class Hub:
         if ack.get("checked") is True:
             answer["checked"] = True
             answer["unmoved"] = ack.get("unmoved") if isinstance(ack.get("unmoved"), list) else []
-        await safe_send(viewer, answer)
+        viewer.put(answer, answer=True)
 
-    async def command(self, ws: WebSocket, msg: Dict[str, Any]) -> None:
+    async def command(self, viewer: Viewer, msg: Dict[str, Any]) -> None:
         viewer_id = msg.get("id")
         if not isinstance(viewer_id, str) or not 0 < len(viewer_id) <= MAX_COMMAND_ID:
             return
@@ -195,11 +256,11 @@ class Hub:
                                           msg.get("key"))
         refusal = command_refusal(action, value, tool, side, key)
         if refusal is not None:
-            await safe_send(ws, {"type": "command_ack", "id": viewer_id, "ok": False, "reason": refusal})
+            viewer.put({"type": "command_ack", "id": viewer_id, "ok": False, "reason": refusal}, answer=True)
             return
         self.command_seq += 1
         ref = str(self.command_seq)
-        self.commands[ref] = (ws, viewer_id)
+        self.commands[ref] = (viewer, viewer_id)
         while len(self.commands) > MAX_PENDING_COMMANDS:
             self.commands.popitem(last=False)
         extra = {"side": side} if side is not None else {}
@@ -210,27 +271,39 @@ class Hub:
 
     async def serve_viewer(self, ws: WebSocket) -> None:
         await ws.accept()
-        self.viewers.add(ws)
-        await safe_send(ws, self.snapshot_message())
-        if self.map_assets is not None:
-            await safe_send(ws, self.map_assets)
-        await safe_send(ws, {"type": "client_status", "connected": True})
-        if self.protocol_error:
-            await safe_send(ws, {"type": "protocol_error", "message": self.protocol_error})
+        viewer = Viewer(ws, self)
+        for msg in self.connect_messages():
+            viewer.put(msg)
+        self.viewers.add(viewer)
+        reading = asyncio.ensure_future(self.read_commands(viewer))
+        sending = asyncio.ensure_future(viewer.send_all())
+        try:
+            # until the viewer leaves (reading ends) or stops taking data (sending ends)
+            await asyncio.wait({reading, sending}, return_when=asyncio.FIRST_COMPLETED)
+        finally:
+            viewer.gone = True
+            self.viewers.discard(viewer)
+            for task in (reading, sending):
+                task.cancel()
+            if sending.done() and not reading.done():
+                try:
+                    await asyncio.wait_for(ws.close(), 1)
+                except Exception:
+                    pass
+
+    async def read_commands(self, viewer: Viewer) -> None:
         try:
             while True:
                 # viewers send only commands; anything else is ignored
-                raw = await ws.receive_text()
+                raw = await viewer.ws.receive_text()
                 try:
                     msg = json.loads(raw)
-                except json.JSONDecodeError:
+                except (TypeError, json.JSONDecodeError):
                     continue
                 if isinstance(msg, dict) and msg.get("type") == "command":
-                    await self.command(ws, msg)
+                    await self.command(viewer, msg)
         except WebSocketDisconnect:
             pass
-        finally:
-            self.viewers.discard(ws)
 
 
 class DashboardFiles(StaticFiles):

@@ -23,14 +23,6 @@ spec, and features waiting for one. Longer-term ideas are in
   per game hour?); then say which time each estimate shows (real minutes,
   game time, or "until 14:30" on the game clock) and convert. Needs a
   spec (mod, protocol field and screens).
-- **A viewer that stops reading can stall the others** (code review of
-  2026-10-30, its F4, the one finding still open): the hub sends to each
-  viewer in turn and waits for each (`companion/server.py`, `broadcast`),
-  with no deadline. A tablet that stops taking data while its connection
-  stays open would hold up the updates and the command answers for
-  everyone. To do: a bounded queue and a sender per viewer, the latest
-  state replacing the old, and a deadline that drops a stalled viewer;
-  the test is a viewer whose send never returns.
 - **A sprayer without Precision Farming** (specs 0011 and 0012, not
   checked): every sprayer in the save has Precision Farming's sprayer
   part, so its four width buttons (Left in / out, Right in / out, faded

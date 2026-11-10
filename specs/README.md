@@ -75,7 +75,7 @@ Built before 2026-10-25, with no spec of their own:
 
 Two plans from that time are done and became specs: the code review of
 2026-10-30 (F1 and F2 are specs 0004 and 0005, F5 to F7 were fixed in mod
-0.8.12, F4 is in [NEXT.md](../docs/NEXT.md), F3 waits for a hosted relay)
+0.8.12, F4 was fixed on 2026-11-10 with a queue per viewer, F3 waits for a hosted relay)
 and the Simplify plan (S1 to S4 are specs 0006 to 0009).
 
 Older specs still name `DONE.md`, `SIMPLIFY.md` and

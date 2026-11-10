@@ -46,7 +46,10 @@ The dashboard (browser): store → map layers and widgets, drawn by a theme
   ([spec 0007](../specs/0007-protocol-in-one-place.md)).
 - **Viewers get the latest.** The companion keeps the latest envelope per
   topic. A browser gets a `snapshot` on connect and on a new game session,
-  then one `update` per envelope. The viewer protocol is in
+  then one `update` per envelope. Each viewer has its own queue and
+  sender, so a slow one never holds up the others: one that falls far
+  behind gets the latest state instead of its backlog, and one whose send
+  is stuck for 10 s is dropped. The viewer protocol is in
   `companion/server.py`'s docstring.
 - **Recording and replay.** The stream file is already a recording:
   `--record` saves one, `--replay` plays it without the game. The Solek
