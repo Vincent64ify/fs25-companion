@@ -152,13 +152,11 @@ Live check (Vincent, iPad Pro, Safari):
   as before; a headland turn leaves the panel on the field. The same at
   night.
 
-**Later, in specs of their own** (agreed 2026-11-07, not this revision):
-- Progress kept by the companion, per field and per tool, for the game
-  session (Safari pauses the page, so it misses messages); the panel
-  never switching field by itself ("Working Field 2? · Show Field 2");
-  only fields you own; the % per tool.
-- Contracts and helping another farm: the game's land-access check, a mod
-  change and a live check.
+**Later, in a spec of its own** (agreed 2026-11-07, not this revision):
+contracts and helping another farm: the game's land-access check, a mod
+change and a live check. (Progress kept by the companion per field and
+per tool, with a "Show Field 2" prompt, was dropped by Vincent on
+2026-11-10.)
 
 ## Revision 3: your fields, a trail only while working, every mower
 
@@ -285,10 +283,8 @@ Live check (in game; Solek, mod 0.14.0):
   onto the road:** the field stays through a headland turn, goes past the
   margin, and comes back with its trail when you return.
 
-**Later, in specs of their own** (unchanged from revision 2): progress
-kept by the companion per field and per tool, with the "Working Field 2?
-· Show Field 2" prompt; contracts and helping another farm (the game's
-land-access check).
+**Later, in a spec of its own** (unchanged from revision 2): contracts
+and helping another farm (the game's land-access check).
 
 ## Revision 4: what the nozzles spray (Precision Farming on and off)
 
