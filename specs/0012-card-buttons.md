@@ -63,9 +63,11 @@ only on a tool whose parts have it (Data contract).
   0010).
 - **The labels** say what a tap does, from the tool's state: Lower /
   Raise, Fold / Unfold, Turn on / Turn off, Unload, Uncover / Cover (lit
-  while open), Rotate, Create fields on / off, Automatic drop on / off,
-  Reset bale count (its count under it, "12 bales"), Doubled rate on /
-  off; Folding… / Unfolding… while a fold moves (spec 0011 fix 4).
+  while open), Rotate, Create fields / Limit to fields, Drop automatically
+  / Drop by hand, Reset bale count (its count under it, "12 bales"),
+  Double rate / Normal rate (each lit while on; verbs since 2026-11-10:
+  "Doubled rate on" read as a state); Folding… / Unfolding… while a fold
+  moves (spec 0011 fix 4).
 - **More:** the main row's last button, a chevron over "More" with how
   many are under it ("2") as its value line (spec 0013: drawn as the
   column's buttons; it was "More · 2"), closed (Vincent, 2026-11-03: a
@@ -163,9 +165,9 @@ yet:
 | Create fields | `spec_plow` and not `getPlowForceLimitToField()` (forced, or the platform can't create fields); the player's `createFields` permission (`g_currentMission:getHasPlayerPermission`) fades it | without the permission | `spec_plow.limitToField` (false: makes fields); unverified |
 | Automatic drop | `spec_baleWrapper.toggleableAutomaticDrop`, else `spec_baler`'s | `getIsPowered` false (a powered key) | a baler-wrapper: `spec_baleWrapper.automaticDrop`, the one its key flips (the probe, 2026-11-07, the G-1 F125 Kombi: the two parts share one event, the wrapper's; the baler's `automaticDrop` stayed true, the key's text followed the wrapper's); else `spec_baler.automaticDrop` (`platformAutomaticDrop` with a platform, unverified) |
 | Reset bale count | `spec_baleCounter` | `getIsPowered` false (a powered key) | `sessionCounter`; unverified |
-| Doubled rate | `spec_sprayer.isFertilizerSprayer` false: a slurry tanker or a manure spreader, and no Precision Farming sprayer part (`spec_FS25_precisionFarming.extendedSprayer`), which takes the key away (live, 2026-11-07: none in the game's key help on the Fliegl PFW 18000 with slurry). Sprayer registers its key on every sprayer but never allows it on a fertilizer sprayer (`getSprayerDoubledAmountActive`'s second answer; Vincent, 2026-11-03) | `getSprayerDoubledAmountActive(workAreaParameters.sprayType)`'s second answer false (not for this spray type) | `spec_sprayer.doubledAmountIsActive`; the key inactive on the three fertilizer sprayers in the probe; unverified on a slurry tanker without Precision Farming |
+| Doubled rate | `spec_sprayer.isFertilizerSprayer` false: a slurry tanker or a manure spreader, and no Precision Farming sprayer part (`spec_FS25_precisionFarming.extendedSprayer`), which takes the key away (live, 2026-11-07: none in the game's key help on the Fliegl PFW 18000 with slurry). Sprayer registers its key on every sprayer but never allows it on a fertilizer sprayer (`getSprayerDoubledAmountActive`'s second answer; Vincent, 2026-11-03) | `getSprayerDoubledAmountActive(workAreaParameters.sprayType)`'s second answer false (not for this spray type) | `spec_sprayer.doubledAmountIsActive`; the key inactive on the three fertilizer sprayers in the probe; live on a manure spreader without Precision Farming (the Bunning Lowlander Widebody 250 HBD, 2026-11-10), folded or not |
 | Application rate (Precision Farming) | Precision Farming's sprayer part (`spec_FS25_precisionFarming.extendedSprayer`) with `sprayAmountAutoModeChangeAllowed` true | Rate − and + while `sprayAmountAutoMode` is true (the game's rate key is inactive then) or at `sprayAmountManualMin` / `Max`; all three while not powered, and while what it sprays isn't one of the fill types Precision Farming's `PrecisionFarming.xml` gives a rate (`applicationRates`: FERTILIZER, LIQUIDFERTILIZER, LIQUIDMANURE, DIGESTATE, MANURE; `limeUsage`: LIME) or there's nothing to spray. What it sprays as Sprayer `onStartWorkAreaProcessing` finds it: its tank (`getSprayerFillUnitIndex`) with a level, else a source tank (`fillTypeSources`) holding one of its spray types; not faded when filled from outside (`getIsSprayerExternallyFilled`) or unreadable. Live (2026-11-04): herbicide in the Berthoud, the keys inactive; fertilizer, offered. The list and an empty tank unverified | the probe (2026-11-02, the Rogator 937H, Vincent watched the HUD): `sprayAmountAutoMode` (true: automatic), `sprayAmountManual` 1 to 45 (`sprayAmountManualMin`, `sprayAmountManualMax`); one press of `PRECISIONFARMING_SPRAY_AMOUNT` with value 1 stepped it 1 → 2 (12 → 25 l/ha in the HUD with liquid fertilizer), with -1 back; `PRECISIONFARMING_SPRAY_AMOUNT_MODE` toggles automatic; Precision Farming's own script isn't readable |
-| Width (4 buttons) | `spec_variableWorkWidth.hasSections` and no Precision Farming sprayer part (`spec_FS25_precisionFarming.extendedSprayer`); with one, the strip only | `spec_variableWorkWidth.isActive` false ("This spray type has no partial width": Sprayer sets it from the spray type's `supportsVariableWorkWidth`) or folded (Foldable's `unfoldWarning`) | the probe (2026-11-02): `hasSections` and `isActive` true on the Berthoud, the Rogator 937H and the DINO II, all with Precision Farming, and no width key registered on any; a sprayer without Precision Farming unverified |
+| Width (4 buttons) | `spec_variableWorkWidth.hasSections` and no Precision Farming sprayer part (`spec_FS25_precisionFarming.extendedSprayer`); with one, the strip only | `spec_variableWorkWidth.isActive` false ("This spray type has no partial width": Sprayer sets it from the spray type's `supportsVariableWorkWidth`) or folded (Foldable's `unfoldWarning`) | the probe (2026-11-02): `hasSections` and `isActive` true on the Berthoud, the Rogator 937H and the DINO II, all with Precision Farming, and no width key registered on any; without Precision Farming the keys are live on the Berthoud, +1 one section in (live, 2026-11-10, mod 0.17.3) |
 | Detach | every tool (depth 1 and more) | `isDetachAllowed()` false | verified (GAME-API.md) |
 
 ## Commands
@@ -297,8 +299,10 @@ in; the engine off first, then on):
 - [x] A slurry tanker or a manure spreader (from the shop): with
   Precision Farming (the save's), no Doubled rate, More · 1 with
   Application rate as the game's; none on the Berthoud. Without
-  Precision Farming (Doubled rate under More) not checked: the save
-  always has it.
+  Precision Farming (Doubled rate under More): checked (Vincent, 2026-11-10, mod 0.17.3, Kinlaig, a save without Precision Farming)
+  on the Bunning Lowlander Widebody 250 HBD with manure: More · 1,
+  Doubled rate; each press ok and the game's state flipped, F1's
+  activate / deactivate text with it.
 - [x] The T7.300 with the KDF 341 S and KDD 941 STH: Lower, Fold, Turn on,
   Detach on both, unchanged from spec 0003.
 - [x] The Vestrum 100 with two EDK 650: Tip, Tip side, Detach (Cover if
@@ -499,3 +503,9 @@ in; the engine off first, then on):
   Left for other specs: Tip's fade on a side that can't tip there
   (docs/NEXT.md); Doubled rate without Precision Farming and an empty
   tank's rate in game not seen.
+- 2026-11-10: Doubled rate without Precision Farming checked (Vincent, 2026-11-10, mod 0.17.3, Kinlaig, a save without Precision Farming).
+  Vincent read "Doubled rate on" as the state (the game's F1 said
+  "Activate doubled application rate" at the same time): the three on /
+  off buttons became verbs, Double rate / Normal rate, Create fields /
+  Limit to fields, Drop automatically / Drop by hand (web only;
+  test.html first). Seen live: "Double rate" on the spreader's card.

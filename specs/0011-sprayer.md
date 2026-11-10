@@ -1,7 +1,7 @@
 # 0011: Sprayer
 
-Status: live-checked (closed 2026-11-07: Precision Farming off not checked)
-Mod: 0.12.4 · Started: 2026-11-01 · Design: [THEMES.md](../docs/THEMES.md#tool-cards) (the card); spec [0003](0003-implement-screen.md) (moved out at its close)
+Status: live-checked (closed 2026-11-07; Precision Farming off checked 2026-11-10)
+Mod: 0.12.4 (0.17.3: the width keys' sign) · Started: 2026-11-01 · Design: [THEMES.md](../docs/THEMES.md#tool-cards) (the card); spec [0003](0003-implement-screen.md) (moved out at its close)
 
 ## Goal
 
@@ -261,9 +261,12 @@ Live check (in game; Solek, CLAAS ARION 410 with the Berthoud Vantage
   2026-11-01, mod 0.12.1: folded, faded with "You first need to unfold
   the tool (sprayer)!"; unfolded, on and off each ok in the frame of the
   press. Detach on the Berthoud worked too.)
-- [ ] Not checked: if the keys are live: Left in / out, Right in / out: one section each, the strip and the
+- [x] Left in / out, Right in / out: one section each, the strip and the
   game's PARTIAL WIDTH HUD the same after each press; a side at its limit
-  fades its button. (Doesn't apply on the Berthoud or the DINO II: the
+  fades its button. (Vincent, 2026-11-10, mod 0.17.3, Kinlaig, a save without Precision Farming): the Berthoud Vantage 4300 behind the
+  T7.300; on 0.17.2 Left in answered "Nothing moved" (the key's sign, Log);
+  on 0.17.3 each of the four ok, one section, the game's partial width as
+  the card (7 / 9), each "out" faded at 4 of 4. (Doesn't apply on the Berthoud or the DINO II: the
   keys aren't live. Since spec 0012 the width buttons exist only on a
   sprayer without Precision Farming's sprayer part, and every sprayer in
   the save has it: docs/NEXT.md.)
@@ -287,9 +290,11 @@ Live check (in game; Solek, CLAAS ARION 410 with the Berthoud Vantage
   Detach. Spec 0012's rule 3, live-checked 2026-11-04 and 2026-11-07:
   the Berthoud's Unload and rate pressed with the W 600 selected, the W
   600 still selected after; Vincent: as the game.)
-- [ ] Not checked: the same card with Precision Farming off (a savegame without it,
+- [x] The same card with Precision Farming off (a savegame without it,
   if there is one): Fold, Turn on, the strip and the tank as above, no
-  Precision Farming keys. (Every save has it: docs/NEXT.md.)
+  Precision Farming keys. (Vincent, 2026-11-10, mod 0.17.3, Kinlaig, a save without Precision Farming): Fold and Unfold ok, Turn on
+  and the width buttons faded while folded with "You first need to unfold
+  the tool (sprayer)!", Turn on ok, no Application rate. (Every save has it: docs/NEXT.md.)
 
 ### Fixes from the live check (built, mod 0.12.2; closed 2026-11-07)
 
@@ -491,3 +496,9 @@ Choices made while building that the live check should confirm or change.
   the five fixes rechecked or gone with the other keys. Not checked: the
   width buttons and the card with Precision Farming off, as every
   sprayer in the save has Precision Farming (docs/NEXT.md).
+- 2026-11-10: Precision Farming off checked (Vincent, 2026-11-10, mod 0.17.3, Kinlaig, a save without Precision Farming). The game
+  registers the width keys then, but the mod pressed them the wrong way:
+  VariableWorkWidth.actionEventWorkWidthLeft / Right set the side to
+  side - inputValue (gameSource.zip), so +1 is one section in. Mod
+  0.17.3 presses the key with the other sign (Commands.lua `widthJob`;
+  the test's fake key follows the game). Both open boxes ticked.

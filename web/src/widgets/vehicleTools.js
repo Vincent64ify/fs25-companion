@@ -193,7 +193,7 @@ const whyNot = (/** @type {RigEntry} */ e, /** @type {string} */ cap, /** @type 
 /**
  * A card's buttons (specs/0012): one for each capability in `can`, from our
  * fixed list in the mod's order, labelled with what a tap does ("Raise",
- * "Fold", "Turn off", "Tip", "Create fields on") and asking the tool for
+ * "Fold", "Turn off", "Tip", "Double rate") and asking the tool for
  * that state (specs/0008: tool.lower 0 for Raise); the vehicle's own card
  * has no Detach. The main row first, then More's (`more`: Rotate, Create
  * fields, Automatic drop, Reset bale count, Doubled rate, and the
@@ -211,8 +211,9 @@ export function toolButtons(e) {
   const folded = can.includes("fold") && e.unfolded === false;
   /** @type {(asked: boolean) => {value: number, tool: number|undefined}} the state a tap asks for */
   const set = (asked) => ({ value: asked ? 1 : 0, tool: id });
-  /** @type {(on: boolean|undefined, what: string) => string} "Create fields on" while off: what a tap does */
-  const onOff = (on, what) => `${what} ${on ? "off" : "on"}`;
+  /** @type {(on: boolean|undefined, whileOff: string, whileOn: string) => string} what a tap does, as a
+   * verb: "Double rate" while off, "Normal rate" while on (never "… on", which reads as a state) */
+  const verb = (on, whileOff, whileOn) => (on ? whileOn : whileOff);
   const count = e.bales?.count;
   /** @type {Record<string, () => Omit<ToolButton, "key">|undefined>} */
   const make = {
@@ -242,13 +243,13 @@ export function toolButtons(e) {
     pipe: () => ({ label: e.pipe?.out ? "Pipe in" : "Pipe out", icon: "pipe", action: "tool.pipe",
       ...set(e.pipe?.out !== true), on: e.pipe?.out === true, moving: e.pipe?.moving === true }),
     rotate: () => ({ label: "Rotate", icon: "rotate", action: "tool.rotate", ...set(e.plow?.rotated !== true), on: false }),
-    createFields: () => ({ label: onOff(e.createFields, "Create fields"), icon: "area", action: "tool.createFields",
+    createFields: () => ({ label: verb(e.createFields, "Create fields", "Limit to fields"), icon: "area", action: "tool.createFields",
       ...set(e.createFields !== true), on: e.createFields === true }),
-    autoDrop: () => ({ label: onOff(e.autoDrop, "Automatic drop"), icon: "unload", action: "tool.autoDrop",
+    autoDrop: () => ({ label: verb(e.autoDrop, "Drop automatically", "Drop by hand"), icon: "unload", action: "tool.autoDrop",
       ...set(e.autoDrop !== true), on: e.autoDrop === true }),
     bales: () => ({ label: "Reset bale count", icon: "reset", action: "tool.resetBales", tool: id, on: false,
       line: typeof count === "number" ? `${count} ${count === 1 ? "bale" : "bales"}` : undefined }),
-    doubledRate: () => ({ label: onOff(e.doubledRate, "Doubled rate"), icon: "fill", action: "tool.doubledRate",
+    doubledRate: () => ({ label: verb(e.doubledRate, "Double rate", "Normal rate"), icon: "fill", action: "tool.doubledRate",
       ...set(e.doubledRate !== true), on: e.doubledRate === true }),
     detach: () => (e.depth === 0 ? undefined
       : { label: "Detach", icon: "hitch", action: "implement.detach", value: id, on: false }),

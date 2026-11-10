@@ -17,11 +17,3 @@ spec, and features waiting for one. Longer-term ideas are in
   per game hour?); then say which time each estimate shows (real minutes,
   game time, or "until 14:30" on the game clock) and convert. Needs a
   spec (mod, protocol field and screens).
-- **A sprayer without Precision Farming** (specs 0011 and 0012, not
-  checked): every sprayer in the save has Precision Farming's sprayer
-  part, so its four width buttons (Left in / out, Right in / out, faded
-  while the spray type has no partial width) and Doubled rate on a
-  slurry tanker or a manure spreader were never seen live. Check them in
-  a save without Precision Farming, if there ever is one, with spec 0013
-  revision 4's last box: the strip and the trail follow the sections set
-  by hand (no `spraySpans`).

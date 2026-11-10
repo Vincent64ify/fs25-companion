@@ -289,11 +289,11 @@ function SpikeRigs.act(target, name, value, part)
     end
     local width = target.spec_variableWorkWidth
     if (name == "VARIABLE_WORK_WIDTH_LEFT" or name == "VARIABLE_WORK_WIDTH_RIGHT") and type(width) == "table" then
-        -- which way a press goes is the probe's (specs/0011): here, the
-        -- value's way, one section, within the side's limits
+        -- as the game's VariableWorkWidth.actionEventWorkWidthLeft / Right
+        -- (gameSource.zip): side - inputValue, clamped (+1 is one section in)
         local side = name == "VARIABLE_WORK_WIDTH_LEFT" and "left" or "right"
-        local now = width[side .. "Side"] + (value or 1)
-        width[side .. "Side"] = math.max(width.minSideState or 0, math.min(width[side .. "SideMax"], now))
+        local now = width[side .. "Side"] - (value or 1)
+        width[side .. "Side"] = math.max(0, math.min(width[side .. "SideMax"], now))
     elseif name == "LOWER_IMPLEMENT" then
         -- the tractor's key acts on the selected tool (attacher joints)
         local tool = target == root and root:getSelectedVehicle() or target

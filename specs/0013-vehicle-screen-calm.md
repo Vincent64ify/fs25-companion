@@ -1,6 +1,6 @@
 # 0013: Vehicle page, calm
 
-Status: live-checked (2026-11-07; Precision Farming off not checked: NEXT.md), with revisions 2 (a light field panel), 3 (your fields, a trail only while working, every mower) 4 (what Precision Farming's nozzles spray) 5 (the cards from the front of the rig to the back; no mod change; live-checked 2026-11-08) and 6 (a failed answer shows only on its button; live-checked 2026-11-09)
+Status: live-checked (2026-11-07; Precision Farming off checked 2026-11-10), with revisions 2 (a light field panel), 3 (your fields, a trail only while working, every mower) 4 (what Precision Farming's nozzles spray) 5 (the cards from the front of the rig to the back; no mod change; live-checked 2026-11-08) and 6 (a failed answer shows only on its button; live-checked 2026-11-09)
 Mod: 0.15.0 (revision 4; 0.14.0 revision 3; no change before) · Started: 2026-11-03 · Design: the canvas [FS25 Companion: Vehicle screen, calm](https://claude.ai/artifact/JApsdXjoSFwsddKv2kNYZ3) (private, on claude.ai; approved by Vincent on 2026-11-03), a THEMES.md section at build; specs [0003](0003-implement-screen.md) (the page), [0010](0010-tidy-states-and-motion.md) (the states), [0012](0012-card-buttons.md) (the buttons)
 
 ## Goal
@@ -390,9 +390,11 @@ Live check (in game; Solek, mod 0.15.0):
   the sprayer allows):** the strip and trail as revision 3.
 - [x] **Leaving a field and coming back** (revision 3's fix): the outline
   and the trail both go past the margin, and both come back.
-- [ ] **Precision Farming off** (a save without it, if one can be made):
-  the strip and trail follow the sections set by hand. Otherwise this stays
-  in NEXT.md with the four width buttons.
+- [x] **Precision Farming off** (a save without it, if one can be made):
+  the strip and trail follow the sections set by hand. (Vincent,
+  2026-11-10, mod 0.17.3, Kinlaig, a save without Precision Farming): two
+  left sections off from the card, a pass on Field 8: the trail as the
+  game's sprayed strip (Vincent).
 
 ## Behaviour
 
@@ -1029,3 +1031,5 @@ page's memory; off a field the panel shows the map around the rig.
   after the press, the reason only in its title, no note on the card or
   under All tools. Vincent: the same on his screen, and the game's own
   warning in game.
+- 2026-11-10: Precision Farming off checked (Vincent, 2026-11-10, mod 0.17.3, Kinlaig, a save without Precision Farming): the strip and
+  the trail follow two sections set by hand. Revision 4's last box ticked.

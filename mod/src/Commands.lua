@@ -604,8 +604,9 @@ local ALREADY = {}
 
 -- specs/0011: one section in (value -1) or out (1) on one side, by the
 -- game's key for that side, checked: ok once that side moved by one. The
--- key gets the value as its input, as an axis would; which way a press
--- goes is the live check's probe
+-- key takes the other sign: VariableWorkWidth.actionEventWorkWidthLeft /
+-- Right set the side to side - inputValue (gameSource.zip; live, 0.17.2:
+-- -1 on a full side moved nothing)
 local function widthJob(vehicle, id, side, value)
     local object, depth = memberById(vehicle, id)
     if object == nil then
@@ -621,7 +622,7 @@ local function widthJob(vehicle, id, side, value)
     if want < 0 or want > width[side .. "Max"] then
         return nil, "at its limit"
     end
-    step.value = value
+    step.value = -value
     local job = newJob(vehicle, { step })
     local t = checkOf(object, depth, "width", want)
     t.side = side

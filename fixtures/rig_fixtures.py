@@ -99,7 +99,7 @@ EXPECT = {
         "selected": "SERVO T 6000 P",
         "also": [],
         "all": [],
-        "more": ["SERVO T 6000 P: Rotate:off, Create fields on:off"],
+        "more": ["SERVO T 6000 P: Rotate:off, Create fields:off"],
     },
     # the pickup lowers itself; the drop on, its count 0
     "baler": {
@@ -107,7 +107,7 @@ EXPECT = {
         "selected": "G-1 F125 Kombi",
         "also": [],
         "all": [],
-        "more": ["G-1 F125 Kombi: Automatic drop on:off, Reset bale count:off"],
+        "more": ["G-1 F125 Kombi: Drop automatically:off, Reset bale count:off"],
     },
     "weight": {
         "cards": [],

@@ -1934,10 +1934,18 @@ check("tools: every capability's button in its row's order, labelled with what a
     "Unload|tool.unload||9|false|false||", "Stop|tool.tip|0|9|true|false||",
     "Tip side|implement.tipSide|9||false|false|Left|", "Uncover|implement.cover|9||false|false||",
     "Pipe in|tool.pipe|0|9|true|false||", "Detach|implement.detach|9||false|false||",
-    "Rotate|tool.rotate|1|9|false|false||more", "Create fields off|tool.createFields|0|9|true|false||more",
-    "Automatic drop on|tool.autoDrop|1|9|false|false||more", "Reset bale count|tool.resetBales||9|false|false|12 bales|more",
-    "Doubled rate on|tool.doubledRate|1|9|false|false||more", "Rate −|tool.sprayRate|-1|9|false|false||more",
+    "Rotate|tool.rotate|1|9|false|false||more", "Limit to fields|tool.createFields|0|9|true|false||more",
+    "Drop automatically|tool.autoDrop|1|9|false|false||more", "Reset bale count|tool.resetBales||9|false|false|12 bales|more",
+    "Double rate|tool.doubledRate|1|9|false|false||more", "Rate −|tool.sprayRate|-1|9|false|false||more",
     "Auto|tool.sprayRateAuto|1|9|false|false|Step 2 / 45|more", "Rate +|tool.sprayRate|1|9|false|false||more"]);
+// the on / off buttons say what a tap does as a verb, never a state
+// (Vincent, 2026-11-10: "Doubled rate on" read as "it's on"); lit while on
+const toggleLabels = (state) => vt.toolButtons({ id: 9, depth: 1, can: ["createFields", "autoDrop", "doubledRate"],
+  createFields: state, autoDrop: state, doubledRate: state }).map((b) => `${b.label}:${b.on}`);
+check("tools: Create fields, Automatic drop and Doubled rate labelled as verbs, from either state",
+  [toggleLabels(false), toggleLabels(true)],
+  [["Create fields:false", "Drop automatically:false", "Double rate:false"],
+    ["Limit to fields:true", "Drop by hand:true", "Normal rate:true"]]);
 // Application rate (Precision Farming): Rate − and + faded while automatic
 // and at the ends; Auto lit while automatic; the step only while manual
 const rateRow = (rate, extra = {}) => vt.toolButtons({ id: 530, depth: 1, can: ["sprayRate"], sprayRate: rate, ...extra })

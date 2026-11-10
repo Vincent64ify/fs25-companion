@@ -443,6 +443,16 @@ Pöttinger Terria 6040 cultivator at the rear:
     `PrecisionFarming.xml` lists them with the manures, digestate and
     lime). With it, the base game's Doubled rate is gone (no key on the
     Fliegl PFW 18000 with slurry) and its sections take the width keys.
+  - Without Precision Farming (a save without it, Kinlaig, 2026-11-10,
+    mod 0.17.3): `VARIABLE_WORK_WIDTH_LEFT` / `_RIGHT` are live on the
+    Berthoud; the key sets the side to `leftSide - inputValue`
+    (VariableWorkWidth.actionEventWorkWidthLeft, clamped to 0 and the
+    side's max), so +1 is one section in; `spec_variableWorkWidth
+    .leftSide` / `rightSide` follow, and the game's partial width with
+    them. `DOUBLED_SPRAY_AMOUNT` is live on a manure spreader (the
+    Bunning Lowlander Widebody 250 HBD), folded or not, and flips
+    `spec_sprayer.doubledAmountIsActive`; F1 reads "Activate doubled
+    application rate" while it's off.
   - Cover: `TOGGLE_COVER` opens and closes `spec_cover` on the FH 2200
     and the Aerosem, each and all.
   - A trailer's tip side with `canTip` false in its XML (the EDK 650's
