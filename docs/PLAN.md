@@ -13,6 +13,13 @@ here is history, and nothing here is a check:
 
 ## Later
 
+- **The game's time scale** (Vincent, 2026-11-10): at x5 or x20 a
+  vehicle still works at real-time rates (fuel, a tank filling or
+  emptying), so the dashboard's "time left" estimates, timed on the
+  browser's clock, are right at any speed. What the time scale changes
+  is what runs on the game clock, such as production buildings: a screen
+  for those would need it (its name in FS25 unverified, e.g.
+  `missionInfo.timeScale`).
 - **Sell prices:** a `prices` topic (sell point → fill type → price, about
   every 60 s), and a way to show it.
 - **Missions and contracts.**

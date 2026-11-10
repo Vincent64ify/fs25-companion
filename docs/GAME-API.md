@@ -594,6 +594,5 @@ says so.
   whether it hides them on the map isn't checked.
 - **The AI worker turning on:** `getIsAIActive()` after `TOGGLE_AI`, which
   does nothing without a job set up.
-- **Not found yet:** the game's time scale ([NEXT.md](NEXT.md)), the
-  call that opens the AI job screen and Refill at a fill station
-  ([PLAN.md](PLAN.md)).
+- **Not found yet** ([PLAN.md](PLAN.md)): the game's time scale, the
+  call that opens the AI job screen and Refill at a fill station.
