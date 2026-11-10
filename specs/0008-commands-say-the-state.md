@@ -233,7 +233,7 @@ out.
   did nothing on the L90H or the T7.300: a worker needs a job chosen,
   which the dashboard can't do. Vincent (2026-10-31): the button should
   rather open the game's worker screen, and stop a running worker. In
-  NEXT.md; not live-checked here.
+  PLAN.md (its own spec later); not live-checked here.
 
 ## Log
 

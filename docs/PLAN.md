@@ -17,6 +17,18 @@ here is history, and nothing here is a check:
   every 60 s), and a way to show it.
 - **Missions and contracts.**
 - **AI workers:** their routes on the map.
+- **AI worker button opens the game's worker screen** (spec 0008's live
+  check, 2026-10-31): `TOGGLE_AI` does nothing in a vehicle with no job
+  set up, so the button can't hire. A tap should open the game's AI job
+  screen (pick the job there), and stop a worker that runs. Opening that
+  screen from the mod needs a game GUI call that isn't verified. Complex
+  to put in place: it gets its own spec (Vincent, 2026-11-10).
+- **Refill from the dashboard** (Vincent, spec 0011's live check,
+  2026-11-02): a button for the game's Refill when the game offers it.
+  Complex, so it gets its own spec (Vincent, 2026-11-10): a tool fills
+  from many things (a sell point, your own silos and tanks, another
+  vehicle or tool, pallets, big bags ...), each the game's own
+  activatable or fill trigger, names unverified.
 - **Multiplayer:** farm colours.
 - **Tray app:** a system-tray companion built with PyInstaller.
 - **A hosted relay:** a separate small service, plus a `--relay <url>`

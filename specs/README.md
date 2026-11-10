@@ -46,7 +46,7 @@ behaviour, in Behaviour too: the spec always says what the code does now.
 | [0005](0005-tailer-sees-every-new-file.md) | The client notices every new stream file (review F2) | live-checked | no change |
 | [0006](0006-one-local-process.md) | One local process (SIMPLIFY S1) | live-checked | no change |
 | [0007](0007-protocol-in-one-place.md) | The protocol in one place (SIMPLIFY S2) | live-checked | 0.9.0 |
-| [0008](0008-commands-say-the-state.md) | Commands say the state they want (SIMPLIFY S3) | live-checked (AI worker left out: NEXT.md) | 0.10.0 |
+| [0008](0008-commands-say-the-state.md) | Commands say the state they want (SIMPLIFY S3) | live-checked (AI worker left out: PLAN.md) | 0.10.0 |
 | [0009](0009-one-way-to-run-each-action.md) | One way to run each action (SIMPLIFY S4) | live-checked (the All row's keys fixed on the way) | 0.11.2 |
 | [0010](0010-tidy-states-and-motion.md) | Tidy states, surfaces and motion | live-checked (revision 2: selecting) | no change |
 | [0011](0011-sprayer.md) | Sprayer: Fold, Turn on, the working width | live-checked (closed with 0012's check; Precision Farming off not checked: NEXT.md) | 0.12.4 |
@@ -54,6 +54,7 @@ behaviour, in Behaviour too: the spec always says what the code does now.
 | [0013](0013-vehicle-screen-calm.md) | Vehicle page, calm: rig strip, tool cards, field panel, no yellow at night | live-checked with revisions 2 to 4 (Precision Farming off not checked: NEXT.md); revision 5 live-checked (cards front to back); revision 6 live-checked (failures on the button only) | 0.15.0 |
 | [0014](0014-checked-pipe-tipside-cover.md) | Pipe, Tip side and Cover answer once they moved | live-checked | 0.16.0 |
 | [0015](0015-trailer-tip-fades.md) | Trailer: Tip fades when the game won't tip | live-checked (the engine off; the side fades removed: NEXT.md) | 0.17.1 |
+| [0016](0016-attach.md) | Attach: Drive's sixth button, lit while the game has something in reach | approved | no change |
 
 ## Before the specs
 
