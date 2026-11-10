@@ -576,9 +576,11 @@ fb.set("cab", fbCab({}));
 tap(hitchBtn);
 answer({ ok: false, reason: "nothing in reach" });
 await Promise.resolve(); await Promise.resolve(); await Promise.resolve();
-check("feedback: Attach with nothing in reach after all: a quiet hint, not a failure",
+check("feedback: Attach with nothing in reach after all: Failed on the button, no hint (specs/0016)",
   [hitchBtn.dataset.state, "hint" in hitchBtn.dataset, "error" in hitchBtn.dataset, hitchBtn.querySelector(".control-label").textContent],
-  ["off", true, false, "None in reach"]);
+  ["off", false, true, "Failed"]);
+const { ERROR_SHOWN_MS: shownMs } = await import("./src/ui/control.js");
+await new Promise((r) => setTimeout(r, shownMs + 50));
 tap(hitchBtn);
 answer({ ok: true });
 await new Promise((r) => setTimeout(r, 50));
@@ -586,6 +588,19 @@ const hitchWaiting = hitchBtn.dataset.state;
 fb.set("cab", fbCab({ hitched: false, implement: undefined, implements: [] }));
 await Promise.resolve(); await Promise.resolve();
 check("feedback: Attach pending until what's attached changes", [hitchWaiting, hitchBtn.dataset.state], ["pending", "off"]);
+// specs/0016: an ok after which nothing attached within 1.5 s says Failed
+tap(hitchBtn);
+answer({ ok: true });
+await new Promise((r) => setTimeout(r, 1650));
+check("feedback: Attach ok but nothing attached in 1.5 s: Failed on the button (specs/0016)",
+  [hitchBtn.dataset.state, "error" in hitchBtn.dataset, hitchBtn.querySelector(".control-label").textContent],
+  ["off", true, "Failed"]);
+fb.set("cab", fbCab({ inVehicle: false }));
+const hitchOnFoot = hitchBtn.dataset.state;
+fb.set("cab", fbCab({ attachable: undefined }));
+check("feedback: Attach faded on foot and with nothing in reach, lit while something is (specs/0016)",
+  [hitchOnFoot, hitchBtn.dataset.state], ["unavailable", "unavailable"]);
+fb.set("cab", fbCab({}));
 const val = () => cruiseBtn.querySelector(".control-value").textContent;
 const cruiseFwd = val();
 fb.set("cab", fbCab({ cruise: { state: "on", speed: 15, speedReverse: 8, reverse: true } }));
@@ -1403,7 +1418,7 @@ check("theme: the Harvester screen's slots and its column", [
   [...harvGroups[1].querySelectorAll(".control-label")].map((e) => e.textContent),
   [...harvScreen.querySelectorAll(".control-label")].filter((e) => /unload/i.test(e.textContent)).length,
   [...harvScreen.querySelectorAll(".control-tile")].map((t) => t.dataset.tile)],
-  [[true, true, true, false, false, false], ["Lights", "Drive"], ["Cruise −", "Cruise", "Cruise +", "Engine", "AI worker"], 0,
+  [[true, true, true, false, false, false], ["Lights", "Drive"], ["Cruise −", "Cruise", "Cruise +", "Engine", "AI worker", "Attach"], 0,
     ["thresher", "pipe", "straw", "header", "fold"]]);
 // spec 0001 revision 3: the field panel under the Header card, the compact
 // variant (no Needs row: the field you harvest needs harvesting)
@@ -1420,6 +1435,14 @@ check("theme: the Map screen's controls: Lights and Drive, no Implement group", 
   [...appI.querySelectorAll('.control-column .control[data-control="implementOn"], .control-column .control[data-control="implementLowered"], .control-column .control[data-control="fold"]')].length,
   THEMES[0].chrome.controls.map((g) => g.label), "implementOn" in CONTROLS],
   [["Lights", "Drive"], 0, ["Lights", "Drive"], false]);
+// specs/0016: Attach is Drive's sixth button, on every screen
+check("theme: Drive ends with Attach on every screen (specs/0016)",
+  [...appI.querySelectorAll(".screen")].map((sc) => {
+    const drive = [...sc.querySelectorAll(".control-column .control-group")]
+      .find((g) => q(g, ".control-group-label") === "Drive");
+    return `${sc.dataset.screen}: ${drive ? [...drive.querySelectorAll(".control")].map((c) => c.dataset.control).join(",") : "-"}`;
+  }),
+  [...appI.querySelectorAll(".screen")].map((sc) => `${sc.dataset.screen}: cruiseDown,cruise,cruiseUp,engineOn,aiWorker,attach`));
 check("theme check: an added group's controls are checked",
   checkTheme({ id: "x", palettes: [], css: "", screens: [{ id: "a", label: "A",
     slots: [{ controls: true, add: [{ label: "g", controls: ["nope"] }] }] }] }), ['screen a: adds no control "nope"']);
@@ -1668,7 +1691,7 @@ check("loader gear: implement rows have no Lowered or Raised chip",
 // the theme's Vehicle and Loader screens (specs/0003; Loader: specs/0002
 // revision 2): the band, the All row, the cards and Also attached, or the
 // band with On the loader and Target; Lights, Drive and Hitch (Attach) on
-// Vehicle, Lights and Drive on Loader; Engine two columns wide
+// Vehicle, Lights and Drive on Loader; Drive two rows of three (specs/0016)
 const appV = document.createElement("div");
 renderTheme(THEMES[0], appV, createStore(), createMapFrame(createStore()));
 const vehScreen = appV.querySelector('.screen[data-screen="vehicle"]');
@@ -1686,8 +1709,8 @@ check("theme: the Vehicle screen's slots and its column", [
   THEMES[0].screens.filter((s) => s.tab === "vehicle" || s.id === "vehicle").map((s) => `${s.choice}:${s.icon}`),
   [...appV.querySelectorAll(".tab")].map((t) => t.dataset.screen)],
   [[true, false, false, true, true, true, false], [true, true, true, false, false, false, false],
-    // no Hitch group: Attach waits for its own spec (spec 0003's close)
-    ["Lights", "Drive"], ["Cruise −", "Cruise", "Cruise +", "Engine", "AI worker"], ["Lights", "Drive"],
+    // no Hitch group: Attach is Drive's sixth button (specs/0016)
+    ["Lights", "Drive"], ["Cruise −", "Cruise", "Cruise +", "Engine", "AI worker", "Attach"], ["Lights", "Drive"],
     4, ["Vehicle:tractor", "Loader:loader", "Harvester:harvester"], ["map", "vehicle"]]);
 
 // the Vehicle page's card: Loads (the rig's tanks and weight) even with a

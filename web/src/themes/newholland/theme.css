@@ -1766,8 +1766,9 @@ button { font: inherit; color: inherit; }
   .tab-readout:not([data-screen="map"]) > :nth-child(6) { display: none !important; }
 }
 
-/* the Drive group's Engine is two columns wide, on every screen with it */
-.control-column .control[data-control="engineOn"] { grid-column: span 2; }
+/* the Drive group's Engine was two columns wide (specs/0002) while Drive
+   had five buttons; with Attach the sixth (specs/0016) Drive is two full
+   rows of three, Engine one column like the rest */
 
 /* --- compact: narrower than 900 px, or portrait ------------------------------- */
 

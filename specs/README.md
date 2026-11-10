@@ -54,7 +54,7 @@ behaviour, in Behaviour too: the spec always says what the code does now.
 | [0013](0013-vehicle-screen-calm.md) | Vehicle page, calm: rig strip, tool cards, field panel, no yellow at night | live-checked with revisions 2 to 4 (Precision Farming off checked 2026-11-10); revision 5 live-checked (cards front to back); revision 6 live-checked (failures on the button only) | 0.15.0 |
 | [0014](0014-checked-pipe-tipside-cover.md) | Pipe, Tip side and Cover answer once they moved | live-checked | 0.16.0 |
 | [0015](0015-trailer-tip-fades.md) | Trailer: Tip fades when the game won't tip | live-checked (the engine off; the side fades removed: NEXT.md) | 0.17.1 |
-| [0016](0016-attach.md) | Attach: Drive's sixth button, lit while the game has something in reach | approved | no change |
+| [0016](0016-attach.md) | Attach: Drive's sixth button, lit while the game has something in reach | live-checked (Engine one column wide) | no change |
 
 ## Before the specs
 

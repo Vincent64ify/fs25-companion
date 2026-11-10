@@ -154,7 +154,8 @@ The regular layout, for tablets:
   waiting or offline) and the full-screen button.
 - **Control column:** labelled groups of buttons, the same on every
   screen: Lights (Lights, High beam, Beacon, Hazard, Turn L, Turn R) and
-  Drive (Cruise −, Cruise, Cruise +, Engine, AI worker). The Vehicle page
+  Drive (Cruise −, Cruise, Cruise +, Engine, AI worker, Attach: two rows
+  of three, [spec 0016](../specs/0016-attach.md)). The Vehicle page
   adds All tools with two working tools or more.
 - **Tab bar:** one tab per screen, designed for up to seven like the real
   terminal. Every tab shows its icon and label whenever they fit; only

@@ -31,7 +31,9 @@ export default {
     },
     controls: [
       { label: "Lights", controls: ["lights", "highBeam", "beacon", "hazard", "turnLeft", "turnRight"] },
-      { label: "Drive", controls: ["cruiseDown", "cruise", "cruiseUp", "engineOn", "aiWorker"] },
+      // Attach last (specs/0016): on every screen, lit while the game has
+      // something in reach
+      { label: "Drive", controls: ["cruiseDown", "cruise", "cruiseUp", "engineOn", "aiWorker", "attach"] },
       // no Implement group: a tool is worked from its card (specs/0012)
     ],
   },
@@ -57,8 +59,7 @@ export default {
       // field panel on the right (gone with three working things: the cards
       // take the width); then the column with Lights, Drive and All tools
       // (with two working things or more). The tractor's numbers are in the
-      // bottom bar, as on the Map screen. (Attach waits for its own spec:
-      // spec 0003's close.)
+      // bottom bar, as on the Map screen. Attach is in Drive (specs/0016).
       id: "vehicle", label: "Vehicle", icon: "tractor", choice: "Vehicle",
       slots: [
         { group: "tools", slots: [
@@ -104,7 +105,7 @@ export default {
           { widget: "headerCard" },
           { widget: "fieldPanel", variant: "compact" },
         ] },
-        // the header's buttons are on its card; Attach is on Vehicle
+        // the header's buttons are on its card; Attach is in Drive
         { controls: true },
       ],
     },

@@ -43,7 +43,7 @@ import { h } from "../ui/dom.js";
  *   steps shown as dots under the label
  * @property {(v: import("../types.js").Vehicle|undefined, cab: import("../types.js").Cab|undefined) => boolean|undefined} [moving]
  *   the game is still getting there (a fold running): shown as pending
- * @property {{ms: number, key?: (v: any, cab: any) => string, hint?: string, quiet?: string[]}} [settle]
+ * @property {{ms: number, key?: (v: any, cab: any) => string, hint?: string, quiet?: string[], fail?: boolean}} [settle]
  *   stay pending after the ack until the game's state changes (key; by
  *   default the control's own state), at most ms (ui/control.js)
  * @property {(v: any, cab: any, units: import("../data/units.js").Units, store: Store) => string|undefined} [value]
@@ -363,12 +363,14 @@ export const CONTROLS = {
     if (i?.foldMoving) return { label: foldingText(i) };
     return { label: i?.unfolded ? "Fold" : "Unfold" };
   } },
-  // Attach (specs/0003): the attach key (Q), faded until the game has
-  // something in reach (its own Attach prompt is up), then it attaches
-  // that; pending until what's attached changes. Detaching is each card's.
+  // Attach (specs/0003, specs/0016): the attach key (Q), faded until the
+  // game has something in reach (its own Attach prompt is up), then it
+  // attaches that; pending until what's attached changes, "Failed" if
+  // nothing did in 1.5 s or nothing was in reach after all. Never detaches:
+  // that's each card's Detach.
   attach: { label: "Attach", icon: "hitch", action: "hitch.toggle",
     read: (v, cab) => (cab?.inVehicle && cab.attachable === true ? false : undefined),
-    settle: { ms: 1500, key: attachedSet, hint: "None in reach", quiet: ["nothing in reach"] } },
+    settle: { ms: 1500, key: attachedSet, fail: true } },
   // a status, not a button: unavailable without an implement that has a PTO
   pto: { label: "PTO", icon: "pto", read: ptoOf },
   // the Implement screen's keys, each asking for the state its label names:
@@ -527,7 +529,7 @@ export function controlGroup(group, store, send = sendCommand) {
     if (!def) throw new Error(`no control "${id}"`);
     const action = def.action;
     const settle = def.settle && {
-      ms: def.settle.ms, hint: def.settle.hint, quiet: def.settle.quiet,
+      ms: def.settle.ms, hint: def.settle.hint, quiet: def.settle.quiet, fail: def.settle.fail,
       key: () => {
         const v = controlledVehicle(store);
         const cab = cabOf(store);
@@ -548,7 +550,7 @@ export function controlGroup(group, store, send = sendCommand) {
     }
     const press = action && !hold ? pressOf(def, store, send) : undefined;
     const ui = createControl(def, press, settle, hold);
-    // the theme can size one (Engine is two columns wide in Drive)
+    // the theme can size one by its data-control
     ui.el.dataset.control = id;
     return { def, ui };
   });

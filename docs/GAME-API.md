@@ -458,6 +458,13 @@ Pöttinger Terria 6040 cultivator at the rear:
   - A trailer's tip side with `canTip` false in its XML (the EDK 650's
     Grain door) never tips to the ground (Trailer
     `getCanDischargeToGround`).
+  - Attach (spec 0016, Solek, 2026-11-10, mod 0.17.3): the driven
+    vehicle's `spec_attacherJoints.attachableInfo.attachable` is the tool
+    in reach while the game shows its Attach prompt, nil otherwise; it
+    holds what an attached tool's joint finds too (AttacherJoints
+    `updateVehiclesInAttachRange`: the Albutt Pallet Fork in reach of the
+    Kubota M77 loader). `ATTACH` attaches it: a mower, a trailer, the
+    L90H's bucket, a front loader and a header.
 - Spec 0013, revisions 3 and 4 (Solek, mods 0.14.0 and 0.15.0,
   2026-11-07):
   - `getIsLowered(default)` returns the default for a tool on a joint that

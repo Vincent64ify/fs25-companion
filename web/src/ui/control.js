@@ -16,7 +16,8 @@
 // run them (the engine starting, an implement attaching): with `settle`,
 // the control stays pending after the ack until the game's state changes
 // (settle.key), at most settle.ms; nothing changed then shows settle.hint
-// for a moment, quietly, not as a failure. An answer that the game was
+// for a moment, quietly, not as a failure, or "Failed" with settle.fail
+// (Attach, specs/0016). An answer that the game was
 // already there (specs/0008) ends pending at once.
 //
 // A held control (`hold`, the cruise −/+) ticks on touch-down, then again
@@ -36,6 +37,7 @@ import { h } from "./dom.js";
  * @property {number} ms how long to wait for it after the ack
  * @property {string} [hint] shown when nothing changed in that time
  * @property {string[]} [quiet] failure reasons shown as the hint instead
+ * @property {boolean} [fail] nothing changed in that time is a failure: "Failed"
  */
 /**
  * @typedef {Object} ControlHold
@@ -157,6 +159,8 @@ export function createControl(def, press, settle, hold) {
       showNote(settle.hint, result.reason);
     } else if (!result.ok) {
       showNote("Failed", result.reason, true);
+    } else if (!changed && settle?.fail) {
+      showNote("Failed", "nothing changed", true);
     } else if (!changed && settle?.hint) {
       showNote(settle.hint);
     }

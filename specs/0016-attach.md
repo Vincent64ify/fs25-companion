@@ -1,7 +1,7 @@
 # 0016: Attach
 
-Status: approved
-Mod: no change (0.17.2) · Started: 2026-11-10 · Design: [THEMES.md](../docs/THEMES.md#controls)
+Status: live-checked
+Mod: no change (0.17.3) · Started: 2026-11-10 · Design: [THEMES.md](../docs/THEMES.md#controls)
 
 ## Goal
 
@@ -16,7 +16,7 @@ goes, how it answers, and a live check.
 
 - **Where:** the sixth button of the Drive group, after AI worker:
   Cruise −, Cruise, Cruise +, Engine, AI worker, Attach (two full rows of
-  three). Drive is in the column on every screen (Map, Vehicle, Loader,
+  three: Engine is one column wide now, no longer two as in spec 0002). Drive is in the column on every screen (Map, Vehicle, Loader,
   Harvester), so Attach is too: you back up to a tool looking at the map
   as often as at the Vehicle page.
 - **Always there, faded until something is in reach:** the button never
@@ -51,7 +51,7 @@ Nothing new: everything below is in the code since mod 0.8.7.
 |---|---|---|
 | `ATTACH` input action (Q) | inputBinding.xml | verified ([GAME-API.md](../docs/GAME-API.md#c1-and-c2-lights-input-actions-cruise), C0's `csInput` and C2) |
 | `spec_attacherJoints.attachableInfo.attachable`: the tool in reach, nil otherwise | AttacherJoints.lua | unverified (seen in spike 0.0.4; never followed live) |
-| on which vehicle the game keeps `attachableInfo` with a front loader or a header: the tractor (root), or the loader whose joint is in reach | AttacherJoints.lua | unverified (the mod reads the vehicle and its root) |
+| on which vehicle the game keeps `attachableInfo` with a front loader or a header: the driven vehicle's own, which `updateVehiclesInAttachRange` fills from its attached tools first (a loader's joint in reach is copied up) | AttacherJoints.lua (gameSource.zip, read 2026-11-10) | unverified live (the mod reads the vehicle and its root) |
 | the `ATTACH` key's live label ("Attach"), the fallback when there's no `attachableInfo` | the game's action event | unverified |
 
 ## Commands
@@ -69,9 +69,10 @@ Nothing new: everything below is in the code since mod 0.8.7.
    Drive group; drop the "Attach waits for its own spec" comments (the
    Vehicle and Harvester pages).
 2. `web/src/widgets/controls.js`: the `attach` control's settle drops its
-   hint and quiet reason; nothing changed in 1.5 s, or "nothing in reach",
-   shows "Failed" (`web/src/ui/control.js`, if a settle without a hint
-   doesn't already).
+   hint and quiet reason and gains `fail`: nothing changed in 1.5 s shows
+   "Failed" (`web/src/ui/control.js`'s new `settle.fail`; Engine's settle
+   keeps its quiet end); "nothing in reach" is an ordinary failure.
+   `theme.css`: Engine no longer spans two columns.
 3. `docs/THEMES.md`: the control column's Drive list gains Attach.
 4. No mod change: `mod/tests/run.lua` already covers the reading and the
    command ("cab: attachable follows the game's attach prompt",
@@ -84,28 +85,37 @@ game keeps `attachableInfo` on another vehicle; the live check says. Read
 ## Acceptance
 
 Automated:
-- [ ] `mod/tests/run.lua`: the existing attach tests pass as they are.
-- [ ] `web/test.html`: Drive shows six buttons, Attach last; Attach is
+- [x] `mod/tests/run.lua`: the existing attach tests pass as they are.
+- [x] `web/test.html`: Drive shows six buttons, Attach last; Attach is
   unavailable on foot and without `attachable`, off with it.
-- [ ] `web/test.html`: a press sends `hitch.toggle`; an ok followed by a
+- [x] `web/test.html`: a press sends `hitch.toggle`; an ok followed by a
   new attached list ends the wait; an ok with no change in 1.5 s, and a
   "nothing in reach" answer, each say "Failed" on the button.
-- [ ] `tests/test_golden.py` unchanged (nothing a viewer gets changes).
-- [ ] Replay in the browser pane (`replay-solek`), 1180×820, day and
+- [x] `tests/test_golden.py` unchanged (nothing a viewer gets changes).
+- [x] Replay in the browser pane (`replay-solek`), 1180×820, day and
   night: Map, Vehicle, Loader and Harvester each show Attach as Drive's
-  sixth button, faded in the replay (nothing in reach).
+  sixth button, faded in the replay (nothing in reach); lit with the
+  `attach` rig fixture's cab (Vehicle, day and night).
 
-Live check (in game; Solek, mod 0.17.2):
-- [ ] **A mower** (the T7.300 and the KDF): back up to it; Attach lights
+Live check (in game; Solek, mod 0.17.3):
+- [x] **A mower** (the T7.300 and the KDF): back up to it; Attach lights
   as the game's prompt shows; press it: attached, its card shows, Attach
-  fades.
-- [ ] **A trailer:** the same.
-- [ ] **A front loader's bucket** (the L90H or a tractor with a loader):
-  the same, with the loader's joint in reach.
-- [ ] **A header on the combine:** the same, on the Harvester page.
-- [ ] **Drive away** with something in reach: Attach fades with the
-  game's prompt.
-- [ ] **On foot:** Attach faded.
+  fades. (2026-11-10: the KDF 341 S at the front, ok via ATTACH, its card
+  back, Attach faded the same second.)
+- [x] **A trailer:** the same. (The Versatile Nemesis and the Fliegl ASW
+  271.)
+- [x] **A front loader's bucket** (the L90H or a tractor with a loader):
+  the same, with the loader's joint in reach. (The L90H's bucket, on the
+  Loader page; the Kubota M8-201's whole M77 loader; then the Albutt
+  Pallet Fork alone, detached from the M77 by its row: `attachable` true
+  at once, Attach put it back on the loader.)
+- [x] **A header on the combine:** the same, on the Harvester page. (The
+  CH7.70 and the SuperFlex 25FT: "No header" with Attach lit, then the
+  Header card filled in.)
+- [x] **Drive away** with something in reach: Attach fades with the
+  game's prompt. (The header off and in reach, then out of reach:
+  `attachable` gone 12 s later, Attach faded.)
+- [x] **On foot:** Attach faded.
 
 ## Decisions
 
@@ -113,6 +123,10 @@ Live check (in game; Solek, mod 0.17.2):
   strip: it's a tractor key, used before there's any card.
 - "Failed" on the button instead of spec 0003's "None in reach" hint, as
   every press since spec 0013 revision 6.
+- **Engine one column wide** (built 2026-11-10): spec 0002 made it two
+  wide to fill Drive's second row of five (Vincent, 2026-10-25); with six
+  buttons the approved "two full rows of three" needs it one wide. The
+  live check confirms or changes it.
 - The mod doesn't check the attach (unlike Pipe, Tip side and Cover in
   spec 0014): the dashboard's wait for the attached list does the same,
   without a mod change.
@@ -138,3 +152,15 @@ Live check (in game; Solek, mod 0.17.2):
   bring this back easily?").
 - 2026-11-10: approved by Vincent: Drive's sixth button on every screen,
   Attach only (never Detach), "Failed" on the button.
+- 2026-11-10: built (no mod change). AttacherJoints.lua read first: the
+  driven vehicle's `attachableInfo` holds what its tools find too, so the
+  mod's reading covers loaders and headers. test.html first (4 new or
+  changed checks failed, then passed; 319 green), pytest 122, golden
+  unchanged. Engine one column wide so Drive is two rows of three
+  (Decisions). Checked in the replay at 1180×820, day and night.
+- 2026-11-10: live-checked (Solek, mod 0.17.3; pressed from the live
+  dashboard, livewatch's acks and cab): a mower, a trailer, the L90H's
+  bucket, a front loader and its fork on the loader's joint, a header,
+  driving off and on foot, every press ok via ATTACH and Attach faded the
+  same second. The names move to GAME-API.md. Seen on the way, not this
+  spec: Also attached overlaps the cards on the M8-201's rig (NEXT.md).

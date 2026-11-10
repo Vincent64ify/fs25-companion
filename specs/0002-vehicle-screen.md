@@ -386,7 +386,9 @@ Live check, revision 2 (no mod change: reload the dashboard):
   opens, across vehicles, until Reset.
 - Engine moves to the column's Drive group, as on Harvester.
 - Engine is two columns wide in Drive, on every screen that shows it
-  (Vincent, 2026-10-25, canvas comment).
+  (Vincent, 2026-10-25, canvas comment). Until spec 0016 (2026-11-10):
+  with Attach Drive's sixth button, Drive is two full rows of three and
+  Engine one column wide.
 - The target's distance runs from the vehicle you drive, not the tool or
   the load (Vincent, 2026-10-26).
 - Front loaders and their tools have no lowered or raised: the dashboard
