@@ -194,13 +194,18 @@ After the canvas
 [specs/0003](../specs/0003-implement-screen.md) for the cards.
 
 - **Layout:** the rig strip across the top, on the ground; under it the
-  tool cards (as tall as their content) with Also attached at the bottom,
-  and the field panel on the right; the column as on every screen, with
+  tool cards (as tall as their content), and on the right Also attached's
+  chips over the field panel (revision 7; with no card they top the tools
+  column, with three cards they sit under them); the column as on every screen, with
   an All tools group under Drive for two working tools or more. Three
   working tools or more: no field panel, the cards in spec 0003's grid.
 - **Strip:** tiles on a card's surface with lift, sharing the width; the
   game's selected tool is where you are (a tint and a 2 px ring). Links
-  are a line with a neutral chip, dashed while raised.
+  are a line with a neutral chip, dashed while raised; on a long rig the
+  chip goes (a 24 px line, tiles down to 120), past that it scrolls with a
+  fade at the edge.
+- **Also attached:** no title; a chip per tool, 320 × 66, the model (15 px
+  bold) and its line (12 px muted), its buttons 48 × 48, icon only.
 - **Cards:** the badge (outlined while working by day, steel at night),
   the model, the line under it; the stats on small quiet tiles; the tanks
   with an 8 px meter; the section strip in the muted and line colours;
@@ -530,8 +535,9 @@ yellow ([specs/0013](../specs/0013-vehicle-screen-calm.md)).
 - **Map:** floating toolbar of 48 buttons, top-left inside the map, 12 in
   from the edges; field panel 248 wide, top-right; scale bottom-right.
 - **Vehicle page** (specs/0013): the rig strip 60 tall (tiles 56, at
-  least 150 wide, links 64); under it the cards and Also attached, and the
-  field panel 320 wide; card buttons 84 × 80, as the column's.
+  least 150 wide, links 64; slim: 120 and 24); under it the cards, and
+  Also attached's chips (320 × 66, buttons 48) over the field panel 320
+  wide; card buttons 84 × 80, as the column's.
 - **Settings panel:** 420 wide, in the main area (12 below the status bar,
   12 above the tab bar).
 - **Touch targets:** at least 44, and 48 on the map toolbar.

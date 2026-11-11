@@ -25,6 +25,9 @@
 // (or the finger slides off, the touch is cancelled, the window loses
 // focus). Its label can follow the game (setLabel: "Lower" / "Raise"),
 // and while its command runs a `progressive` control says so ("Raising…").
+// One that aims at a named thing (setOf: an Also attached chip's "1100",
+// specs/0013 revision 7) says it in its aria-label and title ("Detach
+// 1100"), where the icon alone shows.
 
 import { icon } from "./icons.js";
 import { h } from "./dom.js";
@@ -65,7 +68,7 @@ export const ERROR_SHOWN_MS = 2000;
  * @param {ControlHold} [hold] a held control instead of press
  * @returns {{el: HTMLButtonElement, set: (state: ControlState) => void,
  *   setDots: (dots: ControlDots|undefined) => void, setValue: (text: string|undefined) => void,
- *   setLabel: (text: string, iconName?: string) => void}}
+ *   setLabel: (text: string, iconName?: string) => void, setOf: (text: string) => void}}
  */
 export function createControl(def, press, settle, hold) {
   const label = h("span", { className: "control-label", text: def.label });
@@ -80,6 +83,8 @@ export function createControl(def, press, settle, hold) {
   let text = def.label;
   /** @type {string|undefined} */
   let note;
+  /** what it aims at, for its aria-label and title (setOf) */
+  let of = "";
   /** the label when the tap went out, for "Raising…" until it's done */
   /** @type {string|undefined} */
   let tapLabel;
@@ -104,7 +109,12 @@ export function createControl(def, press, settle, hold) {
     el.dataset.state = shown;
     el.setAttribute("aria-pressed", String(shown === "on"));
     const step = dots && shown !== "unavailable" ? `, stage ${dots.lit} of ${dots.count}` : "";
-    el.setAttribute("aria-label", `${label.textContent}, ${shown}${step}`);
+    const named = !note && of ? `${label.textContent} ${of}` : label.textContent;
+    el.setAttribute("aria-label", `${named}, ${shown}${step}`);
+    if (!note) {
+      if (of) el.title = named || "";
+      else el.removeAttribute("title");
+    }
   }
 
   /** @param {string} noteText @param {string} [title] @param {boolean} [error] */
@@ -119,7 +129,6 @@ export function createControl(def, press, settle, hold) {
       delete el.dataset.error;
       delete el.dataset.hint;
       note = undefined;
-      el.removeAttribute("title");
       show();
     }, ERROR_SHOWN_MS);
   }
@@ -254,6 +263,13 @@ export function createControl(def, press, settle, hold) {
     show();
   }
 
+  /** @param {string} next what it aims at ("1100") */
+  function setOf(next) {
+    if (next === of) return;
+    of = next;
+    show();
+  }
+
   set("unavailable");
-  return { el, set, setDots, setValue, setLabel };
+  return { el, set, setDots, setValue, setLabel, setOf };
 }

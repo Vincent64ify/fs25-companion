@@ -258,9 +258,22 @@ function stripItems(order, v, send) {
 }
 
 /**
+ * Which edges of a strip have more past them: "start", "end", both or "".
+ * @param {{scrollLeft: number, scrollWidth: number, clientWidth: number}} el
+ */
+export function stripMore(el) {
+  const left = Math.abs(el.scrollLeft);
+  const past = el.scrollWidth - el.clientWidth;
+  return [left > 1 ? "start" : "", past - left > 1 ? "end" : ""].filter(Boolean).join(" ");
+}
+
+/**
  * The strip: the rig's tiles and links on the ground, a tile's surface
  * like a card's (it can be pressed). The vehicle alone says "Nothing
- * attached" (the Loader page; the Vehicle page's cards say it).
+ * attached" (the Loader page; the Vehicle page's cards say it). A long rig
+ * fits (specs/0013 revision 7): `data-tiles` lets the theme drop the links'
+ * names when the tiles wouldn't fit at 150 px; past that it scrolls, and
+ * `data-more` says which edge has more, for a fade there.
  * @type {import("./widget.js").CreateWidget}
  */
 export function rigStrip(store, opts = {}) {
@@ -273,6 +286,14 @@ export function rigStrip(store, opts = {}) {
   root.setAttribute("aria-label", "Rig");
   if (opts.id) root.id = opts.id;
 
+  const fade = () => {
+    const more = stripMore(strip);
+    if (strip.dataset.more !== more) strip.dataset.more = more;
+  };
+  strip.addEventListener("scroll", fade, { passive: true });
+  // shown, resized: the page was hidden while the rig changed
+  if (typeof ResizeObserver === "function") new ResizeObserver(fade).observe(strip);
+
   let lastStrip = "";
   const render = () => {
     const v = controlledVehicle(store);
@@ -284,6 +305,8 @@ export function rigStrip(store, opts = {}) {
     if (key !== lastStrip) {
       lastStrip = key;
       strip.replaceChildren(...stripItems(order, v, send));
+      strip.dataset.tiles = String(order.length);
+      fade();
     }
     none.hidden = !(v && order.length <= 1);
   };

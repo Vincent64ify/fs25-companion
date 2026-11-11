@@ -12,8 +12,9 @@
 //   main row, drawn as the column's buttons, then a collapsed More (a plow's
 //   Rotate, a baler's drop, the application rate...), its button the main
 //   row's last. Three or more cards go compact.
-// - toolsAlso: each tool with no card (a weight), a slim card with Lower
-//   and Detach.
+// - toolsAlso: each tool with no card (a weight), a chip with its model,
+//   its line and Lower / Detach as icons; no title (specs/0013 revision 7:
+//   the theme puts it over the field panel when there are cards).
 // A sprayer's card shows its working width (specs/0011-sprayer.md): a strip
 // of its sections and how many are on, with Left / Right in / out where the
 // game's width keys are live.
@@ -182,7 +183,7 @@ export function pickable(el, e, name, send) {
  * tool.width's; more: under the card's More (specs/0012).
  * @typedef {{key: string, label: string, icon: string, action: string, value?: number, tool?: number, on: boolean,
  *   side?: "left"|"right", unavailable?: boolean, why?: string, moving?: boolean, progressive?: boolean,
- *   line?: string, more?: boolean}} ToolButton
+ *   line?: string, more?: boolean, of?: string}} ToolButton
  */
 
 /** Unavailable while the game says not now, with its words (or the button's own, or ours). */
@@ -393,6 +394,7 @@ function buttonRow(send, className = "tool-buttons") {
         const item = /** @type {{ui: ReturnType<typeof createControl>, b: ToolButton}} */ (shown.get(b.key));
         item.b = b;
         item.ui.setLabel(b.label, b.icon);
+        if (b.of !== undefined) item.ui.setOf(b.of);
         item.ui.setValue(b.line);
         item.ui.set(b.unavailable ? "unavailable" : b.moving ? "pending" : b.on ? "on" : "off");
       }
@@ -759,49 +761,53 @@ export function alsoLine(/** @type {RigEntry} */ e, /** @type {Vehicle|undefined
 }
 
 /**
- * Also attached: each tool with no card as a slim card at the bottom of the
- * tools: its badge, model and line, then Lower / Raise (where it lowers)
- * and Detach, the column's size.
+ * Also attached (specs/0013 revision 7): each tool with no card as a chip,
+ * its model and line, then Lower / Raise (where it lowers) and Detach as
+ * icons, each named for its tool ("Detach 1100") in its aria-label and
+ * title. No title: the section keeps the name for screen readers.
+ * `data-cards` says whether the rig has cards, for the theme to place it
+ * (over the field panel with cards, at the top of the tools without).
  * @type {import("./widget.js").CreateWidget}
  */
 export function toolsAlso(store, opts = {}) {
   /** @type {Send} */
   const send = /** @type {any} */ (opts).send || sendCommand;
   const list = h("ul", { className: "tools-also-list" });
-  const root = h("section", { className: "tools-also" }, h("span", { className: "veh-cap", text: "Also attached" }), list);
+  const root = h("section", { className: "tools-also" }, list);
   root.setAttribute("aria-label", "Also attached");
   if (opts.id) root.id = opts.id;
-  /** @type {Map<unknown, {el: HTMLElement, name: HTMLElement, sub: HTMLElement, badge: HTMLElement,
-   *   buttons: ReturnType<typeof buttonRow>, kind: string}>} */
+  /** @type {Map<unknown, {el: HTMLElement, name: HTMLElement, sub: HTMLElement,
+   *   buttons: ReturnType<typeof buttonRow>}>} */
   const rows = new Map();
   /** @type {string|undefined} */
   let lastOrder;
   const render = () => {
     const v = controlledVehicle(store);
-    const also = v ? alsoAttached(v, cabOf(store)) : [];
+    const cab = cabOf(store);
+    const also = v ? alsoAttached(v, cab) : [];
     root.hidden = also.length === 0;
+    root.dataset.cards = String(!!v && cardsOf(v, cab).length > 0);
     const keys = also.map(keyOf);
     const order = JSON.stringify(keys);
     if (order !== lastOrder) {
       lastOrder = order;
       for (const key of keys) {
         if (rows.has(key)) continue;
-        const badge = h("span", { className: "tool-badge" });
         const name = h("b", { className: "tool-name" });
         const sub = h("span", { className: "tool-sub" });
         const buttons = buttonRow(send);
-        rows.set(key, { el: h("li", { className: "tools-also-row" }, h("div", { className: "tool-head" }, badge,
-          h("div", { className: "tool-text" }, name, sub)), buttons.el), name, sub, badge, buttons, kind: "" });
+        rows.set(key, { el: h("li", { className: "tools-also-row" }, h("div", { className: "tool-text" }, name, sub),
+          buttons.el), name, sub, buttons });
       }
       list.replaceChildren(...keys.map((key) => /** @type {any} */ (rows.get(key)).el));
     }
     also.forEach((e, i) => {
       const row = /** @type {any} */ (rows.get(keys[i]));
-      const kind = entryKind(e, v);
-      if (kind !== row.kind) row.badge.replaceChildren(icon((row.kind = kind)));
-      row.name.textContent = entryModel(e, v) || "Tool";
+      const model = entryModel(e, v) || "Tool";
+      row.name.textContent = model;
       row.sub.textContent = alsoLine(e, v);
-      row.buttons.set(toolButtons(e).filter((b) => b.key === "detach" || (b.key === "lower" && lowersInRig(e, v))));
+      row.buttons.set(toolButtons(e).filter((b) => b.key === "detach" || (b.key === "lower" && lowersInRig(e, v)))
+        .map((b) => ({ ...b, of: model })));
     });
   };
   store.subscribe("vehicles", render);

@@ -2266,7 +2266,7 @@ lui.showScreen("vehicle");
 const madeRig = (n) => {
   const kinds = [["seeders", "Amazone Cirrus 6003"], ["mowers", "Krone EasyCut F 320"], ["cultivators", "Lemken Karat 12"],
     ["sprayers", "Kuhn Lexis 3000"], ["mowers", "Krone EasyCut B 870"], ["seeders", "Väderstad Tempo"]];
-  const tools = kinds.slice(0, n).map(([category, name], i) => ({ id: 10 + i, name, brand: name.split(" ")[0], category,
+  const tools = Array.from({ length: n }, (_, i) => kinds[i % kinds.length]).map(([category, name], i) => ({ id: 10 + i, name, brand: name.split(" ")[0], category,
     categoryTitle: category[0].toUpperCase() + category.slice(1), depth: 1, workWidth: 6, speedLimit: 12, wear: 0.1,
     fills: i % 2 ? [] : [{ unit: 1, level: 1200, capacity: 3000, fillType: "seeds", fillTitle: "Seeds" }] }));
   return {
@@ -2277,7 +2277,17 @@ const madeRig = (n) => {
         selected: i === 0, can: ["lower", "fold", "turnOn", "detach"], lowered: true, unfolded: true, turnedOn: i % 2 === 0 }))] },
   };
 };
-const layouts = [...RIGS.map((name) => [name, rigFix[name]]), ...[1, 2, 3, 4, 5, 6].map((n) => [`${n} tools`, madeRig(n)])];
+/** a made rig with a front weight too, under Also attached (specs/0013 revision 7) */
+const withWeight = (f) => {
+  const g = structuredClone(f);
+  g.vehicles.vehicles[0].implements.push({ id: 90, name: "Fendt 3300", brand: "Fendt", category: "weights",
+    categoryTitle: "Weights", depth: 1, fills: [], wear: 0.1 });
+  g.cab.rig.push({ id: 90, name: "Fendt 3300", depth: 1, side: "front", can: ["lower", "detach"], lowered: false,
+    selectable: true, selected: false });
+  return g;
+};
+const layouts = [...RIGS.map((name) => [name, rigFix[name]]), ...[1, 2, 3, 4, 5, 6].map((n) => [`${n} tools`, madeRig(n)]),
+  ["3 tools and a weight", withWeight(madeRig(3))]];
 const layoutIssues = [];
 const layoutCheck = (/** @type {string} */ label) => {
   const screen = /** @type {HTMLElement} */ (lapp.querySelector('.screen[data-screen="vehicle"]'));
@@ -2876,6 +2886,99 @@ const SIX = ["Speed", "Gear", "Fuel", "DEF", "Wear", "Engine temp"];
 check("calm: the readout: the Vehicle and Loader pages list speed, gear, fuel, DEF, wear and engine temperature", [
   readoutOf("vehicle"), readoutOf("loader"), THEMES[0].screens.filter((s) => s.readout?.length).map((s) => s.id)],
   [SIX, SIX, ["map", "vehicle", "loader"]]);
+
+// specs/0013 revision 7: Also attached over the field panel with cards, at
+// the top of the tools column without, at the bottom with three cards; a
+// chip per tool; the strip's links drop their names to fit
+const rectOf = (/** @type {Element|null} */ el) => /** @type {Element} */ (el).getBoundingClientRect();
+const r7Also = /** @type {HTMLElement} */ (vscreen.querySelector(".tools-also"));
+const r7Panel = /** @type {HTMLElement} */ (vscreen.querySelector(".field-panel"));
+const workEl = /** @type {HTMLElement} */ (vscreen.querySelector('.slot-group[data-group="work"]'));
+const alsoPlace = () => {
+  const a = rectOf(r7Also), w = rectOf(workEl), p = rendered(r7Panel) ? rectOf(r7Panel) : undefined;
+  const cards = [...vscreen.querySelectorAll(".tool-card")].map(rectOf);
+  if (p && Math.abs(a.left - p.left) <= 1 && a.bottom <= p.top + 1 && Math.abs(a.top - w.top) <= 1) return "over the field panel";
+  if (Math.abs(a.left - w.left) <= 1 && Math.abs(a.top - w.top) <= 1 && !cards.length) return "top of the tools column";
+  if (cards.length && cards.every((c) => c.bottom <= a.top + 1) && Math.abs(a.bottom - w.bottom) <= 1) return "bottom of the tools";
+  return `elsewhere ${Math.round(a.left - w.left)},${Math.round(a.top - w.top)}`;
+};
+const alsoPlaces = [];
+for (const [name, f] of [["loader-rear", rigFix["loader-rear"]], ["weight", rigFix.weight],
+  ["3 tools and a weight", withWeight(madeRig(3))]]) {
+  putRig(f);
+  lui.showScreen("vehicle");
+  alsoPlaces.push([name, alsoPlace(), rendered(r7Panel) ? Math.round(rectOf(r7Panel).height) >= 300 : "no panel"]);
+}
+check("calm (revision 7): Also attached over the field panel with cards (the panel 300 px or more), at the top of the tools "
+  + "column with no card, at the bottom with three cards", alsoPlaces,
+  [["loader-rear", "over the field panel", true], ["weight", "top of the tools column", true],
+    ["3 tools and a weight", "bottom of the tools", "no panel"]]);
+putRig(rigFix["loader-rear"]);
+lui.showScreen("vehicle");
+const chipEls = [...vscreen.querySelectorAll(".tools-also-row")];
+const chipLook = chipEls.map((c) => {
+  const name = /** @type {Element} */ (c.querySelector(".tool-name")), sub = /** @type {Element} */ (c.querySelector(".tool-sub"));
+  return [sizeOf(c), tcs(name).fontSize, tcs(name).fontWeight, tcs(sub).fontSize, c.querySelectorAll(".tool-badge").length,
+    [...c.querySelectorAll(".control")].map((b) => [sizeOf(b), b.getAttribute("aria-label"), b.title,
+      rectOf(b.querySelector(".control-label")).width <= 1, b.dataset.state])];
+});
+const alsoTitle = [...r7Also.querySelectorAll(".veh-cap, h2, h3")].filter(rendered).length;
+check("calm (revision 7): a chip per tool, 320 × 66: the model 15 px bold, its line 12 px, no badge, its buttons 48 × 48 "
+  + "with the icon only, the label as aria-label and title; the M77's Detach faded; no visible title", [chipLook, alsoTitle,
+  r7Also.getAttribute("aria-label")],
+  [[["320×66", "15px", "700", "12px", 0, [["48×48", "Detach M77, unavailable", "Detach M77", true, "unavailable"]]],
+    ["320×66", "15px", "700", "12px", 0, [["48×48", "Detach Pallet Fork, off", "Detach Pallet Fork", true, "off"]]],
+    ["320×66", "15px", "700", "12px", 0, [["48×48", "Lower 1100, off", "Lower 1100", true, "off"],
+      ["48×48", "Detach 1100, off", "Detach 1100", true, "off"]]]], 0, "Also attached"]);
+// a press the game answers not ok: "Failed" in place of the icon, the reason in its title
+const failS = createStore();
+const failAlso = vt.toolsAlso(failS, { send: () => Promise.resolve({ ok: false, reason: "not attached" }) });
+tidy.replaceChildren(failAlso);
+failS.set("vehicles", rigFix.weight.vehicles);
+failS.set("cab", rigFix.weight.cab);
+const failBtn = /** @type {HTMLElement} */ (failAlso.querySelector('.control[data-control="detach"]'));
+failBtn.dispatchEvent(new PointerEvent("pointerdown", { button: 0, bubbles: true }));
+await new Promise((r) => setTimeout(r, 0));
+const failLabel = /** @type {HTMLElement} */ (failBtn.querySelector(".control-label"));
+check("calm (revision 7): a chip's failed press: \"Failed\" (11 px) in place of the icon, the reason in its title",
+  [failLabel.textContent, tcs(failLabel).fontSize, rectOf(failLabel).width > 1,
+    tcs(/** @type {Element} */ (failBtn.querySelector(".icon"))).display, failBtn.title],
+  ["Failed", "11px", true, "none", "not attached"]);
+tidy.replaceChildren();
+// the strip: names on the links with four tiles, slim links with six, scrolling with nine
+const stripFit = (f) => {
+  putRig(f);
+  lui.showScreen("vehicle");
+  const sr = rectOf(stripEl);
+  const tiles = [...stripEl.querySelectorAll(".rig-tile")];
+  const links = [...stripEl.querySelectorAll(".rig-link")];
+  return {
+    tiles: tiles.length,
+    inside: tiles.every((t) => rectOf(t).left >= sr.left - 1 && rectOf(t).right <= sr.right + 1),
+    narrowest: Math.round(Math.min(...tiles.map((t) => rectOf(t).width))),
+    named: links.every((l) => rendered(l.querySelector("span"))),
+    links: [...new Set(links.map((l) => Math.round(rectOf(l).width)))],
+    scrolls: stripEl.scrollWidth > stripEl.clientWidth + 1,
+    more: stripEl.dataset.more ?? "",
+  };
+};
+const fit4 = stripFit(madeRig(3));
+const fit6 = stripFit(rigFix["loader-rear"]);
+const fit9 = stripFit(madeRig(8));
+const masked = () => [tcs(stripEl).webkitMaskImage, tcs(stripEl).maskImage].some((m) => m && m !== "none");
+const fadeAtStart = [fit9.more, masked()];
+stripEl.scrollLeft = stripEl.scrollWidth;
+stripEl.dispatchEvent(new Event("scroll"));
+const fadeAtEnd = stripEl.dataset.more;
+stripEl.scrollLeft = 0;
+stripEl.dispatchEvent(new Event("scroll"));
+check("calm (revision 7): the strip: four tiles keep their named links at 150 px or more; the M8-201's six all inside, links "
+  + "24 px without names; nine scroll with a fade on the edge that has more; four and six have no fade", [
+  [fit4.inside, fit4.narrowest >= 150, fit4.named, fit4.links, fit4.scrolls, fit4.more],
+  [fit6.tiles, fit6.inside, fit6.narrowest >= 120, fit6.named, fit6.links, fit6.scrolls, fit6.more],
+  [fit9.tiles, fit9.scrolls, fit9.narrowest >= 120, ...fadeAtStart, fadeAtEnd]],
+  [[true, true, true, [64], false, ""], [6, true, true, false, [24], false, ""], [9, true, true, "end", true, "start"]]);
+putRig(rigFix.mowers);
 
 // tokens: "on" outlined by day, the steel fill at night, and no yellow on
 // the Vehicle page at night

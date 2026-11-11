@@ -1,6 +1,6 @@
 # 0013: Vehicle page, calm
 
-Status: live-checked (2026-11-07; Precision Farming off checked 2026-11-10), with revisions 2 (a light field panel), 3 (your fields, a trail only while working, every mower) 4 (what Precision Farming's nozzles spray) 5 (the cards from the front of the rig to the back; no mod change; live-checked 2026-11-08) and 6 (a failed answer shows only on its button; live-checked 2026-11-09); revision 7 (Also attached over the field panel, a rig strip that fits) approved 2026-11-10
+Status: live-checked (2026-11-07; Precision Farming off checked 2026-11-10), with revisions 2 (a light field panel), 3 (your fields, a trail only while working, every mower) 4 (what Precision Farming's nozzles spray) 5 (the cards from the front of the rig to the back; no mod change; live-checked 2026-11-08) and 6 (a failed answer shows only on its button; live-checked 2026-11-09); revision 7 (Also attached over the field panel, a rig strip that fits) live-checked 2026-11-11
 Mod: 0.15.0 (revision 4; 0.14.0 revision 3; no change before) · Started: 2026-11-03 · Design: the canvas [FS25 Companion: Vehicle screen, calm](https://claude.ai/artifact/JApsdXjoSFwsddKv2kNYZ3) (private, on claude.ai; approved by Vincent on 2026-11-03), a THEMES.md section at build; specs [0003](0003-implement-screen.md) (the page), [0010](0010-tidy-states-and-motion.md) (the states), [0012](0012-card-buttons.md) (the buttons)
 
 ## Goal
@@ -401,8 +401,8 @@ Live check (in game; Solek, mod 0.15.0):
 Drafted 2026-11-10 from spec 0016's live check (the Log), with the canvas
 [FS25 Companion: slim Also attached](https://claude.ai/artifact/8pFyCrLUFEozgDmyphvjCr)
 (private, on claude.ai; its C boards, chosen by Vincent the same day),
-approved by Vincent the same day. This section is the revision whole; Behaviour, Plan, Acceptance and
-Decisions below say the same once it's built. No mod change.
+approved by Vincent the same day, built 2026-11-11. This section is the revision whole; Behaviour
+below says the same. No mod change.
 
 **Why.** Two things on the Kubota M8-201's rig at 1180×820 (the Kredo 3
 and the Versa as cards; the M77 front loader, its Albutt Pallet Fork and
@@ -465,9 +465,9 @@ was still cramped (Vincent).
      (still solid while lowered, dashed while raised) and the tiles share
      the width down to 120 px, a long model or state cut with "…". The
      M8-201's six tiles fit at about 126 px.
-  3. When that doesn't fit either (eight tiles or more at 1180×820), it
-     scrolls sideways as now, with a fade at each edge that has more past
-     it.
+  3. When that doesn't fit either (seven tiles or more at 1180×820:
+     seven need 984 px slim), it scrolls sideways, the links still slim,
+     with a 40 px fade at each edge that has more past it.
   The selected tool's ring and the driving order don't change.
 
 **Plan.**
@@ -488,47 +488,54 @@ was still cramped (Vincent).
      scroll, with the fade on the cut edge.
 2. `web/src/widgets/vehicleTools.js`: `toolsAlso` draws chips; the slot
    says whether there are cards (`data-cards`), for the theme to place it.
-3. `web/src/widgets/` rig strip: measures its width against its tiles
-   (a ResizeObserver) and sets `data-fit` to `labels`, `slim` or `scroll`;
-   the fade from its scroll position.
-4. `web/src/themes/newholland/theme.css` and `theme.js`: the work grid's
-   rows (Also attached over the field panel with cards; as now without),
-   the chip, the strip's `data-fit` looks, the compact order.
+3. `web/src/widgets/vehicleScreen.js` rigStrip: `data-tiles` (how many
+   tiles) for the theme, and `data-more` (`start`, `end`, both or none)
+   from its scroll position, on scroll and resize (`stripMore`). Built
+   2026-11-11 without `data-fit`: the theme picks slim with a container
+   query on the strip's width for each tile count (n tiles at 150 and
+   n − 1 links at 64 don't fit), so it's right the moment the page shows,
+   with no ResizeObserver to wait for (a hidden pane never sends one).
+4. `web/src/themes/newholland/theme.css`: the work grid's rows (Also
+   attached over the field panel with cards; as now without), the chip,
+   the strip's slim links and fade, the compact order. `theme.js`
+   unchanged (the slots stay in the same group). `ui/control.js` gains
+   `setOf` ("Detach 1100" in a chip button's aria-label and title).
 5. `docs/THEMES.md`: the Vehicle page's Also attached and strip lines;
    the design system's ToolCard and Rig notes when it's refreshed.
 
 **Acceptance.**
 
 Automated (written first):
-- [ ] The layout check: every fixture and one to six tools, day and
+- [x] The layout check: every fixture and one to six tools, day and
   night, More open and closed: no scrolling, nothing overflows, nothing
-  lies over anything else, buttons 48 px or more (`loader-rear` included).
-- [ ] Also attached: over the field panel with cards and a field panel;
+  lies over anything else, buttons 48 px or more (`loader-rear` included,
+  and three tools with a weight).
+- [x] Also attached: over the field panel with cards and a field panel;
   at the top of the tools column with no card; at the bottom with three
   cards or more; no visible title, its `aria-label` "Also attached".
-- [ ] A chip: model, line, its buttons 48 × 48 with the label as
+- [x] A chip: model, line, its buttons 48 × 48 with the label as
   `aria-label`, faded while the game can't, "Failed" in place of the
   icon after a not-ok answer.
-- [ ] The strip: `labels` with four tiles, `slim` with the M8-201's six
-  (every tile inside the strip), `scroll` with nine and the fade on the
-  cut edge.
-- [ ] The existing rig fixture checks (cards, buttons, Also attached's
+- [x] The strip: named links with four tiles, slim with the M8-201's six
+  (every tile inside the strip), scrolling with nine and the fade on the
+  cut edge (`data-more`).
+- [x] The existing rig fixture checks (cards, buttons, Also attached's
   buttons) pass unchanged.
-- [ ] Replay in the browser pane, day and night at 1180×820, and the
+- [x] Replay in the browser pane, day and night at 1180×820, and the
   `loader-rear` rig; `python -m pytest mod/tests companion/tests tests`
   passes, the golden unchanged.
 
 Live check (in game; Solek, mod 0.17.3, Vincent's iPad):
-- [ ] **The M8-201 with the Kredo 3, the Versa, the M77 and its fork and
+- [x] **The M8-201 with the Kredo 3, the Versa, the M77 and its fork and
   the 1100 on Field 150:** the two cards whole with their stats; the three
   chips over the field panel, nothing over anything; the field's crop,
   growth and needs whole; the strip shows all six tiles.
-- [ ] **A chip's buttons:** Detach the fork, Lower and Raise the 1100,
+- [x] **A chip's buttons:** Detach the fork, Lower and Raise the 1100,
   each as the game; the M77's Detach faded while the fork is on it.
-- [ ] **A tractor with only a weight:** Also attached at the top of the
+- [x] **A tractor with only a weight:** Also attached at the top of the
   tools column, the field panel whole.
-- [ ] **The mowers (two cards, no Also attached):** as now.
-- [ ] **Day and night** on the iPad.
+- [x] **The mowers (two cards, no Also attached):** as now.
+- [x] **Day and night** on the iPad.
 
 ## Behaviour
 
@@ -547,13 +554,16 @@ and the ground shows under them.
   Fuel, DEF, Wear and the Engine hot chip. They move to the bottom bar.
 - **Tiles:** every rig member in driving order, as today: the badge, the
   model, the state line, and a thin bar per fill unit across the tile.
-  - The tiles share the strip's width, at least 150 px each; past that
-    the strip scrolls sideways (five tiles or more at 1180×820).
+  - The tiles share the strip's width, at least 150 px each. A long rig
+    (revision 7): when they don't fit, the links drop their names to a
+    24 px line and the tiles go down to 120 px (six at 1180×820); past
+    that the strip scrolls sideways (seven or more), fading at each edge
+    with more past it.
   - A tile is a card's surface (`--card`) with lift, because a tap
     selects that tool in game (spec 0003); the page stays.
 - **Links:** 64 px wide, with the coupling's name (3-point, Drawbar) in a
-  neutral chip. The line is solid while the tool is lowered and dashed
-  while raised.
+  neutral chip (24 px and no name on a long rig). The line is solid while
+  the tool is lowered and dashed while raised.
 - **The game's selected tool** is shown here, and only here: its tile gets
   "where you are", a tint with a 2 px ring (`--sel-tint`, `--select`).
   - No yellow fill.
@@ -596,10 +606,15 @@ front mower above the rear one (revision 5, Vincent, 2026-11-08):
   - **More** (spec 0012) is the row's last button: a chevron, "More",
     and its count ("2") as the button's value line under it; a tap opens
     or closes the More row under the main one (its buttons 84 × 80 too).
-- **Also attached** (a tool with no card, a weight): a slim card each, at
-  the bottom of the tools column. It has the badge, the model, a line
-  with brand, category, side and state, and its buttons (Lower / Raise,
-  Detach) at 84 × 80.
+- **Also attached** (a tool with no card, a weight; revision 7): no
+  title (its `aria-label` keeps the name), a chip per tool, 320 × 66: the
+  model, a line with brand, category, side and state, and its buttons
+  (Lower / Raise, Detach) as 48 × 48 icons, the label in their
+  aria-label and title ("Detach 1100"); "Failed" takes the icon's place.
+  With cards and the field panel it sits at the top of the right-hand
+  column, the field panel under it (its map shrinks); with no card, at
+  the top of the tools column; with three cards or more, at the bottom of
+  the tools, the chips in a line.
 
 **How many fit (1180×820, no scrolling):**
 - With one or two working tools, the cards stack in the tools column next
@@ -737,8 +752,9 @@ everywhere (Vincent, 2026-11-03).
   Muted text on a card is 6.7:1 (WCAG AA). OK, warn and alarm stay.
 
 **Day and Night** as above. **Compact (portrait):** one column. The strip
-scrolls sideways, then come the cards, then the field panel (240 tall),
-then the column docked under them, as today.
+scrolls sideways, then come the cards, Also attached's chips (as wide as
+the page), then the field panel (240 tall), then the column docked under
+them, as today.
 
 ## Data contract
 
@@ -830,7 +846,7 @@ None new.
     `--accent` and `--accent-2` at night;
   - the strip on the ground and tiles that share the width;
   - the cards' stats as small tiles, and buttons fixed at 84 px;
-  - Also attached as slim cards;
+  - Also attached as chips over the field panel (revision 7; slim cards before);
   - the field panel;
   - the night readout card (`--readout`, still used by the Harvester's
     band): `#18223A → #0F1626`, so it isn't the old blue.
@@ -1177,3 +1193,29 @@ page's memory; off a field the panel shows the map around the rig.
   attached over the field panel as on the Harvester page, no title, and
   a strip whose links drop their names to fit. Revision 7 drafted.
 - 2026-11-10: revision 7 approved by Vincent as drafted.
+- 2026-11-11: revision 7 built, no mod change. test.html first: Also
+  attached's place in the three cases, the chips (320 × 66, buttons 48 ×
+  48 named "Detach 1100", "Failed" for the icon), the strip with four,
+  six and nine tiles, and "3 tools and a weight" in the layout check; all
+  green, pytest 122 passed, the golden unchanged. Two changes from the
+  plan: the strip's slim look comes from a container query per tile count
+  (`data-tiles`), not a ResizeObserver's `data-fit`, so it is right as
+  soon as the page shows; and it scrolls from seven tiles, not eight
+  (seven need 984 px slim, the strip has 876), the links staying slim
+  while it scrolls. Seen in the browser pane at 1180×820, day and night:
+  the M8-201's two cards whole with their stats, three chips over the
+  field panel, the six tiles inside the strip.
+- 2026-11-11: revision 7 live-checked (Vincent, Solek, mod 0.17.3, his
+  iPad; the dashboard on localhost:8123). The M8-201 on Field 150 with
+  the Kredo 3 and the Versa as cards and the M77, its Albutt Pallet Fork
+  and the AGCO 1100 as chips: the cards whole with their stats, the
+  three chips over the field panel, nothing over anything, the field's
+  rows whole, all six tiles in the strip. The chips' buttons as the game:
+  the 1100's Lower and Raise (`tool.lower` acks checked, nothing
+  unmoved), the fork's Detach (ok), the M77's Detach faded while the fork
+  was on it. A tractor with only a weight: its chip at the top of the
+  tools column, the field panel whole. The mowers as before. Day and
+  night fine on the iPad. Seen on the way: the game now gives the Pallet
+  Fork `lower` too (the `loader-rear` fixture, from 2026-11-10, has only
+  Detach), so its chip shows Lower and Detach; buttons follow `can`
+  (spec 0012), nothing to change.
