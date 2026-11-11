@@ -1,6 +1,6 @@
 # 0013: Vehicle page, calm
 
-Status: live-checked (2026-11-07; Precision Farming off checked 2026-11-10), with revisions 2 (a light field panel), 3 (your fields, a trail only while working, every mower) 4 (what Precision Farming's nozzles spray) 5 (the cards from the front of the rig to the back; no mod change; live-checked 2026-11-08) and 6 (a failed answer shows only on its button; live-checked 2026-11-09)
+Status: live-checked (2026-11-07; Precision Farming off checked 2026-11-10), with revisions 2 (a light field panel), 3 (your fields, a trail only while working, every mower) 4 (what Precision Farming's nozzles spray) 5 (the cards from the front of the rig to the back; no mod change; live-checked 2026-11-08) and 6 (a failed answer shows only on its button; live-checked 2026-11-09); revision 7 (Also attached over the field panel, a rig strip that fits) approved 2026-11-10
 Mod: 0.15.0 (revision 4; 0.14.0 revision 3; no change before) · Started: 2026-11-03 · Design: the canvas [FS25 Companion: Vehicle screen, calm](https://claude.ai/artifact/JApsdXjoSFwsddKv2kNYZ3) (private, on claude.ai; approved by Vincent on 2026-11-03), a THEMES.md section at build; specs [0003](0003-implement-screen.md) (the page), [0010](0010-tidy-states-and-motion.md) (the states), [0012](0012-card-buttons.md) (the buttons)
 
 ## Goal
@@ -395,6 +395,140 @@ Live check (in game; Solek, mod 0.15.0):
   2026-11-10, mod 0.17.3, Kinlaig, a save without Precision Farming): two
   left sections off from the card, a pass on Field 8: the trail as the
   game's sprayed strip (Vincent).
+
+## Revision 7: Also attached over the field panel, a rig strip that fits
+
+Drafted 2026-11-10 from spec 0016's live check (the Log), with the canvas
+[FS25 Companion: slim Also attached](https://claude.ai/artifact/8pFyCrLUFEozgDmyphvjCr)
+(private, on claude.ai; its C boards, chosen by Vincent the same day),
+approved by Vincent the same day. This section is the revision whole; Behaviour, Plan, Acceptance and
+Decisions below say the same once it's built. No mod change.
+
+**Why.** Two things on the Kubota M8-201's rig at 1180×820 (the Kredo 3
+and the Versa as cards; the M77 front loader, its Albutt Pallet Fork and
+the AGCO 1100 weight with no card):
+- **Also attached slides over the cards.** The two cards with their stats
+  are 537 px; the tools column is 604. Three Also attached rows (106 px
+  each, the column's 84 × 80 buttons) can't fit under them, so their grid
+  row shrinks to nothing and the rows, held at the bottom, lie over the
+  Versa card. The layout check missed it: it looked for overflow, never
+  for one part over another, and no rig fixture had two cards and two
+  Also attached rows.
+- **The rig strip is cut.** Six tiles at 150 px and five 64 px links are
+  about 1,220 px; the strip has 876. It scrolls sideways (as Behaviour
+  says), but its cut edge doesn't say there is more.
+
+The right-hand column is the page's emptiest place: the field panel takes
+all 604 px, and much of it is the outline map. Shrinking the cards (their
+stats gone) or slimming Also attached in the tools column were drawn and
+dropped (the canvas's A and B boards): the stats matter, and the column
+was still cramped (Vincent).
+
+**Behaviour.**
+- **Also attached moves to the top of the right-hand column, the field
+  panel under it**, where the Harvester page has its Header card over the
+  field panel (spec 0001). The cards keep the whole tools column, stats,
+  buttons and tanks as now. The field panel takes what's left: its map
+  shrinks, its field, crop, growth and needs stay whole (on the M8-201's
+  rig about 356 px tall, the map about 210).
+  - Nothing under Also attached: the field panel takes the whole column,
+    as now.
+  - No working tool (a tractor with only a weight): no card, so Also
+    attached stays at the top of the tools column, as now, and the field
+    panel keeps its whole column.
+  - Three working tools or more (no field panel, the cards across the
+    width): Also attached stays at the bottom of the tools area, its
+    chips in one line, wrapping when they don't fit.
+  - Compact (portrait, one column): after the cards, before the field
+    panel.
+- **No "Also attached" title.** Its place says it; the section keeps the
+  name for screen readers (`aria-label`).
+- **A chip per tool, one per line**, as wide as the column (320 px), 66
+  tall: the model (15 px bold) and its line under it (12 px muted, as the
+  row's today: "AGCO · Weights · Front · Raised", cut with "…" if long),
+  then its buttons at the end.
+  - The buttons are the row's today (Lower / Raise, Detach; spec 0012
+    decides which), drawn 48 × 48 with the icon only, 8 apart; the label
+    is the button's `aria-label` and title ("Detach 1100").
+  - Faded as every button: the dashed outline (the M77's Detach while its
+    fork is on it).
+  - A press the game answers not ok shows "Failed" (11 px) in place of
+    the icon for a few seconds, the reason in its title (revision 6).
+  - The badge goes: the model says what it is, and the room is the
+    line's.
+  - Cards, chips: 12 px apart; the chips 12 px apart.
+- **The rig strip fits a long rig.** In this order, only as far as
+  needed:
+  1. As now: tiles at least 150 px sharing the width, links 64 px with
+     the coupling's name.
+  2. When that doesn't fit, the links drop their name to a 24 px line
+     (still solid while lowered, dashed while raised) and the tiles share
+     the width down to 120 px, a long model or state cut with "…". The
+     M8-201's six tiles fit at about 126 px.
+  3. When that doesn't fit either (eight tiles or more at 1180×820), it
+     scrolls sideways as now, with a fade at each edge that has more past
+     it.
+  The selected tool's ring and the driving order don't change.
+
+**Plan.**
+1. `web/test.html` first:
+   - the layout check gains "nothing lies over anything else" (the cards,
+     the All tools group, Also attached's chips, the field panel; done
+     2026-11-10, failing on `loader-rear`) and opens the Vehicle page by
+     hand for each fixture (a rig with a front loader opens Loader by
+     itself);
+   - `web/fixtures/rigs/loader-rear.json`: the M8-201's `cab` and its
+     `vehicles` entry from the live stream (done 2026-11-10; not made by
+     `fixtures/rig_fixtures.py`);
+   - Also attached's place for each case above, its chips (model, line,
+     buttons 48 × 48 with their `aria-label`, faded, "Failed" in place of
+     the icon), no visible title;
+   - the strip: four tiles keep their labelled links at 150 px or more;
+     the M8-201's six all inside the strip, links without names; nine
+     scroll, with the fade on the cut edge.
+2. `web/src/widgets/vehicleTools.js`: `toolsAlso` draws chips; the slot
+   says whether there are cards (`data-cards`), for the theme to place it.
+3. `web/src/widgets/` rig strip: measures its width against its tiles
+   (a ResizeObserver) and sets `data-fit` to `labels`, `slim` or `scroll`;
+   the fade from its scroll position.
+4. `web/src/themes/newholland/theme.css` and `theme.js`: the work grid's
+   rows (Also attached over the field panel with cards; as now without),
+   the chip, the strip's `data-fit` looks, the compact order.
+5. `docs/THEMES.md`: the Vehicle page's Also attached and strip lines;
+   the design system's ToolCard and Rig notes when it's refreshed.
+
+**Acceptance.**
+
+Automated (written first):
+- [ ] The layout check: every fixture and one to six tools, day and
+  night, More open and closed: no scrolling, nothing overflows, nothing
+  lies over anything else, buttons 48 px or more (`loader-rear` included).
+- [ ] Also attached: over the field panel with cards and a field panel;
+  at the top of the tools column with no card; at the bottom with three
+  cards or more; no visible title, its `aria-label` "Also attached".
+- [ ] A chip: model, line, its buttons 48 × 48 with the label as
+  `aria-label`, faded while the game can't, "Failed" in place of the
+  icon after a not-ok answer.
+- [ ] The strip: `labels` with four tiles, `slim` with the M8-201's six
+  (every tile inside the strip), `scroll` with nine and the fade on the
+  cut edge.
+- [ ] The existing rig fixture checks (cards, buttons, Also attached's
+  buttons) pass unchanged.
+- [ ] Replay in the browser pane, day and night at 1180×820, and the
+  `loader-rear` rig; `python -m pytest mod/tests companion/tests tests`
+  passes, the golden unchanged.
+
+Live check (in game; Solek, mod 0.17.3, Vincent's iPad):
+- [ ] **The M8-201 with the Kredo 3, the Versa, the M77 and its fork and
+  the 1100 on Field 150:** the two cards whole with their stats; the three
+  chips over the field panel, nothing over anything; the field's crop,
+  growth and needs whole; the strip shows all six tiles.
+- [ ] **A chip's buttons:** Detach the fork, Lower and Raise the 1100,
+  each as the game; the M77's Detach faded while the fork is on it.
+- [ ] **A tractor with only a weight:** Also attached at the top of the
+  tools column, the field panel whole.
+- [ ] **The mowers (two cards, no Also attached):** as now.
+- [ ] **Day and night** on the iPad.
 
 ## Behaviour
 
@@ -1033,3 +1167,13 @@ page's memory; off a field the panel shows the map around the rig.
   warning in game.
 - 2026-11-10: Precision Farming off checked (Vincent, 2026-11-10, mod 0.17.3, Kinlaig, a save without Precision Farming): the strip and
   the trail follow two sections set by hand. Revision 4's last box ticked.
+- 2026-11-10: spec 0016's live check found Also attached lying over the
+  Versa card on the Kubota M8-201's rig (two cards, the M77, its Pallet
+  Fork and the 1100), and the rig strip cut. test.html first: the layout
+  check gained "nothing lies over anything else" and the `loader-rear`
+  fixture from the live stream; it fails there, as it should. Designs on
+  the canvas "FS25 Companion: slim Also attached": A (slim rows) and B (a
+  line of chips) needed the cards' stats gone; Vincent chose C, Also
+  attached over the field panel as on the Harvester page, no title, and
+  a strip whose links drop their names to fit. Revision 7 drafted.
+- 2026-11-10: revision 7 approved by Vincent as drafted.

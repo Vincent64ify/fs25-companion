@@ -1,0 +1,369 @@
+{
+ "rig": "loader-rear",
+ "source": "the live stream (Solek, mod 0.17.3, 2026-11-10): the Kubota M8-201's cab and its own vehicles entry, as the mod sent them; not made by fixtures/rig_fixtures.py",
+ "cab": {
+  "aiActive": false,
+  "cruise": {
+   "maxSpeed": 53,
+   "speed": 53,
+   "state": "off"
+  },
+  "engineOn": true,
+  "engineState": "on",
+  "hitched": true,
+  "implement": {
+   "canLower": true,
+   "canTurnOn": false,
+   "foldable": false,
+   "lowered": false,
+   "name": "AGCO 1100",
+   "turnedOn": false
+  },
+  "implements": [
+   {
+    "lowered": false,
+    "turnedOn": false
+   },
+   {
+    "lowered": true,
+    "turnedOn": false
+   },
+   {
+    "lowered": false,
+    "turnedOn": false
+   },
+   {
+    "lowered": true,
+    "turnedOn": false
+   },
+   {
+    "lowered": false,
+    "turnedOn": false
+   }
+  ],
+  "inVehicle": true,
+  "keys": {
+   "cover": 520,
+   "lower": 508,
+   "lowerAll": 521
+  },
+  "lights": {
+   "beacon": false,
+   "hazard": false,
+   "high": false,
+   "left": false,
+   "on": false,
+   "right": false,
+   "stage": 0,
+   "stages": 3
+  },
+  "rig": [
+   {
+    "can": [],
+    "depth": 0,
+    "id": 521,
+    "name": "Kubota M8-201",
+    "selectable": true,
+    "selected": false
+   },
+   {
+    "can": [
+     "lower",
+     "turnOn",
+     "detach"
+    ],
+    "canLower": true,
+    "canTurnOn": true,
+    "depth": 1,
+    "foldable": false,
+    "id": 519,
+    "joint": "implement",
+    "lowered": false,
+    "name": "HORSCH Kredo 3",
+    "parent": 521,
+    "selectable": true,
+    "selected": false,
+    "side": "rear",
+    "turnedOn": false
+   },
+   {
+    "can": [
+     "turnOn",
+     "unload",
+     "cover",
+     "detach"
+    ],
+    "canLower": false,
+    "canNow": {
+     "detach": false,
+     "unload": false
+    },
+    "canTurnOn": true,
+    "cover": {
+     "open": true
+    },
+    "depth": 2,
+    "foldable": false,
+    "id": 520,
+    "joint": "implement",
+    "lowered": true,
+    "name": "HORSCH Versa",
+    "parent": 519,
+    "selectable": true,
+    "selected": false,
+    "side": "rear",
+    "turnedOn": false,
+    "whyNot": {
+     "detach": "Please lower implement 'power harrow' first!",
+     "unload": "Nothing to unload"
+    }
+   },
+   {
+    "can": [
+     "detach"
+    ],
+    "canLower": false,
+    "canNow": {
+     "detach": false
+    },
+    "canTurnOn": false,
+    "depth": 1,
+    "foldable": false,
+    "id": 496,
+    "joint": "attachableFrontloader",
+    "lowered": false,
+    "name": "Kubota M77",
+    "parent": 521,
+    "selectable": true,
+    "selected": false,
+    "side": "front",
+    "turnedOn": false
+   },
+   {
+    "can": [
+     "lower",
+     "detach"
+    ],
+    "canLower": true,
+    "canTurnOn": false,
+    "depth": 2,
+    "foldable": false,
+    "id": 497,
+    "joint": "frontloader",
+    "lowered": true,
+    "name": "Albutt Pallet Fork",
+    "parent": 496,
+    "selectable": true,
+    "selected": false,
+    "side": "front",
+    "turnedOn": false
+   },
+   {
+    "can": [
+     "lower",
+     "detach"
+    ],
+    "canLower": true,
+    "canTurnOn": false,
+    "depth": 1,
+    "foldable": false,
+    "id": 508,
+    "joint": "implement",
+    "lowered": false,
+    "name": "AGCO 1100",
+    "parent": 521,
+    "selectable": true,
+    "selected": true,
+    "side": "front",
+    "turnedOn": false
+   }
+  ],
+  "vehicleId": 521
+ },
+ "vehicles": {
+  "controlledId": 521,
+  "vehicles": [
+   {
+    "attached": false,
+    "brand": "Kubota",
+    "category": "TRACTORSM",
+    "categoryTitle": "Medium Tractors",
+    "cruise": {
+     "maxSpeed": 53,
+     "speed": 53,
+     "state": "off"
+    },
+    "def": 35,
+    "defCapacity": 35,
+    "engineOn": true,
+    "farmId": 1,
+    "fuel": 375,
+    "fuelCapacity": 375,
+    "fuelType": "diesel",
+    "fuelUsage": 6,
+    "gear": "N",
+    "gearAutomatic": true,
+    "heading": 336.3,
+    "id": 521,
+    "implements": [
+     {
+      "brand": "HORSCH",
+      "category": "POWERHARROWS",
+      "categoryTitle": "Power Harrows",
+      "depth": 1,
+      "hitch": 0,
+      "id": 519,
+      "lowered": false,
+      "name": "HORSCH Kredo 3",
+      "pto": false,
+      "speedLimit": 12,
+      "turnedOn": false,
+      "typeName": "turnOnCultivator",
+      "wear": 0.001,
+      "workSpans": [
+       [
+        -1.5,
+        1.5
+       ]
+      ],
+      "workWidth": 3
+     },
+     {
+      "brand": "HORSCH",
+      "category": "SEEDERS",
+      "categoryTitle": "Seeders",
+      "depth": 2,
+      "fills": [
+       {
+        "capacity": 900,
+        "level": 0,
+        "unit": 1
+       }
+      ],
+      "id": 520,
+      "lowered": true,
+      "name": "HORSCH Versa",
+      "pto": false,
+      "speedLimit": 12,
+      "turnedOn": false,
+      "typeName": "sowingMachine",
+      "wear": 0.001,
+      "workSpans": [
+       [
+        -1.5,
+        1.5
+       ]
+      ],
+      "workWidth": 3
+     },
+     {
+      "brand": "Kubota",
+      "category": "FRONTLOADERS",
+      "categoryTitle": "Front Loaders",
+      "depth": 1,
+      "id": 496,
+      "lowered": false,
+      "name": "Kubota M77",
+      "turnedOn": false,
+      "typeName": "attachableFrontloader",
+      "wear": 0.002
+     },
+     {
+      "brand": "Albutt",
+      "category": "FRONTLOADERTOOLS",
+      "categoryTitle": "Front Loader Tools",
+      "depth": 2,
+      "id": 497,
+      "lowered": true,
+      "name": "Albutt Pallet Fork",
+      "turnedOn": false,
+      "typeName": "implementDynamicMountAttacher",
+      "wear": 0.001
+     },
+     {
+      "brand": "AGCO",
+      "category": "WEIGHTS",
+      "categoryTitle": "Weights",
+      "depth": 1,
+      "hitch": 0,
+      "id": 508,
+      "lowered": false,
+      "name": "AGCO 1100",
+      "turnedOn": false,
+      "typeName": "implement",
+      "wear": 0.001
+     }
+    ],
+    "isAI": false,
+    "lights": {
+     "beacon": false,
+     "hazard": false,
+     "high": false,
+     "left": false,
+     "on": false,
+     "right": false,
+     "stage": 0,
+     "stages": 3
+    },
+    "mass": 14.35,
+    "motorTemp": 90.7,
+    "motorized": true,
+    "name": "Kubota M8-201",
+    "operatingHours": 0.2,
+    "propertyState": 2,
+    "pto": false,
+    "rpm": 850,
+    "rpmMax": 2200,
+    "rpmMin": 850,
+    "speed": 0,
+    "target": {
+     "brand": "Fliegl",
+     "category": "TRAILERS",
+     "categoryTitle": "Trailers",
+     "distance": 868.1,
+     "fillType": "potato",
+     "fills": [
+      {
+       "capacity": 29500,
+       "fillTitle": "Potatoes",
+       "fillType": "potato",
+       "free": 17009.8,
+       "level": 12490.2,
+       "limit": 21789.3,
+       "massPerLiter": 0.00075,
+       "unit": 1
+      }
+     ],
+     "id": 524,
+     "massLimit": {
+      "mass": 17.03,
+      "max": 24,
+      "reached": false
+     },
+     "name": "Fliegl ASW 271",
+     "stale": true
+    },
+    "typeName": "tractor",
+    "wear": 0.004,
+    "x": -90.69,
+    "y": 57.09,
+    "z": 287.9
+   }
+  ]
+ },
+ "expect": {
+  "cards": [
+   "Kredo 3: Lower:off, Turn on:off, Detach:off",
+   "Versa: Turn on:off, Unload:unavailable, Cover:on, Detach:unavailable"
+  ],
+  "selected": null,
+  "also": [
+   "M77 · Kubota · Front Loaders · Front: Detach:unavailable",
+   "Pallet Fork · Albutt · Front Loader Tools · Front: Detach:off",
+   "1100 · AGCO · Weights · Front · Raised: Lower:off, Detach:off"
+  ],
+  "all": [
+   "Turn on all:off"
+  ]
+ }
+}

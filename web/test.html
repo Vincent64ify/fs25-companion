@@ -1794,8 +1794,10 @@ const { savedScreen } = await import("./src/themes/registry.js");
 // spike 0.0.4's rigs and spike 0.0.9's (spec 0012's probe), as the mod's Cab
 // collector reads them (fixtures/rig_fixtures.py); sprayer-width is the
 // Berthoud without Precision Farming, its right side at 2 of 4
+// loader-rear: from the live stream, not the spikes (the M8-201: two
+// cards, its front loader, fork and weight under Also attached)
 const RIGS = ["mowers", "trailers", "sprayer", "sprayer-width", "plow", "baler", "weight", "truck", "attach",
-  "arion-off", "arion-on", "dino", "rogator"];
+  "arion-off", "arion-on", "dino", "rogator", "loader-rear"];
 const rigFix = {};
 for (const name of RIGS) rigFix[name] = await (await fetch(`fixtures/rigs/${name}.json`)).json();
 const noRates = { rate: () => undefined, rising: () => false, area: () => undefined };
@@ -2242,7 +2244,9 @@ check("tools: tabs: Map and Vehicle; a saved Implement page opens Vehicle; Attac
   [["map", "vehicle"], "vehicle", "map", undefined, "unavailable", "off"]);
 
 // layout: every fixture and one to six working things at 1180 × 820, day
-// and night: no scrolling, nothing overflows, every button 48 px or more
+// and night: no scrolling, nothing overflows, nothing lies over anything
+// else (the M8-201's Also attached slid over its cards, 2026-11-10), every
+// button 48 px or more
 const layoutFrame = document.createElement("iframe");
 layoutFrame.style.cssText = "position: absolute; left: -12000px; top: 0; width: 1180px; height: 820px; border: 0";
 document.body.append(layoutFrame);
@@ -2290,6 +2294,18 @@ const layoutCheck = (/** @type {string} */ label) => {
     const r = el.getBoundingClientRect();
     if (r.bottom > box.bottom + 1 || r.right > box.right + 1) layoutIssues.push(`${what} is off the page`);
   }
+  const parts = [...screen.querySelectorAll(".tool-card, .tools-all, .tools-also-row, .field-panel")]
+    .filter((el) => /** @type {HTMLElement} */ (el).offsetParent !== null);
+  const nameOf = (el) => `${el.className.split(" ")[0]} ${el.querySelector(".tool-name")?.textContent ?? ""}`.trim();
+  parts.forEach((a, i) => parts.slice(i + 1).forEach((b) => {
+    const ra = a.getBoundingClientRect();
+    const rb = b.getBoundingClientRect();
+    const across = Math.min(ra.right, rb.right) - Math.max(ra.left, rb.left);
+    const down = Math.min(ra.bottom, rb.bottom) - Math.max(ra.top, rb.top);
+    if (across > 1 && down > 1 && !a.contains(b) && !b.contains(a)) {
+      layoutIssues.push(`${label}: ${nameOf(b)} lies over ${nameOf(a)}`);
+    }
+  }));
   for (const b of screen.querySelectorAll(".slot-group .control, .control-column .control")) {
     const r = b.getBoundingClientRect();
     if (r.width > 0 && (r.width < 48 || r.height < 48)) {
@@ -2305,6 +2321,9 @@ for (const palette of ["day", "night"]) {
   for (const [name, f] of layouts) {
     lstore.set("vehicles", f.vehicles);
     lstore.set("cab", f.cab);
+    // the Vehicle page by hand, as from the tab's menu: a rig with a front
+    // loader opens the Loader page by itself
+    lui.showScreen("vehicle");
     layoutCheck(`${name} (${palette})`);
     // specs/0012: with each card's More open too (compact keeps it closed)
     const toggles = [...lapp.querySelectorAll('.screen[data-screen="vehicle"] .tool-more-toggle')]
