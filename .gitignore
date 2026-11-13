@@ -23,3 +23,6 @@ research/spike/*.zip
 # local Claude Code files: launch configs (absolute python path) and scratch
 .claude/launch.json
 .claude/wt.tgz
+# "don't ask again" approvals are saved here as plain text; keep it out even
+# on a machine without Claude Code's global git exclude
+.claude/settings.local.json
