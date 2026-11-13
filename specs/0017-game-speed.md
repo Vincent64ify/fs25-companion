@@ -1,7 +1,7 @@
 # 0017: Game speed
 
 Status: approved
-Mod: 0.18.0 · Started: 2026-11-11 · Design: [THEMES.md](../docs/THEMES.md#layout) (the status bar's centre pill)
+Mod: 0.18.0 · Started: 2026-11-11 · Design: the canvas [FS25 Companion: Game speed](https://claude.ai/artifact/9UuXJgqaeVwvzxsLJfYP64) (private, on claude.ai; approved by Vincent on 2026-11-13), [THEMES.md](../docs/THEMES.md#layout) (the status bar's centre pill)
 
 ## Goal
 
@@ -19,35 +19,37 @@ already says the time it changes.
   like the Settings panel (12 below the status bar, never over it). A
   second tap on the pill, or a tap outside, closes it. The pill shows the
   "where you are" ring while the panel is open.
-- **The panel:**
-  - a row of three, as Cruise is: **Slower**, the speed now (a readout,
-    not a button), **Faster**. Slower is faded at the slowest step,
-    Faster at the fastest.
-  - under it, a grid with **every step the game offers** (from the mod,
-    not written in the dashboard), the current one with the "where you
-    are" ring.
-- **A press** (Slower, Faster or a step) asks for that speed: pending on
-  touch-down, pending until the mod answers ok (it checked the speed),
-  then the pill and the ring show the new speed at once, without waiting
-  for the next `env`.
-  - **A step in the grid:** the panel closes as soon as the answer is
-    ok.
-  - **Slower or Faster:** the panel stays open and closes 0.5 s after
-    the answer; another press within that time keeps it open (the 0.5 s
-    restart from that press's answer), so you can step several times.
-  - **A press that doesn't get there** says "Failed" on the button
-    pressed (spec 0013 revision 6), no toast, and the panel stays open
-    (a tap outside or on the pill closes it).
+- **The panel:** a "Game speed" label, then **every step the game
+  offers** (from the mod, not written in the dashboard) and nothing
+  else: no Slower or Faster, since any speed is one tap away.
+  - The steps sit in one well, like Settings' Day / Night switch
+    (`line` behind, 4 padding, 4 apart, 16 radius): flat segments 52
+    tall, six to a row; the "×" in 13 px muted, the number in 17 px.
+  - The current one is raised and ringed ("where you are"): by day
+    `card-solid` with the 2 px `select` ring and a small lift, at night
+    `sel-tint` with the ring.
+  - The panel is 384 wide, 16 padding, 12 below the status bar under
+    the pill, over a backdrop (as Settings).
+- **A tap on a step** asks for that speed: pending on touch-down (its
+  ring breathes in `on-border`, the current one keeps its ring), until
+  the mod answers ok (it checked the speed); then the pill and the ring
+  show the new speed at once, without waiting for the next `env`, and
+  the panel closes.
+  - Another tap while one is pending does nothing.
+  - **A tap that doesn't get there** says "Failed" on the step tapped
+    (spec 0013 revision 6: `alarm` ring and text), no toast, and the
+    panel stays open (a tap outside or on the pill closes it).
 - **Multiplayer:** a player the game doesn't let change the speed gets
-  "Failed" on the button, like any press that does nothing; the pill is
+  "Failed" on the step, like any press that does nothing; the pill is
   a button for everyone.
 - **On foot and in a vehicle alike:** the speed is the game's, not a
   vehicle's.
-- **Day and Night:** the pill's speed takes the pill's ink; the panel
-  uses the Settings panel's surface and the usual control states. Nothing
+- **Day and Night:** the pill's speed takes the pill's ink, after a
+  hairline; while the panel is open the pill shows `sel-tint` with the
+  `select` ring. The panel uses the Settings panel's surface. Nothing
   yellow at night (spec 0013). At 1180×820 the pill grows by the speed's
   width; compact (narrower than 900 px) the same pill and panel, the
-  panel full width under the status bar.
+  panel full width under the status bar, the steps in one row.
 
 ## Data contract
 
@@ -84,9 +86,7 @@ Topics gain fields (Protocol v1); `v` doesn't change.
   No key with a live event: failed at once, nothing pressed.
 - **Not tied to a vehicle:** today `run` answers "not in a vehicle"
   before anything; `timeScale.set` runs before that check.
-- Slower and Faster are `timeScale.set` with the step next to the one
-  shown: one action, one way to run it (spec 0009).
-- **The dashboard, the same frame:** the pressed button goes pending;
+- **The dashboard, the same frame:** the tapped step goes pending;
   an ok answer shows the asked speed on the pill and the ring at once
   (`env` comes once a second, so it may still say the old speed for up
   to a second: the asked one holds until `env` agrees, or 2 s).
@@ -122,17 +122,15 @@ Automated:
 - [ ] `web/test.html`: the pill shows "×5" with `timeScale` 5, and "×1";
   without `timeScale` it's as today and not a button; without
   `timeScaleSteps` it shows the speed but doesn't open.
-- [ ] `web/test.html`: a tap opens the panel with one button per step,
-  the current ringed; Slower faded at the first step, Faster at the
-  last; a tap outside or on the pill closes it.
+- [ ] `web/test.html`: a tap opens the panel with one button per step
+  and nothing else (no Slower or Faster), the current ringed; a tap
+  outside or on the pill closes it.
 - [ ] `web/test.html`: a step sends `timeScale.set` with its value;
   pending until the ok answer, then the pill shows it and the panel
-  closes; a stale `env` with the old speed doesn't put it back.
-- [ ] `web/test.html`: Slower and Faster send the neighbouring step; the
-  panel closes 0.5 s after the answer, and a second press within it
-  keeps it open.
+  closes; a second tap while pending sends nothing; a stale `env` with
+  the old speed doesn't put it back.
 - [ ] `web/test.html`: a failed answer, or none in time, says "Failed"
-  on that button and the panel stays open.
+  on that step and the panel stays open.
 - [ ] Replay in the browser pane (`replay-solek`, a patched `env` with
   a speed and steps), 1180×820 and compact, day and night: the pill and
   the open panel.
@@ -142,9 +140,10 @@ Live check (in game; Solek, mod 0.18.0):
   follows each step; the panel's steps match the game's list.
 - [ ] **A step, in a vehicle:** from ×1 tap ×120: the game shows ×120,
   the ring moves; tap ×1: back.
-- [ ] **On foot:** Faster and Slower each move one step.
-- [ ] **The ends:** at the slowest step Slower is faded; at ×360 Faster
-  is.
+- [ ] **On foot:** tap the step next to the current one, then one
+  further away: the game follows each.
+- [ ] **The ends:** tap the slowest step, then ×360: the game shows
+  each.
 - [ ] **Paused** (the game's menu open): what the pill shows, and what a
   press does.
 
@@ -157,10 +156,14 @@ Live check (in game; Solek, mod 0.18.0):
 - The mod presses 7 and 8, not a setter (game keys over workarounds):
   the game's own rules (multiplayer, limits) apply.
 
-- **The panel after a press** (Vincent, 2026-11-11): a step closes it
-  at once; Slower and Faster leave it 0.5 s. Claude's addition: the
-  0.5 s counts from the mod's answer, not the tap (the answer takes a few
-  frames), and a failure keeps it open so "Failed" can be seen.
+- **Steps only** (Vincent, 2026-11-13, from the canvas): Slower and
+  Faster felt slow (each waited for the mod's answer, then 0.5 s before
+  the panel closed), and the grid already reaches any speed in one tap.
+  So the panel holds the steps alone; a step closes it on the ok answer,
+  and a failure keeps it open so "Failed" can be seen. This replaces
+  2026-11-11's "Slower and Faster leave it 0.5 s".
+- **The steps in a well** (Vincent, 2026-11-13): one well like Settings'
+  Day / Night switch, not twelve raised buttons.
 - **The speed always on the pill**, ×1 too (Vincent, 2026-11-11).
 - **Multiplayer:** "Failed" on the button, nothing more (Vincent,
   2026-11-11).
@@ -177,3 +180,6 @@ Live check (in game; Solek, mod 0.18.0):
 - 2026-11-11: Vincent's answers: a step closes the panel, Slower and
   Faster leave it 0.5 s; the speed always shown; multiplayer just fails.
 - 2026-11-11: approved by Vincent as drafted.
+- 2026-11-13: designed on a canvas before the build. Vincent dropped
+  Slower and Faster for the steps alone, in one well; the spec says so
+  now, approved by Vincent the same day.
