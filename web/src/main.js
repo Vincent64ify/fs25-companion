@@ -25,7 +25,7 @@ import { chooseTheme, saveChoice, savedChoice, savedScreen, THEMES, withoutParam
 import { renderTheme } from "./themes/render.js";
 import { addEdgeControls, TOOLBAR_INSET } from "./themes/newholland/mapControls.js";
 import { createSettings } from "./ui/settings.js";
-import { createKeepAwake } from "./ui/screenMode.js";
+import { createKeepAwake, isHomeScreenApp } from "./ui/screenMode.js";
 import { $ } from "./ui/dom.js";
 
 const SCREEN_KEY = "fs25companion.screen";
@@ -65,6 +65,8 @@ const settings = createSettings({
   keepAwake: createKeepAwake(),
   roundTrips,
   autoPick,
+  // the Home Screen app has no browser reload or pull-to-refresh
+  reload: isHomeScreenApp() ? () => location.reload() : undefined,
   onTheme(id) {
     saveChoice("theme", id);
     location.search = withoutParams(location.search, ["theme", "palette"]);

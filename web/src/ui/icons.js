@@ -137,6 +137,8 @@ const PATHS = {
   exitFullscreen: '<path d="M9 3.5V9H3.5M20.5 9H15V3.5M15 20.5V15h5.5M3.5 15H9v5.5"/>',
   // an open eye: the screen stays on
   keepAwake: '<path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z"/><circle cx="12" cy="12" r="3"/>',
+  // Install: a tray with an arrow up, like Safari's Share (widgets/screen.js)
+  install: '<path d="M12 14.5V3.5M8 7.5l4-4 4 4"/><path d="M8.5 10.5H5.5v10h13v-10h-3"/>',
 
   // --- map and tabs -----------------------------------------------------
   // a folded map: the Map tab
@@ -225,7 +227,7 @@ export const ICON_GROUPS = {
   Alerts: ["warn", "battery", "oil", "checkEngine", "snow"],
   "Status bar": ["clock", "day", "season", "sun", "cloudy", "rain", "fog", "storm",
                  "temperature", "money", "connection", "settings", "dayNight",
-                 "fullscreen", "exitFullscreen", "keepAwake"],
+                 "fullscreen", "exitFullscreen", "keepAwake", "install"],
   "Map and tabs": ["map", "zoomIn", "zoomOut", "recentre", "wholeMap", "layers"],
   Controls: ["lights", "highBeam", "beacon", "hazard", "turnLeft", "turnRight", "cruise",
              "cruiseDown", "cruiseUp", "pto", "hitchUp", "hitchDown", "fold", "hitch", "implementOn",

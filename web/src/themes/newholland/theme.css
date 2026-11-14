@@ -20,6 +20,7 @@
   --card-solid: #FFFFFF;
   --btn: linear-gradient(#FFFFFF, #EEF3FA);
   --tabs: linear-gradient(#FFFFFF, #F4F7FC);
+  --tabs-edge: #F4F7FC; /* the tab bar's bottom colour, solid */
   --tabs-shadow: 0 -2px 8px rgba(12, 45, 107, 0.06);
   --line: #E3EAF5;
   --tool-ink: #0C2D6B;
@@ -128,6 +129,7 @@
   --card-solid: #121A29;
   --btn: linear-gradient(#1A2438, #131B2C);
   --tabs: linear-gradient(#0B1120, #070B14);
+  --tabs-edge: #070B14;
   --tabs-shadow: 0 -2px 10px rgba(0, 0, 0, 0.45);
   --line: #1D2638;
   --tool-ink: #E8EDF5;
@@ -200,11 +202,15 @@
 
 [hidden] { display: none !important; }
 
-body { background: var(--bg); }
+/* Behind the frame. On iPadOS 26 the Home Screen app's page can stop short
+   of the screen's bottom edge, leaving a strip below the tab bar: painted
+   the tab bar's colour, it reads as part of it. */
+body { background: var(--tabs-edge); }
 
 /* The safe areas are 0 in a browser tab. Added to the home screen
-   (manifest.json), the page runs under the iPad's status bar and home
-   indicator: the bars grow into them, the content keeps clear. */
+   (manifest.json), the page starts below the iPad's status bar (index.html,
+   status-bar-style black) and runs over the home indicator: the tab bar
+   grows into it, the content keeps clear. */
 /* The dashboard is the screen's size and never scrolls: pinned to the
    viewport, so nothing (Safari's pull-to-refresh, a reload that restores a
    scroll offset) can leave it wider than the screen and sliding sideways. */
@@ -290,7 +296,8 @@ button { font: inherit; color: inherit; }
 }
 .settings-button .icon { width: 22px; height: 22px; }
 
-/* the full-screen button, at the bar's right end (widgets/screen.js) */
+/* the screen button (full screen, or Install on an iPad), at the bar's right
+   end (widgets/screen.js) */
 .status-button {
   display: grid;
   place-items: center;
@@ -1007,6 +1014,36 @@ button.day-clock[aria-expanded="true"] .day-clock-when { color: inherit; opacity
   color: var(--muted);
 }
 .settings-note { margin: 0; font-size: 13px; color: var(--muted); }
+
+/* Install (widgets/screen.js): how to add the dashboard to the Home Screen,
+   from the status bar's button in Safari on an iPad or iPhone */
+.install-help {
+  width: min(460px, 100vw - 32px);
+  padding: 22px;
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  background: var(--card);
+  color: var(--text);
+  box-shadow: var(--panel-shadow);
+}
+.install-help::backdrop { background: var(--backdrop, rgba(10, 20, 40, 0.45)); }
+.install-help h2 { margin: 0 0 14px; font-size: 22px; font-weight: 700; }
+.install-help ol { margin: 0 0 14px; padding-left: 22px; display: flex; flex-direction: column; gap: 10px; font-size: 16px; }
+.install-close {
+  display: block;
+  width: 100%;
+  height: 52px;
+  margin-top: 18px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--btn);
+  color: var(--text);
+  font: inherit;
+  font-size: 16px;
+  font-weight: 600;
+  box-shadow: var(--lift);
+  cursor: pointer;
+}
 
 /* --- Game speed (ui/speedPanel.js, specs/0017): under the pill, as Settings -- */
 

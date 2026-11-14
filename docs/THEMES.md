@@ -399,8 +399,9 @@ their keys are seen in game.
   button and sits in the main area, under the status bar, never over it.
   The backdrop and Escape close it too.
 - **The panel:** Theme cards with layout thumbnails and the theme's note;
-  Day / Night, applied at once; then Screen: Full screen, Keep screen on
-  and "Screen for what I drive". Settings also shows the controls' round
+  Day / Night, applied at once; then Screen: Keep screen on, "Screen for
+  what I drive" and, in the Home Screen app, Reload (full screen is the
+  status bar's button only). Settings also shows the controls' round
   trip (tap to the game's answer).
 - Choosing a theme saves it and reloads the page.
 
@@ -590,19 +591,33 @@ yellow ([specs/0013](../specs/0013-vehicle-screen-calm.md)).
   for tablets; wide from 1600 px.
 - **Browser bars:** a tablet browser's own bars take up part of the height
   (`dvh`, plus safe areas for the iPad home indicator). So:
-  - **Full screen** (`ui/screenMode.js`): a button at the status bar's
-    right end and a toggle in Settings, where the browser has full screen
-    (not on iPhones, nor in the home-screen app, which has no bars
-    anyway). Browsers leave full screen when the page reloads.
+  - **Screen button** (`widgets/screen.js`, `ui/screenMode.js`), at the
+    status bar's right end:
+    - **Full screen** where the browser's full screen works. Browsers
+      leave it when the page reloads.
+    - **Install** in Safari on an iPad or iPhone instead: Safari leaves
+      full screen on any swipe with the finger moving down, and no page
+      can stop that (tried 2026-11-14). A page can't add itself to the
+      Home Screen either, so Install opens a dialog with the three steps
+      (Share, Add to Home Screen, open it from the icon).
+    - **Nothing** in the Home Screen app, which has no bars to hide.
+  - **Reload** (Settings, Screen): only in the Home Screen app, which has
+    no browser reload or pull-to-refresh; after updating the companion,
+    for one.
   - **Home screen** (`web/manifest.json`): on an iPad, Safari's Share →
-    Add to Home Screen opens the dashboard without bars, on the LAN
-    address too. Chrome on Android needs HTTPS or localhost for that; on
-    the LAN it adds a plain shortcut.
+    Add to Home Screen opens the dashboard without Safari's bars, on the
+    LAN address too. iPadOS keeps its status bar: `index.html` asks for
+    `black`, a solid bar above the page (with `black-translucent` iPadOS
+    26 lays a pale wash over our header). It reads that tag only when the
+    icon is added. Chrome on Android needs HTTPS or localhost for that;
+    on the LAN it adds a plain shortcut.
   - **Keep screen on** (Settings): only on a secure page, `localhost` or
     HTTPS. A tablet on `http://<PC IP>:8123` doesn't get it; there the
     device's own auto-lock setting is the way.
-  - **Safe areas:** the status bar and the tab bar grow into the iPad's
-    status bar and home indicator, with their content kept clear.
+  - **Safe areas:** the tab bar grows into the iPad's home indicator,
+    with its content kept clear. On iPadOS 26 the Home Screen app's page
+    can stop short of the bottom edge; the body is painted `--tabs-edge`,
+    the tab bar's bottom colour, so that strip reads as part of it.
 - **Sizes checked,** each in day and night, with the Solek replay:
   1024×600, 1024×768, 1133×744, 1180×820 (the reference), 1194×834,
   1280×800, 1280×720, 1366×768, 1376×1032, 1920×1080, 2560×1440,

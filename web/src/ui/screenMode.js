@@ -1,8 +1,9 @@
 // @ts-check
-// Full screen and keep-awake (docs/THEMES.md, Responsive: browser bars).
-// Both only where the browser allows it, and callers hide what isn't:
-// - full screen: the Fullscreen API, which iPads and Android have and
-//   iPhones don't (Safari before 16.4 only has it prefixed);
+// Full screen, the Home Screen app and keep-awake (docs/THEMES.md,
+// Responsive: browser bars). Each only where the browser allows it, and
+// callers hide what isn't:
+// - full screen: the Fullscreen API, but not on an iPad or iPhone, where
+//   Safari leaves it on a swipe down; there the Home Screen app instead;
 // - keep-awake: the Screen Wake Lock API, which needs a secure page (HTTPS
 //   or localhost), so not a plain LAN address like http://192.168.1.20.
 // The browser drops both when the page reloads (switching theme), and
@@ -32,25 +33,67 @@ export function isFullscreen(doc = document) {
 }
 
 /**
- * Whether to offer full screen: the browser has it, and this isn't the
- * home-screen app (manifest.json), which already opens without the
- * browser's bars.
- * @param {Document} [doc]
- * @param {(query: string) => {matches: boolean}} [media] matchMedia
+ * @typedef {{userAgent: string, maxTouchPoints: number, standalone?: boolean}} NavLike
+ * @typedef {(query: string) => {matches: boolean}} MediaLike matchMedia
  */
-export function fullscreenOffered(doc = document, media = (q) => matchMedia(q)) {
-  const app = media("(display-mode: fullscreen), (display-mode: standalone)").matches;
-  return fullscreenSupported(doc) && (!app || isFullscreen(doc));
+
+/**
+ * An iPad or iPhone. iPadOS reports itself as a Mac, so a touch screen tells
+ * them apart.
+ * @param {NavLike} [nav]
+ */
+export function isAppleTouch(nav = navigator) {
+  return /iPad|iPhone|iPod/.test(nav.userAgent) || (/Macintosh/.test(nav.userAgent) && nav.maxTouchPoints > 1);
+}
+
+/**
+ * Opened from the home screen (manifest.json), without the browser's bars.
+ * Safari also says so with navigator.standalone.
+ * @param {MediaLike} [media]
+ * @param {NavLike} [nav]
+ */
+export function isHomeScreenApp(media = (q) => matchMedia(q), nav = navigator) {
+  return media("(display-mode: fullscreen), (display-mode: standalone)").matches || nav.standalone === true;
+}
+
+/**
+ * Whether to offer full screen: the browser has it, this isn't the
+ * home-screen app, which already opens without the browser's bars, and it
+ * isn't an iPad or iPhone, where Safari leaves full screen on any swipe with
+ * the finger moving down (tried 2026-11-14; no page can stop it).
+ * @param {Document} [doc]
+ * @param {MediaLike} [media]
+ * @param {NavLike} [nav]
+ */
+export function fullscreenOffered(doc = document, media = (q) => matchMedia(q), nav = navigator) {
+  if (isFullscreen(doc)) return true;
+  return fullscreenSupported(doc) && !isHomeScreenApp(media, nav) && !isAppleTouch(nav);
+}
+
+/**
+ * The status bar's screen button: "install" in Safari on an iPad or iPhone
+ * (how to add it to the Home Screen; a page can't do it itself),
+ * "fullscreen" where the browser's full screen works, "none" in the
+ * home-screen app or where neither applies.
+ * @param {Document} [doc]
+ * @param {MediaLike} [media]
+ * @param {NavLike} [nav]
+ * @returns {"install"|"fullscreen"|"none"}
+ */
+export function screenButtonMode(doc = document, media = (q) => matchMedia(q), nav = navigator) {
+  if (fullscreenOffered(doc, media, nav)) return "fullscreen";
+  if (isAppleTouch(nav) && !isHomeScreenApp(media, nav)) return "install";
+  return "none";
 }
 
 /**
  * Whether the browser draws its own close (X) button over the page's top-left
  * corner in full screen: Safari on iPad and iPhone does, and no page can hide
- * it. iPadOS reports itself as a Mac, so a touch screen tells them apart.
- * @param {Pick<Navigator, "userAgent"|"maxTouchPoints">} [nav]
+ * it.
+ * @param {NavLike} [nav]
  */
 export function fullscreenCloseButton(nav = navigator) {
-  return /iPad|iPhone|iPod/.test(nav.userAgent) || (/Macintosh/.test(nav.userAgent) && nav.maxTouchPoints > 1);
+  return isAppleTouch(nav);
 }
 
 /**

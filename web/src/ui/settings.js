@@ -3,7 +3,7 @@
 // Settings entry): the button sits top-left in the header and opens and
 // closes the panel (shown pressed while open). The panel starts with the
 // theme, then Day / Night for a theme with palettes, then Screen (keep the
-// screen on) where the browser allows it. Full screen is the status bar's
+// screen on where the browser allows it, Reload in the Home Screen app). Full screen is the status bar's
 // button only (widgets/screen.js). The theme
 // decides where the button and panel go; the panel's layer (a backdrop plus the panel) fills its
 // parent, which is the main area under the header.
@@ -33,9 +33,10 @@ const PALETTE_ICONS = { day: "sun", night: "dayNight" };
  * @param {KeepAwake} [opts.keepAwake]
  * @param {() => import("../commands.js").RoundTrips} [opts.roundTrips] the controls' round trips
  * @param {import("../themes/render.js").AutoPick} [opts.autoPick] the Vehicle tab picks Tractor or Harvester
+ * @param {() => void} [opts.reload] given in the Home Screen app, which has no browser reload
  * @returns {Settings}
  */
-export function createSettings({ themes, theme, palette, onTheme, onPalette, keepAwake, roundTrips, autoPick }) {
+export function createSettings({ themes, theme, palette, onTheme, onPalette, keepAwake, roundTrips, autoPick, reload }) {
   const button = /** @type {HTMLButtonElement} */ (h("button", { className: "settings-button" },
     icon("settings"), h("span", { text: "Settings" })));
   button.type = "button";
@@ -127,6 +128,13 @@ export function createSettings({ themes, theme, palette, onTheme, onPalette, kee
     });
     screenNotes.push("Screen for what I drive: the Vehicle tab shows the Harvester screen in a combine, " +
       "the Tractor screen otherwise; tap the tab again to choose.");
+  }
+  if (reload) {
+    // an action, not a choice: never pressed
+    const b = toggle("rotate", "Reload");
+    b.dataset.choice = "reload";
+    b.addEventListener("click", () => reload());
+    screenNotes.push("Reload loads the dashboard again, after updating the companion for one.");
   }
   if (screenChoices.length) {
     panel.append(h("fieldset", { className: "settings-group" },

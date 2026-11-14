@@ -932,6 +932,50 @@ const fsWidget = createWidget("fullscreen", createStore());
 check("status bar: the full-screen button, offered as the browser allows",
   [fsWidget.tagName, fsWidget.getAttribute("aria-label"), fsWidget.hidden], ["BUTTON", "Full screen", !screenMode.fullscreenOffered()]);
 
+// iPad and iPhone Safari: Install instead of full screen (a swipe down leaves
+// Safari's full screen); in the Home Screen app neither, and Reload in Settings
+const ipadNav = { userAgent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) Safari/605.1.15", maxTouchPoints: 5 };
+const iphoneNav = { userAgent: "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X)", maxTouchPoints: 5 };
+const chromeNav = { userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/130.0", maxTouchPoints: 10 };
+const appNav = { ...ipadNav, standalone: true };
+const fsDoc = fakeDoc({ fullscreenEnabled: true });
+check("screen button: Install on iPad and iPhone Safari, full screen elsewhere, none in the app", [
+  screenMode.screenButtonMode(fsDoc, media(false), ipadNav),
+  screenMode.screenButtonMode(fakeDoc({}), media(false), iphoneNav),
+  screenMode.screenButtonMode(fsDoc, media(false), chromeNav),
+  screenMode.screenButtonMode(fakeDoc({}), media(false), chromeNav),
+  screenMode.screenButtonMode(fsDoc, media(true), ipadNav),
+  screenMode.screenButtonMode(fsDoc, media(false), appNav),
+  screenMode.fullscreenOffered(fsDoc, media(false), ipadNav),
+], ["install", "install", "fullscreen", "none", "none", "none", false]);
+check("home-screen app: display mode, or Safari's navigator.standalone", [
+  screenMode.isHomeScreenApp(media(true), chromeNav),
+  screenMode.isHomeScreenApp(media(false), appNav),
+  screenMode.isHomeScreenApp(media(false), ipadNav),
+], [true, true, false]);
+const { createInstallHelp } = await import("./src/widgets/screen.js");
+const help = createInstallHelp();
+document.body.append(help);
+help.querySelector("[data-close]").click();
+check("install help: the three steps, and a Close that closes it", [
+  help.tagName, help.querySelectorAll("ol > li").length, /Add to Home Screen/.test(help.textContent), help.open,
+], ["DIALOG", 3, true, false]);
+help.remove();
+let reloads = 0;
+const appSettings = createSettings({
+  themes: [{ id: "plain", label: "Plain", palettes: [] }], theme: { id: "plain", label: "Plain", palettes: [] },
+  palette: undefined, onTheme: () => {}, onPalette: () => {},
+  keepAwake: { supported: false, wanted: () => false, set: () => {} },
+  reload: () => { reloads++; },
+});
+const reloadButton = appSettings.layer.querySelector('[data-choice="reload"]');
+reloadButton?.click();
+check("settings: Reload in Screen when given (the Home Screen app), not pressed, reloads", [
+  [...appSettings.layer.querySelectorAll("legend")].map((l) => l.textContent),
+  !!reloadButton, reloadButton?.hasAttribute("aria-pressed"), reloads,
+  !!plainSettings.layer.querySelector('[data-choice="reload"]'),
+], [["Theme", "Screen"], true, false, 1, false]);
+
 const { withoutParams } = await import("./src/themes/registry.js");
 check("URL without theme, the others kept", withoutParams("?a=123&theme=nh&palette=night", ["theme", "palette"]),
       "?a=123");
