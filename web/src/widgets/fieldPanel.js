@@ -11,7 +11,11 @@
 //   its stages, what it needs (the Map's field panel's words) and how much
 //   of it this run has done, while there's a trail. The compact variant
 //   (the Harvester page, specs/0001 revision 3) leaves out what it needs.
-// Only fields your farm owns (revision 3). Off the field it stays while the
+// - On a field with one of your running contracts, one more row for it
+//   ("Contract · Plough · 87 %", the time left under it): a tap opens the
+//   Contracts page on it (specs/0018).
+// Only fields your farm owns (revision 3), or with one of your running
+// contracts (specs/0018). Off the field it stays while the
 // rig is inside the panel's view (the field plus its margin), so a headland
 // turn keeps it; past that, or with none yet, "Not on your field". Hidden on foot and with three working tools or more:
 // their cards need the width.
@@ -26,6 +30,8 @@ import { coverageOf } from "../data/coverage.js";
 import { cropCatalog, cropName, growthClass } from "../map/fieldStyle.js";
 import { fieldNeeds, growthProgress } from "../panels/fieldInfoPanel.js";
 import { areaText, unitsOf } from "../data/units.js";
+import { contextOf, contractsOf, fieldRow, onField } from "../data/contracts.js";
+import { icon } from "../ui/icons.js";
 import { h } from "../ui/dom.js";
 
 /** @typedef {import("../types.js").FieldOutline} FieldOutline */
@@ -154,8 +160,10 @@ export function fieldPanel(store, opts = {}) {
   const coverText = h("b");
   const cover = h("div", { className: "field-row field-cover" }, h("span", { text: "This run" }), coverText);
   cover.hidden = true;
+  // one row per running contract of yours on this field (specs/0018)
+  const contractRows = h("div", { className: "field-contracts", hidden: true });
   const root = h("section", { className: "field-panel" }, mapBox, h("div", { className: "field-facts" },
-    h("div", { className: "field-row" }, title, area), cropRow, ...(compact ? [] : [needs]), cover));
+    h("div", { className: "field-row" }, title, area), cropRow, ...(compact ? [] : [needs]), cover, contractRows));
   root.setAttribute("aria-label", "Field");
   if (compact) root.dataset.variant = "compact";
   if (opts.id) root.id = opts.id;
@@ -172,6 +180,7 @@ export function fieldPanel(store, opts = {}) {
   let boxW = 0, boxH = 0;
   let lastInfo = "";
   let lastCover = "";
+  let lastContracts = "";
   let boomKey = "";
   /** what the canvas holds: a field at a size and palette, by these tools, at this version */
   const painted = { field: /** @type {number|undefined} */ (undefined), w: 0, h: 0, dpr: 0, palette: "", version: -1,
@@ -384,6 +393,14 @@ export function fieldPanel(store, opts = {}) {
           : [h("span", { className: "field-needs-none", text: "Nothing" })]));
       }
     }
+    // the contract rows: rewritten only when their words change
+    const rows = outline ? onField(contractsOf(store), outline.id).map((c) => ({ id: c.id, ...fieldRow(c, contextOf(store)) })) : [];
+    const rowsKey = JSON.stringify(rows);
+    if (rowsKey !== lastContracts) {
+      lastContracts = rowsKey;
+      contractRows.hidden = !rows.length;
+      contractRows.replaceChildren(...rows.map((row) => contractRow(store, row)));
+    }
     // the share done: rewritten only when its rounded value moves
     const pct = outline ? coverage.percent(outline.id) : undefined;
     const coverLine = pct === undefined ? "" : `≈ ${Math.round(pct)} % of the field`;
@@ -398,6 +415,26 @@ export function fieldPanel(store, opts = {}) {
     boxH = height;
     paint();
   });
-  for (const key of ["vehicles", "cab", "fields", "farmlands", "field_outlines", "crop_types"]) store.subscribe(key, render);
+  for (const key of ["vehicles", "cab", "fields", "farmlands", "field_outlines", "crop_types", "contracts", "env"]) {
+    store.subscribe(key, render);
+  }
   return root;
+}
+
+/**
+ * A field panel's row for one of your running contracts (specs/0018): its
+ * words (data/contracts.js fieldRow), and a tap opens the Contracts page on
+ * it. The Map's land panel shows the same row.
+ * @param {import("../store.js").Store} store
+ * @param {{id: string, head: string, sub: string, late: boolean}} row
+ */
+export function contractRow(store, row) {
+  const button = h("button", { className: "field-contract" },
+    h("span", { className: "field-contract-text" }, h("b", { text: row.head }), h("span", { text: row.sub })),
+    icon("toolNext"));
+  button.setAttribute("type", "button");
+  button.dataset.contract = row.id;
+  if (row.late) button.dataset.tone = "warn";
+  button.addEventListener("click", () => store.set("goto", { screen: "contracts", contract: row.id }));
+  return button;
 }

@@ -492,13 +492,19 @@ export function sectionBand(w, workWidth) {
 
 /**
  * Whether your farm owns the field's farmland (fields' farmlandId, the
- * farmlands topic's farmId): the field panel and the trail only take
- * yours (specs/0013 revision 3).
+ * farmlands topic's farmId), or it carries one of your running contracts
+ * (specs/0018): the field panel and the trail only take those (specs/0013
+ * revision 3).
  * @param {StoreLike} store
  * @param {number|undefined} fieldId
  */
 export function isOwnField(store, fieldId) {
   if (fieldId === undefined) return false;
+  // a contract's field is never yours (the game offers none on owned land),
+  // but it's yours to work while you hold the contract (specs/0018)
+  const contracts = store.get("contracts")?.items;
+  if (Array.isArray(contracts) && contracts.some((/** @type {any} */ c) => c?.mine === true && c.fieldId === fieldId
+    && (c.status === "running" || c.status === "preparing"))) return true;
   const field = (store.get("fields")?.fields || []).find((/** @type {any} */ f) => f?.id === fieldId);
   if (typeof field?.farmlandId !== "number") return false;
   const land = (store.get("farmlands")?.farmlands || []).find((/** @type {any} */ l) => l?.id === field.farmlandId);

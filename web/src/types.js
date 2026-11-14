@@ -311,6 +311,65 @@
  */
 
 /**
+ * A vehicle a contract's lease brings (contracts topic), from the shop's
+ * data: the working width in metres and the working speed limit in km/h
+ * when the item has them.
+ * @typedef {{name?: string, brand?: string, category?: string, categoryTitle?: string,
+ *   workingWidth?: number, speedLimit?: number}} ContractVehicle
+ */
+
+/**
+ * One of your farm's own tools with a working width (contracts topic): id
+ * is the vehicles topic's.
+ * @typedef {ContractVehicle & {id: number|string}} ContractTool
+ */
+
+/**
+ * One contract (contracts topic, specs/0018): on offer, or your farm's
+ * (other farms' and dismissed ones aren't sent). Every field but id and
+ * status may be missing: what the game doesn't give is left out, never 0.
+ * @typedef {Object} Contract
+ * @property {string} id the mission's unique id
+ * @property {"offer"|"preparing"|"running"|"finished"} status
+ * @property {string} [type] the game's type name ("harvestMission")
+ * @property {string} [title] the game's title, in the game's language
+ * @property {string} [npc] who it's for
+ * @property {string} [location] the game's location text
+ * @property {boolean} [mine] your farm's (absent on offers)
+ * @property {boolean} [leased] you took the lease vehicles (yours only)
+ * @property {"success"|"failed"|"timedOut"|"canceled"} [finishState] when finished
+ * @property {number} [x] where the game puts its marker, world metres
+ * @property {number} [z]
+ * @property {number} [fieldId] the fields topic's id
+ * @property {number} [areaHa]
+ * @property {number} [fruitTypeIndex] the field's crop
+ * @property {string} [fillType] what is delivered, the game's name ("WHEAT")
+ * @property {string} [fillTitle] and its title ("Wheat")
+ * @property {number} [reward] the game's reward with its difficulty
+ * @property {number} [vehicleCosts] the lease (absent: no lease vehicles)
+ * @property {number} [reimbursement] finished
+ * @property {number} [stealingCost] finished: the penalty
+ * @property {number} [minutesLeft] game minutes to the deadline
+ * @property {number} [completion] the game's own 0..1 (running, finished)
+ * @property {number} [expectedLiters] harvest, baling
+ * @property {number} [depositedLiters] yours
+ * @property {{name?: string, x?: number, z?: number, price?: number}} [sellPoint] price per litre, effective
+ * @property {ContractVehicle[]} [vehicles] the lease's
+ */
+
+/**
+ * The contracts topic, every 2 s (mod 0.19.0, specs/0018). limit: how many
+ * contracts one farm may hold; factors: the share that counts as done, read
+ * from the game (of the field worked, of a harvest's or a baling
+ * contract's expected litres delivered).
+ * @typedef {Object} Contracts
+ * @property {number} [limit]
+ * @property {{field?: number, harvest?: number, bale?: number}} [factors]
+ * @property {Contract[]} items
+ * @property {ContractTool[]} [tools]
+ */
+
+/**
  * World rectangle in meters: [minX, minZ, maxX, maxZ].
  * @typedef {[number, number, number, number]} WorldBounds
  */

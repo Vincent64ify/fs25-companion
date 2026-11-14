@@ -109,5 +109,12 @@ export default {
         { controls: true },
       ],
     },
+    {
+      // Contracts (specs/0018): the list and the detail take the whole
+      // width. No control column: choosing a contract isn't done while
+      // driving. The tab counts the contracts you're doing.
+      id: "contracts", label: "Contracts", icon: "money", count: "contracts",
+      slots: [{ widget: "contractsScreen" }],
+    },
   ],
 };

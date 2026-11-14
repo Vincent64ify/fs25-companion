@@ -1,0 +1,110 @@
+{
+  "about": "A made-up contracts topic (specs/0018), in the shape mod/src/collectors/Contracts.lua sends, on real Solek fields so it fits the replay. Replaced by a real dump after the live check.",
+  "contracts": {
+    "limit": 3,
+    "factors": { "field": 0.95, "harvest": 0.93, "bale": 0.9 },
+    "items": [
+      {
+        "id": "c-harvest-4", "type": "harvestMission", "title": "Harvest", "npc": "Mill", "location": "Field 4",
+        "status": "running", "mine": true, "leased": true, "x": -641.8, "z": -869.6, "fieldId": 4, "areaHa": 2.35,
+        "fruitTypeIndex": 2, "fillType": "BARLEY", "fillTitle": "Barley", "reward": 5200, "vehicleCosts": 1500,
+        "minutesLeft": 3780, "completion": 0.6586, "expectedLiters": 16000, "depositedLiters": 9800,
+        "sellPoint": { "name": "Mill", "x": 173.0, "z": 971.5, "price": 0.31 },
+        "vehicles": [
+          { "name": "LEXION 8900", "brand": "CLAAS", "category": "HARVESTERS", "categoryTitle": "Harvesters" },
+          { "name": "CONVIO FLEX 1380", "brand": "CLAAS", "category": "CUTTERS", "categoryTitle": "Headers", "workingWidth": 13.8, "speedLimit": 10 },
+          { "name": "Bandit 800", "brand": "Krampe", "category": "TRAILERS", "categoryTitle": "Trailers" }
+        ]
+      },
+      {
+        "id": "c-plow-58", "type": "plowMission", "title": "Plough", "npc": "Hofgut Solek", "location": "Field 58",
+        "status": "running", "mine": true, "leased": false, "x": 572.5, "z": -268.5, "fieldId": 58, "areaHa": 2.07,
+        "fruitTypeIndex": 4, "reward": 3400, "vehicleCosts": 1000, "minutesLeft": 1450, "completion": 0.87,
+        "vehicles": [
+          { "name": "942 Vario", "brand": "Fendt", "category": "TRACTORSL", "categoryTitle": "Large tractors" },
+          { "name": "PW 100", "brand": "Kverneland", "category": "PLOWS", "categoryTitle": "Ploughs", "workingWidth": 3.3, "speedLimit": 12 }
+        ]
+      },
+      {
+        "id": "c-sow-59", "type": "sowMission", "title": "Sow", "npc": "Agri co-op", "location": "Field 59",
+        "status": "finished", "mine": true, "leased": true, "finishState": "success", "x": 514.4, "z": -286.4,
+        "fieldId": 59, "areaHa": 1.62, "reward": 2600, "vehicleCosts": 1000, "reimbursement": 140, "stealingCost": 0,
+        "completion": 1,
+        "vehicles": [
+          { "name": "T7.315 HD", "brand": "New Holland", "category": "TRACTORSL", "categoryTitle": "Large tractors" },
+          { "name": "Spirit 600C", "brand": "Väderstad", "category": "SEEDERS", "categoryTitle": "Seeders", "workingWidth": 6, "speedLimit": 15 }
+        ]
+      },
+      {
+        "id": "o-harvest-22", "type": "harvestMission", "title": "Harvest", "npc": "Silos", "location": "Field 22",
+        "status": "offer", "x": -385.0, "z": -552.7, "fieldId": 22, "areaHa": 1.59, "fruitTypeIndex": 2,
+        "fillType": "BARLEY", "fillTitle": "Barley", "reward": 3900, "vehicleCosts": 2000, "minutesLeft": 4560,
+        "expectedLiters": 11000, "sellPoint": { "name": "Silos", "x": -290.4, "z": -256.0, "price": 0.29 },
+        "vehicles": [
+          { "name": "LEXION 8900", "brand": "CLAAS", "category": "HARVESTERS", "categoryTitle": "Harvesters" },
+          { "name": "VARIO 930", "brand": "CLAAS", "category": "CUTTERS", "categoryTitle": "Headers", "workingWidth": 9.3, "speedLimit": 10 },
+          { "name": "942 Vario", "brand": "Fendt", "category": "TRACTORSL", "categoryTitle": "Large tractors" },
+          { "name": "Bandit 800", "brand": "Krampe", "category": "TRAILERS", "categoryTitle": "Trailers" }
+        ]
+      },
+      {
+        "id": "o-fert-48", "type": "fertilizeMission", "title": "Fertilise", "npc": "Agri co-op", "location": "Field 48",
+        "status": "offer", "x": 933.6, "z": -859.5, "fieldId": 48, "areaHa": 3.41, "reward": 1900,
+        "vehicleCosts": 1000, "minutesLeft": 12,
+        "vehicles": [
+          { "name": "T6.180", "brand": "New Holland", "category": "TRACTORSM", "categoryTitle": "Medium tractors" },
+          { "name": "ZA-TS 3200", "brand": "Amazone", "category": "FERTILIZERSPREADERS", "categoryTitle": "Fertilizer spreaders", "workingWidth": 24, "speedLimit": 15 }
+        ]
+      },
+      {
+        "id": "o-sow-40", "type": "sowMission", "title": "Sow", "npc": "Hofgut Solek", "location": "Field 40",
+        "status": "offer", "x": 667.9, "z": -616.8, "fieldId": 40, "areaHa": 2.14, "reward": 2900,
+        "vehicleCosts": 1000, "minutesLeft": 2900,
+        "vehicles": [
+          { "name": "T7.315 HD", "brand": "New Holland", "category": "TRACTORSL", "categoryTitle": "Large tractors" },
+          { "name": "Spirit 600C", "brand": "Väderstad", "category": "SEEDERS", "categoryTitle": "Seeders", "workingWidth": 6, "speedLimit": 15 }
+        ]
+      },
+      {
+        "id": "o-mow-2", "type": "mowMission", "title": "Mow", "npc": "Horse farm", "location": "Field 2",
+        "status": "offer", "x": -915.8, "z": -741.2, "fieldId": 2, "areaHa": 3.54, "fruitTypeIndex": 31,
+        "reward": 3100, "vehicleCosts": 1000, "minutesLeft": 120,
+        "vehicles": [
+          { "name": "724 Vario", "brand": "Fendt", "category": "TRACTORSL", "categoryTitle": "Large tractors" },
+          { "name": "EasyCut B 950", "brand": "Krone", "category": "MOWERS", "categoryTitle": "Mowers", "workingWidth": 9.5, "speedLimit": 15 }
+        ]
+      },
+      {
+        "id": "o-plow-38", "type": "plowMission", "title": "Plough", "npc": "Agri co-op", "location": "Field 38",
+        "status": "offer", "x": 533.8, "z": -627.9, "fieldId": 38, "areaHa": 1.75, "reward": 2500,
+        "vehicleCosts": 1000, "minutesLeft": 5200,
+        "vehicles": [
+          { "name": "942 Vario", "brand": "Fendt", "category": "TRACTORSL", "categoryTitle": "Large tractors" },
+          { "name": "PW 100", "brand": "Kverneland", "category": "PLOWS", "categoryTitle": "Ploughs", "workingWidth": 3.3, "speedLimit": 12 }
+        ]
+      },
+      {
+        "id": "o-herb-62", "type": "herbicideMission", "title": "Herbicide", "npc": "Hofgut Solek", "location": "Field 62",
+        "status": "offer", "x": 336.6, "z": -333.0, "fieldId": 62, "areaHa": 1.71, "reward": 1500,
+        "vehicleCosts": 1000, "minutesLeft": 3300,
+        "vehicles": [
+          { "name": "T6.180", "brand": "New Holland", "category": "TRACTORSM", "categoryTitle": "Medium tractors" },
+          { "name": "NAVIGATOR 4000", "brand": "Hardi", "category": "SPRAYERS", "categoryTitle": "Sprayers", "workingWidth": 30, "speedLimit": 12 }
+        ]
+      },
+      {
+        "id": "o-stones-61", "type": "stonePickMission", "title": "Pick stones", "npc": "Hofgut Solek", "location": "Field 61",
+        "status": "offer", "x": 417.0, "z": -311.0, "fieldId": 61, "areaHa": 1.89, "reward": 1800,
+        "minutesLeft": 6100
+      }
+    ],
+    "tools": [
+      { "id": 401, "name": "Juwel 8", "brand": "Lemken", "category": "PLOWS", "categoryTitle": "Ploughs", "workingWidth": 2.4, "speedLimit": 12 },
+      { "id": 402, "name": "PW 100", "brand": "Kverneland", "category": "PLOWS", "categoryTitle": "Ploughs", "workingWidth": 3.0, "speedLimit": 11 },
+      { "id": 403, "name": "Cirrus 6003-2", "brand": "Amazone", "category": "SEEDERS", "categoryTitle": "Seeders", "workingWidth": 6, "speedLimit": 15 },
+      { "id": 404, "name": "K105", "brand": "Bredal", "category": "FERTILIZERSPREADERS", "categoryTitle": "Fertilizer spreaders", "workingWidth": 24, "speedLimit": 15 },
+      { "id": 405, "name": "NAVIGATOR 4000", "brand": "Hardi", "category": "SPRAYERS", "categoryTitle": "Sprayers", "workingWidth": 24, "speedLimit": 12 },
+      { "id": 406, "name": "Varifeed 10.7 m", "brand": "New Holland", "category": "CUTTERS", "categoryTitle": "Headers", "workingWidth": 10.7, "speedLimit": 10 }
+    ]
+  }
+}

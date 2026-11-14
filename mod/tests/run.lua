@@ -4111,6 +4111,307 @@ test("sprayer: unfolded with the engine off, Turn on stays, faded with the game'
     g_inputBinding = nil
 end)
 
+-- Contracts (specs/0018-contracts.md): read-only ------------------------------
+
+-- a mission that fails the test when anything is written to it; `calls`
+-- counts the reads that would change the game's state
+local function fakeMission(fields, calls)
+    local m = {}
+    for k, v in pairs(fields) do
+        m[k] = v
+    end
+    m.getCompletion = function()
+        calls.getCompletion = (calls.getCompletion or 0) + 1
+        error("getCompletion drives the field's completion modifier")
+    end
+    m.tryToResolveSellingStation = function()
+        calls.tryToResolveSellingStation = (calls.tryToResolveSellingStation or 0) + 1
+        error("tryToResolveSellingStation sets the sell point")
+    end
+    return setmetatable(m, { __newindex = function(_, k) error("wrote mission." .. tostring(k)) end })
+end
+
+local function shallow(t)
+    local copy = {}
+    for k, v in pairs(t) do
+        copy[k] = v
+    end
+    return copy
+end
+
+local function contractsGame()
+    local calls = {}
+    local specLoads = {}
+    MissionStatus = { CREATED = 11, PREPARING = 12, RUNNING = 13, FINISHED = 14, DISMISSED = 15 }
+    MissionFinishState = { NONE = 20, SUCCESS = 21, FAILED = 22, TIMED_OUT = 23, CANCELED = 24 }
+    VehiclePropertyState = { OWNED = 2, LEASED = 3, MISSION = 4 }
+    MissionManager = { MAX_MISSIONS_PER_FARM = 3 }
+    AbstractMission = { SUCCESS_FACTOR = 0.95 }
+    HarvestMission = { SUCCESS_FACTOR = 0.93 }
+    BaleMission = { FILL_SUCCESS_FACTOR = 0.9 }
+    g_localPlayer = { farmId = 1 }
+    g_fillTypeManager = {
+        getFillTypeByIndex = function(_, i) return i == 6 and { name = "WHEAT", title = "Wheat" } or nil end,
+    }
+    g_brandManager = {
+        getBrandByIndex = function(_, i) return ({ { name = "NONE", title = "None" }, { name = "LEMKEN", title = "Lemken" } })[i] end,
+    }
+    local items = {
+        ["data/t7.xml"] = { name = "T7.315", brandIndex = 2, categoryName = "TRACTORSL", specs = {} },
+        -- the shop hasn't read this one's specs yet
+        ["data/juwel.xml"] = { name = "Juwel 8", brandIndex = 2, categoryName = "PLOWS", xmlFilename = "data/juwel.xml" },
+        ["data/karat.xml"] = { name = "Karat 9", brandIndex = 2, categoryName = "CULTIVATORS",
+            specs = { workingWidth = { width = 6, minWidth = 6 }, speedLimit = 12 } },
+        ["data/leased.xml"] = { name = "PW 100", brandIndex = 1, categoryName = "PLOWS",
+            specs = { workingWidth = { width = 3.3, minWidth = 3.3 }, speedLimit = 11 } },
+    }
+    g_storeManager = {
+        getItemByXMLFilename = function(_, file) return items[file] end,
+        getCategoryByName = function(_, name) return name == "PLOWS" and { title = "Ploughs" } or nil end,
+    }
+    StoreItemUtil = {
+        loadSpecsFromXML = function(item)
+            specLoads[#specLoads + 1] = item.name
+            item.specs = { workingWidth = { width = 2.4, minWidth = 2.4 }, speedLimit = 12 }
+        end,
+    }
+    local function field(id, ha, x, z)
+        return {
+            getId = function() return id end,
+            getAreaHa = function() return ha end,
+            getIndicatorPosition = function() return x, z end,
+            getName = function() return tostring(id) end,
+            fieldState = { fruitTypeIndex = 1 },
+            farmland = { getNPC = function() return { title = "Hofgut Solek" } end },
+        }
+    end
+    local function fieldMission(m)
+        local f = m.field
+        m.getWorldPosition = function() return f:getIndicatorPosition() end
+        m.getLocation = function() return "Field " .. f:getName() end
+        m.getNPC = function() return f.farmland:getNPC() end
+        return m
+    end
+    local offer = fakeMission(fieldMission({
+        type = { name = "plowMission" }, status = MissionStatus.CREATED, finishState = MissionFinishState.NONE,
+        completion = 0, field = field(12, 12.4, 100.04, -200.06),
+        vehiclesToLoad = { { filename = "data/t7.xml" }, { filename = "data/juwel.xml" } },
+        getUniqueId = function() return "m-offer" end,
+        getTitle = function() return "Plough" end,
+        getReward = function() return 18450.4 end,
+        getVehicleCosts = function() return 2100 end,
+        getMinutesLeft = function() return 3120.4 end,
+    }), calls)
+    local running = fakeMission(fieldMission({
+        type = { name = "cultivateMission" }, status = MissionStatus.RUNNING, finishState = MissionFinishState.NONE,
+        farmId = 1, completion = 0.87123, spawnedVehicles = false, field = field(7, 2.5, 10, 20),
+        vehiclesToLoad = {},
+        getUniqueId = function() return "m-run" end,
+        getTitle = function() return "Cultivate" end,
+        getReward = function() return 5000 end,
+        -- the game answers 0 without lease vehicles
+        getVehicleCosts = function() return 0 end,
+        getMinutesLeft = function() return 600 end,
+    }), calls)
+    local station = {
+        rootNode = 91,
+        getName = function() return "Grain mill" end,
+        getEffectiveFillTypePrice = function(_, fillType) return fillType == 6 and 0.2164 or 0 end,
+    }
+    local harvest = fakeMission(fieldMission({
+        type = { name = "harvestMission" }, status = MissionStatus.RUNNING, finishState = MissionFinishState.NONE,
+        farmId = 1, completion = 0.5, spawnedVehicles = true, field = field(3, 9.8, 30, 40),
+        vehiclesToLoad = { { filename = "data/leased.xml" } },
+        fillTypeIndex = 6, expectedLiters = 44000.4, depositedLiters = 20460.2, sellingStation = station,
+        getUniqueId = function() return "m-harvest" end,
+        getTitle = function() return "Harvest" end,
+        getReward = function() return 21400 end,
+        getVehicleCosts = function() return 700 end,
+        getMinutesLeft = function() return 1440 end,
+    }), calls)
+    local finished = fakeMission(fieldMission({
+        type = { name = "sowMission" }, status = MissionStatus.FINISHED, finishState = MissionFinishState.TIMED_OUT,
+        farmId = 1, completion = 0.4, spawnedVehicles = true, stealingCost = 120.6, field = field(5, 1, 50, 60),
+        vehiclesToLoad = { { filename = "data/t7.xml" } },
+        getUniqueId = function() return "m-done" end,
+        getTitle = function() return "Sow" end,
+        getReward = function() return 3000 end,
+        getVehicleCosts = function() return 350 end,
+        getReimbursement = function() return 80.2 end,
+        getMinutesLeft = function() return 0 end,
+    }), calls)
+    -- another farm's running contract, one already dismissed, and one whose
+    -- calls throw
+    local theirs = fakeMission(fieldMission({
+        type = { name = "plowMission" }, status = MissionStatus.RUNNING, farmId = 2, completion = 0.2,
+        field = field(8, 1, 0, 0), getUniqueId = function() return "m-theirs" end,
+        getTitle = function() return "Plough" end, getReward = function() return 1 end,
+    }), calls)
+    local dismissed = fakeMission(fieldMission({
+        type = { name = "plowMission" }, status = MissionStatus.DISMISSED, farmId = 1, completion = 1,
+        field = field(9, 1, 0, 0), getUniqueId = function() return "m-gone" end,
+        getTitle = function() return "Plough" end, getReward = function() return 1 end,
+    }), calls)
+    local broken = fakeMission({
+        type = { name = "plowMission" }, status = MissionStatus.CREATED,
+        getUniqueId = function() error("no id today") end,
+    }, calls)
+    -- a mission with no field (a mod's): the base class's 0, 0 isn't a place
+    local placeless = fakeMission({
+        type = { name = "deadwoodMission" }, status = MissionStatus.CREATED, completion = 0,
+        getUniqueId = function() return "m-wood" end,
+        getTitle = function() return "Deadwood" end,
+        getWorldPosition = function() return 0, 0 end,
+        getLocation = function() return "" end,
+        -- the base class's answer
+        getReward = function() return 0 end,
+        getVehicleCosts = function() return 0 end,
+    }, calls)
+    local missions = { offer, broken, running, harvest, theirs, finished, dismissed, placeless }
+    g_missionManager = { getMissions = function() return missions end }
+    getWorldTranslation = function(node)
+        if node == 91 then return 173.04, 5, 971.46 end
+        return nil
+    end
+    local function owned(id, file, state, farm)
+        return { id = id, configFileName = file, propertyState = state,
+            getOwnerFarmId = function() return farm end }
+    end
+    g_currentMission = { vehicleSystem = { vehicles = {
+        owned(41, "data/karat.xml", VehiclePropertyState.OWNED, 1),
+        owned(40, "data/juwel.xml", VehiclePropertyState.OWNED, 1),
+        -- a tractor has no working width: not a tool
+        owned(42, "data/t7.xml", VehiclePropertyState.OWNED, 1),
+        -- a leased plough of the contract carries your farm id
+        owned(43, "data/leased.xml", VehiclePropertyState.MISSION, 1),
+        owned(44, "data/karat.xml", VehiclePropertyState.OWNED, 2),
+    } } }
+    return missions, calls, specLoads
+end
+
+test("contracts: missions as the dashboard's shape, read only (specs/0018)", function()
+    local missions, calls, specLoads = contractsGame()
+    load("src/collectors/Contracts.lua")
+    local collector = Companion.Collectors.Contracts
+    eq(collector.topic, "contracts")
+    eq(collector.interval, 2000)
+    collector.reset()
+    local before = {}
+    for i, m in ipairs(missions) do
+        before[i] = shallow(m)
+    end
+    local data = collector.collect({})
+    eq(data.limit, 3, "the game's per-farm limit")
+    eq(Json.encode(data.factors), '{"bale":0.9,"field":0.95,"harvest":0.93}', "the success factors, read")
+
+    local byId = {}
+    for _, item in ipairs(data.items) do
+        byId[item.id] = item
+    end
+    eq(#data.items, 5, "the offer, two running, the finished one, the placeless one")
+    eq(byId["m-theirs"], nil, "another farm's contract is left out")
+    eq(byId["m-gone"], nil, "a dismissed one is left out")
+    eq(data.items[1].id, "m-done", "sorted by id")
+
+    eq(Json.encode(byId["m-offer"]), '{"areaHa":12.4,"fieldId":12,"fruitTypeIndex":1,"id":"m-offer",'
+        .. '"location":"Field 12","minutesLeft":3120,"npc":"Hofgut Solek","reward":18450,"status":"offer",'
+        .. '"title":"Plough","type":"plowMission","vehicleCosts":2100,"vehicles":['
+        .. '{"brand":"Lemken","category":"TRACTORSL","name":"T7.315"},'
+        .. '{"brand":"Lemken","category":"PLOWS","categoryTitle":"Ploughs","name":"Juwel 8","speedLimit":12,"workingWidth":2.4}],'
+        .. '"x":100,"z":-200.1}', "an offer: no mine, no completion")
+
+    local run = byId["m-run"]
+    eq(run.status, "running")
+    eq(run.mine, true)
+    eq(run.leased, false, "your own machines")
+    eq(run.completion, 0.8712, "the completion the game keeps")
+    eq(run.vehicleCosts, nil, "no lease vehicles: no cost, not 0")
+    eq(run.vehicles, nil)
+
+    local harvest = byId["m-harvest"]
+    eq(harvest.leased, true)
+    eq(harvest.fillType, "WHEAT")
+    eq(harvest.fillTitle, "Wheat")
+    eq(harvest.expectedLiters, 44000)
+    eq(harvest.depositedLiters, 20460)
+    eq(Json.encode(harvest.sellPoint), '{"name":"Grain mill","price":0.2164,"x":173,"z":971.5}')
+    eq(Json.encode(harvest.vehicles), '[{"category":"PLOWS","categoryTitle":"Ploughs","name":"PW 100","speedLimit":11,"workingWidth":3.3}]',
+        "no brand for NONE")
+
+    local done = byId["m-done"]
+    eq(done.status, "finished")
+    eq(done.finishState, "timedOut")
+    eq(done.reimbursement, 80)
+    eq(done.stealingCost, 121)
+    eq(done.completion, 0.4)
+
+    local wood = byId["m-wood"]
+    eq(wood.x, nil, "0, 0 is the base class's answer, not a place")
+    eq(wood.fieldId, nil)
+    eq(wood.minutesLeft, nil, "no deadline: left out")
+    eq(wood.reward, nil, "a reward of 0 is no reward known")
+    eq(wood.vehicleCosts, nil)
+
+    eq(Json.encode(data.tools), '[{"brand":"Lemken","category":"PLOWS","categoryTitle":"Ploughs","id":40,"name":"Juwel 8","speedLimit":12,"workingWidth":2.4},'
+        .. '{"brand":"Lemken","category":"CULTIVATORS","id":41,"name":"Karat 9","speedLimit":12,"workingWidth":6}]',
+        "your farm's tools with a working width: no tractor, no leased one, no other farm's")
+
+    eq(calls.getCompletion, nil, "getCompletion is never called")
+    eq(calls.tryToResolveSellingStation, nil, "tryToResolveSellingStation is never called")
+    for i, m in ipairs(missions) do
+        for k, v in pairs(before[i]) do
+            assert(rawequal(m[k], v), "mission " .. i .. " changed at " .. tostring(k))
+        end
+        for k in pairs(m) do
+            assert(before[i][k] ~= nil, "mission " .. i .. " gained " .. tostring(k))
+        end
+    end
+    eq(table.concat(specLoads, ","), "Juwel 8", "a shop item's specs are read once")
+    collector.collect({})
+    eq(#specLoads, 1, "and kept")
+end)
+
+test("contracts: shop specs load a few a tick; nothing without the game's parts (specs/0018)", function()
+    local _, _, specLoads = contractsGame()
+    load("src/collectors/Contracts.lua")
+    local collector = Companion.Collectors.Contracts
+    collector.reset()
+    -- six lease vehicles the shop hasn't read yet
+    local vehicles = {}
+    local store = g_storeManager
+    local items = {}
+    for i = 1, 6 do
+        items["data/v" .. i .. ".xml"] = { name = "V" .. i, categoryName = "PLOWS" }
+        vehicles[i] = { filename = "data/v" .. i .. ".xml" }
+    end
+    store.getItemByXMLFilename = function(_, file) return items[file] end
+    g_currentMission = { vehicleSystem = { vehicles = {} } }
+    g_missionManager = { missions = { {
+        type = { name = "plowMission" }, status = MissionStatus.CREATED, vehiclesToLoad = vehicles,
+        getUniqueId = function() return "m1" end, getTitle = function() return "Plough" end,
+        getVehicleCosts = function() return 600 end,
+    } } }
+    local first = collector.collect({})
+    eq(#specLoads, 2, "two shop files a tick at most")
+    eq(#first.items[1].vehicles, 6, "every vehicle is listed at once")
+    eq(first.items[1].vehicles[6].workingWidth, nil, "its width comes later")
+    collector.collect({})
+    collector.collect({})
+    eq(#specLoads, 6)
+    eq(collector.collect({}).items[1].vehicles[6].workingWidth, 2.4)
+    eq(#specLoads, 6, "each once")
+
+    -- the status names are the game's: without them nothing can be told apart
+    MissionStatus = nil
+    eq(#collector.collect({}).items, 0, "no status: no contract, no error")
+    MissionManager, AbstractMission, HarvestMission, BaleMission = nil, nil, nil, nil
+    local bare = collector.collect({})
+    eq(bare.limit, nil)
+    eq(bare.factors, nil)
+    g_missionManager = nil
+    eq(collector.collect({}), nil, "no mission manager: no topic")
+end)
+
 test("whole mod streams every topic", function()
     if TMP_DIR == nil then
         print("skip whole-mod test (no TMP_DIR)")
@@ -4128,6 +4429,7 @@ test("whole mod streams every topic", function()
     load("src/collectors/FieldOutlines.lua")
     load("src/collectors/Fields.lua")
     load("src/collectors/Cab.lua")
+    load("src/collectors/Contracts.lua")
     load("src/Companion.lua")
     local mod = getListener()
     assert(mod ~= nil, "registered as a mod event listener")
@@ -4250,6 +4552,7 @@ test("acks survive a rotation", function()
     local player, vehicle, getListener = stubGame()
     load("src/collectors/Hello.lua")
     load("src/collectors/Cab.lua")
+    load("src/collectors/Contracts.lua")
     load("src/Companion.lua")
     local mod = getListener()
     local stream = TMP_DIR .. "/FS25_Companion/stream.ndjson"

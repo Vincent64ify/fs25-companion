@@ -39,7 +39,7 @@ src/
                   (their keys; setters only where the game has none)
   collectors/     one file per topic (Hello, Env, Player, Vehicles,
                   Hotspots, Farmlands, FarmlandGrid, CropTypes,
-                  FieldOutlines, Fields, Cab)
+                  FieldOutlines, Fields, Cab, Contracts)
   collectors/vehicles/  the vehicles topic's parts: Fill, Motor, Tools, Loader
   Companion.lua   bootstrap (loaded last)
 tests/run.lua     offline tests with a stubbed game
@@ -71,6 +71,7 @@ What each topic's data holds is described once, in
 | `field_outlines` | once per map, and after each rotation | each field's outline in world meters |
 | `fields` | every 15 s | each field's state (fruit, growth, ground, spray, lime, plow, roller, stubble, weeds, stones), farmland, sign position, area |
 | `cab` | every frame, sent only on change | what the controls show: lights, engine, cruise, AI worker, the rig (the vehicle and every attached tool, with what each can do and its state) |
+| `contracts` | every 2 s | the game's contracts, read-only: the ones on offer and your farm's, each with its reward, lease price and vehicles, time left, completion, expected and delivered litres and sell point; the per-farm limit, the game's success factors, and your own tools with a working width ([spec 0018](../specs/0018-contracts.md)) |
 | `command_ack` | the frame a command runs, with `cab` | the command's number and `ref`, ok or the reason, what ran (`via`), `already` when nothing had to |
 
 A collector whose API call fails drops only its own topic (or a single

@@ -130,6 +130,85 @@ function Api.fieldId(field)
     return type(id) == "number" and id or nil
 end
 
+-- specs/0018, contracts. Every name below is from the game's own scripts
+-- (gameSource.zip: dataS/scripts/missions/) or FS25_BetterContracts, none
+-- verified in game yet.
+
+-- every mission the game holds, as an array, or nil: MissionManager's
+-- getMissions(), else its missions table
+function Api.missions()
+    local manager = g_missionManager
+    if type(manager) ~= "table" then
+        return nil
+    end
+    local list = Api.tryCall(manager, "getMissions")
+    if type(list) ~= "table" then
+        list = manager.missions
+    end
+    return type(list) == "table" and Api.listOf(list) or nil
+end
+
+-- the game's enums are blanked in gameSource.zip: compared at run time
+local MISSION_STATUS = { CREATED = "offer", PREPARING = "preparing", RUNNING = "running", FINISHED = "finished" }
+local MISSION_FINISH = { SUCCESS = "success", FAILED = "failed", TIMED_OUT = "timedOut", CANCELED = "canceled" }
+
+local function enumName(enum, value, names)
+    if type(enum) ~= "table" or value == nil then
+        return nil
+    end
+    for key, name in pairs(names) do
+        if enum[key] ~= nil and enum[key] == value then
+            return name
+        end
+    end
+    return nil
+end
+
+-- "offer", "preparing", "running" or "finished"; nil for a dismissed one
+-- and when the game's MissionStatus isn't there
+function Api.missionStatus(mission)
+    return enumName(MissionStatus, mission.status, MISSION_STATUS)
+end
+
+-- "success", "failed", "timedOut" or "canceled", or nil
+function Api.missionFinishState(mission)
+    return enumName(MissionFinishState, mission.finishState, MISSION_FINISH)
+end
+
+-- how many contracts one farm may hold, or nil
+function Api.missionLimit()
+    local limit = type(MissionManager) == "table" and MissionManager.MAX_MISSIONS_PER_FARM or nil
+    return type(limit) == "number" and limit > 0 and limit or nil
+end
+
+local function factorOf(class, key)
+    local value = type(class) == "table" and class[key] or nil
+    return type(value) == "number" and value > 0 and value <= 1 and value or nil
+end
+
+-- the share that counts as done: of a field worked (AbstractMission), of a
+-- harvest's expected litres delivered (HarvestMission), of a baling
+-- contract's (BaleMission; the last two from BetterContracts). nil when
+-- none is there.
+function Api.missionFactors()
+    local out = {
+        field = factorOf(AbstractMission, "SUCCESS_FACTOR"),
+        harvest = factorOf(HarvestMission, "SUCCESS_FACTOR"),
+        bale = factorOf(BaleMission, "FILL_SUCCESS_FACTOR"),
+    }
+    return next(out) ~= nil and out or nil
+end
+
+-- a shop item's specs (item.specs: workingWidth, speedLimit ...), loaded
+-- from its xml as the shop does when it lists the item
+-- (StoreItemUtil.loadSpecsFromXML); the game clears them at start
+function Api.loadShopSpecs(item)
+    if type(StoreItemUtil) ~= "table" or type(StoreItemUtil.loadSpecsFromXML) ~= "function" then
+        return
+    end
+    pcall(StoreItemUtil.loadSpecsFromXML, item)
+end
+
 -- a node's x in another node's frame (the engine's localToLocal), or nil;
 -- for the work areas' spans (specs/0013 revision 3, unverified there)
 function Api.localX(node, toNode)

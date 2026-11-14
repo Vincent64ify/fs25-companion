@@ -144,7 +144,7 @@ The regular layout, for tablets:
 │   Map: the map, with a toolbar on its edge                 │ ▢ ▢ ▢          │
 │   Vehicle: the rig strip, the tool cards, the field panel  │ ▢ ▢            │
 ├────────────────────────────────────────────────────────────┴────────────────┤
-│  [ MAP ]  [ VEHICLE ▾ ]            speed · gear · fuel · …   (the readout)  │
+│  [ MAP ]  [ VEHICLE ▾ ]  [ CONTRACTS 2 ]   speed · gear · fuel · … (readout) │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -157,12 +157,15 @@ The regular layout, for tablets:
   screen: Lights (Lights, High beam, Beacon, Hazard, Turn L, Turn R) and
   Drive (Cruise −, Cruise, Cruise +, Engine, AI worker, Attach: two rows
   of three, [spec 0016](../specs/0016-attach.md)). The Vehicle page
-  adds All tools with two working tools or more.
+  adds All tools with two working tools or more. One page has no column:
+  Contracts ([spec 0018](../specs/0018-contracts.md)) takes the whole
+  width, since choosing a contract isn't done while driving.
 - **Tab bar:** one tab per screen, designed for up to seven like the real
   terminal. Every tab shows its icon and label whenever they fit; only
   when the bar runs out of room (compact) do the unselected tabs drop to
   icons. The rest of the bar is the readout: the tractor's numbers for the
-  screen that shows (see Layout grid).
+  screen that shows (see Layout grid). A tab can carry a count in a small
+  pill (Contracts: the ones you're doing), `warn` when one needs a look.
 - **Compact** (narrower than 900 px, or portrait): the same status bar and
   tab bar; the screen on top, then the control groups docked under it,
   side by side.
@@ -305,6 +308,20 @@ their keys are seen in game.
   band's "until full" turns orange and pulses.
 - **Narrow screens:** one column, the panel 240 tall after the Header
   card.
+
+### Contracts
+
+The whole main area, no control column and no readout
+([spec 0018](../specs/0018-contracts.md), after the canvas "FS25
+Companion: Contracts", version 9). On the left two wells of 44-tall
+segments (With lease / Own machines; the sort: Per hour, Net, Left,
+Distance) over the list, as wide as it: Yours, then On offer, a card per
+contract with its numbers in one stat line. Beside them the detail tile,
+560 wide and the page's full height, two columns inside (Money and
+Deadline; Progress or Work, then the vehicles): it fits the iPad mini's
+1158 × 676 without scrolling. Compact: the list alone, the detail over it
+with Back. Elsewhere: a row on the field panels, a pin per contract on the
+map (filled: yours; outlined: on offer).
 
 ## The map in themes
 

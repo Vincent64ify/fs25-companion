@@ -2094,3 +2094,317 @@ button.day-clock[aria-expanded="true"] .day-clock-when { color: inherit; opacity
 .round-trip { display: flex; justify-content: space-between; align-items: baseline; font-size: 15px; }
 .round-trip-value { font-size: 20px; font-variant-numeric: tabular-nums; }
 .round-trip-detail { font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
+
+/* --- Contracts (specs/0018): the page, the tab's count, the field panels'
+   row, the map's pins (widgets/contractsScreen.js, map/layers/contractsLayer.js).
+   The first page without the control column: the list and the detail take
+   the whole width ------------------------------------------------------------ */
+
+.screen[data-screen="contracts"] { display: grid; padding: 12px; }
+.contracts { display: flex; gap: 12px; min-width: 0; min-height: 0; }
+.ct-side { flex: 1; display: flex; flex-direction: column; gap: 12px; min-width: 0; min-height: 0; }
+
+/* the switches: two wells, like the game speed panel's steps, as wide as
+   the list under them, so the detail beside takes the page's full height */
+.ct-top { display: flex; flex: none; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
+.ct-well { display: flex; gap: 4px; padding: 4px; border-radius: 16px; background: var(--line); }
+.ct-seg {
+  min-width: 0;
+  height: 44px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  color: var(--text);
+  font: 600 14px/1 var(--font);
+  white-space: nowrap;
+  cursor: pointer;
+  touch-action: manipulation;
+  transition: background var(--t-base) var(--ease), box-shadow var(--t-base) var(--ease), transform var(--t-fast) var(--ease);
+}
+.ct-seg:active { transform: scale(0.96); }
+.ct-seg[aria-pressed="true"] {
+  background: var(--card-solid);
+  color: var(--sel-ink);
+  font-weight: 700;
+  box-shadow: inset 0 0 0 2px var(--select), 0 1px 2px rgba(12, 45, 107, 0.15), 0 4px 10px rgba(12, 45, 107, 0.12);
+}
+:root[data-palette="night"] .ct-seg[aria-pressed="true"] { background: var(--sel-tint); box-shadow: inset 0 0 0 2px var(--select); }
+.ct-label { font-size: 12px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+
+/* the list: Yours, then On offer */
+.ct-list {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+  min-height: 0;
+  padding: 2px 4px 12px 2px;
+  overflow-y: auto;
+  scrollbar-width: none;
+}
+.ct-list::-webkit-scrollbar, .ct-detail::-webkit-scrollbar { display: none; }
+.ct-group { display: flex; align-items: baseline; gap: 10px; margin: 6px 4px 0; }
+.ct-group:first-child { margin-top: 0; }
+.ct-note { font-size: 13px; color: var(--muted); }
+.ct-empty { margin: 8px 4px; font-size: 14px; color: var(--muted); }
+.ct-row {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 12px 16px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: var(--card);
+  color: var(--text);
+  box-shadow: var(--lift);
+  font-family: var(--font);
+  text-align: left;
+  cursor: pointer;
+  touch-action: manipulation;
+  transition: box-shadow var(--t-base) var(--ease), transform var(--t-fast) var(--ease);
+}
+.ct-row:active { transform: scale(0.99); }
+/* the row whose detail shows: where you are, an outline (specs/0010) */
+.ct-row[aria-pressed="true"] { border-color: transparent; background: var(--sel-tint); color: var(--sel-ink); box-shadow: inset 0 0 0 2px var(--select); }
+.ct-row-head { display: flex; align-items: baseline; gap: 10px; min-width: 0; }
+.ct-title { font-size: 16px; font-weight: 700; white-space: nowrap; }
+.ct-sub { flex: 1; min-width: 0; overflow: hidden; font-size: 13px; color: var(--muted); text-overflow: ellipsis; white-space: nowrap; }
+.ct-row[aria-pressed="true"] .ct-sub { color: inherit; opacity: 0.75; }
+/* the numbers in one line, as the cards' stats (specs/0013 revision 8) */
+.ct-stats { display: flex; flex-wrap: wrap; column-gap: 14px; row-gap: 2px; font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.ct-stats b { font-size: 15px; font-weight: 700; color: var(--text); }
+.ct-row[aria-pressed="true"] .ct-stats, .ct-row[aria-pressed="true"] .ct-stats b { color: inherit; }
+.ct-stats .ct-warn, .ct-stats .ct-warn b { color: var(--warn); }
+.ct-stats .ct-extra b { color: var(--ok); }
+.ct-progress, .ct-big { display: flex; align-items: center; gap: 12px; }
+.ct-meter { flex: 1; height: 8px; overflow: hidden; border-radius: 4px; background: var(--line); }
+.ct-row[aria-pressed="true"] .ct-meter { background: color-mix(in srgb, var(--sel-ink) 14%, transparent); }
+.ct-meter > span { display: block; height: 100%; border-radius: 4px; background: var(--ok-fill); }
+.ct-meter[data-tone="warn"] > span { background: var(--warn-fill); }
+.ct-big .ct-meter { height: 12px; border-radius: 6px; }
+.ct-pct { min-width: 52px; font-size: 18px; font-weight: 700; font-variant-numeric: tabular-nums; text-align: right; }
+.ct-big .ct-pct { font-size: 28px; }
+.ct-chip {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  height: 22px;
+  padding: 0 10px;
+  border-radius: 999px;
+  background: var(--chip-off-bg);
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.ct-chip[data-tone="on"] { background: var(--chip-on-bg); color: var(--chip-on-text); }
+.ct-chip[data-tone="warn"] { background: var(--warn-bg); color: var(--warn); box-shadow: inset 0 0 0 1px var(--warn-border); }
+
+/* the detail: 560 wide, the page's full height, two columns inside (money
+   and deadline; progress or work, then the vehicles), so it fits an iPad
+   mini without scrolling */
+.ct-detail {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 560px;
+  min-height: 0;
+  box-sizing: border-box;
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: var(--card);
+  box-shadow: var(--lift);
+  overflow-y: auto;
+  scrollbar-width: none;
+}
+.ct-d-head { display: flex; align-items: center; gap: 12px; }
+.ct-d-name { flex: 1; display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.ct-d-title { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; font-size: 20px; font-weight: 700; }
+.ct-d-sub { font-size: 13px; color: var(--muted); }
+.ct-d-cols { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 20px; align-items: start; }
+.ct-d-col { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.ct-sec { display: flex; flex-direction: column; gap: 5px; padding-top: 10px; border-top: 1px solid var(--line); }
+.ct-kv { display: flex; align-items: baseline; gap: 10px; font-size: 14px; font-variant-numeric: tabular-nums; }
+.ct-k { flex: 1; color: var(--muted); }
+.ct-v { font-weight: 600; text-align: right; }
+.ct-kv[data-strong="true"] .ct-k { color: var(--text); font-weight: 600; }
+.ct-kv[data-strong="true"] .ct-v { font-size: 18px; font-weight: 700; }
+.ct-kv[data-tone="ok"] .ct-v { color: var(--ok); }
+.ct-kv[data-tone="warn"] :is(.ct-k, .ct-v) { color: var(--warn); }
+.ct-why { font-size: 13px; line-height: 1.4; color: var(--muted); }
+.ct-why[data-tone="warn"] { color: var(--warn); }
+.ct-btn {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 48px;
+  padding: 0 14px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: var(--btn);
+  color: var(--tool-ink);
+  box-shadow: var(--lift);
+  font: 600 14px/1 var(--font);
+  cursor: pointer;
+  touch-action: manipulation;
+  transition: transform var(--t-fast) var(--ease);
+}
+.ct-btn:active { transform: scale(0.97); }
+.ct-btn .icon { width: 20px; height: 20px; flex: none; }
+/* Back: only where the detail lies over the list (compact) */
+.ct-back { display: none; }
+
+/* your tool for the job (own machines), and the lease's vehicles */
+.ct-tools { display: flex; flex-direction: column; gap: 4px; padding: 4px; border-radius: 16px; background: var(--line); }
+.ct-tool {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 48px;
+  box-sizing: border-box;
+  padding: 6px 12px;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  color: var(--text);
+  font: 500 14px/1.25 var(--font);
+  text-align: left;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+.ct-tool[aria-pressed="true"] { background: var(--card-solid); color: var(--sel-ink); box-shadow: inset 0 0 0 2px var(--select); font-weight: 600; }
+:root[data-palette="night"] .ct-tool[aria-pressed="true"] { background: var(--sel-tint); }
+.ct-tool-name { flex: 1; min-width: 0; }
+.ct-tool-spec, .ct-veh-spec { display: block; font-size: 12px; font-weight: 500; color: var(--muted); }
+.ct-tool-time { font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.ct-veh { display: flex; align-items: center; gap: 10px; font-size: 14px; }
+.ct-veh-name { flex: 1; min-width: 0; font-weight: 600; }
+.ct-icon { flex: none; display: grid; place-items: center; width: 32px; height: 32px; border-radius: 10px; background: var(--badge-off); color: var(--badge-off-ink); }
+.ct-icon .icon { width: 20px; height: 20px; }
+
+/* the tab's count: the contracts you're doing; warn when one won't make it */
+.tab-count {
+  flex: none;
+  margin-left: -2px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--chip-on-bg);
+  color: var(--chip-on-text);
+  font-size: 13px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.tab-count[data-tone="warn"] { background: var(--warn-bg); color: var(--warn); box-shadow: inset 0 0 0 1px var(--warn-border); }
+
+/* the field panels' row for a running contract (the Vehicle pages' panel
+   and the Map's land panel): a button, a tap opens the Contracts page */
+.field-contracts { display: flex; flex-direction: column; gap: 6px; }
+.field-contract {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 48px;
+  box-sizing: border-box;
+  padding: 6px 10px 6px 12px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--btn);
+  color: var(--text);
+  box-shadow: var(--lift);
+  font: 500 13px/1.3 var(--font);
+  text-align: left;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+.field-contract-text { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+.field-contract-text > b { font-size: 14px; font-weight: 700; }
+.field-contract-text > span { color: var(--muted); }
+.field-contract[data-tone="warn"] .field-contract-text > span { color: var(--warn); }
+.field-contract .icon { flex: none; width: 20px; height: 20px; color: var(--muted); }
+.field-info .field-contract { margin-top: 10px; }
+
+/* the map: a pin per contract, filled for yours, outlined for an offer */
+.ct-pin-box { overflow: visible; }
+.ct-pin {
+  position: absolute;
+  left: 0;
+  bottom: 6px;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  height: 30px;
+  padding: 0 10px;
+  border-radius: 999px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
+  font: 700 13px/1 var(--font);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.ct-pin::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: -5px;
+  z-index: -1;
+  width: 10px;
+  height: 10px;
+  background: inherit;
+  transform: translateX(-50%) rotate(45deg);
+}
+.ct-pin[data-mine="true"] { background: #0C2D6B; color: #FFFFFF; }
+.ct-pin[data-mine="true"][data-tone="warn"] { background: #A15800; }
+.ct-pin[data-mine="false"] { background: #FFFFFF; color: #0D1B33; box-shadow: inset 0 0 0 2px #0C2D6B, 0 2px 6px rgba(0, 0, 0, 0.35); }
+:root[data-palette="night"] .ct-pin[data-mine="true"] { background: #3C4966; }
+:root[data-palette="night"] .ct-pin[data-mine="true"][data-tone="warn"] { background: #8A5A12; }
+:root[data-palette="night"] .ct-pin[data-mine="false"] { background: #121A29; color: #E8EDF5; box-shadow: inset 0 0 0 2px #97A3B9, 0 2px 6px rgba(0, 0, 0, 0.5); }
+.ct-deliver {
+  position: absolute;
+  left: 0;
+  top: 14px;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  border-radius: 10px;
+  background: var(--glass);
+  color: var(--glass-text);
+  font: 600 12px/1.2 var(--font);
+  white-space: nowrap;
+}
+.ct-deliver .icon { width: 16px; height: 16px; }
+.ct-popup { display: flex; flex-direction: column; gap: 6px; font-family: var(--font); }
+.ct-popup > b { font-size: 15px; }
+.ct-popup-sub { font-size: 12px; color: var(--muted); }
+.ct-popup-line { font-size: 13px; font-variant-numeric: tabular-nums; }
+.ct-popup .ct-btn { height: 44px; margin-top: 4px; }
+
+/* compact (narrower than 900 px, or portrait): the list alone; a tap opens
+   the detail over it, with Back */
+@media (max-width: 899px), (orientation: portrait) {
+  .contracts { position: relative; }
+  .ct-detail { display: none; width: auto; }
+  .contracts[data-open="true"] .ct-side { display: none; }
+  .contracts[data-open="true"] .ct-detail { display: flex; flex: 1; }
+  .ct-back { display: flex; }
+  .ct-d-head { flex-wrap: wrap; }
+}
+/* a narrow detail: one column */
+@media (max-width: 599px) {
+  .ct-d-cols { grid-template-columns: minmax(0, 1fr); }
+  .ct-show { width: 100%; }
+}
+@media (prefers-reduced-motion: reduce) { .ct-seg, .ct-row, .ct-btn { transition: none; } }

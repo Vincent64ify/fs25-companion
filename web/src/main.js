@@ -8,7 +8,7 @@
 
 import { connect, roundTrips } from "./connection.js";
 import { createStore } from "./store.js";
-import { addCursorReadout, createMapView, remeasure } from "./map/mapView.js";
+import { addCursorReadout, createMapView, remeasure, worldToLatLng } from "./map/mapView.js";
 import { createMapFrame } from "./map/mapFrame.js";
 import { createOverviewLayer } from "./map/overviewLayer.js";
 import { createFollow } from "./map/followControl.js";
@@ -20,6 +20,7 @@ import { createFieldsLayer } from "./map/layers/fieldsLayer.js";
 import { createHotspotsLayer } from "./map/layers/hotspotsLayer.js";
 import { createVehiclesLayer } from "./map/layers/vehiclesLayer.js";
 import { createPlayerLayer } from "./map/layers/playerLayer.js";
+import { createContractsLayer } from "./map/layers/contractsLayer.js";
 import { createFieldInfoPanel } from "./panels/fieldInfoPanel.js";
 import { chooseTheme, saveChoice, savedChoice, savedScreen, THEMES, withoutParams } from "./themes/registry.js";
 import { renderTheme } from "./themes/render.js";
@@ -127,6 +128,7 @@ const layers = [
   player,
   vehicles,
   createHotspotsLayer(map, store),
+  createContractsLayer(map, store),
   createFieldsLayer(map, store, { farmlandAt: farmlands.farmlandAt }),
   farmlands,
 ];
@@ -138,6 +140,38 @@ fadeIdleControls(map);
 createFieldInfoPanel(store, frame.fieldInfo);
 
 keepPopupsInside(map, { avoid: frame.fieldInfo, inset: TOOLBAR_INSET });
+
+// a widget asked for a screen, and maybe a place on the map (the Contracts
+// page's Show on the map): the renderer has switched; stop following, so
+// the view isn't pulled back to you, and centre there, close enough to see
+// the field
+const GOTO_ZOOM = 0;
+store.subscribe("goto", (/** @type {{screen?: string, at?: {x: number, z: number}}|undefined} */ go) => {
+  if (!go) return;
+  if (go.at && typeof go.at.x === "number" && typeof go.at.z === "number") {
+    const target = worldToLatLng(go.at.x, go.at.z);
+    const centre = () => {
+      // still where it was sent, not following again since
+      if (store.get("goto") !== go || follow.following()) return;
+      remeasure(map, { animate: false });
+      // a map that has only been hidden since the page loaded has no real zoom yet
+      const zoom = map.getZoom();
+      const at = map.getCenter();
+      if (Number.isFinite(zoom) && zoom >= GOTO_ZOOM && Math.abs(at.lat - target[0]) < 1 && Math.abs(at.lng - target[1]) < 1) return;
+      map.setView(target, Number.isFinite(zoom) ? Math.max(zoom, GOTO_ZOOM) : GOTO_ZOOM, { animate: false });
+    };
+    follow.setFollowing(false);
+    centre();
+    // again as the map settles: the first time the Map shows after a load
+    // on another page, getting its size starts a zoom to the whole map,
+    // which ends after this. For a second, or until you drag it.
+    const stop = () => map.off("resize zoomend", centre);
+    map.on("resize zoomend", centre);
+    map.once("dragstart", stop);
+    setTimeout(stop, 1000);
+  }
+  if (go.screen) rememberScreen();
+});
 
 // --- animation -------------------------------------------------------------
 

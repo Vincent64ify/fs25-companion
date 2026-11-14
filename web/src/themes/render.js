@@ -8,6 +8,7 @@ import { controlGroup, CONTROLS } from "../widgets/controls.js";
 import { isHarvester } from "../widgets/harvesterScreen.js";
 import { hasLoader } from "../widgets/vehicleScreen.js";
 import { controlledVehicle } from "../data/selectors.js";
+import { runningCount } from "../data/contracts.js";
 import { h } from "../ui/dom.js";
 import { hasIcon, icon } from "../ui/icons.js";
 
@@ -46,12 +47,24 @@ import { hasIcon, icon } from "../ui/icons.js";
  * @property {string} [choice] its name in that tab's menu ("Vehicle")
  * @property {keyof typeof DETECT} [when] the tab picks this screen by itself
  *   while this holds, with the auto pick on
+ * @property {string} [count] a number on its tab, by a name in COUNTS
+ *   ("Contracts · 2")
  */
 
 /** What a screen's `when` can name: whether the store's state calls for it. */
 export const DETECT = {
   harvester: (/** @type {Store} */ store) => isHarvester(controlledVehicle(store)),
   loader: (/** @type {Store} */ store) => hasLoader(controlledVehicle(store)),
+};
+
+/**
+ * What a screen's `count` can name: a number on its tab (hidden at 0), in
+ * `warn` when something there needs a look, and the topics it reads.
+ * @type {Record<string, {topics: string[], read: (store: Store) => {count: number, warn: boolean}}>}
+ */
+export const COUNTS = {
+  // the contracts you're doing; warn when one won't make its deadline (specs/0018)
+  contracts: { topics: ["contracts", "contractPrefs", "env", "cab"], read: runningCount },
 };
 
 /**
@@ -132,6 +145,7 @@ export function checkTheme(theme, widgetIds = Object.keys(WIDGETS)) {
       errors.push(`screen ${screen.id}: no tab "${screen.tab}"`);
     }
     if (screen.when !== undefined && !(screen.when in DETECT)) errors.push(`screen ${screen.id}: no detector "${screen.when}"`);
+    if (screen.count !== undefined && !(screen.count in COUNTS)) errors.push(`screen ${screen.id}: no count "${screen.count}"`);
     let maps = 0;
     for (const slot of flatSlots(screen.slots)) {
       if ("map" in slot) maps++;
@@ -195,7 +209,7 @@ export function renderTheme(theme, app, store, frame, settings, autoPick) {
   /** the tab each screen is on: its own, or the one it shares */
   const tabOf = (/** @type {Screen} */ screen) => screen.tab || screen.id;
   /** @typedef {{button: HTMLElement, screens: Screen[], pick: string, menu: HTMLElement|null,
-   *   away: ((ev: Event) => void)|null}} TabGroup */
+   *   away: ((ev: Event) => void)|null, name: string, count: number}} TabGroup */
   /** @type {Map<string, TabGroup>} */
   const tabGroups = new Map();
   const main = h("main", { className: "screens" });
@@ -256,10 +270,26 @@ export function renderTheme(theme, app, store, frame, settings, autoPick) {
       tab.title = screen.label;
       tab.dataset.screen = screen.id;
       /** @type {TabGroup} */
-      const group = { button: tab, screens: [screen], pick: screen.id, menu: null, away: null };
+      const group = { button: tab, screens: [screen], pick: screen.id, menu: null, away: null, name: screen.label, count: 0 };
       tabGroups.set(screen.id, group);
       tab.addEventListener("click", () => tapTab(group));
       tabList.append(tab);
+      const counter = screen.count ? COUNTS[screen.count] : undefined;
+      if (counter) {
+        // its own element: the label is rewritten by setPick, and only the count turns warn
+        const badge = h("span", { className: "tab-count", hidden: true });
+        tab.append(badge);
+        const update = () => {
+          const { count, warn } = counter.read(store);
+          group.count = count;
+          badge.hidden = !count;
+          badge.textContent = String(count);
+          if (warn) badge.dataset.tone = "warn";
+          else delete badge.dataset.tone;
+          nameTab(group);
+        };
+        for (const topic of counter.topics) store.subscribe(topic, update);
+      }
     }
     const readout = screen.readout?.length
       ? h("div", { className: "tab-readout", hidden: true }, ...widgets(screen.readout))
@@ -273,6 +303,13 @@ export function renderTheme(theme, app, store, frame, settings, autoPick) {
     built.set(screen.id, { el, mapSlot, tab, readout });
   }
   if (settings) main.append(settings.layer);
+
+  /** The tab's full name, with its count: "Contracts · 2". @param {TabGroup} group */
+  function nameTab(group) {
+    const name = group.count ? `${group.name} · ${group.count}` : group.name;
+    group.button.title = name;
+    group.button.setAttribute("aria-label", name);
+  }
 
   // a shared tab: a tap shows its screen (the one picked), a tap on the
   // tab already shown opens the menu of its screens
@@ -337,7 +374,8 @@ export function renderTheme(theme, app, store, frame, settings, autoPick) {
     const name = screen === first ? first.label : `${first.label} · ${screen.choice || screen.label}`;
     const label = group.button.querySelector(".tab-label");
     if (label) label.textContent = name;
-    group.button.title = name;
+    group.name = name;
+    nameTab(group);
   }
 
   /** @param {string} id */
@@ -374,6 +412,12 @@ export function renderTheme(theme, app, store, frame, settings, autoPick) {
     }
   };
   store.subscribe("vehicles", autoDetect);
+
+  // a widget asks for another screen (the Contracts page's Show on the map,
+  // a field panel's contract row): the store's "goto" names it
+  store.subscribe("goto", (/** @type {{screen?: string}|undefined} */ go) => {
+    if (go?.screen && built.has(go.screen) && app.dataset.screen !== go.screen) showScreen(go.screen);
+  });
 
   app.replaceChildren(...[status, values, main, tabs].filter((el) => el !== null));
   if (screens.length) showScreen(screens[0].id);

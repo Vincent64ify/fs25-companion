@@ -1,5 +1,6 @@
 import json
 import time
+from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
@@ -106,6 +107,22 @@ def test_viewer_gets_snapshot_then_updates(setup):
         snap = recv(late)
         assert snap["type"] == "snapshot"
         assert set(snap["topics"]) == {"hello"}
+
+
+def test_contracts_reach_a_viewer_unchanged(setup):
+    """specs/0018: a topic the companion knows nothing about, as the mod wrote it."""
+    client, _, publish = setup
+    sample = json.loads((Path(__file__).resolve().parents[2] / "web" / "fixtures" / "contracts.json")
+                        .read_text(encoding="utf-8"))["contracts"]
+    assert sample["items"] and sample["tools"], "the sample has contracts and tools"
+    viewer = connect(client)
+    publish(hello())
+    publish(env("contracts", sample, seq=2))
+    assert recv(viewer)["envelope"]["topic"] == "hello"
+    assert recv(viewer) == {"type": "update", "envelope": env("contracts", sample, seq=2)}
+    # and in a late viewer's snapshot
+    with client.websocket_connect("/ws") as late:
+        assert recv(late)["topics"]["contracts"]["data"] == sample
 
 
 def test_one_read_goes_out_latest_per_topic_then_the_acks(setup):

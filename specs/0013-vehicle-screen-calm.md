@@ -181,8 +181,9 @@ changed.
 
 **What the player sees.**
 - **Only your fields.** The panel shows a field only when your farm owns
-  its farmland. On anyone else's field it's as off a field. Contracts and
-  helping another farm stay for their own spec (step 3 below).
+  its farmland, or (since [spec 0018](0018-contracts.md)) when it carries
+  one of your running contracts. On anyone else's field it's as off a
+  field. Helping another farm stays for its own spec (step 3 below).
 - **Leaving a field.** The panel keeps the field while the rig is inside
   the panel's view: the field plus its margin (15 % of its size a side, at
   least 25 m), the same box the arrow is drawn in. So a headland turn
@@ -1391,3 +1392,7 @@ page's memory; off a field the panel shows the map around the rig.
   mini fullscreen and in Safari, More open, the column on the Map page
   too) included; everything as described. No game API names, so nothing
   for GAME-API.md.
+- 2026-11-14: [spec 0018](0018-contracts.md) widens revision 3's "only
+  fields your farm owns": a field with one of your running contracts counts
+  too (the panel, its trail and "This run"), and gets a row for the
+  contract. Not live-checked yet.

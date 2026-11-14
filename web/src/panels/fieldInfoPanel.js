@@ -10,6 +10,8 @@
 import { cropCatalog, cropName, growthClass } from "../map/fieldStyle.js";
 import { myFarmId } from "../store.js";
 import { areaText, METRIC, moneyText, unitsOf } from "../data/units.js";
+import { contextOf, contractsOf, fieldRow, onField } from "../data/contracts.js";
+import { contractRow } from "../widgets/fieldPanel.js";
 
 /** @typedef {import("../types.js").FieldState} FieldState */
 /** @typedef {import("../types.js").Farmland} Farmland */
@@ -158,6 +160,11 @@ export function createFieldInfoPanel(store, box) {
     store.set("selection", undefined);
   }
 
+  /** your running contracts on the selected field, as the rows' words (specs/0018) */
+  const contractRows = () => onField(contractsOf(store), store.get("selection")?.field)
+    .map((c) => ({ id: c.id, ...fieldRow(c, contextOf(store)) }));
+  let shownRows = "[]";
+
   function render() {
     /** @type {LandSelection|undefined} */
     const selection = store.get("selection");
@@ -174,6 +181,9 @@ export function createFieldInfoPanel(store, box) {
     button.textContent = "×";
     button.addEventListener("click", close);
     box.replaceChildren(...sections.map((section, i) => sectionEl(section, i === 0 ? button : null)));
+    const rows = contractRows();
+    shownRows = JSON.stringify(rows);
+    box.querySelector('.field-info-part[data-kind="field"]')?.append(...rows.map((row) => contractRow(store, row)));
     box.hidden = false;
   }
 
@@ -186,6 +196,13 @@ export function createFieldInfoPanel(store, box) {
     const now = JSON.stringify(unitsOf(store));
     if (now !== units) { units = now; render(); }
   });
+  // contracts arrive every 2 s (and the game speed with env): draw again
+  // only when the selected field's contract rows change
+  for (const key of ["contracts", "env"]) {
+    store.subscribe(key, () => {
+      if (!box.hidden && JSON.stringify(contractRows()) !== shownRows) render();
+    });
+  }
   // a new map: the old field number means nothing
   store.subscribe("field_outlines", (topic) => {
     const id = store.get("selection")?.field;
