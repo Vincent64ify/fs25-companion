@@ -149,7 +149,8 @@ The regular layout, for tablets:
 ```
 
 - **Status bar:** the Settings button, the map's name and the alerts (low
-  fuel, hot engine, wear); the season, day and time in a centre pill;
+  fuel, hot engine, wear); the season, day, time and game speed in a
+  centre pill, which opens the game speed panel ([specs/0017](../specs/0017-game-speed.md));
   weather and temperature, money, the connection to the game (live,
   waiting or offline) and the full-screen button.
 - **Control column:** labelled groups of buttons, the same on every
@@ -406,7 +407,7 @@ shared parts as components (`Screen`, status bar, tab bar, control column
 and groups, cards, readout card, rig tiles and links, tool cards, chips, meters).
 The code stays the source of truth: **when `theme.css`, `icons.js` or the
 values in this section change, refresh the design system in the same
-change.** Built from commit `0ccf814`; refreshed for specs/0010 (2026-11-01) and specs/0013 (2026-11-07: the night palette, "on", where you are, working badges, the rig on the ground; revision 2's trail tokens) and for the tool card (2026-11-08: seven icons, 81 now; `ToolCard` with More, its open row and the width row of specs/0011 and 0012; no selected tint on the card).
+change.** Built from commit `0ccf814`; refreshed for specs/0010 (2026-11-01) and specs/0013 (2026-11-07: the night palette, "on", where you are, working badges, the rig on the ground; revision 2's trail tokens) and for the tool card (2026-11-08: seven icons, 81 now; `ToolCard` with More, its open row and the width row of specs/0011 and 0012; no selected tint on the card) and for specs/0017 (2026-11-14: the status bar's pill centred between its two sides with the game speed, `SpeedPanel`, `Screen`'s `speedPanel`).
 
 ### Type
 

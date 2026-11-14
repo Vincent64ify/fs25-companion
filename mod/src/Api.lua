@@ -34,6 +34,67 @@ function Api.tryCallAll(obj, name, ...)
     return unpackValues(r, 2)
 end
 
+-- fn(...) for a plain function in a table (Utils.*: no self), or nil
+local function tryStatic(t, name, ...)
+    if type(t) ~= "table" or type(t[name]) ~= "function" then
+        return nil
+    end
+    local ok, result = pcall(t[name], ...)
+    if not ok then
+        return nil
+    end
+    return result
+end
+
+-- specs/0017: the game speed the player set (×), or nil. missionInfo's
+-- timeScale (FS22's script docs; unverified), else the effective one the
+-- game's own Lua uses (BaleManager, VehicleSystem: gameSource.zip)
+function Api.timeScale()
+    local mission = g_currentMission
+    if type(mission) ~= "table" then
+        return nil
+    end
+    local info = mission.missionInfo
+    local value = type(info) == "table" and info.timeScale or nil
+    if type(value) ~= "number" then
+        value = Api.tryCall(mission, "getEffectiveTimeScale")
+    end
+    if type(value) ~= "number" or value ~= value or value <= 0 then
+        return nil
+    end
+    return value
+end
+
+-- every step the game's 7 and 8 go through, slowest first, each once, or
+-- nil: Utils.getNumTimeScales and getTimeScaleFromIndex (declared in
+-- gameSource.zip's Utils.lua, their bodies not there; unverified). The
+-- index is read from 1, else from 0.
+function Api.timeScaleSteps()
+    local n = tryStatic(Utils, "getNumTimeScales")
+    if type(n) ~= "number" or n < 1 or n > 64 then
+        return nil
+    end
+    for _, first in ipairs({ 1, 0 }) do
+        local list, seen, whole = {}, {}, true
+        for i = first, first + n - 1 do
+            local v = tryStatic(Utils, "getTimeScaleFromIndex", i)
+            if type(v) ~= "number" or v ~= v or v <= 0 then
+                whole = false
+                break
+            end
+            if not seen[v] then
+                seen[v] = true
+                list[#list + 1] = v
+            end
+        end
+        if whole then
+            table.sort(list)
+            return list
+        end
+    end
+    return nil
+end
+
 -- the vehicle the local player sits in, or nil
 function Api.controlledVehicle()
     local player = g_localPlayer

@@ -1193,6 +1193,152 @@ test("commands: lights.set steps to the asked stage, one press a frame", functio
     eq(vehicle.spec_lights.lightsTypesMask, 1, "untouched")
 end)
 
+-- specs/0017: the game speed ------------------------------------------------
+
+-- the game's steps (Utils, a plain table of functions, 1-based here) and
+-- the speed set; returns a function that sets the speed
+local function timeScaleGame(steps, speed)
+    Utils = {
+        getNumTimeScales = function() return #steps end,
+        getTimeScaleFromIndex = function(i) return steps[i] end,
+    }
+    g_currentMission = { missionInfo = { timeScale = speed } }
+    return function(v) g_currentMission.missionInfo.timeScale = v end
+end
+
+test("env: the game speed and its steps from the game's calls, each left out on failure (specs/0017)", function()
+    load("src/collectors/Env.lua")
+    local collect = Companion.Collectors.Env.collect
+    local saved = { g_farmManager, g_gameSettings, g_i18n, g_localPlayer }
+    g_farmManager, g_gameSettings, g_i18n, g_localPlayer = nil, nil, nil, nil
+    timeScaleGame({ 0.5, 1, 5, 60 }, 5)
+    local data = collect({})
+    eq(data.timeScale, 5, "the speed set")
+    eq(table.concat(data.timeScaleSteps, ","), "0.5,1,5,60", "the steps, slowest first")
+    -- the game's list out of order: sorted, each once
+    timeScaleGame({ 60, 1, 5, 1, 0.5 }, 1)
+    data = collect({})
+    eq(table.concat(data.timeScaleSteps, ","), "0.5,1,5,60", "sorted, no step twice")
+    eq(data.timeScale, 1, "x1 too")
+    -- 0-based in the game: read from 0
+    Utils.getTimeScaleFromIndex = function(i) return ({ [0] = 1, 2, 3 })[i] end
+    Utils.getNumTimeScales = function() return 3 end
+    eq(table.concat(collect({}).timeScaleSteps, ","), "1,2,3", "0-based steps")
+    -- the speed set missing: the effective speed instead
+    g_currentMission.missionInfo.timeScale = nil
+    g_currentMission.getEffectiveTimeScale = function() return 15 end
+    eq(collect({}).timeScale, 15, "effective speed when the set one is missing")
+    -- neither readable: left out
+    g_currentMission.getEffectiveTimeScale = function() error("no") end
+    eq(collect({}).timeScale, nil, "no speed")
+    -- the steps' calls missing or failing: left out, the rest still sent
+    g_currentMission.missionInfo.timeScale = 5
+    Utils.getTimeScaleFromIndex = function() error("boom") end
+    data = collect({})
+    eq(data.timeScaleSteps, nil, "a failing step call")
+    eq(data.timeScale, 5, "the speed still sent")
+    Utils = nil
+    eq(collect({}).timeScaleSteps, nil, "no Utils")
+    Utils = { getNumTimeScales = function() return 0 end, getTimeScaleFromIndex = function() return 1 end }
+    eq(collect({}).timeScaleSteps, nil, "no steps")
+    g_currentMission.missionInfo = nil
+    eq(collect({}).timeScale, nil, "no missionInfo")
+    Utils, g_currentMission = nil, nil
+    g_farmManager, g_gameSettings, g_i18n, g_localPlayer = saved[1], saved[2], saved[3], saved[4]
+end)
+
+test("commands: timeScale.set presses the game's 7 or 8 a frame until the speed is there, on foot too (specs/0017)", function()
+    if TMP_DIR == nil then
+        return
+    end
+    local steps = { 0.5, 1, 2, 5, 15, 60, 120, 360 }
+    local setSpeed = timeScaleGame(steps, 5)
+    -- on foot: no controlled vehicle
+    g_localPlayer = { getCurrentVehicle = function() return nil end }
+    local run = c2Commands()
+    local calls = bindInputs({ "INCREASE_TIMESCALE", "DECREASE_TIMESCALE" }, nil)
+    local moves = true
+    local presses = {}
+    local function step(by)
+        return function()
+            presses[#presses + 1] = by
+            if not moves then
+                return
+            end
+            local now = g_currentMission.missionInfo.timeScale
+            for i, v in ipairs(steps) do
+                if v == now and steps[i + by] ~= nil then
+                    setSpeed(steps[i + by])
+                    return
+                end
+            end
+        end
+    end
+    local events = g_inputBinding.actionEvents
+    events[g_inputBinding.nameActions.INCREASE_TIMESCALE][1].callback = step(1)
+    events[g_inputBinding.nameActions.DECREASE_TIMESCALE][1].callback = step(-1)
+
+    local ack, frames = run("timeScale.set", 60)
+    eq(ack.ok, true, tostring(ack.reason))
+    eq(ack.checked, true, "checked by the reading")
+    eq(ack.via, "INCREASE_TIMESCALE")
+    eq(table.concat(presses, ","), "1,1", "x5 to x15 to x60")
+    eq(frames, 3, "a press a frame, then read")
+    eq(g_currentMission.missionInfo.timeScale, 60)
+
+    presses = {}
+    ack = run("timeScale.set", 1)
+    eq(ack.ok, true, tostring(ack.reason))
+    eq(ack.via, "DECREASE_TIMESCALE")
+    eq(table.concat(presses, ","), "-1,-1,-1,-1", "x60 down to x1")
+
+    presses = {}
+    ack = run("timeScale.set", 0.5)
+    eq(ack.ok, true, "x0.5 through the file's 0.500")
+    eq(g_currentMission.missionInfo.timeScale, 0.5)
+
+    presses = {}
+    ack, frames = run("timeScale.set", 0.5)
+    eq(ack.ok, true)
+    eq(ack.already, true, "there already")
+    eq(frames, 1, "answered at once")
+    eq(#presses, 0, "nothing pressed")
+
+    eq(run("timeScale.set", 7).reason, "value not allowed", "not one of the steps")
+    eq(#presses, 0, "nothing pressed for a value not allowed")
+
+    -- a press that doesn't move the speed: failed
+    moves = false
+    ack = run("timeScale.set", 2)
+    eq(ack.ok, false)
+    eq(ack.reason, "didn't move")
+    eq(#presses, 1, "one press, then it gave up")
+    moves = true
+
+    -- no live key: failed at once, nothing pressed
+    presses = {}
+    events[g_inputBinding.nameActions.INCREASE_TIMESCALE][1].isActive = false
+    ack, frames = run("timeScale.set", 2)
+    eq(ack.ok, false)
+    eq(ack.reason, "not available now")
+    eq(frames, 1, "at once")
+    eq(#presses, 0, "nothing pressed")
+    eq(calls.INCREASE_TIMESCALE, nil)
+
+    -- in a vehicle the same
+    events[g_inputBinding.nameActions.INCREASE_TIMESCALE][1].isActive = true
+    local vehicle = c2Tractor()
+    g_localPlayer.getCurrentVehicle = function() return vehicle end
+    ack = run("timeScale.set", 5)
+    eq(ack.ok, true, tostring(ack.reason))
+    eq(g_currentMission.missionInfo.timeScale, 5)
+
+    -- no steps from the game: nothing is allowed
+    Utils = nil
+    eq(run("timeScale.set", 5).reason, "value not allowed", "no steps")
+    g_inputBinding, g_currentMission, g_localPlayer = nil, nil, nil
+end)
+
 test("vehicle state C2: motor state, driving direction, both cruise speeds", function()
     local VS = Companion.VehicleState
     MotorState = { OFF = 1, STARTING = 2, ON = 3, IGNITION = 4 }

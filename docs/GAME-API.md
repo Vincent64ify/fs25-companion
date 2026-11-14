@@ -509,6 +509,18 @@ Pöttinger Terria 6040 cultivator at the rear:
     `canTip`): a trailer hitched behind blocks its discharge line, and
     the game warns "This action cannot be performed here"
     (`getCanDischargeAtPosition`); detached, it tips.
+- Spec 0017, the game speed (confirmed by Vincent, 2026-11-14, Solek,
+  mod 0.18.0):
+  - `g_currentMission.missionInfo.timeScale` is the speed the player set;
+    it follows 8 pressed in the game, and keeps the set speed while the
+    game is paused with its menu open.
+  - `Utils.getNumTimeScales()` and `Utils.getTimeScaleFromIndex(i)` are
+    plain functions (no self) and give the game's list of steps, the
+    same as the game's 7 and 8 go through.
+  - `INCREASE_TIMESCALE` (8) and `DECREASE_TIMESCALE` (7) have live
+    events on foot and in a vehicle; the mod's press steps the speed,
+    from the slowest step to ×360. With the game's menu open (paused) a
+    press does nothing: the dashboard's step says "Failed".
 
 ## The Implement screen's readings (mods 0.8.0 to 0.8.2, 2026-10-24 and 25)
 
@@ -601,5 +613,8 @@ says so.
   whether it hides them on the map isn't checked.
 - **The AI worker turning on:** `getIsAIActive()` after `TOGGLE_AI`, which
   does nothing without a job set up.
-- **Not found yet** ([PLAN.md](PLAN.md)): the game's time scale, the
-  call that opens the AI job screen and Refill at a fill station.
+- **`g_currentMission:getEffectiveTimeScale()`**
+  ([specs/0017](../specs/0017-game-speed.md)): the fallback when
+  `missionInfo.timeScale` is missing; never needed live.
+- **Not found yet** ([PLAN.md](PLAN.md)): the call that opens the AI job
+  screen and Refill at a fill station.

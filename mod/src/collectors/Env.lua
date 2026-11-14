@@ -1,6 +1,6 @@
 -- Env.lua
--- Time, day, weather, temperatures, money and the player's units, once per
--- second. Weather and money calls come from the old telemetry mod, the unit
+-- Time, day, weather, temperatures, money, the player's units and the game
+-- speed (specs/0017), once per second. Weather and money calls come from the old telemetry mod, the unit
 -- settings from the FS22 script docs; none is verified against FS25 yet, and
 -- each value is guarded and left out on failure.
 
@@ -94,6 +94,9 @@ Companion.Collectors.Env = {
         local data = {
             money = farmMoney(),
             units = unitSettings(),
+            -- specs/0017: the game speed and the steps 7 and 8 go through
+            timeScale = Api.timeScale(),
+            timeScaleSteps = Api.timeScaleSteps(),
         }
         if environment ~= nil then
             data.day = environment.currentDay

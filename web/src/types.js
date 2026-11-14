@@ -63,6 +63,9 @@
  * @property {Record<string, number>} [money] farmId (as a string) -> money
  * @property {{miles?: boolean, fahrenheit?: boolean, acres?: boolean, currency?: string}} [units]
  *   the player's unit settings; missing ones mean metric
+ * @property {number} [timeScale] the game speed the player set, × (specs/0017)
+ * @property {number[]} [timeScaleSteps] every step the game's 7 and 8 go
+ *   through, slowest first; absent: the speed shows, no panel
  */
 
 /**

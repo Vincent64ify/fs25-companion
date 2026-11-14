@@ -885,6 +885,71 @@ local function lightsJob(vehicle, want, stages)
     return job
 end
 
+-- The game speed (specs/0017): not a vehicle's. The game's 7 (DECREASE_
+-- TIMESCALE) and 8 (INCREASE_TIMESCALE; FS25's inputBindingDefault_
+-- KeyboardMouse.xml) step through its list; pressed once a frame, the
+-- speed read after each, until it shows the asked one: at most as many
+-- presses as there are steps. A press after which the speed doesn't move
+-- within TIME_SCALE_WAIT_FRAMES ends it ("didn't move"); no live key ends
+-- it before anything is pressed.
+Commands.TIME_SCALE_WAIT_FRAMES = 10
+
+local function sameSpeed(a, b)
+    return type(a) == "number" and type(b) == "number" and math.abs(a - b) < 0.001
+end
+
+-- the game's step for this value (the file's 0.500 is x0.5), or nil
+local function timeScaleStep(value)
+    for _, v in ipairs(Api.timeScaleSteps() or {}) do
+        if sameSpeed(v, value) then
+            return v
+        end
+    end
+    return nil
+end
+
+local function timeScaleKey(now, want)
+    return want > now and "INCREASE_TIMESCALE" or "DECREASE_TIMESCALE"
+end
+
+local function timeScaleJob(_, value)
+    local want = timeScaleStep(value)
+    local now = Api.timeScale()
+    if now == nil then
+        return nil, "no speed to read"
+    end
+    if not hasLive(timeScaleKey(now, want)) then
+        return nil, "not available now"
+    end
+    local job = { presses = 0, waited = 0, limit = #(Api.timeScaleSteps() or {}) }
+    job.tick = function()
+        local speed = Api.timeScale()
+        if sameSpeed(speed, want) then
+            return { ok = true, via = job.via, checked = true }
+        end
+        if job.pressedAt ~= nil and sameSpeed(speed, job.pressedAt) then
+            job.waited = job.waited + 1
+            if job.waited >= Commands.TIME_SCALE_WAIT_FRAMES then
+                return { ok = false, reason = "didn't move", via = job.via, checked = true }
+            end
+            return nil
+        end
+        if speed == nil then
+            return { ok = false, reason = "no speed to read", via = job.via, checked = true }
+        end
+        if job.presses >= job.limit then
+            return { ok = false, reason = "didn't reach the speed", via = job.via, checked = true }
+        end
+        local key = timeScaleKey(speed, want)
+        if runInputAction(key) == 0 then
+            return { ok = false, reason = "not available now", via = job.via }
+        end
+        job.presses, job.waited, job.pressedAt, job.via = job.presses + 1, 0, speed, key
+        return nil
+    end
+    return job
+end
+
 -- Attach: only while the game has something in reach (its prompt is up)
 local function attachInReach(vehicle)
     if VehicleState.attachable(vehicle) then
@@ -1003,6 +1068,10 @@ Commands.ACTIONS = {
         values = { 0, 1 } },
     ["implement.coverAll"] = { job = eachTool(AIMED.TOGGLE_COVER, function(e) return e.cover ~= nil and e.cover.open == true end),
         values = { 0, 1 } },
+    -- specs/0017: the game speed, one of the game's steps; not tied to a
+    -- vehicle (`game`: runs on foot too)
+    ["timeScale.set"] = { game = true, values = { 0, 100000 }, state = Api.timeScale,
+        fits = function(_, value) return timeScaleStep(value) ~= nil end, job = timeScaleJob },
     -- the Harvester screen: 1 straw swath, 0 chopper (the game's TOGGLE_CHOPPER)
     ["straw.set"] = { state = strawState, values = SET, inputs = { "TOGGLE_CHOPPER" } },
 }
@@ -1137,6 +1206,20 @@ local function run(actionName, value, tool, side, key)
     end
     if not valueFits(spec, value, tool, side, key) then
         return false, "value not allowed"
+    end
+    -- the game's, not a vehicle's (specs/0017): before the vehicle check
+    if spec.game then
+        if not spec.fits(nil, value) then
+            return false, "value not allowed"
+        end
+        if sameSpeed(spec.state(), value) then
+            return true, nil, nil, nil, true
+        end
+        local job, why = spec.job(nil, value)
+        if job == nil then
+            return false, why
+        end
+        return nil, nil, nil, job
     end
     local vehicle = Api.controlledVehicle()
     if vehicle == nil then

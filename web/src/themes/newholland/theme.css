@@ -232,7 +232,10 @@ button { font: inherit; color: inherit; }
   position: relative;
   z-index: 1;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  /* the pill centred in the room between the left and right sides (specs/0017):
+     each side as wide as its content, the left one gives way first (the
+     map's name) when there's too little */
+  grid-template-columns: minmax(0, max-content) minmax(max-content, 1fr) max-content;
   align-items: center;
   gap: 12px;
   padding: env(safe-area-inset-top, 0px) calc(12px + env(safe-area-inset-right, 0px)) 0
@@ -251,6 +254,7 @@ button { font: inherit; color: inherit; }
   padding-left: calc(92px + env(safe-area-inset-left, 0px));
 }
 .status-start, .status-end { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.status-centre { display: flex; justify-content: center; }
 .status-end { justify-content: flex-end; }
 /* thin rules between the right-hand items; the full-screen button has none */
 .status-end > :not([hidden]) ~ :not([hidden]):not(.conn):not(.status-button) {
@@ -323,6 +327,24 @@ button { font: inherit; color: inherit; }
 }
 .day-clock-when { color: var(--bar-muted); font-weight: 500; }
 .day-clock-when:empty { display: none; }
+/* specs/0017: the game speed after a hairline, in the pill's ink; with the
+   game's steps the pill is a button that opens the speed panel */
+.day-clock-slot { display: contents; }
+.day-clock-speed { padding-left: 10px; border-left: 1px solid color-mix(in srgb, currentColor 35%, transparent); }
+.day-clock-speed[hidden] { display: none; }
+button.day-clock {
+  border: 0;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  touch-action: manipulation;
+  transition: background var(--t-base) var(--ease), color var(--t-base) var(--ease),
+    box-shadow var(--t-base) var(--ease), transform var(--t-fast) var(--ease);
+}
+button.day-clock:active { transform: scale(0.96); }
+/* open: where you are, as the selected tab */
+button.day-clock[aria-expanded="true"] { background: var(--sel-tint); color: var(--sel-ink); box-shadow: inset 0 0 0 2px var(--select); }
+button.day-clock[aria-expanded="true"] .day-clock-when { color: inherit; opacity: 0.75; }
 
 .weather-now { display: flex; align-items: center; gap: 6px; }
 .weather-now .icon { color: var(--bar-muted); }
@@ -985,6 +1007,96 @@ button { font: inherit; color: inherit; }
   color: var(--muted);
 }
 .settings-note { margin: 0; font-size: 13px; color: var(--muted); }
+
+/* --- Game speed (ui/speedPanel.js, specs/0017): under the pill, as Settings -- */
+
+.speed-layer { position: absolute; inset: 0; z-index: 2000; }
+.speed-backdrop { position: absolute; inset: 0; background: var(--backdrop); }
+.speed-panel {
+  position: absolute;
+  top: 12px;
+  /* under the pill (--speed-x, set on open), kept 12 inside the main area */
+  left: clamp(204px, var(--speed-x, 50%), calc(100% - 204px));
+  transform: translateX(-50%);
+  width: 384px;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  background: var(--card);
+  box-shadow: var(--panel-shadow);
+}
+.speed-panel h2 {
+  margin: 0 4px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+/* every step the game offers, in one well like Settings' Day / Night switch */
+.speed-steps {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  grid-auto-rows: 52px;
+  gap: 4px;
+  padding: 4px;
+  border-radius: 16px;
+  background: var(--line);
+}
+.speed-step {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  min-width: 0;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  color: var(--text);
+  font-family: inherit;
+  font-size: 17px;
+  font-weight: 600;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+  touch-action: manipulation;
+  transition: background var(--t-base) var(--ease), box-shadow var(--t-base) var(--ease),
+    transform var(--t-fast) var(--ease);
+}
+.speed-step:active { transform: scale(0.96); }
+.speed-x { font-size: 13px; font-weight: 500; color: var(--muted); }
+/* where you are: raised and ringed by day, the tint and the ring at night */
+.speed-step[aria-current="true"] {
+  background: var(--card-solid);
+  color: var(--sel-ink);
+  font-weight: 700;
+  box-shadow: inset 0 0 0 2px var(--select), 0 1px 2px rgba(12, 45, 107, 0.15), 0 4px 10px rgba(12, 45, 107, 0.12);
+}
+.speed-step[aria-current="true"] .speed-x { color: inherit; opacity: 0.7; }
+:root[data-palette="night"] .speed-step[aria-current="true"] { background: var(--sel-tint); box-shadow: inset 0 0 0 2px var(--select); }
+/* pending: the ring of where it's going breathes; the current keeps its own */
+.speed-step[data-state="pending"] { animation: speed-wait 1.2s var(--ease) infinite alternate; }
+@keyframes speed-wait {
+  from { box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--on-border) 30%, transparent); }
+  to { box-shadow: inset 0 0 0 2px var(--on-border); }
+}
+/* Failed (spec 0013 revision 6): on the step tapped */
+.speed-step[data-error] { box-shadow: inset 0 0 0 2px var(--alarm); color: var(--alarm); font-size: 13px; }
+/* compact: the panel full width under the status bar, the steps in one row */
+@media (max-width: 899px), (orientation: portrait) {
+  .speed-panel { left: 12px; right: 12px; width: auto; transform: none; }
+  .speed-steps { grid-template-columns: none; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); }
+  .speed-step { font-size: 15px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  button.day-clock, .speed-step { transition: none; }
+  button.day-clock:active, .speed-step:active { transform: none; }
+  .speed-step[data-state="pending"] { animation: none; box-shadow: inset 0 0 0 2px var(--on-border); }
+}
 
 .theme-card {
   position: relative;

@@ -701,6 +701,101 @@ check("readout: fuel's level and meter", [readoutFuel.dataset.level,
 const pill = createWidget("dayClock", cs);
 cs.set("env", { day: 6, month: 4, dayTimeMinutes: 584 });
 check("day and time pill", pill.textContent, "Spring · Day 609:44");
+
+// specs/0017: the game speed on the pill, a panel of the game's steps
+{
+  const gs = createStore();
+  /** @type {any[]} */
+  const gsSent = [];
+  /** @type {(r: any) => void} */
+  let gsAnswer = () => {};
+  const gsSend = (a, v) => { gsSent.push([a, v]); return new Promise((r) => { gsAnswer = r; }); };
+  const gsApp = document.createElement("div");
+  const gsBar = document.createElement("header");
+  gsBar.className = "status-bar";
+  const gsMain = document.createElement("main");
+  gsMain.className = "screens";
+  gsApp.append(gsBar, gsMain);
+  document.body.append(gsApp);
+  const gsPill = createWidget("dayClock", gs, { send: gsSend });
+  gsBar.append(gsPill);
+  const btnOf = () => gsPill.querySelector("button.day-clock");
+  const steps = [0.5, 1, 2, 3, 5, 10, 15, 30, 60, 120, 240, 360];
+  const gsEnv = (extra) => gs.set("env", { day: 6, month: 4, dayTimeMinutes: 584, ...extra });
+  const settle = async () => { for (let i = 0; i < 5; i++) await Promise.resolve(); };
+  gsEnv({ timeScale: 5, timeScaleSteps: steps });
+  const at5 = [gsPill.textContent, !!btnOf()];
+  gsEnv({ timeScale: 1, timeScaleSteps: steps });
+  check("game speed: the pill shows ×5 and ×1 after the time, and is a button",
+    [at5, gsPill.textContent], [["Spring · Day 609:44×5", true], "Spring · Day 609:44×1"]);
+  gsEnv({});
+  check("game speed: without timeScale the pill is as today, not a button",
+    [gsPill.textContent, !!gsPill.querySelector("button")], ["Spring · Day 609:44", false]);
+  gsEnv({ timeScale: 5 });
+  gsPill.querySelector(".day-clock")?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+  check("game speed: without timeScaleSteps the speed shows, the pill doesn't open",
+    [gsPill.textContent, !!gsPill.querySelector("button"), gsMain.querySelector(".speed-layer:not([hidden])")],
+    ["Spring · Day 609:44×5", false, null]);
+
+  gsEnv({ timeScale: 5, timeScaleSteps: steps });
+  btnOf().click();
+  const layer = gsMain.querySelector(".speed-layer");
+  const stepBtns = () => [...layer.querySelectorAll(".speed-steps button")];
+  const stepAt = (v) => stepBtns().find((b) => b.dataset.value === String(v));
+  const ringed = () => stepBtns().filter((b) => b.getAttribute("aria-current") === "true").map((b) => b.dataset.value);
+  check("game speed: a tap opens the panel in the main area, one button per step and nothing else, the current ringed",
+    [!!layer && !layer.hidden, layer.querySelectorAll("button").length, stepBtns().map((b) => b.dataset.value).join(","),
+      ringed(), btnOf().getAttribute("aria-expanded"), layer.querySelector("h2")?.textContent, stepAt(5).textContent],
+    [true, 12, steps.join(","), ["5"], "true", "Game speed", "×5"]);
+  btnOf().click();
+  const byPill = layer.hidden;
+  btnOf().click();
+  layer.querySelector(".speed-backdrop").click();
+  check("game speed: a tap on the pill or outside closes it",
+    [byPill, layer.hidden, btnOf().getAttribute("aria-expanded")], [true, true, "false"]);
+
+  btnOf().click();
+  tap(stepAt(60));
+  const pendingNow = [stepAt(60).dataset.state, ringed()];
+  tap(stepAt(120));
+  check("game speed: a step sends timeScale.set with its value, pending, the current keeps its ring; a second tap sends nothing",
+    [gsSent, pendingNow], [[["timeScale.set", 60]], ["pending", ["5"]]]);
+  gsAnswer({ ok: true });
+  await settle();
+  check("game speed: the ok answer shows the speed on the pill and the ring at once, and closes the panel",
+    [gsPill.textContent.endsWith("×60"), ringed(), layer.hidden, stepAt(60).dataset.state],
+    [true, ["60"], true, "off"]);
+  gsEnv({ timeScale: 5, timeScaleSteps: steps });
+  const stale = gsPill.textContent.endsWith("×60");
+  gsEnv({ timeScale: 60, timeScaleSteps: steps });
+  gsEnv({ timeScale: 30, timeScaleSteps: steps });
+  check("game speed: a stale env doesn't put the old speed back; once env agrees it follows again",
+    [stale, gsPill.textContent.endsWith("×30")], [true, true]);
+
+  btnOf().click();
+  tap(stepAt(120));
+  gsAnswer({ ok: true });
+  await settle();
+  await new Promise((r) => setTimeout(r, 2100));
+  gsEnv({ timeScale: 30, timeScaleSteps: steps });
+  check("game speed: the asked speed holds at most 2 s without env agreeing",
+    gsPill.textContent.endsWith("×30"), true);
+
+  btnOf().click();
+  tap(stepAt(2));
+  gsAnswer({ ok: false, reason: "didn't move" });
+  await settle();
+  check("game speed: a failed answer says Failed on that step, the panel stays open",
+    ["error" in stepAt(2).dataset, stepAt(2).textContent, layer.hidden, stepAt(2).dataset.state, ringed(),
+      gsSent.length], [true, "Failed", false, "off", ["30"], 3]);
+  tap(stepAt(3));
+  gsAnswer({ ok: false, reason: "no answer" });
+  await settle();
+  check("game speed: no answer in time says Failed on that step too",
+    ["error" in stepAt(3).dataset, stepAt(3).textContent, layer.hidden], [true, "Failed", false]);
+  layer.querySelector(".speed-backdrop").click();
+  gsApp.remove();
+}
 const chips = createWidget("alerts", cs);
 check("alert chips", [chips.hidden, chips.querySelector(".alert-chip")?.dataset.level], [false, "warn"]);
 
