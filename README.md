@@ -108,9 +108,15 @@ New features start as a spec: [specs/README.md](specs/README.md).
 
 ## License
 
-MIT, see [LICENSE](LICENSE). This project reads only what the game's Lua API
-exposes and doesn't change your game or savegames.
+Copyright (C) 2025–2026 Vincent64ify and FS25 Companion contributors.
+
+GNU General Public License v3.0, see [LICENSE](LICENSE): you may use,
+change and share it, and what you distribute from it stays under the same
+licence with its source. Versions published before 2026-11-14 were under
+MIT. This project reads only what the game's Lua API exposes and doesn't
+change your game or savegames.
 
 Bundled third-party files keep their own licences: Leaflet (BSD-2-Clause,
 `web/vendor/leaflet/LICENSE`) and the Archivo font (SIL Open Font License
-1.1, `web/vendor/fonts/OFL.txt`).
+1.1, `web/vendor/fonts/OFL.txt`). Credits and notices:
+[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
