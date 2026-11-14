@@ -22,7 +22,6 @@ here is history, and nothing here is a check:
   [specs/0017](../specs/0017-game-speed.md)).
 - **Sell prices:** a `prices` topic (sell point → fill type → price, about
   every 60 s), and a way to show it.
-- **Missions and contracts.**
 - **AI workers:** their routes on the map.
 - **AI worker button opens the game's worker screen** (spec 0008's live
   check, 2026-10-31): `TOGGLE_AI` does nothing in a vehicle with no job
