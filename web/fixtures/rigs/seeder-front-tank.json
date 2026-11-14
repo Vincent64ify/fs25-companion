@@ -1,0 +1,275 @@
+{
+ "rig": "seeder-front-tank",
+ "source": "the live stream (port 8123, 2026-11-14, Solek, mod 0.18.0): the Valtra S 286, the Väderstad FH 2200 front tank and the PÖTTINGER Aerosem VT 5000 DD; not made by fixtures/rig_fixtures.py (specs/0013 revision 8)",
+ "cab": {
+  "aiActive": false,
+  "cruise": {
+   "maxSpeed": 53,
+   "speed": 52,
+   "state": "off"
+  },
+  "engineOn": false,
+  "engineState": "off",
+  "hitched": true,
+  "implement": {
+   "canLower": true,
+   "canTurnOn": true,
+   "foldMoving": false,
+   "foldable": true,
+   "lowered": false,
+   "name": "PÖTTINGER Aerosem VT 5000 DD",
+   "turnedOn": false,
+   "unfolded": true
+  },
+  "implements": [
+   {
+    "lowered": false,
+    "turnedOn": false
+   },
+   {
+    "lowered": false,
+    "turnedOn": false
+   }
+  ],
+  "inVehicle": true,
+  "keys": {
+   "cover": 513,
+   "fold": 513,
+   "lower": 513,
+   "lowerAll": 518,
+   "turnOn": 513
+  },
+  "lights": {
+   "beacon": false,
+   "hazard": false,
+   "high": false,
+   "left": false,
+   "on": false,
+   "right": false,
+   "stage": 0,
+   "stages": 3
+  },
+  "rig": [
+   {
+    "can": [],
+    "depth": 0,
+    "id": 518,
+    "name": "Valtra S 286",
+    "selectable": true,
+    "selected": false
+   },
+   {
+    "can": [
+     "lower",
+     "unload",
+     "cover",
+     "detach"
+    ],
+    "canLower": true,
+    "canNow": {
+     "lower": false
+    },
+    "canTurnOn": true,
+    "cover": {
+     "open": false
+    },
+    "depth": 1,
+    "discharging": false,
+    "foldable": false,
+    "id": 514,
+    "joint": "implement",
+    "lowered": false,
+    "name": "Väderstad FH 2200",
+    "parent": 518,
+    "selectable": true,
+    "selected": false,
+    "side": "front",
+    "turnedOn": false,
+    "whyNot": {
+     "lower": "Please start the engine first!"
+    }
+   },
+   {
+    "can": [
+     "lower",
+     "fold",
+     "turnOn",
+     "unload",
+     "cover",
+     "sprayRate",
+     "detach"
+    ],
+    "canLower": true,
+    "canNow": {
+     "fold": false,
+     "lower": false,
+     "sprayRate": false,
+     "turnOn": false
+    },
+    "canTurnOn": true,
+    "cover": {
+     "open": false
+    },
+    "depth": 1,
+    "foldMoving": false,
+    "foldable": true,
+    "id": 513,
+    "joint": "implement",
+    "lowered": false,
+    "name": "PÖTTINGER Aerosem VT 5000 DD",
+    "parent": 518,
+    "selectable": true,
+    "selected": true,
+    "side": "rear",
+    "sprayRate": {
+     "auto": true,
+     "max": 45,
+     "min": 1,
+     "step": 1
+    },
+    "turnedOn": false,
+    "unfolded": true,
+    "whyNot": {
+     "fold": "Please start the engine first!",
+     "lower": "Please start the engine first!",
+     "sprayRate": "Please start the engine first!",
+     "turnOn": "Attach tool to vehicle with a turned-on motor!"
+    }
+   }
+  ],
+  "vehicleId": 518
+ },
+ "vehicles": {
+  "controlledId": 518,
+  "vehicles": [
+   {
+    "attached": false,
+    "brand": "Valtra",
+    "category": "TRACTORSL",
+    "categoryTitle": "Large Tractors",
+    "cruise": {
+     "maxSpeed": 53,
+     "speed": 52,
+     "state": "off"
+    },
+    "def": 70,
+    "defCapacity": 70,
+    "engineOn": false,
+    "farmId": 1,
+    "fuel": 609,
+    "fuelCapacity": 610,
+    "fuelType": "diesel",
+    "fuelUsage": 0,
+    "gear": "N",
+    "gearAutomatic": true,
+    "heading": 246.2,
+    "id": 518,
+    "implements": [
+     {
+      "brand": "Väderstad",
+      "category": "SEEDTANKS",
+      "categoryTitle": "Seed Tanks",
+      "depth": 1,
+      "fills": [
+       {
+        "capacity": 2200,
+        "fillTitle": "Seeds",
+        "fillType": "seeds",
+        "level": 2000,
+        "massPerLiter": 0.00034999999403954,
+        "unit": 1
+       }
+      ],
+      "hitch": 0,
+      "id": 514,
+      "lowered": false,
+      "name": "Väderstad FH 2200",
+      "pto": false,
+      "turnedOn": false,
+      "typeName": "fillableImplement",
+      "wear": 0.005
+     },
+     {
+      "brand": "PÖTTINGER",
+      "category": "SEEDERS",
+      "categoryTitle": "Seeders",
+      "depth": 1,
+      "fills": [
+       {
+        "capacity": 1400,
+        "level": 0,
+        "unit": 1
+       },
+       {
+        "capacity": 1400,
+        "fillTitle": "Solid Fertilizer",
+        "fillType": "fertilizer",
+        "level": 1000,
+        "massPerLiter": 0.00080000001192093,
+        "unit": 2
+       }
+      ],
+      "hitch": 0,
+      "id": 513,
+      "lowered": false,
+      "name": "PÖTTINGER Aerosem VT 5000 DD",
+      "pto": false,
+      "speedLimit": 15,
+      "turnedOn": false,
+      "typeName": "fertilizingSowingMachine",
+      "wear": 0.005,
+      "workSpans": [
+       [
+        -2.3,
+        2.7
+       ]
+      ],
+      "workWidth": 5
+     }
+    ],
+    "isAI": false,
+    "lights": {
+     "beacon": false,
+     "hazard": false,
+     "high": false,
+     "left": false,
+     "on": false,
+     "right": false,
+     "stage": 0,
+     "stages": 3
+    },
+    "mass": 20.68,
+    "motorTemp": 20,
+    "motorized": true,
+    "name": "Valtra S 286",
+    "operatingHours": 0.3,
+    "propertyState": 2,
+    "pto": false,
+    "rpm": 0,
+    "rpmMax": 2200,
+    "rpmMin": 850,
+    "speed": 0,
+    "typeName": "tractor",
+    "wear": 0.006,
+    "x": -208.44,
+    "y": 54.96,
+    "z": 280.27
+   }
+  ]
+ },
+ "expect": {
+  "cards": [
+   "FH 2200: Lower:unavailable, Unload:off, Uncover:off, Detach:off",
+   "Aerosem VT 5000 DD: Lower:unavailable, Fold:unavailable, Turn on:unavailable, Unload:off, Uncover:off, Detach:off, More · 1:off"
+  ],
+  "selected": "Aerosem VT 5000 DD",
+  "also": [],
+  "all": [
+   "Lower all:unavailable",
+   "Uncover all:off"
+  ],
+  "more": [
+   "Aerosem VT 5000 DD: Rate −:unavailable, Auto:unavailable, Rate +:unavailable"
+  ]
+ }
+}

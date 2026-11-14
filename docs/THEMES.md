@@ -208,9 +208,15 @@ After the canvas
 - **Also attached:** no title; a chip per tool, 320 × 66, the model (15 px
   bold) and its line (12 px muted), its buttons 48 × 48, icon only.
 - **Cards:** the badge (outlined while working by day, steel at night),
-  the model, the line under it; the stats on small quiet tiles; the tanks
-  with an 8 px meter; the section strip in the muted and line colours;
-  buttons 84 × 80, More the row's last.
+  the model (the brand and category its title), the line under it with
+  the side and the stats ("Rear · 8 / 22 km/h · 5.0 m wide · 12 % wear",
+  specs/0013 revision 8); the tanks with an 8 px meter; the section strip
+  in the muted and line colours; buttons 84 × 80, More the row's last.
+- **Short screen** (under 800 px tall, landscape; the iPad minis, whose
+  pages are about 1158 × 676 once iPadOS or Safari take their bars): every
+  button drawn as the column's is 72 × 68 (6 px apart on a card), the
+  column 232 wide, its labels on two lines; the field panel 260 wide; the
+  cards' padding and gaps 10 px.
 - **Field panel** (revision 2, 2026-11-07: no map image, for speed): the
   field's outline in the muted colour on the card, the view fixed to the
   field; the trail in solid `--trail-work` green (`--trail-mow` pale
@@ -237,8 +243,9 @@ A card per tool on the Vehicle page
   says "Failed" on its button, nowhere else.
 - **More:** the main row's last button, **More · n** (how many are under
   it, a chevron), lit while open. Open, its buttons are a lower row
-  (64 px) under the main row, and the card shows its compact body (no
-  stats, the main tank's meter alone) so they fit at 1180 × 820. Compact
+  under the main row, and the card shows its compact body (the main
+  tank's meter alone); a third row of buttons scrolls the tools column on
+  its own, never the page. Compact
   cards keep More's button, faded.
 - **Tanks:** a meter per fill unit with its litres and a time estimate,
   shown as "≈" and hidden while the rate is unsteady. The tank that runs
@@ -564,7 +571,8 @@ yellow ([specs/0013](../specs/0013-vehicle-screen-calm.md)).
 
   | Device | Size |
   |---|---|
-  | iPad mini | 1133×744 |
+  | iPad mini (A17 Pro) | 1133×744 |
+  | iPad mini (A20 Pro, Vincent's cab screen) | 1158×756 |
   | iPad 10.9" | 1180×820 |
   | iPad Pro 11" | 1194×834 |
   | iPad Pro 13" | 1376×1032 |

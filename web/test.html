@@ -1890,9 +1890,11 @@ const { savedScreen } = await import("./src/themes/registry.js");
 // collector reads them (fixtures/rig_fixtures.py); sprayer-width is the
 // Berthoud without Precision Farming, its right side at 2 of 4
 // loader-rear: from the live stream, not the spikes (the M8-201: two
-// cards, its front loader, fork and weight under Also attached)
+// cards, its front loader, fork and weight under Also attached);
+// seeder-front-tank too (the S 286, the FH 2200 and the Aerosem: seven
+// buttons that wrap, specs/0013 revision 8)
 const RIGS = ["mowers", "trailers", "sprayer", "sprayer-width", "plow", "baler", "weight", "truck", "attach",
-  "arion-off", "arion-on", "dino", "rogator", "loader-rear"];
+  "arion-off", "arion-on", "dino", "rogator", "loader-rear", "seeder-front-tank"];
 const rigFix = {};
 for (const name of RIGS) rigFix[name] = await (await fetch(`fixtures/rigs/${name}.json`)).json();
 const noRates = { rate: () => undefined, rising: () => false, area: () => undefined };
@@ -2102,15 +2104,16 @@ const seederRig = toolsPage({ controlledId: 1, vehicles: [{ id: 1, name: "T7.315
   { id: 2, name: "Amazone Cirrus", category: "seeders", fills: [{ unit: 1, level: 900, capacity: 3000, fillType: "seeds" }] }] }] },
 { inVehicle: true, rig: [{ id: 1, depth: 0, can: [] }, { id: 2, name: "Amazone Cirrus", depth: 1,
   can: ["lower", "fold", "turnOn", "detach"], lowered: false, unfolded: true, turnedOn: false }] });
-const statLabels = (card) => [...card.querySelectorAll(".tool-stat-label")].map((e) => e.textContent);
+// revision 8: the stats are parts of the head's line, a missing one left out
+const statLabels = (card) => [...card.querySelectorAll(".tool-sub [data-stat]")].map((e) => e.dataset.stat);
 check("tools: the vehicle's own card (a sprayer, the truck): no wear, no Detach; a tractor with a seeder has none", [
   selfSprayer.shown().cards, statLabels(selfSprayer.cardsEl.querySelector(".tool-card")),
   [!!selfSprayer.cardsEl.querySelector(".tool-chip"), selfSprayer.cardsEl.querySelector(".tool-badge").dataset.on],
-  q(selfSprayer.cardsEl, ".tool-sub"),
+  selfSprayer.cardsEl.querySelector(".tool-name").title,
   [q(truckCard, ".tool-name"), statLabels(truckCard), q(truckCard, ".tool-buttons")?.includes("Detach")],
   seederRig.shown().cards.map((c) => c.split(":")[0]), q(seederRig.cardsEl, ".tank-name")],
-  [["Rubicon 9000: Fold:on, Turn off:on"], ["Speed", "Width", "Area"], [false, "true"], "Hardi · Sprayers",
-    ["Arocs 4133 + TECTRUM RS26", ["Speed", "Width", "Area"], false], ["Amazone Cirrus"], "Seeds"]);
+  [["Rubicon 9000: Fold:on, Turn off:on"], ["Speed", "Width"], [false, "true"], "Hardi · Sprayers",
+    ["Arocs 4133 + TECTRUM RS26", ["Speed"], false], ["Amazone Cirrus"], "Seeds"]);
 // live (0.12.2): with the engine off the ARION 410 had a card for a faded
 // Turn on; a tractor is never one of the cards, whatever it says it can do
 const tractorRig = (can) => toolsPage({ controlledId: 1, vehicles: [{ id: 1, name: "CLAAS ARION 410", category: "tractorsM",
@@ -2171,7 +2174,30 @@ const spPage = toolsPage(rigFix.dino.vehicles, rigFix.dino.cab);
 const spCard = spPage.cardsEl.querySelector('.tool-card[data-vehicle="true"]');
 check("sprayer: a self-propelled sprayer's own card: no Detach, no wear, no driving keys", [
   statLabels(spCard), [...spCard.querySelectorAll(".tool-buttons .control")].map(lbl)],
-  [["Speed", "Width", "Area"], ["Fold", "Turn on", "Unload", "More", "Rate −", "Auto", "Rate +"]]);
+  [["Speed"], ["Fold", "Turn on", "Unload", "More", "Rate −", "Auto", "Rate +"]]);
+
+// specs/0013 revision 8: the stats in the head's line, after the side; a
+// value with no reading left out, speed orange over the limit; brand and
+// category in the name's title; no stat tiles
+const sft = rigFix["seeder-front-tank"];
+const lineOf = (vehicles, rates = noRates) => {
+  const s = createStore();
+  const el = vt.toolCards(s, { send: () => Promise.resolve({ ok: true }), rates });
+  s.set("vehicles", vehicles);
+  s.set("cab", sft.cab);
+  const card = el.querySelector('.tool-card[data-id="513"]');
+  return [q(card, ".tool-sub"), statLabels(card), card.querySelector('[data-stat="Speed"]')?.dataset.level ?? null,
+    card.querySelector(".tool-name").title, card.querySelectorAll(".tool-stats, .tool-stat").length];
+};
+const sftFast = structuredClone(sft.vehicles);
+sftFast.vehicles[0].speed = 18;
+delete sftFast.vehicles[0].implements[1].wear;
+const sftArea = { ...noRates, area: (id) => (id === 513 ? 0.42 : undefined) };
+check("calm (revision 8): a card's line: side, speed, width, area, wear; missing ones left out; orange over the limit", [
+  lineOf(sft.vehicles), lineOf(sftFast), lineOf(sft.vehicles, sftArea)[0]],
+  [["Rear · 0 / 15 km/h · 5.0 m wide · 1 % wear", ["Speed", "Width", "Wear"], null, "PÖTTINGER · Seeders", 0],
+    ["Rear · 18 / 15 km/h · 5.0 m wide", ["Speed", "Width"], "warn", "PÖTTINGER · Seeders", 0],
+    `Rear · 0 / 15 km/h · 5.0 m wide · ≈ ${units.areaText(0.42, units.METRIC)} · 1 % wear`]);
 // specs/0012: a tap on Unload sends its tool alone; Auto the state it
 // asks for, where Precision Farming has a rate for what's in the tank (the
 // Rogator's liquid fertilizer), nothing where it has none (the Berthoud's
@@ -2306,10 +2332,10 @@ const bodyPage = toolsPage(rigFix.mowers.vehicles, rigFix.mowers.cab);
 const bodyCards = [...bodyPage.cardsEl.querySelectorAll(".tool-card")];
 const pointerClick = (el) => el.dispatchEvent(new MouseEvent("click", { bubbles: true, detail: 1 }));
 // the selected rear mower's card is second since revision 5 (front first)
-pointerClick(bodyCards[1].querySelector(".tool-stats") ?? bodyCards[1]);
+pointerClick(bodyCards[1]);
 await Promise.resolve();
 const selectedAgain = bodyPage.sent.length;
-pointerClick(bodyCards[0].querySelector(".tool-stats") ?? bodyCards[0]);
+pointerClick(bodyCards[0]);
 await Promise.resolve();
 // a button on the other (unselected) card, on a fresh page
 const btnPage = toolsPage(rigFix.mowers.vehicles, rigFix.mowers.cab);
@@ -2384,13 +2410,25 @@ const withWeight = (f) => {
 const layouts = [...RIGS.map((name) => [name, rigFix[name]]), ...[1, 2, 3, 4, 5, 6].map((n) => [`${n} tools`, madeRig(n)]),
   ["3 tools and a weight", withWeight(madeRig(3))]];
 const layoutIssues = [];
+// revision 8's last resort: the cases where the tools column scrolls on its own
+const columnScrolls = [];
 const layoutCheck = (/** @type {string} */ label) => {
   const screen = /** @type {HTMLElement} */ (lapp.querySelector('.screen[data-screen="vehicle"]'));
   if (screen.hidden) { layoutIssues.push(`${label}: not on the Vehicle page`); return; }
   if (screen.scrollHeight > screen.clientHeight + 1) layoutIssues.push(`${label}: the page scrolls`);
   const box = screen.getBoundingClientRect();
+  const cardsSlot = /** @type {HTMLElement|null} */ (screen.querySelector(".slot:has(> .tool-cards)"));
+  const columnScrolling = !!cardsSlot && cardsSlot.scrollHeight > cardsSlot.clientHeight + 1;
+  if (columnScrolling) columnScrolls.push(label);
   for (const el of screen.querySelectorAll(".tool-card, .tools-all, .tools-also-row, .veh-rig, .field-panel")) {
     if (/** @type {HTMLElement} */ (el).offsetParent === null) continue;
+    // a card in the scrolling tools column is checked against the column
+    if (columnScrolling && cardsSlot?.contains(el)) {
+      const r = el.getBoundingClientRect();
+      const c = cardsSlot.getBoundingClientRect();
+      if (r.right > c.right + 1) layoutIssues.push(`${label}: ${el.className} is wider than the tools column`);
+      continue;
+    }
     const what = `${label}: ${el.className} ${el.querySelector(".tool-name")?.textContent ?? ""}`.trim();
     // the strip scrolls sideways when its tiles don't fit at 150 px, with
     // room for their lift round it (specs/0013): only its place is checked
@@ -2421,6 +2459,25 @@ const layoutCheck = (/** @type {string} */ label) => {
 let layoutMoreSaved = null;
 try { layoutMoreSaved = localStorage.getItem("fs25companion.moreOpen"); } catch { /* none */ }
 let layoutOpened = 0;
+// revision 8: at 1180 × 820, and what the iPad minis leave the page in
+// Safari (1158 × 756 and 1133 × 744 less the status bar, the home
+// indicator's strip or Safari's bars: about 80 px, measured 2026-11-14)
+const LAYOUT_SIZES = [[1180, 820], [1158, 676], [1133, 664]];
+const buttonSizes = [];
+const aerosemRows = [];
+for (const [lw, lh] of LAYOUT_SIZES) {
+  layoutFrame.style.width = `${lw}px`;
+  layoutFrame.style.height = `${lh}px`;
+  lstore.set("vehicles", rigFix["seeder-front-tank"].vehicles);
+  lstore.set("cab", rigFix["seeder-front-tank"].cab);
+  lui.showScreen("vehicle");
+  const vs = lapp.querySelector('.screen[data-screen="vehicle"]');
+  const sz = (b) => { const r = b.getBoundingClientRect(); return `${Math.round(r.width)}×${Math.round(r.height)}`; };
+  buttonSizes.push([`${lw}×${lh}`, sz(vs.querySelector(".control-column .control-grid .control")),
+    sz(vs.querySelector(".tool-buttons .control"))]);
+  const aRow = [...vs.querySelectorAll('.tool-card[data-id="513"] > .tool-buttons .control')]
+    .map((b) => Math.round(b.getBoundingClientRect().top));
+  aerosemRows.push([`${lw}×${lh}`, new Set(aRow).size, Math.round(vs.querySelector(".field-panel").getBoundingClientRect().width)]);
 for (const palette of ["day", "night"]) {
   ldoc.documentElement.dataset.palette = palette;
   for (const [name, f] of layouts) {
@@ -2429,23 +2486,38 @@ for (const palette of ["day", "night"]) {
     // the Vehicle page by hand, as from the tab's menu: a rig with a front
     // loader opens the Loader page by itself
     lui.showScreen("vehicle");
-    layoutCheck(`${name} (${palette})`);
+    layoutCheck(`${name} (${palette}, ${lw}×${lh})`);
     // specs/0012: with each card's More open too (compact keeps it closed)
     const toggles = [...lapp.querySelectorAll('.screen[data-screen="vehicle"] .tool-more-toggle')]
       .filter((t) => t.getAttribute("aria-expanded") === "false" && t.getAttribute("aria-disabled") !== "true");
     if (!toggles.length) continue;
     toggles.forEach((t) => t.click());
     layoutOpened += toggles.filter((t) => t.getAttribute("aria-expanded") === "true").length;
-    layoutCheck(`${name}, More open (${palette})`);
+    layoutCheck(`${name}, More open (${palette}, ${lw}×${lh})`);
     toggles.forEach((t) => t.click());
   }
 }
+}
+layoutFrame.style.width = "1180px";
+layoutFrame.style.height = "820px";
+ldoc.documentElement.dataset.palette = "day";
 try {
   if (layoutMoreSaved === null) localStorage.removeItem("fs25companion.moreOpen");
   else localStorage.setItem("fs25companion.moreOpen", layoutMoreSaved);
 } catch { /* none */ }
-check("tools: layout at 1180 × 820, day and night: every fixture and 1 to 6 tools fit, More open and closed, no scrolling, buttons 48 px or more",
+check("tools: layout at 1180 × 820, 1158 × 676 and 1133 × 664, day and night: every fixture and 1 to 6 tools fit, More open and closed, no scrolling, buttons 48 px or more",
   [layoutIssues, layoutOpened > 0], [[], true]);
+// only with More open on the Aerosem (three rows of buttons), and five or
+// six cards on a short screen, does the tools column scroll on its own,
+// never the page
+check("calm (revision 8): the tools column scrolls on its own only for three rows of buttons or five cards on a short screen",
+  columnScrolls, LAYOUT_SIZES.flatMap(([w, hh]) => ["day", "night"].flatMap((p) => [
+    `seeder-front-tank, More open (${p}, ${w}×${hh})`, ...(hh < 800 ? [`5 tools (${p}, ${w}×${hh})`, `6 tools (${p}, ${w}×${hh})`] : [])])));
+check("calm (revision 8): buttons 84 × 80, and 72 × 68 under 800 px tall, in the column and on the cards", buttonSizes,
+  [["1180×820", "84×80", "84×80"], ["1158×676", "72×68", "72×68"], ["1133×664", "72×68", "72×68"]]);
+// the Aerosem's seven buttons in one row on a short screen (the field panel 260 wide)
+check("calm (revision 8): on a short screen the Aerosem's seven buttons fit one row, the field panel 260 wide", aerosemRows,
+  [["1180×820", 2, 320], ["1158×676", 1, 260], ["1133×664", 1, 260]]);
 
 // specs/0010: states, surfaces and motion, read from the theme's CSS
 const { createControl: tidyControl } = await import("./src/ui/control.js");

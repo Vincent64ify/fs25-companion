@@ -1338,6 +1338,13 @@ button.day-clock[aria-expanded="true"] .day-clock-when { color: inherit; opacity
   min-height: 0;
 }
 .slot-group[data-group="work"] > .slot:has(> .tool-cards) { grid-column: 1; grid-row: 1; align-self: start; }
+/* a last resort (a third row of buttons, five or six cards on a short
+   screen): the cards scroll on their own, never the page (revision 8); they
+   have the column's whole height beside the field panel, or with nothing
+   under them */
+.slot-group[data-group="work"] > .slot:has(> .tool-cards) { max-height: 100%; overflow-y: auto; }
+.slot-group[data-group="work"]:is(:has(> .slot > .field-panel:not([hidden])),
+  :not(:has(> .slot > .tools-also:not([hidden])))) > .slot:has(> .tool-cards) { grid-row: 1 / -1; }
 /* Also attached (revision 7): three cards or more (no field panel), at the
    bottom of the tools */
 .slot-group[data-group="work"] > .slot:has(> .tools-also) { grid-column: 1; grid-row: 2; align-self: end; }
@@ -1405,21 +1412,11 @@ button.day-clock[aria-expanded="true"] .day-clock-when { color: inherit; opacity
 .tool-name, .tool-sub { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .tool-name { font-size: 18px; font-weight: 700; line-height: 1.2; }
 .tool-sub { font-size: 13px; color: var(--muted); }
-/* the stats, each on a small quiet tile: context, not the point */
-.tool-stats { display: grid; flex: none; grid-template-columns: repeat(auto-fit, minmax(96px, 1fr)); gap: 6px; }
-.tool-stat {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 0;
-  padding: 6px 10px;
-  border-radius: 10px;
-  background: var(--line);
-}
-.tool-stat-label { font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
-.tool-stat-value { overflow: hidden; font-size: 15px; font-weight: 700; line-height: 1.2; font-variant-numeric: tabular-nums;
-  text-overflow: ellipsis; white-space: nowrap; }
-.tool-stat[data-level] .tool-stat-value { color: var(--warn); }
+/* the stats are the line's parts (revision 8: context, not the point, so
+   they cost no height); cut from the end, wear first; over the tool's
+   limit the speed turns orange */
+.tool-card .tool-sub { font-variant-numeric: tabular-nums; }
+.tool-sub [data-level] { color: var(--warn); font-weight: 600; }
 /* the buttons: the column's, 84 × 80, in one row from the left, wrapping
    where a card is too narrow; never stretched */
 .tool-buttons { display: grid; flex: none; grid-template-columns: repeat(auto-fill, 84px); grid-auto-rows: 80px; gap: 8px;
@@ -1487,16 +1484,11 @@ button.day-clock[aria-expanded="true"] .day-clock-when { color: inherit; opacity
 }
 .tool-more-toggle[aria-expanded="true"] .tool-more-chevron::after { margin: 5px 0 0; transform: rotate(-135deg); }
 @media (prefers-reduced-motion: reduce) { .tool-more-toggle .tool-more-chevron::after { transition: none; } }
-.tool-card:has(> .tool-more:not([hidden])) :is(.tool-stats, .tank:not(:first-child), .tank-foot) { display: none; }
-/* two stacked cards on a short screen (1133 x 744): the stats go first, so
-   both fit without scrolling */
-@media (max-height: 799px) {
-  .tool-cards[data-count="2"] .tool-stats { display: none; }
-}
+.tool-card:has(> .tool-more:not([hidden])) :is(.tank:not(:first-child), .tank-foot) { display: none; }
 /* three or more: the compact form, head, buttons and the main meter; the
    buttons stay the column's, wrapping */
 .tool-cards[data-compact="true"] .tool-card { gap: 10px; padding: 12px; }
-.tool-cards[data-compact="true"] :is(.tool-stats, .tank:not(:first-child), .tank-foot) { display: none; }
+.tool-cards[data-compact="true"] :is(.tank:not(:first-child), .tank-foot) { display: none; }
 .tool-cards[data-compact="true"] .tool-badge { width: 34px; height: 34px; }
 .tool-cards[data-compact="true"] .tool-name { font-size: 16px; }
 .tool-cards[data-compact="true"] .tank-pct { font-size: 17px; }
@@ -1749,7 +1741,8 @@ button.day-clock[aria-expanded="true"] .day-clock-when { color: inherit; opacity
 .harv-wear .widget-meter { width: auto; }
 
 /* the header, compact (revision 3): the lift on one line, tiles 80 tall,
-   small stat tiles as the Vehicle page's cards have them (.tool-stat) */
+   small stat tiles (the Vehicle page's cards had them until specs/0013
+   revision 8) */
 .harv-header { gap: 12px; }
 .harv-header-body { display: flex; flex-direction: column; gap: 12px; }
 .harv-lift { display: grid; grid-template-columns: auto auto minmax(0, 1fr); align-items: center; gap: 10px; }
@@ -1938,6 +1931,38 @@ button.day-clock[aria-expanded="true"] .day-clock-when { color: inherit; opacity
 /* the Drive group's Engine was two columns wide (specs/0002) while Drive
    had five buttons; with Attach the sixth (specs/0016) Drive is two full
    rows of three, Engine one column like the rest */
+
+/* --- a short screen (the iPad minis, 1158 x 756 and 1133 x 744): every
+   button drawn as the column's is 72 x 68, the column 232 wide; the 13 px
+   label still wraps to two lines (specs/0013 revision 8) ---------------------- */
+
+@media (max-height: 799px) and (min-width: 900px) and (orientation: landscape) {
+  .screen:is([data-screen="map"], [data-screen="vehicle"], [data-screen="loader"], [data-screen="harvester"]) {
+    grid-template-columns: minmax(0, 1fr) 232px;
+  }
+  .control-grid { grid-auto-rows: 68px; }
+  .tool-buttons { grid-template-columns: repeat(auto-fill, 72px); grid-auto-rows: 68px; gap: 6px; }
+  /* the field panel 260 wide, so seven buttons fit a card's row (the
+     Aerosem's; revision 8, after the mini's live look), Also attached's
+     chips over it the same */
+  .slot-group[data-group="work"] { grid-template-columns: minmax(0, 1fr) 260px; }
+  .tools-also-row { width: 260px; }
+  /* not the sprayer's width row: its buttons keep their 52 px */
+  :is(.control-grid, .tool-buttons:not(.tool-width > .tool-buttons)) .control { gap: 4px; }
+  :is(.control-grid, .tool-buttons:not(.tool-width > .tool-buttons)) .control .icon { width: 24px; height: 24px; }
+  .tool-buttons .control[data-control^="key:"] .control-label { -webkit-line-clamp: 2; line-clamp: 2; }
+  /* the column's labels wrap to two lines too ("High beam", "Uncover all") */
+  .control-grid .control-label {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    white-space: normal;
+    overflow-wrap: break-word;
+  }
+  /* the cards a little tighter: 10 px between their parts */
+  .tool-card { gap: 10px; padding: 10px 16px; }
+}
 
 /* --- compact: narrower than 900 px, or portrait ------------------------------- */
 

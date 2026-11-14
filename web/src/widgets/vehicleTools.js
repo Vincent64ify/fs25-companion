@@ -402,13 +402,20 @@ function buttonRow(send, className = "tool-buttons") {
   };
 }
 
-/** "Krone · Mowers · Front": the brand, the shop's category, the side. */
-export function cardSub(/** @type {RigEntry} */ e, /** @type {Vehicle|undefined} */ v) {
+/** "Krone · Mowers": the brand and the shop's category (a card's name's title, specs/0013 revision 8). */
+export function cardKind(/** @type {RigEntry} */ e, /** @type {Vehicle|undefined} */ v) {
   const d = detailOf(e, v);
   const brand = typeof d?.brand === "string" ? d.brand : "";
   const kind = kindLabel(e.depth === 0 ? v : { ...d, motorized: false });
-  const side = e.side === "front" ? "Front" : e.side === "rear" ? "Rear" : "";
-  return [brand, kind, side].filter(Boolean).join(" · ");
+  return [brand, kind].filter(Boolean).join(" · ");
+}
+
+/** "Front" or "Rear", as the strip's links say it; "" for neither. */
+const sideText = (/** @type {RigEntry} */ e) => (e.side === "front" ? "Front" : e.side === "rear" ? "Rear" : "");
+
+/** "Krone · Mowers · Front": the brand, the shop's category, the side (an Also attached chip's line). */
+export function cardSub(/** @type {RigEntry} */ e, /** @type {Vehicle|undefined} */ v) {
+  return [cardKind(e, v), sideText(e)].filter(Boolean).join(" · ");
 }
 
 /** @typedef {{label: string, value: string, pct?: number, level?: string, title?: string}} Stat */
@@ -451,16 +458,44 @@ export function cardStats(e, v, rates, units) {
   return out;
 }
 
+/** @typedef {{text: string, stat?: string, level?: string, title?: string}} LinePart */
+
 /**
- * One stat on its small quiet tile (specs/0013): a label and a value, no
- * bar; over the tool's limit its value turns orange.
+ * A card's line under its name (specs/0013 revision 8): the side, then the
+ * stats, each a short phrase ("Rear · 8 / 22 km/h · 5.0 m wide · ≈ 0.4 ha ·
+ * 12 % wear"). A stat with no reading is left out; the theme cuts the line
+ * from the end, so wear goes first, then area.
+ * @param {RigEntry} e @param {Vehicle|undefined} v
+ * @param {ReturnType<typeof ratesOf>} rates @param {import("../data/units.js").Units} units
+ * @returns {LinePart[]}
  */
-function statTile(/** @type {Stat} */ s) {
-  const el = h("div", { className: "tool-stat" }, h("span", { className: "tool-stat-label", text: s.label }),
-    h("b", { className: "tool-stat-value", text: s.value }));
-  if (s.level) el.dataset.level = s.level;
-  if (s.title) el.title = s.title;
-  return el;
+export function cardLine(e, v, rates, units) {
+  /** @type {LinePart[]} */
+  const out = [];
+  const side = sideText(e);
+  if (side) out.push({ text: side });
+  for (const st of cardStats(e, v, rates, units)) {
+    if (st.value === "–") continue;
+    const text = st.label === "Width" ? `${st.value} wide`
+      : st.label === "Wear" && typeof st.pct === "number" ? `${Math.round(st.pct)} % wear` : st.value;
+    out.push({ text, stat: st.label, level: st.level, title: st.title ?? st.label });
+  }
+  return out;
+}
+
+/** The line drawn: a span per part, " · " between them; over the limit the part turns orange. */
+function lineNodes(/** @type {LinePart[]} */ parts) {
+  /** @type {(Node|string)[]} */
+  const nodes = [];
+  parts.forEach((p, i) => {
+    if (i) nodes.push(" · ");
+    const el = h("span", { text: p.text });
+    if (p.stat) el.dataset.stat = p.stat;
+    if (p.level) el.dataset.level = p.level;
+    if (p.title) el.title = p.title;
+    nodes.push(el);
+  });
+  return nodes;
 }
 
 /** A tank row: name, chips, %, its meter, litres and estimate. */
@@ -607,12 +642,11 @@ function toolCard(send) {
   const name = h("b", { className: "tool-name" });
   const sub = h("span", { className: "tool-sub" });
   let head = h("header", { className: "tool-head" }, badge, h("div", { className: "tool-text" }, name, sub));
-  const stats = h("div", { className: "tool-stats" });
   const buttons = buttonRow(send);
   const width = widthBlock(send);
   const more = moreBlock(send);
   const tanks = h("div", { className: "tool-tanks" });
-  const el = h("section", { className: "tool-card" }, head, stats, buttons.el, more.el, width.el, tanks);
+  const el = h("section", { className: "tool-card" }, head, buttons.el, more.el, width.el, tanks);
   // a tap anywhere on the card selects its tool, as the head does; its
   // buttons only press (specs/0010, revision 2)
   el.addEventListener("click", (ev) => {
@@ -622,7 +656,7 @@ function toolCard(send) {
   });
   let lastHead = "";
   let lastKind = "";
-  let lastStats = "";
+  let lastLine = "";
   let lastTanks = "";
   return {
     el,
@@ -641,7 +675,7 @@ function toolCard(send) {
       // working: the badge's "on" look (specs/0013: no Working chip)
       badge.dataset.on = String(working(e));
       name.textContent = model;
-      sub.textContent = cardSub(e, v);
+      name.title = cardKind(e, v);
       // the head selects the tool in game: rebuilt when that changes
       const headKey = JSON.stringify([e.id, e.selectable, e.selected]);
       if (headKey !== lastHead) {
@@ -651,11 +685,12 @@ function toolCard(send) {
         head = fresh;
         pickable(head, e, model, send);
       }
-      const st = cardStats(e, v, rates, units);
-      const stKey = JSON.stringify(st);
-      if (stKey !== lastStats) {
-        lastStats = stKey;
-        stats.replaceChildren(...st.map(statTile));
+      // the side and the stats, in the head's line (revision 8)
+      const line = cardLine(e, v, rates, units);
+      const lineKey = JSON.stringify(line);
+      if (lineKey !== lastLine) {
+        lastLine = lineKey;
+        sub.replaceChildren(...lineNodes(line));
       }
       const all = toolButtons(e);
       more.render(model, moreCount(e), all.filter((b) => b.more), compact);

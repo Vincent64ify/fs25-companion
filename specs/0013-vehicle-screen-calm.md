@@ -1,6 +1,6 @@
 # 0013: Vehicle page, calm
 
-Status: live-checked (2026-11-07; Precision Farming off checked 2026-11-10), with revisions 2 (a light field panel), 3 (your fields, a trail only while working, every mower) 4 (what Precision Farming's nozzles spray) 5 (the cards from the front of the rig to the back; no mod change; live-checked 2026-11-08) and 6 (a failed answer shows only on its button; live-checked 2026-11-09); revision 7 (Also attached over the field panel, a rig strip that fits) live-checked 2026-11-11
+Status: live-checked (2026-11-07; Precision Farming off checked 2026-11-10), with revisions 2 (a light field panel), 3 (your fields, a trail only while working, every mower) 4 (what Precision Farming's nozzles spray) 5 (the cards from the front of the rig to the back; no mod change; live-checked 2026-11-08) and 6 (a failed answer shows only on its button; live-checked 2026-11-09); revision 7 (Also attached over the field panel, a rig strip that fits) live-checked 2026-11-11; revision 8 (the stats in one line, smaller buttons on a short screen) live-checked 2026-11-14
 Mod: 0.15.0 (revision 4; 0.14.0 revision 3; no change before) · Started: 2026-11-03 · Design: the canvas [FS25 Companion: Vehicle screen, calm](https://claude.ai/artifact/JApsdXjoSFwsddKv2kNYZ3) (private, on claude.ai; approved by Vincent on 2026-11-03), a THEMES.md section at build; specs [0003](0003-implement-screen.md) (the page), [0010](0010-tidy-states-and-motion.md) (the states), [0012](0012-card-buttons.md) (the buttons)
 
 ## Goal
@@ -537,6 +537,142 @@ Live check (in game; Solek, mod 0.17.3, Vincent's iPad):
 - [x] **The mowers (two cards, no Also attached):** as now.
 - [x] **Day and night** on the iPad.
 
+## Revision 8: the stats in one line, smaller buttons on a short screen
+
+Drafted 2026-11-14 from Vincent's first evening with his iPad mini
+(A20 Pro, 1158×756 landscape), approved by Vincent and built the same
+day. This section is the revision whole; Behaviour below says the same.
+No mod change.
+
+**Why.** On the Valtra S 286 with the Väderstad FH 2200 (front) and the
+Pöttinger Aerosem VT 5000 DD (rear), on Field 150, the page scrolls
+(measured on the live stream, 2026-11-14):
+- The Aerosem has seven buttons (Lower, Fold, Turn on, Unload, Uncover,
+  Detach, More). The tools column next to the field panel is 507 px, so a
+  card holds five buttons in a row; the other two wrap onto a second row
+  and the card grows by 88 px.
+- At 1158×756 (stats already gone, under 800 tall) the two cards are 16 px
+  too tall; at 1180×820 (stats shown) 68 px. "Two stacked cards fit"
+  never planned for a card whose buttons wrap, and no rig fixture had
+  one.
+
+**Behaviour.**
+- **The stats become the card head's second line**, in place of the
+  brand and category, so they cost no height and show on every screen:
+  - "Rear · 8 / 22 km/h · 5 m wide · ≈ 0.4 ha · 12 % wear": the side (as
+    the strip's links say it), Speed against the tool's limit, Width, Area
+    this run, the tool's own wear (not on a vehicle's own card, as now).
+    13 px, muted, as the line today.
+  - A value with no reading is left out (no "–"); area from 0.01 ha, as
+    now. Speed over the tool's limit turns that part orange, as the tile
+    did.
+  - Too long for the card: it's cut from the end ("…"), so wear goes
+    first, then area; side, speed and width stay.
+  - The brand and category ("Pöttinger · Seeders") move to the name's
+    title (the tooltip).
+  - The stat tiles go, and with them the rule hiding them on a short
+    screen. A card with More open keeps its line (it hid the tiles
+    before); compact cards (three or more) keep it too.
+- **Buttons are 72 × 68 on a screen under 800 px tall** (the iPad mini,
+  1158×756 or 1133×744), 84 × 80 above, the gap 8 px as now:
+  - every button drawn as the column's: the column's groups (Lights,
+    Drive, All tools) on every page, a card's main and More rows; the
+    same icon and 13 px label, which still wraps to two lines;
+  - unchanged: Also attached's 48 × 48 chip buttons, the sprayer's width
+    row (52 px), the bottom bar.
+  - 72 × 68 is well above the 44 px touch minimum.
+  - Built with (2026-11-14): the column 232 px wide on every page (three
+    72 px buttons), so the tools column gains 36 px; the icon 24 px; the
+    column's labels wrap to two lines like the cards' ("High beam",
+    "Uncover all" were cut at 72 px); a card's other keys ("Work mode
+    right") two lines, not three. Only landscape screens 900 px wide or
+    more: compact (portrait, narrow) is unchanged.
+- **Seven buttons in one row** (added the same day, after the first look
+  on the mini, approved by Vincent): the iPad leaves the page about 80 px
+  less than its 756 (fullscreen: the status bar and the home indicator's
+  strip; in Safari: its bars), so the page is 1158×676 and the cards were
+  56 px too tall, the Aerosem's More alone on a second row. On a short
+  screen:
+  - the field panel is 260 px wide, not 320 (Also attached's chips over
+    it too), so the cards are about 600 px wide;
+  - a card's buttons are 6 px apart, not 8: seven fit one row (552 px), at
+    1133 wide too;
+  - the cards' padding and gaps are 10 px.
+- **The result with this rig:** at 1180×820 the cards lose their 58 px of
+  tiles each and fit; at 1158×676 they fit with about 30 px to spare, all
+  seven of the Aerosem's buttons in one row; at 1133×664 they fit.
+- **Last resort:** a card with three rows of buttons (eleven or more next
+  to the field panel) can still be too tall. Then the tools column alone
+  scrolls, never the page; the strip, field panel and column stay put.
+  Built, this happens with the Aerosem's More open (its main row or rows
+  and the More row) at all three sizes, and with five or six cards on a
+  short screen (no field panel; the cards in two rows of three), and with
+  nothing else.
+
+**Plan.**
+1. `web/test.html` first:
+   - `web/fixtures/rigs/seeder-front-tank.json`: the S 286's `cab` and its
+     `vehicles` entry from the live stream (port 8123, 2026-11-14), not
+     made by `fixtures/rig_fixtures.py`;
+   - the layout check runs at 1180×820, 1158×676 and 1133×664 (what the
+     minis leave the page), and gains
+     the new fixture: no page scrolling, nothing overflows or lies over
+     anything else;
+   - a card's line: the parts above in order, a missing value left out,
+     orange speed over the limit, cut from the end; brand and category in
+     the name's title; no `.tool-stats`;
+   - buttons 72 × 68 under 800 px tall (the column's and a card's), 84 ×
+     80 at 820.
+2. `web/src/widgets/vehicleTools.js`: `cardSub` gives the side and the
+   stats as parts (the over-limit one marked), drawn as spans in the
+   line; `cardStats` stays the source of the values; `statTile` and the
+   stats element go.
+3. `web/src/themes/newholland/theme.css`: the line's parts and cut, the
+   short-screen button size for `.control-grid` and `.tool-buttons` in
+   one `@media (max-height: 799px)`, the tools column's own scroll as the
+   last resort; the old stats rules go.
+4. `docs/THEMES.md`: the Vehicle page's card lines; the design system's
+   ToolCard note when it's refreshed.
+
+**Acceptance.**
+
+Automated (written first):
+- [x] The layout check: every fixture, the new one included, one to six
+  tools, day and night, More open and closed, at 1180×820, 1158×676 and
+  1133×664: no page scrolling, nothing overflows, nothing lies over
+  anything else, buttons 48 px or more; the tools column scrolls on its
+  own only for the Aerosem with More open, and five or six cards on a
+  short screen.
+- [x] On a short screen the Aerosem's seven buttons are one row, the
+  field panel 260 wide; two rows at 1180×820.
+- [x] A card's line: side, speed, width, area, wear in that order, no
+  missing value, speed orange over the limit, cut from the end; brand
+  and category in the name's title; no stat tiles.
+- [x] Buttons: 72 × 68 at 1158×676 and 1133×664, 84 × 80 at 1180×820, in
+  the column and on the cards.
+- [x] The existing rig fixture checks (cards, buttons, Also attached)
+  pass unchanged (a truck's and the DINO's line have no width: the game
+  sends none, so it's left out).
+- [x] In the browser pane on the live game (port 8123, the S 286's rig),
+  day and night at 1158×756 and 1180×820, then by day at 1158×676 and
+  1133×664 (night there by the layout check): no scrolling; test.html 338 green; `python -m pytest mod/tests
+  companion/tests tests` 122 passed, the golden unchanged.
+
+Live check (in game; Solek, Vincent's iPad mini and iPad Pro):
+- [x] **The S 286 with the FH 2200 and the Aerosem on Field 150, on the
+  mini:** no scrolling; both cards whole; the line readable at a glance
+  while driving.
+- [x] **The same rig on the 13" Pro:** buttons 84 × 80, the cards whole.
+- [x] **The mowers and a sprayer:** as now, the line in place of the
+  tiles.
+- [x] **Day and night** on the mini.
+- [x] **The mini fullscreen and in Safari with its bars:** no scrolling
+  either way.
+- [x] **The Aerosem with More open, on the mini:** only the tools column
+  scrolls; the strip, field panel and column stay put.
+- [x] **The column on the mini, the Map page too:** the 72 × 68 buttons
+  easy to hit, "High beam" and "Uncover all" whole on two lines.
+
 ## Behaviour
 
 **Layout (1180×820).** The usual chrome. The content area has:
@@ -577,17 +713,18 @@ front of the rig to the back: the strip's driving order read from the
 tractor, so the trailer on the tractor is above the one behind it and a
 front mower above the rear one (revision 5, Vincent, 2026-11-08):
 - **Head:** the badge (the "on" look while working, below), the model
-  (18 px), "Berthoud · Sprayers · Rear" under it. The Working chip goes:
-  the badge says it.
-- **Stats:** Speed against the tool's limit, Width, Area this run and the
-  tool's own wear, as now.
-  - Each one sits on a small quiet tile: the line colour as its
-    background, 10 px corners, 6 × 10 padding, an 11 px label and a 15 px
-    value. No bar under Speed or Wear (the canvas has none): over the
-    tool's limit Speed's value turns orange.
-  - They're context, not the point (Vincent, 2026-11-03), so they go first
-    when space runs out: two stacked cards on a screen under 800 px tall
-    (the iPad mini's 1133×744) show none.
+  (18 px; its title "Berthoud · Sprayers", the brand and category), and
+  the line under it (revision 8). The Working chip goes: the badge says
+  it.
+- **The line** (13 px, muted; revision 8): the side, then the stats,
+  "Rear · 8 / 22 km/h · 5.0 m wide · ≈ 0.4 ha · 12 % wear": Speed against
+  the tool's limit, Width, Area this run and the tool's own wear (not on
+  the vehicle's own card).
+  - A stat with no reading is left out. Over the tool's limit the speed
+    turns orange.
+  - They're context, not the point (Vincent, 2026-11-03), so they cost no
+    height; too long for the card, the line is cut from the end, wear
+    first, then area.
 - **Tanks:** for each, the name, the percentage (22 px), an 8 px meter,
   the litres, and "≈ 18 min left" while it's emptying ("full in ≈ 4 min"
   while it fills, as before). No box round each tank.
@@ -596,7 +733,8 @@ front mower above the rear one (revision 5, Vincent, 2026-11-08):
     yellow.
   - Under it: "7 / 9 sections".
 - **Buttons:** drawn exactly as the column's (84 × 80, icon over a 13 px
-  label), in one row from the left, never stretched to the card's width.
+  label; 72 × 68 on a short screen, revision 8), in one row from the left,
+  never stretched to the card's width.
   - What they are, their labels and their fading are spec 0012's.
   - A press the game answers not ok shows **"Failed"** in place of the
     button's label for a few seconds, the reason only in its title
@@ -605,7 +743,7 @@ front mower above the rear one (revision 5, Vincent, 2026-11-08):
     2026-11-08).
   - **More** (spec 0012) is the row's last button: a chevron, "More",
     and its count ("2") as the button's value line under it; a tap opens
-    or closes the More row under the main one (its buttons 84 × 80 too).
+    or closes the More row under the main one (its buttons the same size).
 - **Also attached** (a tool with no card, a weight; revision 7): no
   title (its `aria-label` keeps the name), a chip per tool, 320 × 66: the
   model, a line with brand, category, side and state, and its buttons
@@ -623,7 +761,14 @@ front mower above the rear one (revision 5, Vincent, 2026-11-08):
   width in spec 0003's compact grid (three in a row, four two by two).
   Their buttons stay 84 × 80, wrapping to a second row if a card is too
   narrow.
-- At 1133×744 the same, with two stacked cards' stats gone (above).
+- **A short screen** (under 800 px tall, landscape: the iPad minis,
+  whose pages are about 1158×676 and 1133×664 once iPadOS or Safari take
+  their bars; revision 8): the same, every button drawn as the column's
+  72 × 68 (6 px apart on a card), the column 232 px wide, the field panel
+  260, the cards' padding and gaps 10 px.
+- A card with three rows of buttons (the Aerosem with More open), or five
+  or six cards on a short screen: the tools column scrolls on its own,
+  never the page.
 
 **The field panel** (none, one or two working tools: with none, a
 tractor alone or with a weight, it shows too, the tools column then holding
@@ -1219,3 +1364,30 @@ page's memory; off a field the panel shows the map around the rig.
   Fork `lower` too (the `loader-rear` fixture, from 2026-11-10, has only
   Detach), so its chip shows Lower and Detach; buttons follow `can`
   (spec 0012), nothing to change.
+- 2026-11-14: on the iPad mini (1158×756) the Vehicle page scrolled with
+  the S 286, the FH 2200 and the Aerosem VT 5000 DD (live, port 8123): the
+  Aerosem's seven buttons wrap to a second row, 16 px too tall there and
+  68 px at 1180×820. Vincent asked for minimal stats and smaller buttons
+  on a small screen; revision 8 drafted (stats in the head's line, 72 × 68
+  buttons under 800 px tall).
+- 2026-11-14: revision 8 approved and built. The S 286's rig saved from
+  the live stream (`web/fixtures/rigs/seeder-front-tank.json`); the layout
+  check runs at three sizes. On the way: the column's labels were cut at
+  72 px ("High be…"), so they wrap like the cards'; the sprayer's width
+  row kept its 52 px buttons; the rig was 4 px too tall at 1133×744, so
+  the cards' padding and gaps are 12 px on a short screen. A truck's and
+  the DINO's line show no width (the game sends none). test.html 337
+  green, pytest 122.
+- 2026-11-14 (later): Vincent's screenshot from the mini (fullscreen):
+  still too tall. The page there is 556 px, not the 636 the pane gives at
+  1158×756: iPadOS's status bar and the home indicator's strip take about
+  80 px. Reproduced at 1158×676. Approved and built: on a short screen the
+  field panel 260 wide and a card's buttons 6 px apart, so the Aerosem's
+  seven fit one row; the cards' padding and gaps 10 px; the layout check
+  at 1158×676 and 1133×664; five or six cards scroll the tools column, not
+  the page. test.html 338 green, pytest 122.
+- 2026-11-14: revision 8 live-checked by Vincent (Solek, the iPad mini
+  and the 13" Pro): every box above, the three added after the build (the
+  mini fullscreen and in Safari, More open, the column on the Map page
+  too) included; everything as described. No game API names, so nothing
+  for GAME-API.md.
