@@ -216,6 +216,15 @@ export function createContractsLayer(map, store) {
   }
 
   for (const key of ["contracts", "contractPrefs", "env", "cab"]) store.subscribe(key, render);
+  // Show on the map (the Contracts page): that contract's pin opens, once
+  // the Map is showing and centred on it
+  store.subscribe("goto", (/** @type {{pin?: string}|undefined} */ go) => {
+    if (go?.pin === undefined) return;
+    setTimeout(() => {
+      const pin = pins.get(String(go.pin));
+      if (store.get("goto") === go && pin && map.hasLayer(root)) pin.marker.openPopup();
+    }, 60);
+  });
 
   return { id: "contracts", title: "Contracts", leafletLayer: root };
 }

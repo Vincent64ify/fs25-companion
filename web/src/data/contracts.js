@@ -24,20 +24,39 @@ const num = (/** @type {unknown} */ v) => (typeof v === "number" && Number.isFin
  * tools that do it (names after FS25_BetterContracts' userint.lua,
  * unverified: a wrong one only means that tool isn't offered); `overhead`:
  * how much longer real work takes than width × speed (turns, overlaps,
- * refills, unloading), starting from BetterContracts' table. The live
- * check compares each with a real run.
- * @type {{kind: string, match: string[], categories: string[], overhead: number}[]}
+ * refills, unloading), starting from BetterContracts' table; a job
+ * without one gets your fitting tools and no time. The live check
+ * compares each with a real run.
+ *
+ * Seen in the game (2026-11-15, the lease lists and Vincent's farm):
+ * CUTTERS, POTATOHARVESTING, PLOWS, CULTIVATORS, POWERHARROWS, SEEDERS,
+ * SPRAYERS, FERTILIZERSPREADERS, SLURRYTANKS, SLURRYTOOLS, MOWERS,
+ * TEDDERS, BALERSROUND, BALEWRAPPERS. A fertilizing contract leases a
+ * sprayer as often as a spreader.
+ * @type {{kind: string, match: string[], categories: string[], overhead?: number}[]}
  */
 export const JOBS = [
+  // a harvest's own categories only count without a lease list: see fitCategories
   { kind: "harvest", match: ["harvest"], categories: ["CUTTERS", "CORNHEADERS"], overhead: 1.3 },
   { kind: "plow", match: ["plow", "plough"], categories: ["PLOWS"], overhead: 1.25 },
   { kind: "cultivate", match: ["cultivat"], categories: ["CULTIVATORS", "DISCHARROWS", "POWERHARROWS"], overhead: 1.2 },
   { kind: "sow", match: ["sow"], categories: ["SEEDERS", "PLANTERS"], overhead: 1.2 },
   { kind: "herbicide", match: ["herbicid", "spray"], categories: ["SPRAYERS"], overhead: 1.15 },
-  { kind: "fertilize", match: ["fertiliz", "fertilis", "lime"], categories: ["FERTILIZERSPREADERS"], overhead: 1.15 },
+  { kind: "fertilize", match: ["fertiliz", "fertilis", "lime"],
+    categories: ["FERTILIZERSPREADERS", "SPRAYERS", "SLURRYTANKS", "SLURRYTOOLS", "MANURESPREADERS"], overhead: 1.15 },
   { kind: "weed", match: ["weed", "hoe"], categories: ["WEEDERS"], overhead: 1.2 },
   { kind: "mow", match: ["mow"], categories: ["MOWERS"], overhead: 1.3 },
+  // "baleWrapMission" before "baleMission": the first match wins
+  { kind: "baleWrap", match: ["balewrap"], categories: ["BALEWRAPPERS"] },
+  { kind: "bale", match: ["bale"], categories: ["BALERSROUND", "BALERSSQUARE"] },
+  { kind: "ted", match: ["tedder"], categories: ["TEDDERS"] },
 ];
+
+/** shop categories that carry or pull, whatever width the shop gives them */
+const CARRIERS = /^(TRACTORS|TRAILERS|TRUCKS)/;
+
+const categoryOf = (/** @type {{category?: string}|undefined} */ v) =>
+  (typeof v?.category === "string" ? v.category.toUpperCase() : "");
 
 /**
  * The job a contract type is, or undefined for one no time is estimated for.
@@ -51,6 +70,26 @@ export function jobOf(type) {
 
 /** Whether a contract has lease vehicles to take. @param {Contract} c */
 export const hasLease = (c) => Array.isArray(c.vehicles) && c.vehicles.length > 0;
+
+/**
+ * The shop categories that do a contract. A harvest depends on its crop,
+ * and its lease list says what the game harvests it with: the job's
+ * categories found there (a grain header, or a corn header), else the
+ * lease's own tools with a working width (a potato harvester). Without a
+ * lease list, and for every other job, the job's categories.
+ * @param {Contract} c
+ * @returns {string[]}
+ */
+export function fitCategories(c) {
+  const job = jobOf(c.type);
+  if (!job) return [];
+  if (job.kind !== "harvest" || !hasLease(c)) return job.categories;
+  const leased = /** @type {ContractVehicle[]} */ (c.vehicles);
+  const known = job.categories.filter((k) => leased.some((v) => categoryOf(v) === k));
+  if (known.length) return known;
+  return [...new Set(leased.filter((v) => num(v?.workingWidth) !== undefined && !CARRIERS.test(categoryOf(v))).map(categoryOf))]
+    .filter(Boolean);
+}
 
 /**
  * Whether the numbers count the lease: for one of yours, whether you took
@@ -124,9 +163,9 @@ export function fieldWorked(c, factors) {
  * @returns {ContractTool[]}
  */
 export function fittingTools(c, tools, attached = new Set()) {
-  const job = jobOf(c.type);
-  if (!job || !Array.isArray(tools)) return [];
-  return tools.filter((t) => t && typeof t.category === "string" && job.categories.includes(t.category.toUpperCase()))
+  const categories = fitCategories(c);
+  if (!categories.length || !Array.isArray(tools)) return [];
+  return tools.filter((t) => t && categories.includes(categoryOf(t)))
     .sort((a, b) => Number(attached.has(b.id)) - Number(attached.has(a.id))
       || (num(b.workingWidth) ?? 0) - (num(a.workingWidth) ?? 0));
 }
@@ -139,8 +178,8 @@ export function fittingTools(c, tools, attached = new Set()) {
  */
 export function leaseTool(c) {
   const withWidth = (c.vehicles || []).filter((v) => num(v?.workingWidth) !== undefined);
-  const job = jobOf(c.type);
-  const fits = withWidth.filter((v) => job && typeof v.category === "string" && job.categories.includes(v.category.toUpperCase()));
+  const categories = fitCategories(c);
+  const fits = withWidth.filter((v) => categories.includes(categoryOf(v)));
   return (fits.length ? fits : withWidth).sort((a, b) => /** @type {number} */ (b.workingWidth) - /** @type {number} */ (a.workingWidth))[0];
 }
 
@@ -163,7 +202,43 @@ export function workRate(tool, maxSpeed) {
  */
 export function workHours(areaHa, tool, type, maxSpeed) {
   const area = num(areaHa), rate = workRate(tool, maxSpeed), job = jobOf(type);
-  return area === undefined || rate === undefined || !job || !(area > 0) ? undefined : (area / rate) * job.overhead;
+  const overhead = num(job?.overhead);
+  return area === undefined || rate === undefined || overhead === undefined || !(area > 0) ? undefined : (area / rate) * overhead;
+}
+
+/**
+ * A contract is more than its field work: you drive there, and you set up
+ * and hand in. Both are guesses until the live check's real runs.
+ */
+export const TRAVEL_KMH = 30;
+export const SETUP_MINUTES = 10;
+
+/**
+ * The whole job with one tool, in hours: the field work, the way there in
+ * a straight line at TRAVEL_KMH, and the setup. The way starts where the
+ * machines are: at the shop for a lease (the game puts them there), at
+ * your own tool otherwise, and where you are when neither is known.
+ * Nothing without a work time.
+ * @param {Contract} c @param {Context} ctx
+ * @param {{workingWidth?: number, speedLimit?: number, id?: number|string}|undefined} tool
+ * @param {boolean} leased @param {number} [maxSpeed]
+ * @returns {{work?: number, travel?: number, setup?: number, job?: number, from?: "shop"|"tool"|"you", metres?: number}}
+ */
+export function jobTime(c, ctx, tool, leased, maxSpeed) {
+  const work = workHours(c.areaHa, tool, c.type, maxSpeed);
+  if (work === undefined) return {};
+  const parked = !leased && tool?.id !== undefined ? ctx.places?.get(tool.id) : undefined;
+  const start = leased ? ctx.shop : parked;
+  /** @type {"shop"|"tool"|"you"|undefined} */
+  let from = start ? (leased ? "shop" : "tool") : undefined;
+  let metres = distance(c, start);
+  if (metres === undefined) {
+    metres = distance(c, ctx.from);
+    from = metres === undefined ? undefined : "you";
+  }
+  const travel = metres === undefined ? undefined : metres / 1000 / TRAVEL_KMH;
+  const setup = SETUP_MINUTES / 60;
+  return { work, travel, setup, job: work + (travel ?? 0) + setup, from, metres };
 }
 
 /** Money per hour of work. @param {number|undefined} amount @param {number|undefined} hours */
@@ -196,6 +271,8 @@ export function distance(c, from) {
  * @property {number} [timeScale]
  * @property {number} [maxSpeed] the cruise top of what you drive
  * @property {{x: number, z: number}} [from]
+ * @property {{x: number, z: number}} [shop] where leased machines appear
+ * @property {Map<number|string, {x: number, z: number}>} [places] where your vehicles are, by id
  */
 
 /**
@@ -204,13 +281,18 @@ export function distance(c, from) {
  * @property {number} [net]
  * @property {{workingWidth?: number, speedLimit?: number, name?: string, brand?: string, id?: number|string}} [tool]
  * @property {ContractTool[]} fits your tools that fit (own machines)
- * @property {number} [hours] the work time, estimated
- * @property {number} [perHour] net ÷ hours
+ * @property {number} [hours] the field work, estimated
+ * @property {number} [travelHours] the way there
+ * @property {"shop"|"tool"|"you"} [travelFrom] where it starts
+ * @property {number} [travelMetres]
+ * @property {number} [setupHours]
+ * @property {number} [jobHours] the whole job: work + travel + setup
+ * @property {number} [perHour] net ÷ the whole job
  * @property {number} [extraLiters]
  * @property {number} [extra] what they're worth
  * @property {number} [total] net + extra
  * @property {number} [realMinutes] real time before the deadline
- * @property {number} [hoursToGo] the work still to do (a running contract)
+ * @property {number} [hoursToGo] what's still to do: the whole job for an offer, the work left for a running contract
  * @property {boolean} late the work takes longer than the real time left
  * @property {number} [metres] from you
  */
@@ -229,17 +311,20 @@ export function figures(c, ctx) {
   const picked = job && ctx.picks ? fits.find((t) => t.id === ctx.picks?.[job.kind]) : undefined;
   const tool = own ? picked || fits[0] : leaseTool(c);
   const attachedNow = !!tool && "id" in tool && tool.id !== undefined && !!ctx.attached?.has(tool.id);
-  const hours = workHours(c.areaHa, tool, c.type, attachedNow ? ctx.maxSpeed : undefined);
+  const time = jobTime(c, ctx, tool, !own, attachedNow ? ctx.maxSpeed : undefined);
+  const hours = time.work;
   const netNow = net(c, leased);
   const extra = extraValue(c, ctx.factors);
   const realMinutes = realMinutesLeft(c.minutesLeft, ctx.timeScale);
   const completion = num(c.completion);
   const hoursToGo = hours === undefined ? undefined
-    : c.status === "running" && completion !== undefined ? hours * Math.max(0, 1 - Math.min(1, completion)) : hours;
+    : c.status === "running" && completion !== undefined ? hours * Math.max(0, 1 - Math.min(1, completion))
+      : c.status === "offer" ? time.job : hours;
   const open = c.status !== "finished";
   return {
     leased, fits, tool, hours, net: netNow,
-    perHour: perHour(netNow, hours),
+    travelHours: time.travel, travelFrom: time.from, travelMetres: time.metres, setupHours: time.setup, jobHours: time.job,
+    perHour: perHour(netNow, time.job),
     extraLiters: extraLiters(c, ctx.factors), extra,
     total: netNow === undefined ? undefined : netNow + (extra ?? 0),
     realMinutes, hoursToGo,
@@ -266,13 +351,41 @@ export const running = (items) => yours(items).filter((c) => c.status === "runni
  * @param {Contract[]} items @param {SortKey} key @param {Context} ctx
  */
 export function offers(items, key, ctx) {
+  return ranked(items, key, ctx).map((e) => e.c);
+}
+
+/**
+ * The offers with what they sort by: the least first, Infinity without the number.
+ * @param {Contract[]} items @param {SortKey} key @param {Context} ctx
+ */
+function ranked(items, key, ctx) {
   const value = (/** @type {Contract} */ c) => {
     const f = figures(c, ctx);
     const v = { hour: f.perHour, net: f.net, left: num(c.minutesLeft), km: f.metres }[key];
     return v === undefined ? Infinity : key === "hour" || key === "net" ? -v : v;
   };
   return items.filter((c) => c.status === "offer").map((c) => ({ c, v: value(c) }))
-    .sort((a, b) => (a.v === b.v ? String(a.c.id).localeCompare(String(b.c.id)) : a.v < b.v ? -1 : 1)).map((e) => e.c);
+    .sort((a, b) => (a.v === b.v ? String(a.c.id).localeCompare(String(b.c.id)) : a.v < b.v ? -1 : 1));
+}
+
+/**
+ * The offers by type (the game's type name, under the game's title for
+ * it): inside a type by the sort, the types by their best contract. A type
+ * where no contract has the number goes last, by name.
+ * @param {Contract[]} items @param {SortKey} key @param {Context} ctx
+ * @returns {{type: string, title: string, items: Contract[]}[]}
+ */
+export function offerGroups(items, key, ctx) {
+  /** @type {Map<string, {type: string, title: string, items: Contract[], best: number}>} */
+  const groups = new Map();
+  for (const { c, v } of ranked(items, key, ctx)) {
+    const type = c.type || c.title || "other";
+    let group = groups.get(type);
+    if (!group) groups.set(type, group = { type, title: c.title || c.type || "Other", items: [], best: v });
+    group.items.push(c);
+  }
+  return [...groups.values()].sort((a, b) => (a.best === b.best ? a.title.localeCompare(b.title) : a.best < b.best ? -1 : 1))
+    .map(({ type, title, items: list }) => ({ type, title, items: list }));
 }
 
 /** Your running contracts on a field. @param {Contract[]} items @param {number|undefined} fieldId */
@@ -284,9 +397,9 @@ const PREFS_KEY = "fs25companion.contracts";
 export const SORTS = /** @type {[SortKey, string][]} */ ([["hour", "Per hour"], ["net", "Net"], ["left", "Left"], ["km", "Distance"]]);
 
 /**
- * The page's choices, remembered on this device: the switch, the sort and
- * the tool picked per job.
- * @typedef {{mode: Mode, sort: SortKey, picks: Record<string, number|string>}} Prefs
+ * The page's choices, remembered on this device: the switch, the sort,
+ * the tool picked per job and the types folded in the On offer list.
+ * @typedef {{mode: Mode, sort: SortKey, picks: Record<string, number|string>, closed: string[]}} Prefs
  */
 
 /** @returns {Prefs} */
@@ -298,6 +411,7 @@ function loadPrefs() {
     mode: saved.mode === "own" ? "own" : "lease",
     sort: SORTS.some(([key]) => key === saved.sort) ? saved.sort : "hour",
     picks: saved.picks && typeof saved.picks === "object" ? saved.picks : {},
+    closed: Array.isArray(saved.closed) ? saved.closed.filter((/** @type {unknown} */ t) => typeof t === "string") : [],
   };
 }
 
@@ -331,9 +445,16 @@ export function contextOf(store) {
   const player = store.get("player");
   const from = typeof v?.x === "number" && typeof v?.z === "number" ? { x: v.x, z: v.z }
     : typeof player?.x === "number" && typeof player?.z === "number" ? { x: player.x, z: player.z } : undefined;
+  /** @type {Map<number|string, {x: number, z: number}>} */
+  const places = new Map();
+  const all = store.get("vehicles")?.vehicles;
+  for (const one of Array.isArray(all) ? all : []) {
+    if (one?.id !== undefined && typeof one.x === "number" && typeof one.z === "number") places.set(one.id, { x: one.x, z: one.z });
+  }
+  const shop = typeof topic.shop?.x === "number" && typeof topic.shop?.z === "number" ? { x: topic.shop.x, z: topic.shop.z } : undefined;
   return {
     mode: prefs.mode, picks: prefs.picks, factors: topic.factors, tools: topic.tools, attached,
-    timeScale: num(store.get("env")?.timeScale), maxSpeed: num(v?.cruise?.maxSpeed), from,
+    timeScale: num(store.get("env")?.timeScale), maxSpeed: num(v?.cruise?.maxSpeed), from, shop, places,
   };
 }
 
@@ -383,7 +504,8 @@ export const placeOf = (c) => (c.fieldId !== undefined ? `Field ${c.fieldId}` : 
 
 /**
  * The field panels' row for one of your running contracts: "Contract ·
- * Plough · 87 %" and "1 day 0 h left · ≈ 4 h 50 at ×5".
+ * Plough · 87 %" and "deadline 1 day 0 h game time · work left ≈ 6 min
+ * real time".
  * @param {Contract} c @param {Context} ctx
  * @returns {{head: string, sub: string, late: boolean}}
  */
@@ -391,10 +513,33 @@ export function fieldRow(c, ctx) {
   const f = figures(c, ctx);
   const head = ["Contract", c.title || "", num(c.completion) !== undefined ? pctText(/** @type {number} */ (c.completion)) : ""];
   const sub = [];
-  if (num(c.minutesLeft) !== undefined) sub.push(`${gameLeftText(/** @type {number} */ (c.minutesLeft))} left`);
-  if (f.realMinutes !== undefined && ctx.timeScale !== undefined) sub.push(`≈ ${hoursText(f.realMinutes / 60)} at ${speedText(ctx.timeScale)}`);
+  const times = timeStats(c, f);
+  for (const s of [times.deadline, times.work]) if (s) sub.push(s.pre + s.v + s.post);
   return { head: head.filter(Boolean).join(" · "), sub: sub.join(" · "), late: f.late };
 }
+
+/**
+ * A contract's two times, each named for what it counts in. The deadline
+ * is the game's time left, in game time: the same words at any game
+ * speed. The other is your own time, real time: the whole job for an
+ * offer (work, travel and setup), the work left for a running contract. The real time before
+ * the deadline is never written beside them; it only decides `late`.
+ * @param {Contract} c @param {Figures} f
+ * @returns {{deadline?: Stat, work?: Stat}}
+ */
+export function timeStats(c, f) {
+  const left = num(c.minutesLeft);
+  const tone = f.late ? /** @type {"warn"} */ ("warn") : undefined;
+  const running = c.status !== "offer";
+  const hours = running ? f.hoursToGo : f.jobHours;
+  return {
+    deadline: left === undefined ? undefined : { pre: "deadline ", v: gameLeftText(left), post: " game time", tone },
+    work: hours === undefined ? undefined
+      : { pre: running ? "work left ≈ " : "job ≈ ", v: hoursText(hours), post: " real time", tone: running ? tone : undefined },
+  };
+}
+
+/** @typedef {{pre: string, v: string, post: string, tone?: "warn"|"extra"}} Stat */
 
 /**
  * A contract's row of numbers, as the list shows it: each a lead, the
@@ -407,13 +552,13 @@ export function statLine(c, ctx, units) {
   const money = (/** @type {number} */ n) => units.currency + Math.round(n).toLocaleString();
   /** @type {{pre: string, v: string, post: string, tone?: "warn"|"extra"}[]} */
   const out = [];
-  const left = num(c.minutesLeft);
+  const times = timeStats(c, f);
   if (c.status === "offer") {
     if (f.net !== undefined) out.push({ pre: "Net ", v: money(f.net), post: f.leased ? " leased" : hasLease(c) ? " own" : "" });
-    if (f.hours !== undefined) out.push({ pre: "≈ ", v: hoursText(f.hours), post: "" });
+    if (times.work) out.push(times.work);
     else if (ctx.mode === "own" && jobOf(c.type) && !f.fits.length) out.push({ pre: "", v: "No tool of yours fits", post: ": with lease only" });
     if (f.perHour !== undefined) out.push({ pre: "", v: `${money(f.perHour)}/h`, post: "" });
-    if (left !== undefined) out.push({ pre: "", v: gameLeftText(left), post: " left", tone: f.late ? "warn" : undefined });
+    if (times.deadline) out.push(times.deadline);
     if (f.extra !== undefined && f.extra > 0) out.push({ pre: "+ ", v: money(f.extra), post: " extra", tone: "extra" });
     return out;
   }
@@ -429,10 +574,8 @@ export function statLine(c, ctx, units) {
   } else if (worked !== undefined && factor !== undefined) {
     out.push({ pre: "field ", v: pctText(worked), post: ` worked of ${pctText(factor)}` });
   }
-  if (left !== undefined) out.push({ pre: "", v: gameLeftText(left), post: " left", tone: f.late ? "warn" : undefined });
-  if (f.realMinutes !== undefined && ctx.timeScale !== undefined) {
-    out.push({ pre: "≈ ", v: hoursText(f.realMinutes / 60), post: ` at ${speedText(ctx.timeScale)}`, tone: f.late ? "warn" : undefined });
-  }
+  if (times.deadline) out.push(times.deadline);
+  if (times.work) out.push(times.work);
   return out;
 }
 

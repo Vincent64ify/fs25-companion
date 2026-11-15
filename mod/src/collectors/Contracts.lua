@@ -268,7 +268,10 @@ local function ownTools(farmId)
             and (leased == nil or vehicle.propertyState ~= leased)
             and Api.tryCall(vehicle, "getOwnerFarmId") == farmId then
             local info = shopInfo(vehicle.configFileName)
-            if info ~= nil and info.workingWidth ~= nil then
+            -- a tool: something with a working width, or with no motor (a
+            -- baler or a bale wrapper has no width in the shop)
+            if info ~= nil and info.category ~= nil
+                and (info.workingWidth ~= nil or vehicle.spec_motorized == nil) then
                 out[#out + 1] = {
                     id = vehicle.id, name = info.name, brand = info.brand, category = info.category,
                     categoryTitle = info.categoryTitle, workingWidth = info.workingWidth, speedLimit = info.speedLimit,
@@ -311,7 +314,14 @@ Companion.Collectors.Contracts = {
             end
         end
         table.sort(items, idLess)
+        -- the shop, where leased machines appear: the travel to a contract starts there
+        local shop = nil
+        local shopX, shopZ = Api.storeSpawnPoint()
+        if shopX ~= nil then
+            shop = { x = Geo.round(shopX, 1), z = Geo.round(shopZ, 1) }
+        end
         return {
+            shop = shop,
             limit = Api.missionLimit(),
             factors = Api.missionFactors(),
             items = items,

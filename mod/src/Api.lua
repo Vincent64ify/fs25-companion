@@ -175,6 +175,18 @@ function Api.missionFinishState(mission)
     return enumName(MissionFinishState, mission.finishState, MISSION_FINISH)
 end
 
+-- where a contract's leased machines appear: the shop's first spawn place
+-- (AbstractMission:spawnVehicles loads them at mission.storeSpawnPlaces;
+-- a place's startX and startZ after PlacementUtil, unverified). x, z or nil.
+function Api.storeSpawnPoint()
+    local places = g_currentMission ~= nil and g_currentMission.storeSpawnPlaces or nil
+    local place = type(places) == "table" and places[1] or nil
+    if type(place) ~= "table" or type(place.startX) ~= "number" or type(place.startZ) ~= "number" then
+        return nil
+    end
+    return place.startX, place.startZ
+end
+
 -- how many contracts one farm may hold, or nil
 function Api.missionLimit()
     local limit = type(MissionManager) == "table" and MissionManager.MAX_MISSIONS_PER_FARM or nil

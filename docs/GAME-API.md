@@ -616,7 +616,13 @@ says so.
 - **`g_currentMission:getEffectiveTimeScale()`**
   ([specs/0017](../specs/0017-game-speed.md)): the fallback when
   `missionInfo.timeScale` is missing; never needed live.
-- **Contracts** ([specs/0018](../specs/0018-contracts.md), mod 0.19.0):
+- **Contracts** ([specs/0018](../specs/0018-contracts.md), mod 0.19.1;
+  the shop category names seen in the stream on 2026-11-15 are in the
+  spec's Data contract table). Vincent's live check on mod 0.19.0
+  (2026-11-15) confirmed what the page shows from them, nine boxes of
+  twelve; they move up to the verified list when the spec is
+  live-checked. Still unseen in the game: `storeSpawnPlaces` and
+  `spec_motorized` as the tool test (both new in 0.19.1):
   every name the `contracts` topic reads, from the game's own mission
   scripts and FS25_BetterContracts; the spec's Data contract table lists
   them. Among them `g_missionManager:getMissions()`, `MissionStatus` and
@@ -624,6 +630,7 @@ says so.
   `getVehicleCosts()`, `vehiclesToLoad`, `spawnedVehicles`,
   `getMinutesLeft()`, the three success factors, `expectedLiters`,
   `depositedLiters`, `sellingStation`, a shop item's `specs`
-  (`StoreItemUtil.loadSpecsFromXML`) and `VehiclePropertyState.MISSION`.
+  (`StoreItemUtil.loadSpecsFromXML`), `VehiclePropertyState.MISSION` and
+  `g_currentMission.storeSpawnPlaces` (a place's `startX`, `startZ`).
 - **Not found yet** ([PLAN.md](PLAN.md)): the call that opens the AI job
   screen and Refill at a fill station.

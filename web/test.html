@@ -3282,12 +3282,29 @@ const ctTools = [
   { id: 7, name: "Varifeed", category: "CUTTERS", workingWidth: 10.7, speedLimit: 10 },
   { id: 8, name: "Karat", category: "CULTIVATORS", workingWidth: 6, speedLimit: 12 },
   { id: 9, name: "T7", category: "TRACTORSL" },
+  { id: 10, name: "PFW 18000", category: "SLURRYTANKS", workingWidth: 15, speedLimit: 16 },
+  { id: 11, name: "G-1 F125 Kombi", category: "BALERSROUND", speedLimit: 17 },
+  { id: 12, name: "ASW 271", category: "TRAILERS", workingWidth: 12, speedLimit: 16 },
+  { id: 13, name: "Ventor", category: "POTATOHARVESTING", workingWidth: 3, speedLimit: 10 },
 ];
 const fitIds = (type, attached) => ct.fittingTools({ id: "t", status: "offer", type }, ctTools, new Set(attached || [])).map((t) => t.id);
 check("contracts: the tools that fit each contract type", [
   fitIds("plowMission"), fitIds("sowMission"), fitIds("fertilizeMission"), fitIds("herbicideMission"), fitIds("harvestMission"),
   fitIds("cultivateMission"), fitIds("mowMission"), fitIds("stonePickMission"), fitIds(undefined)],
-[[2, 1], [3, 4], [5], [6], [7], [8], [], [], []]);
+[[2, 1], [3, 4], [5, 6, 10], [6], [7], [8], [], [], []]);
+// seen live 2026-11-15: a potato contract offered the grain header, fertilizing none of three sprayers, baling no baler
+const fitLease = (type, vehicles) => ct.fittingTools({ id: "t", status: "offer", type, vehicles }, ctTools).map((t) => t.id);
+const potatoLease = [{ category: "POTATOHARVESTING", workingWidth: 3, speedLimit: 10 }, { category: "TRACTORSL" },
+  { category: "TRAILERS", workingWidth: 12 }];
+check("contracts: a harvest takes what its lease harvests with (a potato harvester, never the grain header; a corn header for corn); "
+  + "fertilizing takes spreaders, sprayers and slurry; a baler fits baling without a width, a wrapper wrapping; those have no time", [
+  fitLease("harvestMission", potatoLease), fitLease("harvestMission", [{ category: "CUTTERS", workingWidth: 7.6 }, { category: "TRAILERS", workingWidth: 12 }]),
+  fitLease("harvestMission", [{ category: "CORNHEADERS", workingWidth: 6 }]), fitLease("harvestMission", [{ category: "HARVESTERS" }]),
+  ct.leaseTool({ id: "p", status: "offer", type: "harvestMission", vehicles: potatoLease })?.workingWidth,
+  fitLease("baleMission"), fitLease("baleWrapMission"), fitLease("tedderMission"),
+  [ct.jobOf("baleMission")?.kind, ct.jobOf("baleWrapMission")?.kind, ct.jobOf("baleMission")?.overhead],
+  ct.workHours(12.4, { workingWidth: 6, speedLimit: 12 }, "tedderMission")],
+[[13], [7], [], [], 3, [11], [], [], ["bale", "baleWrap", undefined], undefined]);
 check("contracts: the tool attached now comes first, then the widest", [fitIds("plowMission", [1]), fitIds("sowMission", [4, 9])],
   [[1, 2], [4, 3]]);
 check("contracts: the leased tool is the lease's widest that does the job", [
@@ -3310,6 +3327,46 @@ check("contracts: the overhead per job starts from BetterContracts' table",
     "harvestMission"].map((t) => ct.jobOf(t)?.overhead), [1.15, 1.15, 1.2, 1.2, 1.2, 1.25, 1.3, 1.3]);
 check("contracts: per hour is net ÷ time; none without a time", [ct.perHour(16350, 2), ct.perHour(16350, undefined),
   ct.perHour(16350, 0), ct.perHour(undefined, 2)], [8175, undefined, undefined, undefined]);
+// the whole job: the field work, the way there (from the shop with lease, from your tool with your own, else from
+// you; 30 km/h) and 10 min to set up and hand in. Per hour is net ÷ that.
+const jobOffer = { id: "j", status: "offer", type: "plowMission", areaHa: 3.3, reward: 3000, vehicleCosts: 600, x: 3000, z: 0,
+  vehicles: [{ category: "PLOWS", workingWidth: 3, speedLimit: 11 }] };
+const jobCtx = { mode: "lease", shop: { x: 0, z: 0 }, from: { x: 3000, z: 4000 },
+  tools: [{ id: 1, category: "PLOWS", workingWidth: 3, speedLimit: 11 }], places: new Map([[1, { x: 3000, z: 1500 }]]) };
+const jobOf2 = (ctx, c = jobOffer) => {
+  const f = ct.figures(c, ctx);
+  return [r2(f.hours), r2(f.travelHours), r2(f.setupHours), r2(f.jobHours), f.travelFrom, Math.round(f.perHour)];
+};
+check("contracts: the whole job is work + travel + setup; travel from the shop with lease, from your tool with your own, "
+  + "from you without either; per hour is net ÷ the whole job; a running contract counts only the work left", [
+  jobOf2(jobCtx), jobOf2({ ...jobCtx, mode: "own" }), jobOf2({ ...jobCtx, shop: undefined }),
+  jobOf2({ ...jobCtx, mode: "own", places: undefined }), jobOf2({ mode: "lease" }),
+  r2(ct.figures({ ...jobOffer, status: "running", mine: true, leased: true, completion: 0.5 }, jobCtx).hoursToGo),
+  ct.figures({ ...jobOffer, type: "stonePickMission" }, jobCtx).jobHours, [ct.TRAVEL_KMH, ct.SETUP_MINUTES]], [
+  // 3.3 ha ÷ 3.3 ha/h × 1.25 = 1.25 h of work; 3 km from the shop = 0.1 h; 10 min = 0.17 h; £2,400 ÷ 1.52 h
+  [1.25, 0.1, 0.17, 1.52, "shop", 1582],
+  // your plough is 1.5 km away: 0.05 h; the full £3,000 ÷ 1.47 h
+  [1.25, 0.05, 0.17, 1.47, "tool", 2045],
+  // no shop known: from you, 4 km = 0.13 h
+  [1.25, 0.13, 0.17, 1.55, "you", 1548], [1.25, 0.13, 0.17, 1.55, "you", 1935],
+  // nowhere to start from: no travel, the setup still counts
+  [1.25, undefined, 0.17, 1.42, undefined, 1694],
+  0.63, undefined, [30, 10]]);
+// two times, each named: the deadline in game time (the same words at any game speed), the work in real time
+const leftOffer = { id: "l", status: "offer", type: "plowMission", minutesLeft: 333, areaHa: 3.3,
+  vehicles: [{ category: "PLOWS", workingWidth: 3, speedLimit: 11 }] };
+const leftRun = { ...leftOffer, status: "running", mine: true, leased: true, completion: 0.5 };
+const timeWords = (c, scale) => ct.statLine(c, { mode: "lease", timeScale: scale }, units.METRIC).map((s) => s.pre + s.v + s.post)
+  .filter((w) => w.includes("deadline") || w.includes("work") || w.includes("job"));
+check("contracts: a row names its two times: the deadline in game time, the job (or the work left) in real time; "
+  + "no third time at any speed", [
+  timeWords(leftOffer, 1), timeWords(leftOffer, 5), timeWords(leftRun, 1), timeWords(leftRun, 5),
+  timeWords({ ...leftRun, type: "stonePickMission" }, 5),
+  ct.fieldRow(leftRun, { mode: "lease", timeScale: 5 }).sub], [
+  ["job ≈ 1 h 25 real time", "deadline 5 h 33 min game time"], ["job ≈ 1 h 25 real time", "deadline 5 h 33 min game time"],
+  ["deadline 5 h 33 min game time", "work left ≈ 38 min real time"], ["deadline 5 h 33 min game time", "work left ≈ 38 min real time"],
+  ["deadline 5 h 33 min game time"],
+  "deadline 5 h 33 min game time · work left ≈ 38 min real time"]);
 check("contracts: real minutes left at ×1, ×5 and ×60; none without the game speed", [ct.realMinutesLeft(3120, 1),
   ct.realMinutesLeft(3120, 5), ct.realMinutesLeft(3120, 60), ct.realMinutesLeft(3120, undefined),
   ct.realMinutesLeft(undefined, 5)], [3120, 624, 52, undefined, undefined]);
@@ -3324,7 +3381,7 @@ check("contracts: with lease, net minus the lease and the leased tool's time; wi
     leaseFig.late, leaseFig.metres],
   [ownFig.leased, ownFig.net, ownFig.tool?.name, r2(ownFig.hours), Math.round(ownFig.perHour), ownFig.fits.map((t) => t.id)],
   [pickFig.tool?.name, r2(pickFig.hours)]],
-[[true, 16350, 3.3, 3.91, 4177, 624, false, 500], [false, 18450, "PW 100", 4.7, 3928, [2, 1]], ["Juwel 8", 5.38]]);
+[[true, 16350, 3.3, 3.91, 3990, 624, false, 500], [false, 18450, "PW 100", 4.7, 3793, [2, 1]], ["Juwel 8", 5.38]]);
 check("contracts: a deadline the work won't make at this speed is late; a running one counts what's left", [
   ct.figures({ ...ploughOffer, minutesLeft: 600 }, ctCtx).late, ct.figures({ ...ploughOffer, minutesLeft: 600 }, { ...ctCtx, timeScale: 1 }).late,
   ct.figures({ ...ploughOffer, status: "running", mine: true, leased: true, completion: 0.8, minutesLeft: 600 }, ctCtx).late,
@@ -3341,12 +3398,25 @@ check("contracts: missing fields give no number, never 0 or NaN",
 const sortIds = (key, ctx = ctCtx) => ct.offers(ctSample.items, key, { ...ctx, tools: ctSample.tools, from: { x: 600, z: -600 } }).map((c) => c.id);
 check("contracts: sorted by per hour, net, time left and distance; one without the number last", [
   sortIds("hour"), sortIds("net"), sortIds("left"), sortIds("km")], [
-  // £9,153, £8,549, £8,262, £6,659, £6,503 and £2,715 an hour; the stones have no time
-  ["o-herb-62", "o-harvest-22", "o-fert-48", "o-sow-40", "o-mow-2", "o-plow-38", "o-stones-61"],
+  // by the whole job (work, the way there from x 600 z -600, 10 min of setup); the stones have no time
+  ["o-harvest-22", "o-sow-40", "o-mow-2", "o-fert-48", "o-herb-62", "o-plow-38", "o-stones-61"],
   // £2,100, then two at £1,900 (by id), £1,800, £1,500, £900, £500
   ["o-mow-2", "o-harvest-22", "o-sow-40", "o-stones-61", "o-plow-38", "o-fert-48", "o-herb-62"],
   ["o-fert-48", "o-mow-2", "o-sow-40", "o-herb-62", "o-harvest-22", "o-plow-38", "o-stones-61"],
   ["o-sow-40", "o-plow-38", "o-stones-61", "o-herb-62", "o-fert-48", "o-harvest-22", "o-mow-2"]]);
+// On offer by type: inside a type by the sort, the types by their best contract; a type without the number last, by name
+const gOffer = (id, type, title, reward, minutesLeft) => ({ id, status: "offer", type, title, reward, minutesLeft });
+const gItems = [gOffer("h1", "harvestMission", "Harvesting", 900, 500), gOffer("c1", "cultivateMission", "Cultivating", 400, 100),
+  gOffer("h2", "harvestMission", "Harvesting", 2000, 900), gOffer("s1", "sowMission", "Sowing", 1200, 300),
+  gOffer("c2", "cultivateMission", "Cultivating", 1500, 50), gOffer("w1", "treeTransportMission", "Wood transport"),
+  gOffer("b1", "baleMission", "Baling"), { id: "mine", status: "running", mine: true, type: "sowMission", title: "Sowing" }];
+const gShow = (key) => ct.offerGroups(gItems, key, { mode: "lease" }).map((g) => `${g.title}: ${g.items.map((c) => c.id).join(" ")}`);
+check("contracts: offers grouped by type: inside a type by the sort, the types by their best contract; "
+  + "a type without the number last, by name; yours aren't in them", [gShow("net"), gShow("left"),
+  ct.offerGroups(gItems, "net", { mode: "lease" })[0].type, ct.offerGroups([], "net", { mode: "lease" })], [
+  ["Harvesting: h2 h1", "Cultivating: c2 c1", "Sowing: s1", "Baling: b1", "Wood transport: w1"],
+  ["Cultivating: c2 c1", "Sowing: s1", "Harvesting: h1 h2", "Baling: b1", "Wood transport: w1"],
+  "harvestMission", []]);
 check("contracts: yours are the running ones, nearest deadline first, then the finished; others' are left out", [
   ct.yours(ctSample.items).map((c) => c.id), ct.running(ctSample.items).map((c) => c.id),
   ct.yours([{ id: "theirs", status: "running" }, { id: "offer", status: "offer", mine: true }]).length,
@@ -3356,7 +3426,7 @@ check("contracts: the words: hours, game time, the field panel's row", [
   ct.hoursText(0.75), ct.hoursText(1.42), ct.gameLeftText(3120), ct.gameLeftText(1450), ct.gameLeftText(310), ct.gameLeftText(30),
   ct.fieldRow(ctSample.items.find((c) => c.id === "c-plow-58"), { ...ctCtx, mode: "lease" })],
 ["45 min", "1 h 25", "2 days 4 h", "1 day 0 h", "5 h 10 min", "30 min",
-  { head: "Contract · Plough · 87 %", sub: "1 day 0 h left · ≈ 4 h 50 at ×5", late: false }]);
+  { head: "Contract · Plough · 87 %", sub: "deadline 1 day 0 h game time · work left ≈ 6 min real time", late: false }]);
 check("contracts: a finished contract's sums: the reward only on success, the lease only if taken", [
   ct.finalSums({ id: "f", status: "finished", finishState: "success", leased: true, reward: 2600, vehicleCosts: 1000, reimbursement: 140, stealingCost: 0 }),
   ct.finalSums({ id: "f", status: "finished", finishState: "timedOut", leased: false, reward: 2600, vehicleCosts: 1000, stealingCost: 120 }).total],
@@ -3372,53 +3442,91 @@ const ctPage = contractsScreen(ctS);
 document.body.append(ctPage);
 const ctRows = () => [...ctPage.querySelectorAll(".ct-list > :is(.ct-group, .ct-row)")].map((e) => (e.classList.contains("ct-group")
   ? `# ${q(e, ".ct-label")}` : e.dataset.id));
+// a type's header: its name, how many, the best by the sort, and whether it's open
+const ctTypes = () => [...ctPage.querySelectorAll(".ct-list > .ct-type")].map((b) =>
+  `${q(b, ".ct-label")} | ${q(b, ".ct-note")} | ${b.getAttribute("aria-expanded")}`);
 const ctEmpty = [ctRows(), q(ctPage, ".ct-empty"), ctPage.querySelector(".ct-detail").hidden];
 ctS.set("contracts", { ...ctSample, items: [...ctSample.items, { id: "theirs", status: "running", title: "Plough", fieldId: 9 }] });
 check("contracts page: nothing from the game yet says so; then Yours before On offer, other farms' hidden", [ctEmpty, ctRows()], [
   [["# On offer"], "No contracts from the game yet.", true],
-  ["# Yours", "c-plow-58", "c-harvest-4", "c-sow-59", "# On offer", "o-herb-62", "o-harvest-22", "o-fert-48", "o-sow-40",
-    "o-mow-2", "o-plow-38", "o-stones-61"]]);
+  ["# Yours", "c-plow-58", "c-harvest-4", "c-sow-59", "# On offer", "o-harvest-22", "o-mow-2", "o-sow-40", "o-fert-48",
+    "o-herb-62", "o-plow-38", "o-stones-61"]]);
 check("contracts page: the limit line is the game's, two running contracts are two tiles, nearest deadline first", [
   q(ctPage, ".ct-group .ct-note"),
   [...ctPage.querySelectorAll('.ct-row[data-status="running"]')].map((r) => [q(r, ".ct-title"), q(r, ".ct-chip"), q(r, ".ct-pct")])],
 ["3 of 3 taken · nearest deadline first", [["Plough", "Running", "87 %"], ["Harvest · Barley", "Running", "66 %"]]]);
+// the offers under a header per type, all open; a tap folds one, and it stays folded
+const typesOpen = ctTypes();
+const typeButton = (name) => [...ctPage.querySelectorAll(".ct-type")].find((b) => q(b, ".ct-label") === name);
+typeButton("Harvest").click();
+const typesFolded = [ctTypes().filter((t) => t.startsWith("Harvest")), !!ctPage.querySelector('.ct-row[data-id="o-harvest-22"]'),
+  JSON.parse(localStorage.getItem("fs25companion.contracts")).closed, ctRows().filter((r) => r.startsWith("o-")).length];
+// a contract opened from elsewhere opens its type again
+ctS.set("goto", { screen: "contracts", contract: "o-harvest-22" });
+const typesGoto = [ctTypes().filter((t) => t.startsWith("Harvest")), !!ctPage.querySelector('.ct-row[data-id="o-harvest-22"]')];
+ctS.set("goto", undefined);
+// one button folds every type, then opens them all again
+const foldAll = () => ctPage.querySelector(".ct-fold-all");
+const foldWords = [foldAll().textContent];
+foldAll().click();
+foldWords.push(foldAll().textContent, ctTypes().map((t) => t.split(" | ")[2]).join(" "), ctRows().filter((r) => r.startsWith("o-")).length);
+typeButton("Mow").click();
+foldWords.push(foldAll().textContent);
+foldAll().click();
+foldWords.push(foldAll().textContent);
+foldAll().click();
+foldWords.push(foldAll().textContent, JSON.parse(localStorage.getItem("fs25companion.contracts")).closed, ctRows().filter((r) => r.startsWith("o-")).length);
+check("contracts page: Collapse all folds every type and turns into Open all, which shows them all again; "
+  + "with one type open it still says Collapse all", foldWords,
+  ["Collapse all", "Open all", "false false false false false false false", 0, "Collapse all", "Open all", "Collapse all", [], 7]);
+ctPage.querySelector('.ct-row[data-id="c-plow-58"]').click();
+check("contracts page: the offers sit under a header per type (name, count, the best by the sort), all open; "
+  + "a tap folds a type and it's remembered; opening one of its contracts from elsewhere opens it again", [
+  typesOpen, typesFolded, typesGoto], [
+  ["Harvest | 1 · best £4,885/h | true", "Mow | 1 · best £4,289/h | true", "Sow | 1 · best £4,204/h | true",
+    "Fertilise | 1 · best £3,266/h | true", "Herbicide | 1 · best £2,259/h | true", "Plough | 1 · best £2,086/h | true",
+    "Pick stones | 1 | true"],
+  [["Harvest | 1 · best £4,885/h | false"], false, ["harvestMission"], 6],
+  [["Harvest | 1 · best £4,885/h | true"], true]]);
 const statsOf = (id) => [...ctPage.querySelectorAll(`.ct-row[data-id="${id}"] .ct-stats > span`)].map((s) => s.textContent);
 check("contracts page: a row's numbers: net, time, per hour, left, the extra; a running one its progress", [
   statsOf("o-harvest-22"), statsOf("o-stones-61"), statsOf("c-harvest-4"), statsOf("c-plow-58")], [
-  ["Net £1,900 leased", "≈ 13 min", "£8,549/h", "3 days 4 h left", "+ £223 extra"],
-  ["Net £1,800", "4 days 5 h left"],
-  ["delivered 9,800 l of 14,880 l", "5,080 l to go", "2 days 15 h left", "≈ 12 h 36 at ×5"],
-  ["field 83 % worked of 95 %", "1 day 0 h left", "≈ 4 h 50 at ×5"]]);
+  ["Net £1,900 leased", "job ≈ 23 min real time", "£4,885/h", "deadline 3 days 4 h game time", "+ £223 extra"],
+  ["Net £1,800", "deadline 4 days 5 h game time"],
+  ["delivered 9,800 l of 14,880 l", "5,080 l to go", "deadline 2 days 15 h game time", "work left ≈ 5 min real time"],
+  ["field 83 % worked of 95 %", "deadline 1 day 0 h game time", "work left ≈ 6 min real time"]]);
 const dKv = () => Object.fromEntries([...ctPage.querySelectorAll(".ct-detail .ct-kv")].map((r) => [q(r, ".ct-k"), q(r, ".ct-v")]));
 const dHeads = () => [...ctPage.querySelectorAll(".ct-detail .ct-sec > .ct-label")].map((e) => e.textContent);
-const firstDetail = [q(ctPage, ".ct-d-title"), dHeads(), dKv().Worked, ctPage.querySelector('.ct-row[aria-pressed="true"]').dataset.id];
+const firstDetail = [q(ctPage, ".ct-d-title"), dHeads(), dKv().Worked, ctPage.querySelector('.ct-row[aria-pressed="true"]').dataset.id,
+  dKv()["Deadline · game time"], dKv()["Work left · real time"]];
 ctPage.querySelector('.ct-row[data-id="o-harvest-22"]').click();
 const leaseDetail = [dHeads(), dKv(), [...ctPage.querySelectorAll(".ct-veh-name")].map((e) => e.firstChild.textContent),
   q(ctPage, ".ct-veh:nth-of-type(2) .ct-veh-spec"), ctPage.dataset.open];
 check("contracts page: the detail opens on your nearest deadline; a tap on a row shows its money, work and lease vehicles", [
   firstDetail, leaseDetail], [
-  ["PloughRunning", ["Money", "Deadline", "Progress", "Your own machines"], "83 % of 95 %", "c-plow-58"],
-  [["Money", "Deadline", "Work", "Lease vehicles · £2,000"],
-    { Reward: "£3,900", Lease: "− £2,000", Net: "£1,900", Extra: "+ £223", Total: "£2,123", "Time left": "3 days 4 h",
-      Field: "Field 22 · 1.59 ha", "Work time": "≈ 13 min", "Per hour": "£8,549/h" },
+  ["PloughRunning", ["Money", "Time", "Progress", "Your own machines"], "83 % of 95 %", "c-plow-58",
+    "1 day 0 h", "≈ 6 min"],
+  [["Money", "Time", "Work", "Lease vehicles · £2,000"],
+    { Reward: "£3,900", Lease: "− £2,000", Net: "£1,900", Extra: "+ £223", Total: "£2,123", "Deadline · game time": "3 days 4 h",
+      Field: "Field 22 · 1.59 ha", "Job · real time": "≈ 23 min", "Per hour": "£4,885/h" },
     ["CLAAS LEXION 8900", "CLAAS VARIO 930", "Fendt 942 Vario", "Krampe Bandit 800"], "Headers · 9.3 m · 10 km/h", "true"]]);
 // own machines: the full reward, your tool with its picker, the lease folded to one line
 [...ctPage.querySelectorAll(".ct-seg")].find((b) => b.textContent === "Own machines").click();
 ctPage.querySelector('.ct-row[data-id="o-plow-38"]').click();
-const ownDetail = [dKv().Net, dKv().Lease, dKv()["Work time"],
+const ownDetail = [dKv().Net, dKv().Lease, dKv()["Job · real time"],
   [...ctPage.querySelectorAll(".ct-tool")].map((b) => `${q(b, ".ct-tool-name")}|${q(b, ".ct-tool-time")}|${b.getAttribute("aria-pressed")}`),
   dHeads().at(-1), q(ctPage, ".ct-d-col:last-child .ct-sec:last-child .ct-why"), q(ctPage, ".ct-group:last-of-type .ct-note")];
 ctPage.querySelector('.ct-tool[data-tool="401"]').click();
-const pickedTool = [dKv()["Work time"], ctPage.querySelector('.ct-tool[aria-pressed="true"]').dataset.tool,
+const pickedTool = [dKv()["Job · real time"], ctPage.querySelector('.ct-tool[aria-pressed="true"]').dataset.tool,
   JSON.parse(localStorage.getItem("fs25companion.contracts"))];
 ctPage.querySelector('.ct-row[data-id="o-mow-2"]').click();
-const noTool = [dKv()["Work time"], q(ctPage, ".ct-d-col:last-child .ct-sec .ct-why"), statsOf("o-mow-2")[1]];
+const noTool = [dKv()["Job · real time"], q(ctPage, ".ct-d-col:last-child .ct-sec .ct-why"), statsOf("o-mow-2")[1]];
 check("contracts page: own machines: the full reward, the tool picker (widest first), the lease in one line; the pick is kept; "
   + "no tool of yours: with lease only", [ownDetail, pickedTool, noTool], [
-  ["£2,500", undefined, "≈ 40 min", ["Kverneland PW 100Ploughs · 3.0 m · 11 km/h|≈ 40 min|true",
-    "Lemken Juwel 8Ploughs · 2.4 m · 12 km/h|≈ 46 min|false"], "Lease instead", "2 vehicles for £1,000. With lease lists them.",
+  ["£2,500", undefined, "≈ 50 min", ["Kverneland PW 100Ploughs · 3.0 m · 11 km/h|≈ 50 min|true",
+    "Lemken Juwel 8Ploughs · 2.4 m · 12 km/h|≈ 56 min|false"], "Lease instead", "2 vehicles for £1,000. With lease lists them.",
   "7 · with your own machines"],
-  ["≈ 46 min", "401", { mode: "own", sort: "hour", picks: { plow: 401 } }],
+  ["≈ 56 min", "401", { mode: "own", sort: "hour", picks: { plow: 401 }, closed: [] }],
   [undefined, "No tool of yours fits: with lease only.", "No tool of yours fits: with lease only"]]);
 [...ctPage.querySelectorAll(".ct-seg")].find((b) => b.textContent === "With lease").click();
 [...ctPage.querySelectorAll(".ct-seg")].find((b) => b.textContent === "Net").click();
@@ -3434,8 +3542,8 @@ const ctMark = ctPage.querySelector(".ct-row");
 ctS.set("contracts", ctS.get("contracts"));
 ctS.set("env", { ...ctS.get("env") });
 ctPage.querySelector(".ct-show").click();
-check("contracts page: unchanged data draws nothing again; Show on the map goes to the contract's place",
-  [ctPage.querySelector(".ct-row") === ctMark, ctS.get("goto")], [true, { screen: "map", at: { x: 514.4, z: -286.4 } }]);
+check("contracts page: unchanged data draws nothing again; Show on the map goes to the contract's place and names its pin",
+  [ctPage.querySelector(".ct-row") === ctMark, ctS.get("goto")], [true, { screen: "map", at: { x: 514.4, z: -286.4 }, pin: "c-sow-59" }]);
 ctS.set("goto", { screen: "contracts", contract: "c-harvest-4" });
 check("contracts page: asked for a contract (a map popup, a field panel row), it opens on it",
   [ctPage.querySelector('.ct-row[aria-pressed="true"]').dataset.id, dKv().Delivered, dKv()["Deliver to"]?.startsWith("Mill")],
@@ -3495,8 +3603,8 @@ ctRigAt(250);
 ctFieldPanel.querySelector(".field-contract").click();
 check("contracts: each running contract's field gets its row in the field panel, though the field isn't yours; a tap opens it", [
   beforeContract, onPlough, onHarvest, onOffer[1], ctFieldS.get("goto")], [
-  ["Not on your field", []], ["Field 58", ["Contract · Plough · 87 %1 day 0 h left · ≈ 4 h 50 at ×5"]],
-  ["Field 4", ["Contract · Harvest · 66 %2 days 15 h left · ≈ 12 h 36 at ×5"]], [],
+  ["Not on your field", []], ["Field 58", ["Contract · Plough · 87 %deadline 1 day 0 h game time · work left ≈ 6 min real time"]],
+  ["Field 4", ["Contract · Harvest · 66 %deadline 2 days 15 h game time · work left ≈ 5 min real time"]], [],
   { screen: "contracts", contract: "c-harvest-4" }]);
 // the Map's land panel: the same row under the selected field
 const { createFieldInfoPanel } = await import("./src/panels/fieldInfoPanel.js");
@@ -3510,7 +3618,7 @@ const landKept = ctLandBox.firstChild === landMark;
 ctFieldS.set("selection", { field: 40 });
 check("contracts: the Map's land panel shows the row on a contract's field, and isn't drawn again for the same words",
   [landRow, landKept, ctLandBox.querySelectorAll(".field-contract").length],
-  [["Contract · Plough · 87 %1 day 0 h left · ≈ 4 h 50 at ×5"], true, 0]);
+  [["Contract · Plough · 87 %deadline 1 day 0 h game time · work left ≈ 6 min real time"], true, 0]);
 ctFieldS.set("selection", undefined);
 
 // the map: a pin per contract, yours with its %, an offer with its money per hour
@@ -3536,8 +3644,8 @@ check("contracts map: a pin per contract (yours its %, an offer its per hour), D
   + "unchanged data keeps the pins; the popup's Details opens the Contracts page on it", [
   pinsLease, deliverOf(), pinKept, [ctLayer.id, ctLayer.title, ctLayer.legendItems], popupShow.slice(0, 1), popupShow[2],
   ctMapS.get("goto")?.screen, pinLabel({ id: "x", status: "offer", title: "Deadwood" }, { leased: false, fits: [], late: false }, units.METRIC)], [
-  ["66 %|true", "87 %|true", "Success|true", "£1,800|false", "£2,715/h|false", "£6,503/h|false", "£6,659/h|false", "£8,262/h|false",
-    "£8,549/h|false", "£9,153/h|false"],
+  ["66 %|true", "87 %|true", "Success|true", "£1,800|false", "£2,086/h|false", "£2,259/h|false", "£3,266/h|false", "£4,204/h|false",
+    "£4,289/h|false", "£4,885/h|false"],
   ["Deliver here · Mill"], true, ["contracts", "Contracts", undefined], ["Harvest · Barley"], "Details", "contracts", "Deadwood"]);
 // a label stays whole inside the view and clear of the controls
 const ctView = { x: 1000, y: 600 };
@@ -3562,6 +3670,16 @@ check("contracts map: a pin stands over its point and Deliver here hangs under i
   { v: "above", h: "start" }, { v: "below", h: "centre" },
   { v: "above", h: "centre" }, { v: "above", h: "start" },
   ["above", "centre"]]);
+// Show on the map opens the contract's pin
+map.closePopup();
+ctMapS.set("goto", { screen: "map", at: { x: 0, z: 0 }, pin: "c-harvest-4" });
+await new Promise((done) => setTimeout(done, 120));
+const pinOpened = [...document.querySelectorAll(".leaflet-popup .ct-popup > b")].map((e) => e.textContent);
+ctMapS.set("goto", { screen: "map", pin: "nobody" });
+await new Promise((done) => setTimeout(done, 120));
+check("contracts map: Show on the map opens that contract's pin; an unknown one changes nothing", [pinOpened,
+  [...document.querySelectorAll(".leaflet-popup .ct-popup > b")].map((e) => e.textContent)], [["Harvest · Barley"], ["Harvest · Barley"]]);
+map.closePopup();
 map.removeLayer(ctLayer.leafletLayer);
 
 // --- icons (ui/icons.js) --------------------------------------------------------

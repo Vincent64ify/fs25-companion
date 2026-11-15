@@ -2,7 +2,7 @@
 // The Contracts page (specs/0018-contracts.md), read-only: on the left the
 // switches (With lease / Own machines, the sort) over the list, Yours then
 // On offer; beside them the detail of the row you tapped, in two columns
-// (Money and Deadline; Progress or Work, then the vehicles). The numbers
+// (Money and Time; Progress or Work, then the vehicles). The numbers
 // are data/contracts.js's. Under 900 wide or in portrait the detail opens
 // over the list, with a Back button.
 //
@@ -13,7 +13,7 @@
 
 import {
   contextOf, contractsOf, deliveredToGo, delivers, fieldWorked, figures, finalSums, FINISH_WORDS, gameLeftText, goods,
-  hasLease, hoursText, jobOf, litresText, neededLiters, offers, pctText, placeOf, prefsOf, setPrefs, SORTS, speedText,
+  hasLease, hoursText, jobOf, litresText, neededLiters, offerGroups, SETUP_MINUTES, TRAVEL_KMH, pctText, placeOf, prefsOf, setPrefs, SORTS, speedText,
   statLine, successFactor, titleOf, workRate, yours,
 } from "../data/contracts.js";
 import { areaText, areaUnit, areaValue, lengthText, moneyText, speedUnit, speedValue, unitsOf } from "../data/units.js";
@@ -33,6 +33,31 @@ export const distanceText = (metres, u) => (u.miles ? `${(metres / 1000 / KM_PER
 
 /** @param {string} tag @param {string} className @param {string} [text] */
 const el = (tag, className, text) => h(tag, text === undefined ? { className } : { className, text });
+
+/**
+ * The way there, for the Work section: "The way there ≈ 3 min (1.4 km
+ * from the shop at 30 km/h). "; nothing without one.
+ * @param {Figures} f @param {Units} units
+ */
+function travelWords(f, units) {
+  if (f.travelHours === undefined || f.travelMetres === undefined) return "";
+  const from = { shop: "from the shop", tool: "from your tool", you: "from you" }[f.travelFrom || "you"];
+  const speed = `${Math.round(speedValue(TRAVEL_KMH, units))} ${speedUnit(units)}`;
+  return `The way there ≈ ${hoursText(f.travelHours)} (${distanceText(f.travelMetres, units)} ${from} at ${speed}). `;
+}
+
+/**
+ * The best of a type by the sort, for its header: "best £9,150/h",
+ * "soonest 5 h 10 min", "nearest 0.8 km"; nothing without the number.
+ * @param {Contract} c the type's first contract @param {string} sort @param {Context} ctx @param {Units} units
+ */
+function bestText(c, sort, ctx, units) {
+  const f = figures(c, ctx);
+  if (sort === "hour") return f.perHour !== undefined ? `best ${moneyText(f.perHour, units)}/h` : "";
+  if (sort === "net") return f.net !== undefined ? `best ${moneyText(f.net, units)}` : "";
+  if (sort === "left") return typeof c.minutesLeft === "number" ? `soonest ${gameLeftText(c.minutesLeft)}` : "";
+  return f.metres !== undefined ? `nearest ${distanceText(f.metres, units)}` : "";
+}
 
 /** @param {string} className @param {string} label @param {boolean} pressed @param {() => void} onClick */
 function pressButton(className, label, pressed, onClick) {
@@ -160,6 +185,27 @@ export function contractsScreen(store, opts = {}) {
     render();
   };
 
+  /**
+   * A type's header in the On offer list: its name, how many, the best by
+   * the sort. A tap folds its contracts away or shows them again; all are
+   * shown until you fold one, and the choice is remembered.
+   * @param {{type: string, title: string, items: Contract[]}} group @param {boolean} shut @param {string} best
+   */
+  function typeHeader(group, shut, best) {
+    const b = h("button", { className: "ct-type" }, h("span", { className: "ct-type-mark" }),
+      el("span", "ct-label", group.title), el("span", "ct-note", [String(group.items.length), best].filter(Boolean).join(" · ")));
+    b.setAttribute("type", "button");
+    b.setAttribute("aria-expanded", String(!shut));
+    b.dataset.type = group.type;
+    b.addEventListener("click", () => {
+      const now = new Set(prefsOf(store).closed || []);
+      if (now.has(group.type)) now.delete(group.type);
+      else now.add(group.type);
+      setPrefs(store, { closed: [...now] });
+    });
+    return b;
+  }
+
   /** @param {Contract} c @param {Context} ctx @param {Units} units */
   function row(c, ctx, units) {
     const f = figures(c, ctx);
@@ -209,15 +255,21 @@ export function contractsScreen(store, opts = {}) {
   /** @param {Contract} c @param {Figures} f @param {Context} ctx */
   function deadlineSection(c, f, ctx) {
     if (c.status === "finished" || typeof c.minutesLeft !== "number") return null;
+    // Two times, each named: the deadline in game time, the work still to
+    // do in real time (an offer's whole work is in its Work section). The
+    // real time before the deadline is only said when the work won't fit.
+    const tone = f.late ? "warn" : undefined;
+    const running = c.status !== "offer";
+    const workLeft = running && f.hoursToGo !== undefined
+      ? kv("Work left · real time", `≈ ${hoursText(f.hoursToGo)}`, { strong: true, tone }) : null;
     let why = "";
-    if (f.realMinutes !== undefined && ctx.timeScale !== undefined) {
-      why = `≈ ${hoursText(f.realMinutes / 60)} of real time at ${speedText(ctx.timeScale)}`
-        + (f.late && f.hoursToGo !== undefined
-          ? `. The work ${c.status === "offer" ? "takes" : "still takes"} ≈ ${hoursText(f.hoursToGo)}: you won’t make it at this speed.` : ".");
+    if (f.late && f.hoursToGo !== undefined && f.realMinutes !== undefined && ctx.timeScale !== undefined) {
+      why = `At ${speedText(ctx.timeScale)} the deadline is ≈ ${hoursText(f.realMinutes / 60)} of real time away, and the work `
+        + `${running ? "still takes" : "takes"} ≈ ${hoursText(f.hoursToGo)}: you won’t make it at this speed.`;
     }
     const whyEl = why ? el("div", "ct-why", why) : null;
-    if (whyEl && f.late) whyEl.dataset.tone = "warn";
-    return section("Deadline", kv("Time left", gameLeftText(c.minutesLeft), { strong: true, tone: f.late ? "warn" : undefined }), whyEl);
+    if (whyEl) whyEl.dataset.tone = "warn";
+    return section("Time", kv("Deadline · game time", gameLeftText(c.minutesLeft), { strong: true, tone }), workLeft, whyEl);
   }
 
   /** @param {Contract} c @param {Figures} f @param {Context} ctx @param {Units} units */
@@ -257,7 +309,7 @@ export function contractsScreen(store, opts = {}) {
     if (c.fieldId !== undefined) {
       rows.push(kv("Field", [`Field ${c.fieldId}`, typeof c.areaHa === "number" ? areaText(c.areaHa, units) : ""].filter(Boolean).join(" · ")));
     }
-    if (f.hours !== undefined) rows.push(kv("Work time", `≈ ${hoursText(f.hours)}`, { strong: true }));
+    if (f.jobHours !== undefined) rows.push(kv("Job · real time", `≈ ${hoursText(f.jobHours)}`, { strong: true }));
     if (f.perHour !== undefined) rows.push(kv("Per hour", `${moneyText(f.perHour, units)}/h`));
     let why = "";
     const rate = workRate(f.tool, undefined);
@@ -265,15 +317,16 @@ export function contractsScreen(store, opts = {}) {
       const who = f.leased ? "The leased tool" : `Your ${vehicleName(f.tool)}`;
       why = `${who}: ${lengthText(/** @type {number} */ (f.tool.workingWidth), units)} at `
         + `${Math.round(speedValue(/** @type {number} */ (f.tool.speedLimit), units))} ${speedUnit(units)} = `
-        + `${areaValue(rate, units).toFixed(1)} ${areaUnit(units)}/h, × ${job.overhead} for turns, overlaps and refills. An estimate.`;
-    } else if (!job) {
-      why = "No work time for this kind of contract yet.";
-    } else if (!f.leased && !f.fits.length) {
+        + `${areaValue(rate, units).toFixed(1)} ${areaUnit(units)}/h, × ${job.overhead} for turns, overlaps and refills: `
+        + `≈ ${hoursText(f.hours)} of work. ${travelWords(f, units)}${SETUP_MINUTES} min to set up and hand in. An estimate.`;
+    } else if (job && !f.leased && !f.fits.length) {
       why = hasLease(c) ? "No tool of yours fits: with lease only." : "No tool of yours fits.";
+    } else if (!job || job.overhead === undefined) {
+      why = "No work time for this kind of contract yet.";
     }
     const picker = !f.leased && f.fits.length > 0;
     const tools = picker ? h("div", { className: "ct-tools" }, ...f.fits.map((t) => {
-      const hours = figures(c, { ...ctx, picks: { ...ctx.picks, [/** @type {{kind: string}} */ (job).kind]: t.id } }).hours;
+      const hours = figures(c, { ...ctx, picks: { ...ctx.picks, [/** @type {{kind: string}} */ (job).kind]: t.id } }).jobHours;
       const b = pressButton("ct-tool", "", f.tool === t, () => {
         setPrefs(store, { picks: { ...prefsOf(store).picks, [/** @type {{kind: string}} */ (job).kind]: t.id } });
       });
@@ -323,7 +376,7 @@ export function contractsScreen(store, opts = {}) {
     if (typeof c.x === "number" && typeof c.z === "number") {
       const show = h("button", { className: "ct-btn ct-show" }, icon("map"), "Show on the map");
       show.setAttribute("type", "button");
-      show.addEventListener("click", () => store.set("goto", { screen: "map", at: { x: c.x, z: c.z } }));
+      show.addEventListener("click", () => store.set("goto", { screen: "map", at: { x: c.x, z: c.z }, pin: c.id }));
       head.append(show);
     }
     const left = h("div", { className: "ct-d-col" }, ...[moneySection(c, f, ctx, units), deadlineSection(c, f, ctx)]
@@ -347,14 +400,18 @@ export function contractsScreen(store, opts = {}) {
     const units = unitsOf(store);
     const items = contractsOf(store);
     const mine = yours(items);
-    const offered = offers(items, prefs.sort, ctx);
+    const groups = offerGroups(items, prefs.sort, ctx);
+    const closed = new Set(prefs.closed || []);
+    const offered = groups.flatMap((g) => g.items);
     const all = [...mine, ...offered];
     if (!all.some((c) => c.id === selected)) {
       selected = all[0]?.id;
       open = false;
     }
     // where you are only sorts and labels by distance: a tenth of a km is plenty
-    const key = JSON.stringify([store.get("contracts"), prefs, units, ctx.timeScale, ctx.maxSpeed, [...(ctx.attached || [])],
+    // where your tools are only moves the way there: a tenth of a km is plenty
+    const parked = (ctx.tools || []).map((t) => ctx.places?.get(t.id)).map((at) => at && [Math.round(at.x / 100), Math.round(at.z / 100)]);
+    const key = JSON.stringify([store.get("contracts"), prefs, units, ctx.timeScale, ctx.maxSpeed, [...(ctx.attached || [])], parked,
       ctx.from && [Math.round(ctx.from.x / 100), Math.round(ctx.from.z / 100)], selected, open]);
     if (key === drawn) return;
     drawn = key;
@@ -373,10 +430,21 @@ export function contractsScreen(store, opts = {}) {
         el("span", "ct-note", [taken, mine.length > 1 ? "nearest deadline first" : ""].filter(Boolean).join(" · "))),
       ...mine.map((c) => row(c, ctx, units)));
     }
+    // one button for every type: Collapse all while any is open, then Open all
+    const allShut = groups.length > 0 && groups.every((g) => closed.has(g.type));
+    const foldAll = groups.length ? el("button", "ct-fold-all", allShut ? "Open all" : "Collapse all") : null;
+    if (foldAll) {
+      foldAll.setAttribute("type", "button");
+      foldAll.addEventListener("click", () => setPrefs(store, { closed: allShut ? [] : groups.map((g) => g.type) }));
+    }
     children.push(h("div", { className: "ct-group" }, el("span", "ct-label", "On offer"),
       el("span", "ct-note", [String(offered.length), prefs.mode === "own" ? "with your own machines" : "with lease",
-        mine.length ? "" : taken].filter(Boolean).join(" · "))),
-    ...offered.map((c) => row(c, ctx, units)));
+        mine.length ? "" : taken].filter(Boolean).join(" · ")), foldAll));
+    for (const group of groups) {
+      const shut = closed.has(group.type);
+      children.push(typeHeader(group, shut, bestText(group.items[0], prefs.sort, ctx, units)));
+      if (!shut) children.push(...group.items.map((c) => row(c, ctx, units)));
+    }
     if (!all.length) {
       children.push(el("p", "ct-empty", store.get("contracts") ? "No contracts on offer right now."
         : "No contracts from the game yet."));
@@ -394,7 +462,14 @@ export function contractsScreen(store, opts = {}) {
   // from the map's popup or a field panel's row: open on that contract
   store.subscribe("goto", (/** @type {any} */ go) => {
     if (go?.contract === undefined || go.contract === selected && open) return;
-    if (!contractsOf(store).some((c) => c.id === go.contract)) return;
+    const wanted = contractsOf(store).find((c) => c.id === go.contract);
+    if (!wanted) return;
+    // a contract in a folded type: its type opens again
+    const prefs = prefsOf(store);
+    const type = wanted.type || wanted.title || "other";
+    if (wanted.status === "offer" && (prefs.closed || []).includes(type)) {
+      setPrefs(store, { closed: prefs.closed.filter((t) => t !== type) });
+    }
     pick(go.contract);
     // once drawn: the page may still be hidden now, and draws as it's shown
     setTimeout(() => list.querySelector(`.ct-row[data-id="${CSS.escape(String(go.contract))}"]`)

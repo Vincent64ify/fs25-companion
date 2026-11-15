@@ -1,7 +1,7 @@
 # 0018: Contracts (read-only)
 
 Status: built
-Mod: 0.19.0 · Started: 2026-11-14 · Design: the chrome in [THEMES.md](../docs/THEMES.md#layout); the tiles after the HEADLAND canvas's Haul and Yard pages (private, on claude.ai); the canvas [FS25 Companion: Contracts](https://claude.ai/artifact/T8NwTQTEp6jvCdRq82xHzP) (private, on claude.ai; at 1158 × 676 and 1180 × 820, day and night; version 9 reviewed by Vincent 2026-11-14: the detail in two columns at full height, the switches over the list)
+Mod: 0.19.1 · Started: 2026-11-14 · Design: the chrome in [THEMES.md](../docs/THEMES.md#layout); the tiles after the HEADLAND canvas's Haul and Yard pages (private, on claude.ai); the canvas [FS25 Companion: Contracts](https://claude.ai/artifact/T8NwTQTEp6jvCdRq82xHzP) (private, on claude.ai; at 1158 × 676 and 1180 × 820, day and night; version 9 reviewed by Vincent 2026-11-14: the detail in two columns at full height, the switches over the list)
 
 ## Goal
 
@@ -53,15 +53,38 @@ it installed, and reads raw values, so they're the same with it on or off.
 - **One row per contract:** what it is and where ("Harvest · Field 12 ·
   wheat"), who it's for, then four numbers in one line: **Net** (reward
   minus the lease, if you lease), **Time** (estimated work time), **Per
-  hour** (net ÷ time) and **Left** (time before the deadline). A harvest
+  hour** (net ÷ the whole job's time, below) and **Left** (time before the deadline). A harvest
   or baling contract adds **+ extra** (what the crop you keep is worth, see
   below). A number the game doesn't give is left out, not shown as 0.
   One of yours shows its progress instead: the bar and %, then "field 83 %
-  worked of 95 %" or "delivered 9,800 l of 14,880 l · 5,080 l to go", the
-  time left and what that is in real time ("≈ 4 h 50 at ×5"). An offer the
-  work won't make at this game speed has its time left in `warn`.
+  worked of 95 %" or "delivered 9,800 l of 14,880 l · 5,080 l to go", then
+  its two times (below). An offer the work won't make at this game speed
+  has its deadline in `warn`.
+- **Two times, each named** (everywhere a contract shows: the row, the
+  detail, the field panel's row):
+  - **the deadline, in game time:** the game's own time left before the
+    contract expires, "deadline 1 day 0 h game time". The same words at
+    any game speed.
+  - **the work, in real time:** how long you'll be at it, estimated
+    (Work time, below). For an offer the whole job, "work ≈ 40 min real
+    time"; for one of yours what's still to do, "work left ≈ 6 min real
+    time" (the estimate × what's left of the game's completion).
+  No third time is shown: the real time before the deadline (game time ÷
+  game speed) only decides the warning.
 - **Sort:** by Per hour (the default), Net, Left or Distance (from you, or
   from your vehicle). The choice is remembered per screen.
+- **On offer by type:** the offers sit under a header per contract type
+  (the game's own name for it: "Harvesting", "Cultivating" ...), always.
+  Inside a type they follow the sort; the types follow their best
+  contract by the sort, so the type holding the best per hour, or the
+  nearest deadline, comes first. A type where no contract has the number
+  (baling under Per hour) goes last, by name. The header says the type,
+  how many, and its best ("best £9,150/h", "soonest 5 h 10 min", "nearest
+  0.8 km"). A tap on a header folds its contracts away or shows them
+  again: all are shown at first, and what you folded is remembered on the
+  device. "Collapse all" at the end of the On offer line folds every
+  type, and then reads "Open all". A contract opened from the map or a field panel opens its type
+  again. Yours stay above, ungrouped.
 - **Lease or own machines:** a switch at the top, "With lease / Own
   machines". With lease, Net subtracts the lease and Time uses the leased
   machines; with own machines, Net is the full reward and Time uses your
@@ -95,16 +118,23 @@ always labelled an estimate:
     more than one);
   - **with own machines:** your farm's tools whose shop category fits the
     contract (ploughs for a plough contract, seeders and planters for
-    sowing, sprayers for herbicide, spreaders for fertiliser and lime,
-    harvesters with their header for a harvest, mowers for mowing ...).
+    sowing, sprayers for herbicide, mowers for mowing ...). Fertilising
+    takes spreaders, sprayers, slurry tankers and their booms, and manure
+    spreaders (the game leases a sprayer for it as often as a spreader).
+    A harvest takes what its lease list harvests with: a grain header
+    where the lease has one, a corn header for corn, a potato harvester
+    for potatoes, so your grain header is never offered for a root crop.
     The one you have attached now comes first if it fits, then the
     widest. You can pick another in the detail; the choice is remembered
     per contract type. No fitting tool: Time is blank, "No tool of yours
-    fits: with lease only". Only tools with a working width in the shop's
-    data are offered; a contract's leased machines are never "yours".
-  - **no estimate** for the kinds outside the table below (stone picking,
-    baling, tedding, wood ...): Time and Per hour are left out, and the
-    detail says so.
+    fits: with lease only". A contract's leased machines are never
+    "yours".
+  - **no estimate, but your tools** for baling, bale wrapping and
+    tedding: your balers, wrappers and tedders are listed (a baler has no
+    working width in the shop's data), Time and Per hour are left out, and
+    the detail says so. A baler that also wraps is a baler: it doesn't
+    fit a wrapping contract, whose bales already lie on the field.
+  - **no estimate** for the other kinds (stone picking, wood ...).
 - **The rate:** width × working speed ÷ 10 ha/h, the speed being the
   tool's own limit (shop data), or the tractor's cruise top when lower.
 - **The overhead per job:** headland turns, overlaps, refills and unloading
@@ -114,17 +144,32 @@ always labelled an estimate:
   cultivating and weeding 1.2; ploughing 1.25; mowing and harvesting 1.3).
   Vegetables (1.35 to 1.4 there) aren't in yet. The live check compares
   each with a real run.
+- **The whole job:** a contract is more than its field work, and money
+  per hour over the work alone is absurd for a short job (£7,215 for 2.7
+  minutes of spreading read "£159,893/h", Vincent, 2026-11-15). So the
+  time an offer shows, and Per hour divides by, is the whole job:
+  - **work**, as above;
+  - **the way there**, in a straight line at 30 km/h, from where the
+    machines are: the shop for a lease (the game puts leased machines on
+    the shop's spawn places), your own tool for own machines, and where
+    you are when neither is known;
+  - **10 minutes** to set up and hand in.
+  The row says "job ≈ 20 min real time"; the detail's Work section says
+  "Job · real time" and spells out the three parts. The 30 km/h and the
+  10 minutes are guesses until the live check's real runs. A running
+  contract counts only the work left.
 - **Your own runs** (open question 1): the dashboard could time your
   running contracts (the game's completion against the clock, with the
   tool that did the work) and use your real rate for that tool next time,
   labelled "from your last run".
-- **Deadline:** time left in game time, and what that is in real time at the
-  current game speed ("2 days 4 h · about 52 min at ×60"). If the work time
-  is longer than the real time left at this speed, the line says so in
-  `warn`, and an offer's chip reads "Too late at ×5". A running contract
-  counts only the work still to do (the estimate × what's left of the
-  game's completion). Without the game speed (an older mod) there is no
-  real time and no warning.
+- **Time:** "Deadline · game time", and for one of yours "Work left ·
+  real time" under it (an offer's "Job · real time" is in its Work
+  section). If the work is longer than the real time before the deadline
+  at this game speed, both are in `warn` with one line that says why ("At
+  ×5 the deadline is ≈ 1 h 07 of real time away, and the work still takes
+  ≈ 2 h 10: you won't make it at this speed"), and an offer's chip reads
+  "Too late at ×5". Without the game speed (an older mod) there is no
+  warning.
 - **Lease vehicles:** the list the game gives you if you lease: for each,
   brand and name ("New Holland T7.315"), its shop category, and the working
   width or speed when it has one. The total lease cost under it. A contract
@@ -194,9 +239,9 @@ Instead (agreed to try, 2026-11-14):
   to the other side. A point that's under a control itself gets the place
   where the least of its label is covered. Looked at again each time the
   view comes to rest, so a label can change sides after a pan.
-- **Show on the map** (the detail) opens the Map, stops following you and
+- **Show on the map** (the detail) opens the Map, stops following you,
   centres on the contract at 1 px a metre or closer (as near as the map's
-  edge allows). The first time the Map shows after a load on another
+  edge allows) and opens its pin's popup. The first time the Map shows after a load on another
   page, it centres again once the map has its size.
 
 ### Look
@@ -216,6 +261,7 @@ canvas first.
 
   ```
   contracts = {
+    shop        = { x, z },     -- where leased machines appear (absent: unknown)
     limit       = 3,            -- contracts one farm may hold (absent: unknown)
     factors     = { field = 0.95, harvest = 0.93, bale = 0.9 },  -- read at run time
     items = [{
@@ -247,7 +293,7 @@ canvas first.
       sellPoint   = { name = "Grain mill", x, z, price = 0.216 },  -- €/l, effective
       vehicles = [{ name, brand, category, categoryTitle, workingWidth, speedLimit }],
     }],
-    tools = [{                  -- your farm's own tools with a working width
+    tools = [{                  -- your farm's own tools: a working width, or no motor
       id, name, brand,          -- the `vehicles` topic's id; the shop's name
       category, categoryTitle,  -- shop category name and title
       workingWidth, speedLimit, -- m, km/h, from the shop data
@@ -281,11 +327,12 @@ canvas first.
   widest), `leaseTool`, `workHours` (area ÷ (width × speed ÷ 10) ha/h × the
   type's overhead factor; the table of categories and factors, `JOBS`,
   lives in this one file and matches the game's type name by what it holds:
-  "plow", "sow", "harvest" ...), `perHour` (net ÷ time), `realMinutesLeft`
+  "plow", "sow", "harvest" ...), `jobTime` (work + the way there + setup), `perHour` (net ÷ the whole job), `realMinutesLeft`
   (`minutesLeft ÷ env.timeScale`), `deliveredToGo`, `figures` (all of one
   contract's numbers), the sort orders, and the rows' words. Money and area
   go through `data/units.js`. The switch, the sort and the tool picked per
-  job are kept on the device (`fs25companion.contracts`).
+  job are kept on the device (`fs25companion.contracts`), with the types
+  folded in the On offer list (`closed`).
 - **Web** (widgets): `web/src/widgets/contractsScreen.js` (the tab),
   `web/src/map/layers/contractsLayer.js` (pins, popup, legend), and the tab
   registered in `web/src/themes/newholland` (a screen's `count` names the
@@ -307,6 +354,7 @@ uses FS22's `getMissionsList` and `AbstractMission.STATUS_RUNNING`).
 |---|---|---|
 | `g_missionManager:getMissions()` (or `.missions`) | SDK MissionManager.lua | unverified |
 | `MissionManager.MAX_MISSIONS_PER_FARM` | SDK MissionManager.lua (value blanked) | unverified |
+| `g_currentMission.storeSpawnPlaces[1].startX`, `.startZ` (the shop) | SDK AbstractMission.lua `spawnVehicles` (the list); the field names after PlacementUtil, our guess | unverified (absent: the way there starts from you) |
 | `mission.status`, `MissionStatus.CREATED/PREPARING/RUNNING/FINISHED` | SDK AbstractMission.lua | unverified |
 | `mission.finishState`, `MissionFinishState.SUCCESS/FAILED/TIMED_OUT/CANCELED` | SDK AbstractMission.lua, MissionManager.lua | unverified |
 | `mission.farmId`, `g_localPlayer.farmId` | SDK AbstractMission.lua | unverified |
@@ -332,7 +380,9 @@ uses FS22's `getMissionsList` and `AbstractMission.STATUS_RUNNING`).
 | `g_fillTypeManager:getFillTypeByIndex(i).name`, `.title` | already read by `collectors/vehicles/Fill.lua` | as there |
 | `sellingStation.rootNode` through `getWorldTranslation` (the sell point's place) | our guess | unverified (absent: no "Deliver here" mark) |
 | `item.categoryName` for your own tools | [GAME-API.md](../docs/GAME-API.md#verified-since-phase-0) "Brand and shop category" (already sent per vehicle by `Vehicles.lua`) | verified |
-| Shop category names per contract type (`PLOWS`; `CULTIVATORS`, `DISCHARROWS`, `POWERHARROWS`; `SEEDERS`, `PLANTERS`; `SPRAYERS`; `FERTILIZERSPREADERS`; `WEEDERS`; `MOWERS`; `CUTTERS`, `CORNHEADERS`) | BC userint.lua, and the shop's names as remembered | unverified (a wrong one: that tool isn't offered) |
+| Shop category names per contract type | seen in the stream, 2026-11-15: `CUTTERS`, `POTATOHARVESTING`, `PLOWS`, `CULTIVATORS`, `POWERHARROWS`, `SEEDERS`, `SPRAYERS`, `FERTILIZERSPREADERS`, `SLURRYTANKS`, `SLURRYTOOLS`, `MOWERS`, `TEDDERS`, `BALERSROUND`, `BALEWRAPPERS` | seen live |
+| The others (`DISCHARROWS`, `PLANTERS`, `WEEDERS`, `CORNHEADERS`, `MANURESPREADERS`, `BALERSSQUARE`) | BC userint.lua, and the shop's names as remembered | unverified (a wrong one: that tool isn't offered) |
+| `vehicle.spec_motorized` (absent: a tool even without a working width) | already read by `collectors/Vehicles.lua` | as there |
 | Mission type names (`plowMission`, `harvestMission` ...) | values blanked in the SDK; matched by what the name holds | unverified (no match: no work time) |
 | `MissionManager:getIsMissionRunningOnFarmland` (one contract per farmland) | SDK MissionManager.lua | unverified, read only to explain; not called |
 
@@ -405,31 +455,41 @@ Automated (each one a test that exists before the work is called built):
   no button under 44. Not looked at in the pane: the row on the Harvester
   page's compact panel (`web/test.html` covers the panel's row).
 
-Live check (in game, Solek, mod 0.19.0, with `scripts/livewatch.py`; for
+Live check (in game, Solek, mod 0.19.1, with `scripts/livewatch.py`; for
 Vincent to run):
-- [ ] The On offer list matches the game's contracts screen: titles,
+- [x] The On offer list matches the game's contracts screen: titles,
   fields, rewards, the lease cost.
-- [ ] A contract's lease vehicles match the game's list for it.
-- [ ] Time left matches the game's (the HUD or contracts screen), at ×1
+- [x] A contract's lease vehicles match the game's list for it.
+- [x] Time left matches the game's (the HUD or contracts screen), at ×1
   and at a faster speed.
-- [ ] Take a field-work contract with lease (plough or cultivate): the
+- [x] Take a field-work contract with lease (plough or cultivate): the
   completion matches the HUD bar while you work, and it finishes when the
   game says done. Note the field % when it finishes (the success factor).
-- [ ] Take a harvest contract: expected and delivered litres match the
+  (Confirmed 2026-11-15; the field % at the finish wasn't noted.)
+- [x] Take a harvest contract: expected and delivered litres match the
   game's, the sell point is right, and what's left in the trailer after it
   finishes matches the Extra litres roughly.
-- [ ] Two contracts at once: both tiles, both field panel rows, the tab
+- [x] Two contracts at once: both tiles, both field panel rows, the tab
   says "Contracts · 2".
 - [ ] Work time: for one contract done with lease and one with your own
-  tool, note the real time (start to finish, at ×1) beside the estimate;
-  the overhead factors change from that.
+  tool, note the real time (from taking it to handing it in, and the
+  field work alone, at ×1) beside the estimate; the overhead factors, the
+  30 km/h and the 10 minutes change from that. (Open: no times noted
+  yet.)
+- [ ] With lease, the detail says "from the shop" and the distance looks
+  right for where the leased machines appear. (Open: needs mod 0.19.1,
+  which sends the shop.)
 - [ ] Own machines: the tools offered for a plough, a sowing and a spraying
-  contract are the right ones from your farm.
-- [ ] A finished contract shows its outcome and sums until dismissed.
-- [ ] After loading a save with a running harvest contract: its sell point,
+  contract are the right ones from your farm; so are the ones for a
+  fertilising and a baling contract, and a potato contract offers no
+  grain header (first run, 2026-11-15: those three were wrong; fixed in
+  0.19.1, to be seen again). (Open: the baler only shows with mod
+  0.19.1.)
+- [x] A finished contract shows its outcome and sums until dismissed.
+- [x] After loading a save with a running harvest contract: its sell point,
   Deliver here mark and Extra are there (the mod never asks the game to
   resolve the sell point; if they're missing until you deliver, say so).
-- [ ] The pins sit on the right fields; the Contracts tab works with
+- [x] The pins sit on the right fields; the Contracts tab works with
   Precision Farming on and off.
 
 ## Decisions
@@ -510,3 +570,38 @@ Open after the build, for Vincent:
   inside the view and clear of the map's controls (Behaviour, "A label
   stays whole"). Checked in the replay (the sample's Mill is at the bottom
   edge too); for Vincent to see on the iPad.
+- 2026-11-15: Vincent, live check, Own machines (mod 0.19.0), three wrong:
+  a potato contract offered the grain header; fertilising offered none of
+  three sprayers and the slurry kit; baling and bale wrapping listed no
+  baler. From the stream of that session: the game leases a
+  `POTATOHARVESTING` machine for potatoes and a sprayer for fertilising,
+  and the mod left out every tool without a working width (the Göweil G-1
+  F125 Kombi). Fixed (mod 0.19.1): a harvest takes what its lease
+  harvests with; fertilising takes sprayers, slurry and manure too; the
+  mod sends tools without a motor even with no width; baling, wrapping
+  and tedding list your tools, without a time. Not checked in the game:
+  whether a slurry tanker completes a fertilising contract, and the
+  Kombi's shop category (taken to be `BALERSROUND`).
+- 2026-11-15: Vincent, live: "5 h 33 min left · ≈ 5 h 33 at ×1" read as
+  the same time twice, and a deadline turned into real time is confusing
+  at any speed. Now two times, each named: the deadline in game time, the
+  work (left) in real time (Behaviour, "Two times"). The detail's Deadline
+  section is Time, with "Work left · real time" for a running contract.
+  This replaces the canvas's "≈ 4 h 50 at ×5".
+- 2026-11-15: asked for by Vincent: the offers grouped by type under
+  headers that fold (ordered by each type's best contract by the sort),
+  and Show on the map opens the contract's pin. Built; checked in the
+  replay at 1158 × 676.
+- 2026-11-15: Vincent, live: Per hour over the field work alone read
+  "£159,893/h" for a £7,215 fertilising contract. Per hour is now net ÷
+  the whole job: work, the way there (from the shop with lease, from your
+  tool with your own) and 10 minutes of setup. The mod sends the shop's
+  place (`shop`, mod 0.19.1). Also: "Collapse all / Open all" on the On
+  offer line.
+- 2026-11-15: live check by Vincent on mod 0.19.0 (Solek): nine boxes
+  confirmed ("it works great for all points"): the On offer list, the
+  lease vehicles, the time left, a field-work contract with lease, a
+  harvest contract, two at once, a finished contract, the sell point
+  after a load, the pins and Precision Farming on and off. Three stay
+  open because they need mod 0.19.1 or numbers: Own machines seen again
+  (the baler), "from the shop", and the real times of two runs.

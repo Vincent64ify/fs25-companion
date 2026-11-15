@@ -2148,6 +2148,55 @@ button.day-clock[aria-expanded="true"] .day-clock-when { color: inherit; opacity
 .ct-group { display: flex; align-items: baseline; gap: 10px; margin: 6px 4px 0; }
 .ct-group:first-child { margin-top: 0; }
 .ct-note { font-size: 13px; color: var(--muted); }
+/* Collapse all / Open all, at the end of the On offer line */
+.ct-fold-all {
+  flex: none;
+  /* 44 to press, but on the line's baseline with "On offer" */
+  align-self: baseline;
+  min-height: 44px;
+  margin: -15px 0 -15px auto;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 12px;
+  background: none;
+  color: var(--sel-ink);
+  font: 600 13px/1 var(--font);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.ct-fold-all:active { background: var(--badge-off); }
+/* a type's header in On offer: a tap folds its contracts away */
+.ct-type {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  margin: 0 0 -4px;
+  padding: 0 10px 0 6px;
+  border: 0;
+  border-radius: 12px;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.ct-type:active { background: var(--badge-off); }
+.ct-type .ct-label { color: var(--text); }
+.ct-type-mark {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  margin: -3px 3px 0;
+  border-right: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  transform: rotate(45deg);
+  opacity: 0.7;
+  transition: transform var(--t-base) var(--ease);
+}
+.ct-type[aria-expanded="false"] .ct-type-mark { margin-top: 0; transform: rotate(-45deg); }
 .ct-empty { margin: 8px 4px; font-size: 14px; color: var(--muted); }
 .ct-row {
   display: flex;

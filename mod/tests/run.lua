@@ -4158,6 +4158,8 @@ local function contractsGame()
     }
     local items = {
         ["data/t7.xml"] = { name = "T7.315", brandIndex = 2, categoryName = "TRACTORSL", specs = {} },
+        -- a baler has no working width in the shop
+        ["data/baler.xml"] = { name = "G-1 F125 Kombi", brandIndex = 1, categoryName = "BALERSROUND", specs = { speedLimit = 17 } },
         -- the shop hasn't read this one's specs yet
         ["data/juwel.xml"] = { name = "Juwel 8", brandIndex = 2, categoryName = "PLOWS", xmlFilename = "data/juwel.xml" },
         ["data/karat.xml"] = { name = "Karat 9", brandIndex = 2, categoryName = "CULTIVATORS",
@@ -4273,15 +4275,18 @@ local function contractsGame()
         if node == 91 then return 173.04, 5, 971.46 end
         return nil
     end
-    local function owned(id, file, state, farm)
-        return { id = id, configFileName = file, propertyState = state,
+    local function owned(id, file, state, farm, motor)
+        return { id = id, configFileName = file, propertyState = state, spec_motorized = motor,
             getOwnerFarmId = function() return farm end }
     end
-    g_currentMission = { vehicleSystem = { vehicles = {
+    g_currentMission = { storeSpawnPlaces = { { startX = -64.32, startZ = 277.09 }, { startX = -70, startZ = 277 } },
+        vehicleSystem = { vehicles = {
         owned(41, "data/karat.xml", VehiclePropertyState.OWNED, 1),
         owned(40, "data/juwel.xml", VehiclePropertyState.OWNED, 1),
-        -- a tractor has no working width: not a tool
-        owned(42, "data/t7.xml", VehiclePropertyState.OWNED, 1),
+        -- a tractor has a motor and no working width: not a tool
+        owned(42, "data/t7.xml", VehiclePropertyState.OWNED, 1, {}),
+        -- a baler has no working width either, and is one
+        owned(45, "data/baler.xml", VehiclePropertyState.OWNED, 1),
         -- a leased plough of the contract carries your farm id
         owned(43, "data/leased.xml", VehiclePropertyState.MISSION, 1),
         owned(44, "data/karat.xml", VehiclePropertyState.OWNED, 2),
@@ -4302,6 +4307,9 @@ test("contracts: missions as the dashboard's shape, read only (specs/0018)", fun
     end
     local data = collector.collect({})
     eq(data.limit, 3, "the game's per-farm limit")
+    eq(Json.encode(data.shop), '{"x":-64.3,"z":277.1}', "the shop's first spawn place: where leased machines appear")
+    g_currentMission.storeSpawnPlaces = nil
+    eq(collector.collect({}).shop, nil, "no spawn places: no shop")
     eq(Json.encode(data.factors), '{"bale":0.9,"field":0.95,"harvest":0.93}', "the success factors, read")
 
     local byId = {}
@@ -4353,8 +4361,9 @@ test("contracts: missions as the dashboard's shape, read only (specs/0018)", fun
     eq(wood.vehicleCosts, nil)
 
     eq(Json.encode(data.tools), '[{"brand":"Lemken","category":"PLOWS","categoryTitle":"Ploughs","id":40,"name":"Juwel 8","speedLimit":12,"workingWidth":2.4},'
-        .. '{"brand":"Lemken","category":"CULTIVATORS","id":41,"name":"Karat 9","speedLimit":12,"workingWidth":6}]',
-        "your farm's tools with a working width: no tractor, no leased one, no other farm's")
+        .. '{"brand":"Lemken","category":"CULTIVATORS","id":41,"name":"Karat 9","speedLimit":12,"workingWidth":6},'
+        .. '{"category":"BALERSROUND","id":45,"name":"G-1 F125 Kombi","speedLimit":17}]',
+        "your farm's tools, a baler without a working width too: no tractor, no leased one, no other farm's")
 
     eq(calls.getCompletion, nil, "getCompletion is never called")
     eq(calls.tryToResolveSellingStation, nil, "tryToResolveSellingStation is never called")
