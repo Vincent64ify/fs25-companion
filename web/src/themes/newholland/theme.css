@@ -2364,6 +2364,13 @@ button.day-clock[aria-expanded="true"] .day-clock-when { color: inherit; opacity
   background: inherit;
   transform: translateX(-50%) rotate(45deg);
 }
+/* off its own place (the view's edge, a control): under the point, or starting or ending at it */
+.ct-pin[data-v="below"] { bottom: auto; top: 6px; }
+.ct-pin[data-v="below"]::after { bottom: auto; top: -5px; }
+.ct-pin[data-h="start"] { left: -14px; transform: none; }
+.ct-pin[data-h="start"]::after { left: 14px; }
+.ct-pin[data-h="end"] { left: 14px; transform: translateX(-100%); }
+.ct-pin[data-h="end"]::after { left: calc(100% - 14px); }
 .ct-pin[data-mine="true"] { background: #0C2D6B; color: #FFFFFF; }
 .ct-pin[data-mine="true"][data-tone="warn"] { background: #A15800; }
 .ct-pin[data-mine="false"] { background: #FFFFFF; color: #0D1B33; box-shadow: inset 0 0 0 2px #0C2D6B, 0 2px 6px rgba(0, 0, 0, 0.35); }
@@ -2385,6 +2392,10 @@ button.day-clock[aria-expanded="true"] .day-clock-when { color: inherit; opacity
   font: 600 12px/1.2 var(--font);
   white-space: nowrap;
 }
+/* off its own place (the view's edge, a control): above the point, or starting or ending at it */
+.ct-deliver[data-v="above"] { top: auto; bottom: 14px; }
+.ct-deliver[data-h="start"] { left: -8px; transform: none; }
+.ct-deliver[data-h="end"] { left: 8px; transform: translateX(-100%); }
 .ct-deliver .icon { width: 16px; height: 16px; }
 .ct-popup { display: flex; flex-direction: column; gap: 6px; font-family: var(--font); }
 .ct-popup > b { font-size: 15px; }

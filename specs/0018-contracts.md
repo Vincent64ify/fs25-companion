@@ -186,7 +186,14 @@ Instead (agreed to try, 2026-11-14):
   there's no time). A tap opens a popup with the row's line and a "Details"
   button that opens the Contracts tab on it.
 - The sell point of your running harvest contract gets a small "Deliver
-  here" mark.
+  here" mark, its label under the point.
+- **A label stays whole and in the clear.** A pin stands over its point
+  and the Deliver here label hangs under it, centred. Where that would run
+  off the map's view or under one of the map's controls (the buttons, the
+  scale, the land panel), the label starts or ends at the point, or goes
+  to the other side. A point that's under a control itself gets the place
+  where the least of its label is covered. Looked at again each time the
+  view comes to rest, so a label can change sides after a pan.
 - **Show on the map** (the detail) opens the Map, stops following you and
   centres on the contract at 1 px a metre or closer (as near as the map's
   edge allows). The first time the Map shows after a load on another
@@ -496,3 +503,10 @@ Open after the build, for Vincent:
   the fixture in `web/fixtures/`; a reward of 0 (the base class's answer)
   is left out; the page draws nothing while another screen shows. Checked
   in the replay at five sizes, day and night. Live check open.
+- 2026-11-14: Vincent, first look in the game (mod 0.19.0), not the live
+  check yet: a "Deliver here" mark showed on the map, cut off because the
+  sell point sat at the very bottom.
+- 2026-11-15: fixed, for the pins too: a label is placed where it's whole
+  inside the view and clear of the map's controls (Behaviour, "A label
+  stays whole"). Checked in the replay (the sample's Mill is at the bottom
+  edge too); for Vincent to see on the iPad.

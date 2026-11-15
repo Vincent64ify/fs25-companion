@@ -3514,7 +3514,7 @@ check("contracts: the Map's land panel shows the row on a contract's field, and 
 ctFieldS.set("selection", undefined);
 
 // the map: a pin per contract, yours with its %, an offer with its money per hour
-const { createContractsLayer, pinLabel } = await import("./src/map/layers/contractsLayer.js");
+const { createContractsLayer, labelSide, pinLabel } = await import("./src/map/layers/contractsLayer.js");
 const ctMapS = createStore();
 ctMapS.set("env", { timeScale: 5, units: { currency: "£" } });
 const ctLayer = createContractsLayer(map, ctMapS);
@@ -3539,6 +3539,29 @@ check("contracts map: a pin per contract (yours its %, an offer its per hour), D
   ["66 %|true", "87 %|true", "Success|true", "£1,800|false", "£2,715/h|false", "£6,503/h|false", "£6,659/h|false", "£8,262/h|false",
     "£8,549/h|false", "£9,153/h|false"],
   ["Deliver here · Mill"], true, ["contracts", "Contracts", undefined], ["Harvest · Barley"], "Details", "contracts", "Deadwood"]);
+// a label stays whole inside the view and clear of the controls
+const ctView = { x: 1000, y: 600 };
+const ctPinShape = { w: 80, h: 30, gap: 6, inset: 14 };
+const ctDeliverShape = { w: 200, h: 24, gap: 14, inset: 8 };
+const ctButtons = { left: 12, top: 12, right: 68, bottom: 282 };
+// the test map shows the whole of Solek: the Mill is at its bottom edge, so its label goes above the point
+map.setView(map.getCenter(), map.getMinZoom(), { animate: false });
+const deliverEl = map.getPane("contracts").querySelector(".ct-deliver");
+check("contracts map: a pin stands over its point and Deliver here hangs under it, centred; where that runs off the view "
+  + "or under a control the label starts or ends at the point, or goes to the other side; with its point under a control it's the place least covered", [
+  labelSide({ x: 500, y: 300 }, ctView, ctPinShape, "above"), labelSide({ x: 500, y: 300 }, ctView, ctDeliverShape, "below"),
+  labelSide({ x: 500, y: 20 }, ctView, ctPinShape, "above"), labelSide({ x: 500, y: 590 }, ctView, ctDeliverShape, "below"),
+  labelSide({ x: 20, y: 300 }, ctView, ctPinShape, "above"), labelSide({ x: 990, y: 590 }, ctView, ctDeliverShape, "below"),
+  labelSide({ x: 90, y: 150 }, ctView, ctPinShape, "above", [ctButtons]), labelSide({ x: 40, y: 290 }, ctView, ctPinShape, "above", [ctButtons]),
+  labelSide({ x: 500, y: 300 }, ctView, ctPinShape, "above", [{ left: 0, top: 0, right: 1000, bottom: 600 }]),
+  labelSide({ x: 40, y: 150 }, ctView, ctPinShape, "above", [ctButtons]),
+  [deliverEl.dataset.v, deliverEl.dataset.h]], [
+  { v: "above", h: "centre" }, { v: "below", h: "centre" },
+  { v: "below", h: "centre" }, { v: "above", h: "centre" },
+  { v: "above", h: "start" }, { v: "above", h: "end" },
+  { v: "above", h: "start" }, { v: "below", h: "centre" },
+  { v: "above", h: "centre" }, { v: "above", h: "start" },
+  ["above", "centre"]]);
 map.removeLayer(ctLayer.leafletLayer);
 
 // --- icons (ui/icons.js) --------------------------------------------------------
