@@ -1,6 +1,6 @@
 # 0018: Contracts (read-only)
 
-Status: built
+Status: live-checked
 Mod: 0.19.1 · Started: 2026-11-14 · Design: the chrome in [THEMES.md](../docs/THEMES.md#layout); the tiles after the HEADLAND canvas's Haul and Yard pages (private, on claude.ai); the canvas [FS25 Companion: Contracts](https://claude.ai/artifact/T8NwTQTEp6jvCdRq82xHzP) (private, on claude.ai; at 1158 × 676 and 1180 × 820, day and night; version 9 reviewed by Vincent 2026-11-14: the detail in two columns at full height, the switches over the list)
 
 ## Goal
@@ -352,38 +352,38 @@ uses FS22's `getMissionsList` and `AbstractMission.STATUS_RUNNING`).
 
 | Name | Where from | State |
 |---|---|---|
-| `g_missionManager:getMissions()` (or `.missions`) | SDK MissionManager.lua | unverified |
-| `MissionManager.MAX_MISSIONS_PER_FARM` | SDK MissionManager.lua (value blanked) | unverified |
-| `g_currentMission.storeSpawnPlaces[1].startX`, `.startZ` (the shop) | SDK AbstractMission.lua `spawnVehicles` (the list); the field names after PlacementUtil, our guess | unverified (absent: the way there starts from you) |
-| `mission.status`, `MissionStatus.CREATED/PREPARING/RUNNING/FINISHED` | SDK AbstractMission.lua | unverified |
-| `mission.finishState`, `MissionFinishState.SUCCESS/FAILED/TIMED_OUT/CANCELED` | SDK AbstractMission.lua, MissionManager.lua | unverified |
-| `mission.farmId`, `g_localPlayer.farmId` | SDK AbstractMission.lua | unverified |
-| `mission:getUniqueId()`, `mission.type.name` | SDK AbstractMission.lua | unverified |
-| `mission:getTitle()`, `getNPC().title`, `getLocation()` | SDK AbstractMission.lua, AbstractFieldMission.lua; `getNPC().title` from BC gui.lua | unverified |
-| `mission:getWorldPosition()` (field: `field:getIndicatorPosition()`) | SDK AbstractMission.lua, AbstractFieldMission.lua | unverified |
-| `mission.field`, `Api.fieldId(field)`, `field:getAreaHa()` | SDK AbstractFieldMission.lua; `Api.fieldId` is ours (Fields.lua) | unverified (`areaHa` already runs in `fields`) |
-| `mission:getReward()` | SDK AbstractMission.lua, AbstractFieldMission.lua | unverified |
-| `mission:getVehicleCosts()`, `mission.vehiclesToLoad` (`{filename, configurations}`) | SDK AbstractMission.lua | unverified |
-| `mission:getReimbursement()`, `mission.stealingCost` | SDK AbstractMission.lua | unverified |
-| `mission:getMinutesLeft()` | SDK AbstractMission.lua (game minutes from `endDate`) | unverified |
-| `mission.completion` | SDK AbstractMission.lua (`updateTick`) | unverified |
-| `AbstractMission.SUCCESS_FACTOR` | SDK AbstractFieldMission.lua (value blanked; BC says 0.95) | unverified |
-| `HarvestMission.SUCCESS_FACTOR`, `BaleMission.FILL_SUCCESS_FACTOR` | BC betterContracts.lua (0.93 or 0.94; 0.9) | unverified |
-| `mission.expectedLiters`, `mission.depositedLiters`, `mission.fillTypeIndex` | BC betterContracts.lua | unverified |
-| `mission.sellingStation`, `:getName()`, `:getEffectiveFillTypePrice(fillType)` | BC betterContracts.lua | unverified |
+| `g_missionManager:getMissions()` (or `.missions`) | SDK MissionManager.lua | verified (live check 2026-11-15 and 16) |
+| `MissionManager.MAX_MISSIONS_PER_FARM` | SDK MissionManager.lua (value blanked) | verified (live check 2026-11-15 and 16) |
+| `g_currentMission.storeSpawnPlaces[1].startX`, `.startZ` (the shop) | SDK AbstractMission.lua `spawnVehicles` (the list); the field names after PlacementUtil, our guess | verified 2026-11-16 (sent as x -73.3, z 272.2, beside the Vehicle Shop) |
+| `mission.status`, `MissionStatus.CREATED/PREPARING/RUNNING/FINISHED` | SDK AbstractMission.lua | verified (live check 2026-11-15 and 16) |
+| `mission.finishState`, `MissionFinishState.SUCCESS/FAILED/TIMED_OUT/CANCELED` | SDK AbstractMission.lua, MissionManager.lua | verified (live check 2026-11-15 and 16) |
+| `mission.farmId`, `g_localPlayer.farmId` | SDK AbstractMission.lua | verified (live check 2026-11-15 and 16) |
+| `mission:getUniqueId()`, `mission.type.name` | SDK AbstractMission.lua | verified (live check 2026-11-15 and 16) |
+| `mission:getTitle()`, `getNPC().title`, `getLocation()` | SDK AbstractMission.lua, AbstractFieldMission.lua; `getNPC().title` from BC gui.lua | verified (live check 2026-11-15 and 16) |
+| `mission:getWorldPosition()` (field: `field:getIndicatorPosition()`) | SDK AbstractMission.lua, AbstractFieldMission.lua | verified (live check 2026-11-15 and 16) |
+| `mission.field`, `Api.fieldId(field)`, `field:getAreaHa()` | SDK AbstractFieldMission.lua; `Api.fieldId` is ours (Fields.lua) | verified (live check 2026-11-15 and 16) |
+| `mission:getReward()` | SDK AbstractMission.lua, AbstractFieldMission.lua | verified (live check 2026-11-15 and 16) |
+| `mission:getVehicleCosts()`, `mission.vehiclesToLoad` (`{filename, configurations}`) | SDK AbstractMission.lua | verified (live check 2026-11-15 and 16) |
+| `mission:getReimbursement()`, `mission.stealingCost` | SDK AbstractMission.lua | unverified (a finished contract's sums looked right to Vincent; neither was seen in a stream) |
+| `mission:getMinutesLeft()` | SDK AbstractMission.lua (game minutes from `endDate`) | verified (live check 2026-11-15 and 16) |
+| `mission.completion` | SDK AbstractMission.lua (`updateTick`) | verified (live check 2026-11-15 and 16) |
+| `AbstractMission.SUCCESS_FACTOR` | SDK AbstractFieldMission.lua (value blanked; BC says 0.95) | verified: sent as 0.98 on Solek (not BC's 0.95) |
+| `HarvestMission.SUCCESS_FACTOR`, `BaleMission.FILL_SUCCESS_FACTOR` | BC betterContracts.lua (0.93 or 0.94; 0.9) | `HarvestMission.SUCCESS_FACTOR` verified (0.93); `BaleMission.FILL_SUCCESS_FACTOR` isn't there: no `bale` factor is sent ([NEXT.md](../docs/NEXT.md)) |
+| `mission.expectedLiters`, `mission.depositedLiters`, `mission.fillTypeIndex` | BC betterContracts.lua | verified (live check 2026-11-15 and 16) |
+| `mission.sellingStation`, `:getName()`, `:getEffectiveFillTypePrice(fillType)` | BC betterContracts.lua | verified (live check 2026-11-15 and 16) |
 | `g_storeManager:getItemByXMLFilename(filename)`, `item.name`, brand and category titles | [GAME-API.md](../docs/GAME-API.md#verified-since-phase-0) "Brand and shop category" | verified for a vehicle's `configFileName`; unverified for a lease's `filename` |
-| `item.specs.workingWidth.width` (a table `{width, minWidth}`), `item.specs.workingWidthConfig[config][index].width`, `item.specs.speedLimit` (km/h) | SDK Vehicle.lua (`loadSpecValueWorkingWidth`, `...Config`, `loadSpecValueSpeedLimit`) | unverified |
-| `StoreItemUtil.loadSpecsFromXML(item)` (fills `item.specs`) | SDK StoreItemUtil.lua, StoreManager.lua (`specs = nil` at load) | unverified |
-| `mission.spawnedVehicles` (you took the lease) | SDK AbstractMission.lua | unverified |
-| `VehiclePropertyState.MISSION` on a leased vehicle | SDK AbstractMission.lua (`spawnVehicle`) | unverified |
+| `item.specs.workingWidth.width` (a table `{width, minWidth}`), `item.specs.workingWidthConfig[config][index].width`, `item.specs.speedLimit` (km/h) | SDK Vehicle.lua (`loadSpecValueWorkingWidth`, `...Config`, `loadSpecValueSpeedLimit`) | verified (live check 2026-11-15 and 16) |
+| `StoreItemUtil.loadSpecsFromXML(item)` (fills `item.specs`) | SDK StoreItemUtil.lua, StoreManager.lua (`specs = nil` at load) | verified (live check 2026-11-15 and 16) |
+| `mission.spawnedVehicles` (you took the lease) | SDK AbstractMission.lua | verified (live check 2026-11-15 and 16) |
+| `VehiclePropertyState.MISSION` on a leased vehicle | SDK AbstractMission.lua (`spawnVehicle`) | verified (live check 2026-11-15 and 16) |
 | `MissionStatus.DISMISSED` (left out) | SDK AbstractMission.lua | unverified |
 | `g_fillTypeManager:getFillTypeByIndex(i).name`, `.title` | already read by `collectors/vehicles/Fill.lua` | as there |
-| `sellingStation.rootNode` through `getWorldTranslation` (the sell point's place) | our guess | unverified (absent: no "Deliver here" mark) |
+| `sellingStation.rootNode` through `getWorldTranslation` (the sell point's place) | our guess | verified (live check 2026-11-15 and 16) |
 | `item.categoryName` for your own tools | [GAME-API.md](../docs/GAME-API.md#verified-since-phase-0) "Brand and shop category" (already sent per vehicle by `Vehicles.lua`) | verified |
 | Shop category names per contract type | seen in the stream, 2026-11-15: `CUTTERS`, `POTATOHARVESTING`, `PLOWS`, `CULTIVATORS`, `POWERHARROWS`, `SEEDERS`, `SPRAYERS`, `FERTILIZERSPREADERS`, `SLURRYTANKS`, `SLURRYTOOLS`, `MOWERS`, `TEDDERS`, `BALERSROUND`, `BALEWRAPPERS` | seen live |
 | The others (`DISCHARROWS`, `PLANTERS`, `WEEDERS`, `CORNHEADERS`, `MANURESPREADERS`, `BALERSSQUARE`) | BC userint.lua, and the shop's names as remembered | unverified (a wrong one: that tool isn't offered) |
 | `vehicle.spec_motorized` (absent: a tool even without a working width) | already read by `collectors/Vehicles.lua` | as there |
-| Mission type names (`plowMission`, `harvestMission` ...) | values blanked in the SDK; matched by what the name holds | unverified (no match: no work time) |
+| Mission type names (`plowMission`, `harvestMission` ...) | values blanked in the SDK; matched by what the name holds | seen live: `harvestMission`, `cultivateMission`, `sowMission`, `herbicideMission`, `fertilizeMission`, `mowMission`, `tedderMission`, `baleMission`, `baleWrapMission`, `treeTransportMission`, `deadwoodMission`, `destructibleRockMission`; `plowMission`, the weeding and stone-picking names not seen |
 | `MissionManager:getIsMissionRunningOnFarmland` (one contract per farmland) | SDK MissionManager.lua | unverified, read only to explain; not called |
 
 ## Commands
@@ -471,20 +471,21 @@ Vincent to run):
   finishes matches the Extra litres roughly.
 - [x] Two contracts at once: both tiles, both field panel rows, the tab
   says "Contracts · 2".
-- [ ] Work time: for one contract done with lease and one with your own
+- [x] Work time: for one contract done with lease and one with your own
   tool, note the real time (from taking it to handing it in, and the
   field work alone, at ×1) beside the estimate; the overhead factors, the
-  30 km/h and the 10 minutes change from that. (Open: no times noted
-  yet.)
-- [ ] With lease, the detail says "from the shop" and the distance looks
-  right for where the leased machines appear. (Open: needs mod 0.19.1,
-  which sends the shop.)
-- [ ] Own machines: the tools offered for a plough, a sowing and a spraying
+  30 km/h and the 10 minutes change from that. (2026-11-16: no times
+  noted; Vincent found the estimates accurate on 0.19.0 and 0.19.1, so
+  the factors, the 30 km/h and the 10 minutes stay as they are.)
+- [x] With lease, the detail says "from the shop" and the distance looks
+  right for where the leased machines appear. (2026-11-16, mod 0.19.1:
+  the stream's `shop` is x -73.3, z 272.2, beside the Vehicle Shop.)
+- [x] Own machines: the tools offered for a plough, a sowing and a spraying
   contract are the right ones from your farm; so are the ones for a
   fertilising and a baling contract, and a potato contract offers no
   grain header (first run, 2026-11-15: those three were wrong; fixed in
-  0.19.1, to be seen again). (Open: the baler only shows with mod
-  0.19.1.)
+  0.19.1, to be seen again). (2026-11-16, mod 0.19.1: right; the Göweil
+  G-1 F125 Kombi arrives as `BALERSROUND`.)
 - [x] A finished contract shows its outcome and sums until dismissed.
 - [x] After loading a save with a running harvest contract: its sell point,
   Deliver here mark and Extra are there (the mod never asks the game to
@@ -605,3 +606,12 @@ Open after the build, for Vincent:
   after a load, the pins and Precision Farming on and off. Three stay
   open because they need mod 0.19.1 or numbers: Own machines seen again
   (the baler), "from the shop", and the real times of two runs.
+- 2026-11-16: live check closed by Vincent on mod 0.19.1: Own machines
+  right (the Göweil under Baling, no grain header for potatoes, sprayers
+  and slurry under Fertilising), "from the shop" right, and the time
+  estimates accurate on both versions (no times noted, so the overhead
+  factors, the 30 km/h and the 10 minutes stay). All twelve boxes ticked;
+  Status live-checked. From the stream: the field factor is 0.98, and the
+  game has no `BaleMission.FILL_SUCCESS_FACTOR`, so a baling contract has
+  no litres needed or Extra (in [NEXT.md](../docs/NEXT.md)); a potato
+  harvest's expected litres arrive as 0.

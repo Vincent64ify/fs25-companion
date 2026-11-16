@@ -565,6 +565,47 @@ combine's own fold. The others aren't recorded as confirmed.
   selected. `implement.fold` no longer needs an implement: its setter falls
   back to the vehicle.
 
+## Contracts (mod 0.19.1, live-checked 2026-11-15 and 16)
+
+Read only, by `collectors/Contracts.lua` through `Api.lua`; the spec's
+[Data contract table](../specs/0018-contracts.md#data-contract) has each
+name with where it came from.
+
+- **The list:** `g_missionManager:getMissions()`; a mission's
+  `getUniqueId()`, `type.name`, `status` against `MissionStatus`,
+  `finishState` against `MissionFinishState`, `farmId`.
+  `MissionManager.MAX_MISSIONS_PER_FARM` is 3.
+- **What it says:** `getTitle()`, `getNPC().title`, `getLocation()`,
+  `getWorldPosition()`, `field` (with `getAreaHa()` and
+  `getIndicatorPosition()`), `getReward()`, `getMinutesLeft()` (game
+  minutes), `completion` (never `getCompletion()`, which works it out
+  again).
+- **The lease:** `getVehicleCosts()`, `vehiclesToLoad` (each a
+  `filename`), `spawnedVehicles` (you took it), and
+  `VehiclePropertyState.MISSION` on the machines, which carry your farm
+  id. They appear at `g_currentMission.storeSpawnPlaces`; the first
+  place's `startX`, `startZ` is beside the Vehicle Shop.
+- **A harvest:** `expectedLiters`, `depositedLiters`, `fillTypeIndex`,
+  `sellingStation` (`getName()`, `getEffectiveFillTypePrice()`, its
+  `rootNode` for the place). It's still there after loading a save,
+  without `tryToResolveSellingStation()`. A potato harvest's
+  `expectedLiters` is 0.
+- **The factors:** `AbstractMission.SUCCESS_FACTOR` 0.98 and
+  `HarvestMission.SUCCESS_FACTOR` 0.93 on Solek.
+- **The shop's data:** a store item's `specs` is empty until
+  `StoreItemUtil.loadSpecsFromXML(item)`; then `specs.workingWidth.width`
+  and `specs.speedLimit`. A baler has no working width.
+- **Type names seen:** `harvestMission`, `cultivateMission`, `sowMission`,
+  `herbicideMission`, `fertilizeMission`, `mowMission`, `tedderMission`,
+  `baleMission`, `baleWrapMission`, `treeTransportMission`,
+  `deadwoodMission`, `destructibleRockMission`. A fertilising contract
+  leases a sprayer as often as a spreader; a potato harvest a
+  `POTATOHARVESTING` machine.
+- **Shop categories seen:** `CUTTERS`, `POTATOHARVESTING`, `PLOWS`,
+  `CULTIVATORS`, `POWERHARROWS`, `SEEDERS`, `SPRAYERS`,
+  `FERTILIZERSPREADERS`, `SLURRYTANKS`, `SLURRYTOOLS`, `MOWERS`,
+  `TEDDERS`, `BALERSROUND`, `BALEWRAPPERS`.
+
 ## Not verified yet
 
 Read by the mod behind `mod/src/Api.lua`'s guards, but not recorded above
@@ -616,21 +657,12 @@ says so.
 - **`g_currentMission:getEffectiveTimeScale()`**
   ([specs/0017](../specs/0017-game-speed.md)): the fallback when
   `missionInfo.timeScale` is missing; never needed live.
-- **Contracts** ([specs/0018](../specs/0018-contracts.md), mod 0.19.1;
-  the shop category names seen in the stream on 2026-11-15 are in the
-  spec's Data contract table). Vincent's live check on mod 0.19.0
-  (2026-11-15) confirmed what the page shows from them, nine boxes of
-  twelve; they move up to the verified list when the spec is
-  live-checked. Still unseen in the game: `storeSpawnPlaces` and
-  `spec_motorized` as the tool test (both new in 0.19.1):
-  every name the `contracts` topic reads, from the game's own mission
-  scripts and FS25_BetterContracts; the spec's Data contract table lists
-  them. Among them `g_missionManager:getMissions()`, `MissionStatus` and
-  `MissionFinishState`, `mission.completion`, `getReward()`,
-  `getVehicleCosts()`, `vehiclesToLoad`, `spawnedVehicles`,
-  `getMinutesLeft()`, the three success factors, `expectedLiters`,
-  `depositedLiters`, `sellingStation`, a shop item's `specs`
-  (`StoreItemUtil.loadSpecsFromXML`), `VehiclePropertyState.MISSION` and
-  `g_currentMission.storeSpawnPlaces` (a place's `startX`, `startZ`).
+- **Contracts, the rest** ([specs/0018](../specs/0018-contracts.md)):
+  `BaleMission.FILL_SUCCESS_FACTOR` (not there on 2026-11-16: no `bale`
+  factor is sent), `getReimbursement()` and `stealingCost` (never seen in
+  a stream), `MissionStatus.DISMISSED`, the shop categories `DISCHARROWS`,
+  `PLANTERS`, `WEEDERS`, `CORNHEADERS`, `MANURESPREADERS` and
+  `BALERSSQUARE`, and the type names `plowMission`, weeding and stone
+  picking.
 - **Not found yet** ([PLAN.md](PLAN.md)): the call that opens the AI job
   screen and Refill at a fill station.
