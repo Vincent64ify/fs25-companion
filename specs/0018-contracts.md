@@ -41,7 +41,9 @@ it installed, and reads raw values, so they're the same with it on or off.
   page's full height (about 560 wide, two columns inside: Money and Deadline on the left; Progress
   or Work, then the vehicles, on the right). The detail fits the mini
   without scrolling: with own machines the lease list folds to one line
-  ("Lease instead: 4 vehicles for £2,900"). In the compact size class
+  ("Lease instead: 4 vehicles for £2,900"), which sits in the left
+  column under Money and Deadline (since spec 0019, to make room for its
+  action row). In the compact size class
   (under 900 wide, or portrait) the detail opens over the list, with a Back
   button; under 600 wide its two columns become one. Bigger screens get
   more rows, not other content.
@@ -198,7 +200,10 @@ nearest deadline first, with:
   and a pin on the map.
 - **Finished:** a finished contract shows its outcome (success, failed,
   timed out) and the game's final sums (reward, lease, reimbursement,
-  penalty) until you dismiss it in the game.
+  penalty) until you dismiss it in the game. With a mod before 0.20.0 the
+  Money section ends "Paid when you dismiss it in the game."; from 0.20.0
+  the action row's Hand in says it instead
+  ([spec 0019](0019-contract-actions.md)).
 
 ### On the other pages, without taking room
 
@@ -509,7 +514,10 @@ Vincent to run):
 
 Later, each its own spec once this one is live-checked:
 - **Accept, cancel and hand in from the dashboard:**
-  [spec 0019](0019-contract-actions.md) (draft, 2026-11-16).
+  [spec 0019](0019-contract-actions.md) (built 2026-11-17, mod 0.20.0: the
+  action row at the detail's foot; with it the finished contract's "Paid
+  when you dismiss it in the game." goes, and an own-machines offer's
+  "Lease instead" line moves under Money and Time).
 - **Finish a stuck contract** (Vincent, 2026-11-14): the "91 %" is the
   success factor. A field contract counts the field as done at about 95 %
   worked, and a harvest at about 93 % delivered, and the game finishes at

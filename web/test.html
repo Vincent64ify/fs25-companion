@@ -3515,13 +3515,15 @@ check("contracts page: the detail opens on your nearest deadline; a tap on a row
 ctPage.querySelector('.ct-row[data-id="o-plow-38"]').click();
 const ownDetail = [dKv().Net, dKv().Lease, dKv()["Job · real time"],
   [...ctPage.querySelectorAll(".ct-tool")].map((b) => `${q(b, ".ct-tool-name")}|${q(b, ".ct-tool-time")}|${b.getAttribute("aria-pressed")}`),
-  dHeads().at(-1), q(ctPage, ".ct-d-col:last-child .ct-sec:last-child .ct-why"), q(ctPage, ".ct-group:last-of-type .ct-note")];
+  q(ctPage, ".ct-d-col:first-child .ct-sec:last-child > .ct-label"), q(ctPage, ".ct-d-col:first-child .ct-sec:last-child .ct-why"),
+  q(ctPage, ".ct-group:last-of-type .ct-note")];
 ctPage.querySelector('.ct-tool[data-tool="401"]').click();
 const pickedTool = [dKv()["Job · real time"], ctPage.querySelector('.ct-tool[aria-pressed="true"]').dataset.tool,
   JSON.parse(localStorage.getItem("fs25companion.contracts"))];
 ctPage.querySelector('.ct-row[data-id="o-mow-2"]').click();
 const noTool = [dKv()["Job · real time"], q(ctPage, ".ct-d-col:last-child .ct-sec .ct-why"), statsOf("o-mow-2")[1]];
-check("contracts page: own machines: the full reward, the tool picker (widest first), the lease in one line; the pick is kept; "
+check("contracts page: own machines: the full reward, the tool picker (widest first), the lease in one line under Money and Time "
+  + "(specs/0019: room for the action row on the mini); the pick is kept; "
   + "no tool of yours: with lease only", [ownDetail, pickedTool, noTool], [
   ["£2,500", undefined, "≈ 50 min", ["Kverneland PW 100Ploughs · 3.0 m · 11 km/h|≈ 50 min|true",
     "Lemken Juwel 8Ploughs · 2.4 m · 12 km/h|≈ 56 min|false"], "Lease instead", "2 vehicles for £1,000. With lease lists them.",
@@ -3549,6 +3551,193 @@ check("contracts page: asked for a contract (a map popup, a field panel row), it
   [ctPage.querySelector('.ct-row[aria-pressed="true"]').dataset.id, dKv().Delivered, dKv()["Deliver to"]?.startsWith("Mill")],
   ["c-harvest-4", "9,800 l of 14,880 l", true]);
 ctPage.remove();
+try { localStorage.removeItem("fs25companion.contracts"); } catch { /* private mode */ }
+
+// --- Contracts: accept, cancel, hand in (specs/0019-contract-actions.md) ---------------
+
+// the commander carries the contract's id
+const ctCmdSent = [];
+const ctCmd = createCommander((m) => { ctCmdSent.push(m); return true; }, { timeoutMs: 40, prefix: "k" });
+const ctCmdRun = ctCmd.send("contract.accept", 1, undefined, undefined, "mission00340f3982b386de3c3c23fb16536e09");
+ctCmd.ack({ id: "k-1", ok: true });
+ctCmd.send("contract.handIn", undefined, undefined, undefined, "c-sow-59");
+ctCmd.ack({ id: "k-2", ok: true });
+await ctCmdRun;
+check("contract actions: a command carries the contract's id, and only when it names one", ctCmdSent, [
+  { type: "command", id: "k-1", action: "contract.accept", value: 1, contract: "mission00340f3982b386de3c3c23fb16536e09" },
+  { type: "command", id: "k-2", action: "contract.handIn", contract: "c-sow-59" }]);
+
+// action(): one button by what the contract is
+const gbp = { currency: "£" };
+const byId = (id) => ctSample.items.find((c) => c.id === id);
+// the fixture holds three (3 of 3): without the finished one, two are yours
+const ctTwo = { ...ctSample, items: ctSample.items.filter((c) => c.id !== "c-sow-59") };
+const ctLease = { mode: "lease" }, ctOwn = { mode: "own" };
+check("contract actions: an offer: Accept with the lease's price under With lease; own machines under Own machines and "
+  + "for a contract without lease vehicles", [
+  ct.action(byId("o-harvest-22"), ctTwo, ctLease, gbp), ct.action(byId("o-harvest-22"), ctTwo, ctOwn, gbp),
+  ct.action(byId("o-stones-61"), ctTwo, ctLease, gbp).label, ct.action(byId("o-stones-61"), ctTwo, ctLease, gbp).value,
+  ct.action({ ...byId("o-harvest-22"), vehicleCosts: undefined }, ctTwo, ctLease, gbp).label], [
+  { kind: "accept", command: "contract.accept", value: 1, label: "Accept with lease · £2,000",
+    note: "The leased machines will stand at the shop.", fill: true, faded: false },
+  { kind: "accept", command: "contract.accept", value: 0, label: "Accept, own machines",
+    note: "You bring your own machines.", fill: true, faded: false },
+  "Accept, own machines", 0, "Accept with lease"]);
+const ctPrep = { ...ctTwo, items: ctTwo.items.map((c) => (c.id === "c-plow-58" ? { ...c, status: "preparing" } : c)) };
+check("contract actions: Accept is faded with the reason at the limit (finished ones count) and while one of yours prepares; "
+  + "no limit known: never faded for it", [
+  ct.action(byId("o-mow-2"), ctSample, ctLease, gbp), ct.action(byId("o-mow-2"), ctPrep, ctOwn, gbp),
+  ct.action(byId("o-mow-2"), { ...ctSample, limit: undefined }, ctOwn, gbp).faded], [
+  { kind: "accept", command: "contract.accept", value: 1, label: "Accept with lease · £1,000",
+    note: "3 of 3 taken: hand one in first.", fill: true, faded: true },
+  { kind: "accept", command: "contract.accept", value: 0, label: "Accept, own machines",
+    note: "Another contract is still getting ready.", fill: true, faded: true },
+  false]);
+check("contract actions: a running or preparing one of yours gives Cancel contract, asking once more, plain", [
+  ct.action(byId("c-plow-58"), ctSample, ctLease, gbp), ct.action({ ...byId("c-harvest-4"), status: "preparing" }, ctSample, ctOwn, gbp)], [
+  { kind: "cancel", command: "contract.cancel", label: "Cancel contract", note: "Ends it as cancelled. Asks once more.",
+    fill: false, faded: false, confirm: { label: "Really cancel?", note: "The contract ends as cancelled." } },
+  { kind: "cancel", command: "contract.cancel", label: "Cancel contract", note: "The game is putting the machines at the shop.",
+    fill: false, faded: false, confirm: { label: "Really cancel?", note: "The leased machines are taken back at once." } }]);
+const ctDone = (total, finishState = "success") => ({ ...byId("c-sow-59"), finishState, total });
+check("contract actions: a finished one, whatever its outcome: Hand in with the game's signed total; none without it or at 0", [
+  ct.action(ctDone(3900), ctSample, ctLease, gbp), ct.action(ctDone(-450, "canceled"), ctSample, ctOwn, gbp).label,
+  ct.action(ctDone(undefined, "failed"), ctSample, ctOwn, gbp).label, ct.action(ctDone(0, "timedOut"), ctSample, ctOwn, gbp).label,
+  ct.action(ctDone(-399.6, "canceled"), ctSample, ctOwn, { currency: "€" }).label], [
+  { kind: "handIn", command: "contract.handIn", label: "Hand in · +£3,900", note: "Books the game’s sum and frees a slot.",
+    fill: true, faded: false },
+  "Hand in · −£450", "Hand in", "Hand in", "Hand in · −€400"]);
+
+// the row on the page: a fake send whose answers the test gives
+const ctSends = [];
+const ctAnswers = [];
+const ctSend = (action, value, tool, side, contract) => new Promise((resolve) => {
+  ctSends.push([action, value, contract]);
+  ctAnswers.push(resolve);
+});
+const ctTick = () => new Promise((r) => setTimeout(r, 0));
+const ctWait = (ms) => new Promise((r) => setTimeout(r, ms));
+try { localStorage.removeItem("fs25companion.contracts"); } catch { /* private mode */ }
+const ctAS = createStore();
+ctAS.set("env", { timeScale: 5, units: { currency: "£" } });
+ctAS.set("hello", { farmId: 1, commands: { next: 1, actions: 4 } });
+ctAS.set("contracts", ctTwo);
+const ctAPage = contractsScreen(ctAS, { send: ctSend, confirmMs: 60, failedMs: 60, settleMs: 60 });
+document.body.append(ctAPage);
+const ctOpen = (id) => ctAPage.querySelector(`.ct-row[data-id="${id}"]`).click();
+const ctDo = () => ctAPage.querySelector(".ct-do");
+const ctRow = () => {
+  const b = ctDo();
+  return b ? [b.textContent, q(ctAPage, ".ct-act-note"), b.dataset.state || "", b.getAttribute("aria-disabled") === "true"] : null;
+};
+const ctPress = () => ctDo().dispatchEvent(new PointerEvent("pointerdown", { button: 0, bubbles: true }));
+
+// Accept: sends contract.accept with the id and 1 or 0 by the switch, pending until the answer
+ctOpen("o-harvest-22");
+const acceptRow = ctRow();
+ctPress();
+const acceptPending = ctRow();
+ctPress();
+const sendsWhilePending = ctSends.length;
+ctAS.set("contracts", { ...ctTwo, items: ctTwo.items.map((c) => (c.id === "o-harvest-22" ? { ...c, status: "preparing", mine: true, leased: true } : c)) });
+const pendingAcrossTopic = ctRow();
+ctAnswers.shift()({ ok: true });
+await ctTick();
+const afterAccept = [ctRow(), ctAPage.querySelector('.ct-row[aria-pressed="true"]').dataset.id];
+check("contract actions: Accept sends contract.accept with the id and 1; pending from touch-down until the answer, a second tap "
+  + "sends nothing; once yours the detail stays on it and shows Cancel contract", [
+  acceptRow, acceptPending, ctSends[0], sendsWhilePending, pendingAcrossTopic, afterAccept], [
+  ["Accept with lease · £2,000", "The leased machines will stand at the shop.", "", false],
+  ["Accept with lease · £2,000", "The leased machines will stand at the shop.", "pending", false],
+  ["contract.accept", 1, "o-harvest-22"], 1,
+  ["Cancel contract", "The game is putting the machines at the shop.", "pending", false],
+  [["Cancel contract", "The game is putting the machines at the shop.", "", false], "o-harvest-22"]]);
+
+// Own machines: 0; refused, or no answer in time: Failed on the button, then back
+ctAS.set("contracts", ctTwo);
+[...ctAPage.querySelectorAll(".ct-seg")].find((b) => b.textContent === "Own machines").click();
+ctOpen("o-mow-2");
+ctPress();
+ctAnswers.shift()({ ok: false, reason: "limit reached" });
+await ctTick();
+const failedRow = [ctRow(), ctDo().title];
+await ctWait(90);
+const failedGone = ctRow();
+ctPress();
+ctAnswers.shift()({ ok: false, reason: "no answer" });
+await ctTick();
+const timedOut = ctRow()[0];
+check("contract actions: Own machines sends 0; a failed answer, or none in time, says Failed on the button with the reason, "
+  + "then the button is back", [ctSends.slice(1), failedRow, failedGone, timedOut], [
+  [["contract.accept", 0, "o-mow-2"], ["contract.accept", 0, "o-mow-2"]],
+  [["Failed", "You bring your own machines.", "failed", false], "limit reached"],
+  ["Accept, own machines", "You bring your own machines.", "", false], "Failed"]);
+await ctWait(90);
+
+// at the limit: faded, a tap sends nothing
+ctAS.set("contracts", ctSample);
+ctOpen("o-mow-2");
+const sendsBefore = ctSends.length;
+ctPress();
+check("contract actions: at the limit Accept is faded with its reason, and a tap sends nothing",
+  [ctRow(), ctSends.length - sendsBefore], [["Accept, own machines", "3 of 3 taken: hand one in first.", "", true], 0]);
+
+// Cancel: the first tap asks, the second sends; after the time it's back
+ctOpen("c-plow-58");
+const cancelRow = ctRow();
+ctPress();
+const reallyRow = [ctRow(), ctDo().dataset.kind];
+const sendsAfterFirst = ctSends.length - sendsBefore;
+await ctWait(90);
+const cancelBack = ctRow();
+ctPress();
+ctPress();
+const cancelSent = ctSends.at(-1);
+const cancelPending = ctRow()[2];
+// the game's answer: finished, cancelled, its sum; the ack after the topic
+ctAS.set("contracts", { ...ctSample, items: ctSample.items.map((c) => (c.id === "c-plow-58"
+  ? { ...c, status: "finished", finishState: "canceled", total: -400 } : c)) });
+const handInWhilePending = ctRow();
+ctAnswers.shift()({ ok: true });
+await ctTick();
+const handInRow = ctRow();
+check("contract actions: Cancel's first tap sends nothing and asks Really cancel? with its line, in warn; it goes back after "
+  + "the time; the second tap sends contract.cancel; then Hand in with the game's sum", [
+  cancelRow, reallyRow, sendsAfterFirst, cancelBack, cancelSent, cancelPending, handInWhilePending, handInRow], [
+  ["Cancel contract", "Ends it as cancelled. Asks once more.", "", false],
+  [["Really cancel?", "The contract ends as cancelled.", "", false], "warn"], 0,
+  ["Cancel contract", "Ends it as cancelled. Asks once more.", "", false],
+  ["contract.cancel", undefined, "c-plow-58"], "pending",
+  ["Hand in · −£400", "Books the game’s sum and frees a slot.", "pending", false],
+  ["Hand in · −£400", "Books the game’s sum and frees a slot.", "", false]]);
+
+// a quick extra tap right after the button turned into Hand in does nothing (it was meant for "Really cancel?")
+const sendsBeforeHandIn = ctSends.length;
+ctPress();
+const quickTap = ctSends.length - sendsBeforeHandIn;
+await ctWait(90);
+// Hand in: then the first tap sends; the contract leaves, the detail moves to the list's first row
+ctPress();
+const handInSent = [ctSends.length - sendsBeforeHandIn, ctSends.at(-1)];
+ctAS.set("contracts", { ...ctSample, items: ctSample.items.filter((c) => c.id !== "c-plow-58") });
+ctAnswers.shift()({ ok: true });
+await ctTick();
+check("contract actions: a tap right after Cancel turned into Hand in sends nothing; then Hand in sends contract.handIn on "
+  + "the first tap; once gone the detail is on the list's first row and the limit line counts one less", [quickTap, handInSent,
+  ctAPage.querySelector('.ct-row[aria-pressed="true"]')?.dataset.id, q(ctAPage, ".ct-group .ct-note")], [
+  0, [1, ["contract.handIn", undefined, "c-plow-58"]], "c-harvest-4", "2 of 3 taken · nearest deadline first"]);
+
+// a mod before 0.20.0: no action row; the finished one still says where it's paid
+ctAS.set("hello", { farmId: 1, commands: { next: 1, actions: 3 } });
+ctOpen("c-sow-59");
+const oldMod = [ctDo(), ctAPage.querySelector(".ct-act"), q(ctAPage, ".ct-d-col:first-child .ct-why")];
+ctAS.set("hello", { farmId: 1 });
+const noCommands = ctAPage.querySelector(".ct-act");
+ctAS.set("hello", { farmId: 1, commands: { next: 1, actions: 4 } });
+check("contract actions: with hello.commands.actions 3, or none, the detail has no action row (spec 0018's page)", [
+  oldMod, noCommands, ctRow()?.[0], q(ctAPage, ".ct-d-col:first-child .ct-why")], [
+  [null, null, "Paid when you dismiss it in the game."], null, "Hand in · +£1,740", undefined]);
+ctAPage.remove();
 try { localStorage.removeItem("fs25companion.contracts"); } catch { /* private mode */ }
 
 // the theme: the Contracts tab with its count, no control column on its page

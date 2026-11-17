@@ -9,6 +9,7 @@ action and its value against its own list (specs/0007):
     <command ... action="tool.lower" ref="<ref>" value="1.000" tool="9"/>
     <command ... action="tool.width" ref="<ref>" value="-1.000" tool="9" side="left"/>
     <command ... action="tool.unload" ref="<ref>" tool="9"/>
+    <command ... action="contract.accept" ref="<ref>" value="1.000" contract="mission0034..."/>
 
 numbered from 1 per game session (the hello's sessionId), continuing from
 hello.commands.next when the companion starts mid-session. Each file is
@@ -18,8 +19,8 @@ game's frame (C0, docs/GAME-API.md). The mod answers with a command_ack in the
 stream; the file is deleted then.
 
 A command that can't be written (no game session, replay, a mod before
-0.10.0 that reads toggles or the game's names: hello.commands has no
-actions 3) is answered at once with a command_ack of our own, so the
+0.10.0 that reads toggles or the game's names: hello.commands.actions is
+under 3; 4 from mod 0.20.0 adds contracts, specs/0019) is answered at once with a command_ack of our own, so the
 dashboard isn't left waiting.
 
 Every command is written as it comes (specs/0008): each says the state it
@@ -60,7 +61,8 @@ class CommandWriter:
         self.clock = clock
         self.session: Optional[str] = None
         # the mod reads the dashboard's set actions (hello.commands.actions
-        # 3, specs/0008); a mod before 0.10.0 reads toggles or the game's names
+        # 3, specs/0008; 4 takes contract commands too, specs/0019); a mod
+        # before 0.10.0 reads toggles or the game's names
         self.mod_reads_names = True
         self.next_id = 1
         self.fast_until = 0.0
@@ -74,7 +76,8 @@ class CommandWriter:
         info = hello.get("commands") if isinstance(hello.get("commands"), dict) else {}
         mod_next = info.get("next") if isinstance(info.get("next"), int) else 1
         # a hello without commands (a replay) has no mod to ask
-        self.mod_reads_names = not info or info.get("actions") == 3
+        actions = info.get("actions")
+        self.mod_reads_names = not info or (isinstance(actions, int) and not isinstance(actions, bool) and actions >= 3)
         if session != self.session:
             self.session = session
             self.next_id = mod_next
@@ -101,9 +104,10 @@ class CommandWriter:
             pass
 
     def submit(self, ref: str, action: str, value: Any = None, tool: Optional[int] = None,
-               side: Optional[str] = None) -> None:
+               side: Optional[str] = None, *, contract: Optional[str] = None) -> None:
         """The server checked the shape; the mod checks the action, its
-        value, its tool and its side (specs/0007, 0008, 0011)."""
+        value, its tool, its side and its contract (specs/0007, 0008, 0011,
+        0019)."""
         if self.cmd_dir is None:
             self.put(ack_envelope(ref, "no game (replay)"))
             return
@@ -115,7 +119,7 @@ class CommandWriter:
             return
         cid = self.next_id
         try:
-            self.write(cid, action, ref, value, tool, side)
+            self.write(cid, action, ref, value, tool, side, contract=contract)
         except OSError as e:
             log.warning("cannot write command %d: %s", cid, e)
             self.put(ack_envelope(ref, "cannot write the command file"))
@@ -125,7 +129,7 @@ class CommandWriter:
         self.fast_until = self.clock() + FAST_POLL_S
 
     def write(self, cid: int, action: str, ref: str, value: Any = None, tool: Optional[int] = None,
-              side: Optional[str] = None) -> Path:
+              side: Optional[str] = None, *, contract: Optional[str] = None) -> Path:
         assert self.cmd_dir is not None
         self.cmd_dir.mkdir(parents=True, exist_ok=True)
         path = self.cmd_dir / f"{cid}.xml"
@@ -136,6 +140,7 @@ class CommandWriter:
                 + (f' value="{float(value):.3f}"' if value is not None else "")
                 + (f' tool="{int(tool)}"' if tool is not None else "")
                 + (f" side={quoteattr(side)}" if side is not None else "")
+                + (f" contract={quoteattr(contract)}" if contract is not None else "")
                 + "/>\n")
         tmp.write_text(text, encoding="utf-8")
         # read it back once before the rename: the mod's first open is then

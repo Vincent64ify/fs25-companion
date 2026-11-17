@@ -13,7 +13,7 @@
 Companion = Companion or {}
 
 -- hello's modVersion: always modDesc.xml's <version> (mod/tests/test_version.py)
-Companion.VERSION = "0.19.1"
+Companion.VERSION = "0.20.0"
 Companion.DIR_NAME = "FS25_Companion"
 Companion.STREAM_FILE = "stream.ndjson"
 Companion.COMMAND_DIR = "cmd/"
@@ -163,6 +163,10 @@ local function runCommands(transport, scheduler, ctx)
             table.remove(recent, 1)
         end
         scheduler:emit("cab", ctx)
+        -- specs/0019: a contract's answer comes with the contracts it changed
+        if type(ack.action) == "string" and ack.action:sub(1, 9) == "contract." then
+            scheduler:emit("contracts", ctx)
+        end
     end
 end
 

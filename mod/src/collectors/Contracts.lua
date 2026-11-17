@@ -19,7 +19,7 @@
 -- data: {limit, factors = {field, harvest, bale}, items = [{id, type,
 --   title, npc, location, status, mine, leased, finishState, x, z, fieldId,
 --   areaHa, fruitTypeIndex, fillType, fillTitle, reward, vehicleCosts,
---   reimbursement, stealingCost, minutesLeft, completion, expectedLiters,
+--   reimbursement, stealingCost, total, minutesLeft, completion, expectedLiters,
 --   depositedLiters, sellPoint = {name, x, z, price}, vehicles = [{name,
 --   brand, category, categoryTitle, workingWidth, speedLimit}]}],
 --   tools = [{id, name, brand, category, categoryTitle, workingWidth,
@@ -244,6 +244,10 @@ local function missionEntry(mission, farmId)
     if status == "finished" then
         entry.reimbursement = rounded(Api.tryCall(mission, "getReimbursement"))
         entry.stealingCost = rounded(mission.stealingCost)
+        -- specs/0019: what Hand in books (reward, lease, reimbursement and
+        -- penalty added up; a plain read). Only on a finished one: a harvest
+        -- contract on offer answers nothing (spike 2026-11-16)
+        entry.total = rounded(Api.tryCall(mission, "getTotalReward"))
     end
     entry.minutesLeft = rounded(Api.tryCall(mission, "getMinutesLeft"))
     if status == "running" or status == "finished" then

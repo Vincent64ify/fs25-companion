@@ -64,7 +64,8 @@ How a tap on the dashboard reaches the game:
    the state it wants over its WebSocket, for example
    `{"type":"command","id":"…","action":"beacon.set","value":1}`; a tool's
    button adds `tool`, its rig id
-   ([spec 0008](../specs/0008-commands-say-the-state.md)).
+   ([spec 0008](../specs/0008-commands-say-the-state.md)), a contract's
+   `contract`, its id ([spec 0019](../specs/0019-contract-actions.md)).
 2. **The companion** checks the command's shape only and writes it to
    `modSettings/FS25_Companion/cmd/<n>.xml`, numbered from 1 per game
    session: a temp file, read back once, then renamed, so it appears
@@ -196,6 +197,12 @@ These decisions hold for all the work:
 - **The game's keys, not its setters.** A command presses the key's own
   event, so it does exactly what the player's key does (rebinds, other
   mods and multiplayer included) and never what the game wouldn't allow.
+  The one exception is a contract's accept, cancel and hand in
+  ([spec 0019](../specs/0019-contract-actions.md)): the game has no key
+  for them, only its menu's buttons, so the mod calls the game's own
+  `MissionManager` functions. It runs the same checks those functions run
+  first, changes nothing itself, answers ok only once the game's list shows
+  the change, and works only where the game is the server.
 - **Commands say the state they want.** A lost or doubled command then
   does nothing wrong, so nothing has to number, replace or resend them.
 - **One local process.** The first build had a client and a relay backend

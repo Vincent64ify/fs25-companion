@@ -28,7 +28,7 @@
       {
         "id": "c-sow-59", "type": "sowMission", "title": "Sow", "npc": "Agri co-op", "location": "Field 59",
         "status": "finished", "mine": true, "leased": true, "finishState": "success", "x": 514.4, "z": -286.4,
-        "fieldId": 59, "areaHa": 1.62, "reward": 2600, "vehicleCosts": 1000, "reimbursement": 140, "stealingCost": 0,
+        "fieldId": 59, "areaHa": 1.62, "reward": 2600, "vehicleCosts": 1000, "reimbursement": 140, "stealingCost": 0, "total": 1740,
         "completion": 1,
         "vehicles": [
           { "name": "T7.315 HD", "brand": "New Holland", "category": "TRACTORSL", "categoryTitle": "Large tractors" },

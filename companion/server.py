@@ -1,12 +1,14 @@
 """The dashboard's server: its files, /ws for viewers, the map images.
 
     viewer -> server:  {"type": "command", "id": str, "action": str, "value"?: number,
-                        "tool"?: int, "side"?: "left" | "right"}
+                        "tool"?: int, "side"?: "left" | "right", "contract"?: str}
                        a tap on a control: the state it wants ("beacon.set"
                        with 1; "cruise.set" with km/h; "tool.lower" with 1
                        and the tool's rig id, specs/0008; "tool.width" with
                        -1 or 1, the tool's id and a side, specs/0011;
-                       "tool.unload" with its tool alone, specs/0012). Only
+                       "tool.unload" with its tool alone, specs/0012;
+                       "contract.accept" with 1 and the contract's id,
+                       specs/0019). Only
                        its shape is checked here (protocol.command_refusal:
                        a "key" is refused, specs/0012); the mod knows its
                        actions and their values (specs/0007). Anything else
@@ -252,9 +254,9 @@ class Hub:
         if not isinstance(viewer_id, str) or not 0 < len(viewer_id) <= MAX_COMMAND_ID:
             return
 
-        action, value, tool, side, key = (msg.get("action"), msg.get("value"), msg.get("tool"), msg.get("side"),
-                                          msg.get("key"))
-        refusal = command_refusal(action, value, tool, side, key)
+        action, value, tool, side, key, contract = (msg.get("action"), msg.get("value"), msg.get("tool"),
+                                                    msg.get("side"), msg.get("key"), msg.get("contract"))
+        refusal = command_refusal(action, value, tool, side, key, contract)
         if refusal is not None:
             viewer.put({"type": "command_ack", "id": viewer_id, "ok": False, "reason": refusal}, answer=True)
             return
@@ -263,7 +265,9 @@ class Hub:
         self.commands[ref] = (viewer, viewer_id)
         while len(self.commands) > MAX_PENDING_COMMANDS:
             self.commands.popitem(last=False)
-        extra = {"side": side} if side is not None else {}
+        extra: Dict[str, Any] = {"side": side} if side is not None else {}
+        if contract is not None:
+            extra["contract"] = contract
         self.writer.submit(ref, action, value, tool, **extra)
         await self.flush()
 

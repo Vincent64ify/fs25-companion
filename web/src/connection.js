@@ -25,9 +25,10 @@ const commander = createCommander((msg) => {
  * @param {number} [value]
  * @param {number} [tool]
  * @param {"left"|"right"} [side] tool.width's (specs/0011)
+ * @param {string} [contract] a contract's id ("contract.accept", specs/0019)
  * @returns {Promise<import("./commands.js").CommandResult>}
  */
-export const sendCommand = (action, value, tool, side) => commander.send(action, value, tool, side);
+export const sendCommand = (action, value, tool, side, contract) => commander.send(action, value, tool, side, contract);
 
 /** the last commands' round trips, tap to the mod's answer (Settings) */
 export const roundTrips = () => commander.roundTrips();

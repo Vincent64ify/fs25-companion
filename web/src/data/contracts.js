@@ -595,3 +595,66 @@ export function finalSums(c) {
 export const FINISH_WORDS = /** @type {Record<string, string>} */ ({
   success: "Success", failed: "Failed", timedOut: "Timed out", canceled: "Cancelled",
 });
+
+// --- accept, cancel, hand in (specs/0019-contract-actions.md) ----------------
+
+/**
+ * The one button a contract's detail has, by what it is: Accept on an
+ * offer, Cancel contract on one of yours that's preparing or running, Hand
+ * in on a finished one. `note` is the line beside the button: what the tap
+ * does, or why it's faded. Cancel asks once more: `confirm` is the button
+ * and the line then.
+ * @typedef {Object} ContractAction
+ * @property {"accept"|"cancel"|"handIn"} kind
+ * @property {"contract.accept"|"contract.cancel"|"contract.handIn"} command
+ * @property {number} [value] Accept's: 1 with lease, 0 own machines
+ * @property {string} label
+ * @property {string} note
+ * @property {boolean} fill Accept and Hand in are filled, Cancel is plain
+ * @property {boolean} faded it can't be pressed now; the note says why
+ * @property {{label: string, note: string}} [confirm] Cancel's second ask
+ */
+
+/** "+£3,900", "−£450". @param {number} amount @param {import("./units.js").Units} units */
+const signedMoney = (amount, units) => `${amount < 0 ? "−" : "+"}${units.currency}${Math.abs(Math.round(amount)).toLocaleString()}`;
+
+/**
+ * A contract's button. The rules are the dashboard's (the mod refuses on
+ * its own anyway): the limit counts every one of yours, finished ones
+ * until they're handed in; the game starts one at a time.
+ * @param {Contract} c
+ * @param {{limit?: number, items?: Contract[]}|undefined} topic the contracts topic
+ * @param {{mode?: Mode}} prefs the page's With lease / Own machines switch
+ * @param {import("./units.js").Units} units
+ * @returns {ContractAction}
+ */
+export function action(c, topic, prefs, units) {
+  const mine = yours(Array.isArray(topic?.items) ? topic.items : []);
+  if (c.status === "finished") {
+    const total = num(c.total);
+    return { kind: "handIn", command: "contract.handIn", label: total && Math.round(total) !== 0 ? `Hand in · ${signedMoney(total, units)}` : "Hand in",
+      note: "Books the game’s sum and frees a slot.", fill: true, faded: false };
+  }
+  if (c.mine === true) {
+    return { kind: "cancel", command: "contract.cancel", label: "Cancel contract",
+      note: c.status === "preparing" ? "The game is putting the machines at the shop." : "Ends it as cancelled. Asks once more.",
+      fill: false, faded: false,
+      confirm: { label: "Really cancel?", note: c.leased === true ? "The leased machines are taken back at once." : "The contract ends as cancelled." } };
+  }
+  const lease = withLease(c, prefs.mode === "own" ? "own" : "lease");
+  const cost = num(c.vehicleCosts);
+  /** @type {ContractAction} */
+  const out = { kind: "accept", command: "contract.accept", value: lease ? 1 : 0,
+    label: lease ? (cost !== undefined ? `Accept with lease · ${units.currency}${Math.round(cost).toLocaleString()}` : "Accept with lease")
+      : "Accept, own machines",
+    note: lease ? "The leased machines will stand at the shop." : "You bring your own machines.", fill: true, faded: false };
+  const limit = num(topic?.limit);
+  if (limit !== undefined && mine.length >= limit) {
+    out.faded = true;
+    out.note = `${mine.length} of ${limit} taken: hand one in first.`;
+  } else if (mine.some((m) => m.status === "preparing")) {
+    out.faded = true;
+    out.note = "Another contract is still getting ready.";
+  }
+  return out;
+}

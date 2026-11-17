@@ -2314,6 +2314,47 @@ button.day-clock[aria-expanded="true"] .day-clock-when { color: inherit; opacity
 /* Back: only where the detail lies over the list (compact) */
 .ct-back { display: none; }
 
+/* specs/0019: the action row at the detail's foot: on the left what the tap
+   does (or why it's faded), on the right the one button, always 272 × 48 so
+   it never moves. Accept and Hand in are filled (the selected tab's
+   surface), Cancel contract is plain, only "Really cancel?" is in warn.
+   Pending: the ring breathes; Failed: the word in alarm (spec 0013 rev. 6) */
+.ct-act { flex: none; display: flex; align-items: center; gap: 14px; margin-top: auto; padding-top: 8px; border-top: 1px solid var(--line); }
+/* the row ends the tile and never leaves it: the columns scroll above it
+   when they don't fit (a third tool to pick from on the mini); a little
+   less under it, so an own-machines offer with two tools still fits the
+   mini (1158 × 676) unscrolled */
+.ct-detail:has(> .ct-act) { overflow: hidden; padding-bottom: 10px; }
+.ct-detail:has(> .ct-act) > .ct-d-cols { flex: 1 1 auto; min-height: 0; overflow-y: auto; scrollbar-width: none; }
+.ct-d-cols::-webkit-scrollbar { display: none; }
+.ct-act-note { flex: 1; min-width: 0; font-size: 13px; line-height: 1.35; color: var(--muted); }
+.ct-act-note[data-tone="warn"] { color: var(--warn); font-weight: 600; }
+.ct-do {
+  flex: none;
+  width: 272px;
+  height: 48px;
+  padding: 0 12px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: var(--btn);
+  color: var(--tool-ink);
+  box-shadow: var(--lift);
+  font: 700 15px/1 var(--font);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  cursor: pointer;
+  touch-action: manipulation;
+  transition: transform var(--t-fast) var(--ease), box-shadow 180ms var(--ease), opacity 180ms var(--ease);
+}
+.ct-do:active { transform: scale(0.97); }
+.ct-do[data-kind="go"] { border-color: transparent; background: var(--tab-sel); color: var(--tab-sel-text); box-shadow: var(--tab-sel-shadow); }
+.ct-do[data-kind="warn"] { border-color: var(--warn-border); background: var(--warn-bg); color: var(--warn); box-shadow: none; }
+.ct-do[aria-disabled="true"] { opacity: 0.45; box-shadow: none; cursor: default; transform: none; }
+.ct-do[data-state="pending"] { box-shadow: inset 0 0 0 2px var(--on-border); animation: ct-wait var(--t-breathe) var(--ease) infinite alternate; }
+.ct-do[data-kind="go"][data-state="pending"] { box-shadow: inset 0 0 0 2px var(--select); }
+.ct-do[data-state="failed"] { border-color: transparent; background: var(--card-solid); color: var(--alarm); box-shadow: inset 0 0 0 2px var(--alarm); }
+@keyframes ct-wait { from { opacity: 1; } to { opacity: 0.6; } }
+
 /* your tool for the job (own machines), and the lease's vehicles */
 .ct-tools { display: flex; flex-direction: column; gap: 4px; padding: 4px; border-radius: 16px; background: var(--line); }
 .ct-tool {
@@ -2466,5 +2507,12 @@ button.day-clock[aria-expanded="true"] .day-clock-when { color: inherit; opacity
 @media (max-width: 599px) {
   .ct-d-cols { grid-template-columns: minmax(0, 1fr); }
   .ct-show { width: 100%; }
+  /* the line over the button, the button the detail's width */
+  .ct-act { flex-wrap: wrap; }
+  .ct-act-note { flex-basis: 100%; }
+  .ct-do { width: 100%; }
 }
-@media (prefers-reduced-motion: reduce) { .ct-seg, .ct-row, .ct-btn { transition: none; } }
+@media (prefers-reduced-motion: reduce) {
+  .ct-seg, .ct-row, .ct-btn, .ct-do { transition: none; }
+  .ct-do[data-state="pending"] { animation: none; opacity: 0.8; }
+}

@@ -323,6 +323,17 @@ Deadline; Progress or Work, then the vehicles): it fits the iPad mini's
 with Back. Elsewhere: a row on the field panels, a pin per contract on the
 map (filled: yours; outlined: on offer).
 
+At the detail's foot, from mod 0.20.0, the action row
+([spec 0019](../specs/0019-contract-actions.md), canvas version 11): a
+hairline, the line that says what the tap does (or why it's faded) on the
+left, one button 272 × 48 on the right, always the same size. Accept and
+Hand in are filled (the selected tab's surface: blue by day, slate at
+night), Cancel contract is plain, only "Really cancel?" is `warn`. Pending
+is a breathing ring, Failed the word in `alarm`. On an own-machines offer
+the lease's one line sits under Money and Time, so the tool picker and
+the row fit the mini; when the columns still don't fit, they scroll above
+the row, which never moves.
+
 ## The map in themes
 
 - **Any shape:** a map slot can be any rectangle: tall, wide or square.

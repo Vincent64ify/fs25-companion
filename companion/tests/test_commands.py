@@ -176,8 +176,10 @@ def test_every_action_the_dashboard_sends_is_one_the_mod_runs():
     web = set()
     for js in (repo / "web" / "src").rglob("*.js"):
         text = js.read_text(encoding="utf-8")
-        web |= set(re.findall(r'(?:action: |send\(|sendCommand\()"([a-z][a-zA-Z]*\.[a-z][a-zA-Z]*)"', text))
+        web |= set(re.findall(r'(?:action: |command: |send\(|sendCommand\()"([a-z][a-zA-Z]*\.[a-z][a-zA-Z]*)"', text))
     assert len(web) > 20 and len(mod) > 20
+    # specs/0019: the contract buttons' commands are named in data/contracts.js
+    assert {"contract.accept", "contract.cancel", "contract.handIn"} <= web
     assert web <= mod, f"the mod doesn't run {sorted(web - mod)}"
 
 
@@ -226,3 +228,36 @@ def test_a_replayed_ack_changes_nothing(tmp_path):
     writer.on_ack({"id": 1, "ok": True})  # 1 again, after a rotation
     assert sorted(p.name for p in (tmp_path / "cmd").iterdir()) == ["2.xml"]
     assert acks == []
+
+
+def test_the_file_carries_the_contract(tmp_path):
+    """specs/0019: a contract command names its contract by id; the others
+    are as before."""
+    writer, acks, _ = make(tmp_path)
+    writer.submit("1", "contract.accept", 1, contract="mission00340f3982b386de3c3c23fb16536e09")
+    a = attrs(tmp_path / "cmd" / "1.xml")
+    assert (a["action"], a["value"], a["contract"]) == ("contract.accept", "1.000",
+                                                        "mission00340f3982b386de3c3c23fb16536e09")
+    assert "tool" not in a and "side" not in a
+    writer.submit("2", "contract.handIn", contract="c-harvest-4")
+    a = attrs(tmp_path / "cmd" / "2.xml")
+    assert (a["action"], a["contract"]) == ("contract.handIn", "c-harvest-4")
+    assert "value" not in a
+    writer.submit("3", "beacon.set", 1)
+    assert "contract" not in attrs(tmp_path / "cmd" / "3.xml")
+    # keyword only: the sixth place is still no key
+    with pytest.raises(TypeError):
+        writer.submit("4", "contract.cancel", None, None, None, "c-1")
+    assert acks == []
+
+
+def test_a_mod_with_contract_commands_still_gets_commands_by_name(tmp_path):
+    """specs/0019: hello.commands.actions 4 (mod 0.20.0) reads the same
+    files as 3, plus contracts; anything below 3, or not a number, is an
+    older mod."""
+    for actions, written in ((3, True), (4, True), (7, True), (2, False), ("4", False), (True, False), (None, False)):
+        writer, acks, _ = make(tmp_path / str(actions))
+        writer.on_hello({"sessionId": "S1", "commands": {"dir": "x", "next": 1, "actions": actions}})
+        writer.submit("1", "contract.cancel", contract="c-1")
+        assert (tmp_path / str(actions) / "cmd" / "1.xml").exists() is written, actions
+        assert [a["data"]["reason"] for a in acks] == ([] if written else ["update the mod"]), actions

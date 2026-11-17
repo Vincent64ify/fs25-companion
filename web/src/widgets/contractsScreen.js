@@ -1,10 +1,16 @@
 // @ts-check
-// The Contracts page (specs/0018-contracts.md), read-only: on the left the
-// switches (With lease / Own machines, the sort) over the list, Yours then
-// On offer; beside them the detail of the row you tapped, in two columns
-// (Money and Time; Progress or Work, then the vehicles). The numbers
-// are data/contracts.js's. Under 900 wide or in portrait the detail opens
-// over the list, with a Back button.
+// The Contracts page (specs/0018-contracts.md): on the left the switches
+// (With lease / Own machines, the sort) over the list, Yours then On offer;
+// beside them the detail of the row you tapped, in two columns (Money and
+// Time; Progress or Work, then the vehicles). The numbers are
+// data/contracts.js's. Under 900 wide or in portrait the detail opens over
+// the list, with a Back button.
+//
+// At the detail's foot, from mod 0.20.0 (hello.commands.actions 4), one
+// button by what the contract is (specs/0019-contract-actions.md): Accept,
+// Cancel contract or Hand in, with a line beside it that says what the tap
+// does or why it's faded. Pending from touch-down until the mod answers,
+// "Failed" on the button when it says no; Cancel asks once more.
 //
 // The topic arrives every 2 s: the page is drawn again only when what it
 // shows changed, and the list keeps its scroll. While another screen shows
@@ -14,8 +20,10 @@
 import {
   contextOf, contractsOf, deliveredToGo, delivers, fieldWorked, figures, finalSums, FINISH_WORDS, gameLeftText, goods,
   hasLease, hoursText, jobOf, litresText, neededLiters, offerGroups, SETUP_MINUTES, TRAVEL_KMH, pctText, placeOf, prefsOf, setPrefs, SORTS, speedText,
-  statLine, successFactor, titleOf, workRate, yours,
+  statLine, successFactor, titleOf, workRate, yours, action,
 } from "../data/contracts.js";
+import { sendCommand } from "../connection.js";
+import { ERROR_SHOWN_MS } from "../ui/control.js";
 import { areaText, areaUnit, areaValue, lengthText, moneyText, speedUnit, speedValue, unitsOf } from "../data/units.js";
 import { h } from "../ui/dom.js";
 import { icon } from "../ui/icons.js";
@@ -27,6 +35,14 @@ import { icon } from "../ui/icons.js";
 /** @typedef {import("../data/units.js").Units} Units */
 
 const KM_PER_MILE = 1.609344;
+/** how long "Really cancel?" waits for the second tap (specs/0019) */
+export const CONFIRM_MS = 4000;
+/**
+ * how long a contract's button ignores taps after it turned into another
+ * kind (Cancel contract into Hand in when the game's answer comes back): a
+ * quick extra tap on "Really cancel?" must not hand it in (specs/0019)
+ */
+export const KIND_SETTLE_MS = 700;
 
 /** "1.9 km" or "1.2 mi". @param {number} metres @param {Units} u */
 export const distanceText = (metres, u) => (u.miles ? `${(metres / 1000 / KM_PER_MILE).toFixed(1)} mi` : `${(metres / 1000).toFixed(1)} km`);
@@ -157,6 +173,12 @@ function vehicleRow(v, units, more) {
 
 /** @type {import("./widget.js").CreateWidget} */
 export function contractsScreen(store, opts = {}) {
+  /** @type {{send?: typeof sendCommand, confirmMs?: number, failedMs?: number, settleMs?: number}} */
+  const o = /** @type {any} */ (opts);
+  const send = o.send || sendCommand;
+  const confirmMs = o.confirmMs ?? CONFIRM_MS;
+  const failedMs = o.failedMs ?? ERROR_SHOWN_MS;
+  const settleMs = o.settleMs ?? KIND_SETTLE_MS;
   const machines = h("div", { className: "ct-well" });
   machines.setAttribute("role", "group");
   machines.setAttribute("aria-label", "Machines");
@@ -178,6 +200,24 @@ export function contractsScreen(store, opts = {}) {
   let drawn = "";
   /** the screen it's on, watched for being shown again */
   let watched = /** @type {Element|null} */ (null);
+  // the action row (specs/0019): the contract whose command is out (no
+  // tap on it until the answer, whatever its button turns into meanwhile),
+  // the one asking "Really cancel?", the one whose tap failed (shown on
+  // that kind of button only)
+  let pendingId = /** @type {string|undefined} */ (undefined);
+  let confirmId = /** @type {string|undefined} */ (undefined);
+  let failed = /** @type {{id: string, kind: string, reason: string}|undefined} */ (undefined);
+  /** @type {ReturnType<typeof setTimeout>|undefined} */
+  let confirmTimer;
+  /** @type {ReturnType<typeof setTimeout>|undefined} */
+  let failedTimer;
+  /** the button drawn last: its contract, its kind, and since when that kind (0: since the contract was opened) */
+  let shownKind = /** @type {{id: string, kind: string, at: number}|undefined} */ (undefined);
+  /** whether the mod takes contract commands: hello.commands.actions 4 (mod 0.20.0) */
+  const acts = () => {
+    const n = store.get("hello")?.commands?.actions;
+    return typeof n === "number" && n >= 4;
+  };
 
   const pick = (/** @type {string} */ id) => {
     selected = id;
@@ -233,7 +273,8 @@ export function contractsScreen(store, opts = {}) {
         sums.reimbursement ? kv("Reimbursement", `+ ${moneyText(sums.reimbursement, units)}`) : null,
         sums.penalty ? kv("Penalty", `− ${moneyText(sums.penalty, units)}`, { tone: "warn" }) : null,
         kv("Total", moneyText(sums.total, units), { strong: true }),
-        el("div", "ct-why", "Paid when you dismiss it in the game."));
+        // from mod 0.20.0 the action row's Hand in says it (specs/0019)
+        acts() ? null : el("div", "ct-why", "Paid when you dismiss it in the game."));
     }
     const extra = f.extra !== undefined && f.extra > 0 ? f.extra : undefined;
     const factor = successFactor(c, ctx.factors);
@@ -361,6 +402,74 @@ export function contractsScreen(store, opts = {}) {
     return section(["Lease vehicles", cost].filter(Boolean).join(" · "), ...vehicles.map((v) => vehicleRow(v, units)));
   }
 
+  /**
+   * A tap on the action row's button: Cancel asks first; the others, and
+   * Cancel's second tap, send the command and wait for the mod.
+   * @param {Contract} c @param {import("../data/contracts.js").ContractAction} act
+   */
+  function tap(c, act) {
+    if (act.faded || pendingId !== undefined) return;
+    if (shownKind && shownKind.id === c.id && performance.now() - shownKind.at < settleMs) return;
+    if (act.kind === "cancel" && confirmId !== c.id) {
+      confirmId = c.id;
+      clearTimeout(confirmTimer);
+      confirmTimer = setTimeout(() => {
+        confirmId = undefined;
+        render();
+      }, confirmMs);
+      render();
+      return;
+    }
+    confirmId = undefined;
+    clearTimeout(confirmTimer);
+    clearTimeout(failedTimer);
+    failed = undefined;
+    const id = c.id;
+    pendingId = id;
+    render();
+    Promise.resolve(send(act.command, act.value, undefined, undefined, id))
+      .catch((e) => ({ ok: false, reason: String(e) }))
+      .then((result) => {
+        pendingId = undefined;
+        if (!result.ok) {
+          failed = { id, kind: act.kind, reason: result.reason || "failed" };
+          failedTimer = setTimeout(() => {
+            failed = undefined;
+            render();
+          }, failedMs);
+        }
+        render();
+      });
+  }
+
+  /**
+   * The detail's foot: what the tap does, and the one button (always the
+   * same size, so it never moves).
+   * @param {Contract} c @param {Units} units
+   */
+  function actionRow(c, units) {
+    const act = action(c, store.get("contracts"), prefsOf(store), units);
+    if (!shownKind || shownKind.id !== c.id || shownKind.kind !== act.kind) {
+      shownKind = { id: c.id, kind: act.kind, at: shownKind?.id === c.id ? performance.now() : 0 };
+    }
+    const asking = act.kind === "cancel" && confirmId === c.id ? act.confirm : undefined;
+    const failedHere = failed !== undefined && failed.id === c.id && failed.kind === act.kind;
+    const note = el("div", "ct-act-note", asking ? asking.note : act.note);
+    if (asking) note.dataset.tone = "warn";
+    const button = /** @type {HTMLButtonElement} */ (el("button", "ct-do", failedHere ? "Failed" : asking ? asking.label : act.label));
+    button.type = "button";
+    button.dataset.kind = asking ? "warn" : act.fill ? "go" : "plain";
+    if (pendingId === c.id) button.dataset.state = "pending";
+    else if (failedHere) button.dataset.state = "failed";
+    if (failedHere && failed) button.title = failed.reason;
+    if (act.faded) button.setAttribute("aria-disabled", "true");
+    button.setAttribute("aria-label", `${button.textContent}${pendingId === c.id ? ", waiting for the game" : ""}`);
+    // touch-down, not click: a tap must feel instant; the keyboard clicks with detail 0
+    button.addEventListener("pointerdown", (ev) => { if (ev.button === 0) tap(c, act); });
+    button.addEventListener("click", (ev) => { if (ev.detail === 0) tap(c, act); });
+    return h("div", { className: "ct-act" }, note, button);
+  }
+
   /** @param {Contract} c @param {Context} ctx @param {Units} units */
   function drawDetail(c, ctx, units) {
     const f = figures(c, ctx);
@@ -379,12 +488,17 @@ export function contractsScreen(store, opts = {}) {
       show.addEventListener("click", () => store.set("goto", { screen: "map", at: { x: c.x, z: c.z }, pin: c.id }));
       head.append(show);
     }
-    const left = h("div", { className: "ct-d-col" }, ...[moneySection(c, f, ctx, units), deadlineSection(c, f, ctx)]
-      .filter((s) => s !== null));
+    // an offer with your own machines: the lease's one line goes under Money
+    // and Time, so the tool picker and the action row fit the mini
+    // (specs/0019) unscrolled
+    const leaseLine = c.status === "offer" && !f.leased && hasLease(c);
+    const vehicles = vehiclesSection(c, f, units);
+    const left = h("div", { className: "ct-d-col" }, ...[moneySection(c, f, ctx, units), deadlineSection(c, f, ctx),
+      leaseLine ? vehicles : null].filter((s) => s !== null));
     const right = h("div", { className: "ct-d-col" }, ...[
       c.status === "offer" ? workSection(c, f, ctx, units) : progressSection(c, f, ctx, units),
-      vehiclesSection(c, f, units)].filter((s) => s !== null));
-    detail.replaceChildren(head, h("div", { className: "ct-d-cols" }, left, right));
+      leaseLine ? null : vehicles].filter((s) => s !== null));
+    detail.replaceChildren(head, h("div", { className: "ct-d-cols" }, left, right), ...(acts() ? [actionRow(c, units)] : []));
   }
 
   function render() {
@@ -412,7 +526,8 @@ export function contractsScreen(store, opts = {}) {
     // where your tools are only moves the way there: a tenth of a km is plenty
     const parked = (ctx.tools || []).map((t) => ctx.places?.get(t.id)).map((at) => at && [Math.round(at.x / 100), Math.round(at.z / 100)]);
     const key = JSON.stringify([store.get("contracts"), prefs, units, ctx.timeScale, ctx.maxSpeed, [...(ctx.attached || [])], parked,
-      ctx.from && [Math.round(ctx.from.x / 100), Math.round(ctx.from.z / 100)], selected, open]);
+      ctx.from && [Math.round(ctx.from.x / 100), Math.round(ctx.from.z / 100)], selected, open,
+      acts(), pendingId, confirmId, failed]);
     if (key === drawn) return;
     drawn = key;
 
@@ -458,7 +573,7 @@ export function contractsScreen(store, opts = {}) {
     else detail.replaceChildren();
   }
 
-  for (const topic of ["contracts", "contractPrefs", "env", "vehicles", "cab", "player"]) store.subscribe(topic, render);
+  for (const topic of ["contracts", "contractPrefs", "env", "vehicles", "cab", "player", "hello"]) store.subscribe(topic, render);
   // from the map's popup or a field panel's row: open on that contract
   store.subscribe("goto", (/** @type {any} */ go) => {
     if (go?.contract === undefined || go.contract === selected && open) return;

@@ -98,3 +98,14 @@ def test_commands_are_checked_for_shape_only():
                           ("tool.sprayRateAuto", 0), ("tool.sprayRate", -1), ("tool.unload", None),
                           ("tool.resetBales", None)):
         assert command_refusal(action, value, 1031) is None, action
+
+
+def test_a_contract_is_a_short_id():
+    """specs/0019: a contract's id, letters, digits, - and _, 1 to 64 long;
+    anything else, or not a string, is refused."""
+    for contract in ("mission00340f3982b386de3c3c23fb16536e09", "c-harvest-4", "a", "x" * 64, "A_b-9"):
+        assert command_refusal("contract.accept", 1, contract=contract) is None, contract
+    assert command_refusal("contract.handIn", None, contract="c-1") is None
+    assert command_refusal("beacon.set", 1) is None, "without one, as before"
+    for contract in ("", "x" * 65, "c 1", "c/1", "c.1", "<c>", 'c"1', 3, True, [], {}, 1.5):
+        assert command_refusal("contract.accept", 1, contract=contract) == "value not allowed", contract

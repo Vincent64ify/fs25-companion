@@ -9,8 +9,9 @@ described once, in web/src/types.js, and the dashboard ignores what it
 doesn't know. Breaking changes bump ``v``. A command is checked for its
 shape only: its actions and values are the mod's list (Commands.lua,
 specs/0007); a tool's id, where it names one, is a rig id (specs/0008),
-tool.width's side is left or right (specs/0011), and no command carries
-a key (specs/0012: the card's buttons are a fixed list).
+tool.width's side is left or right (specs/0011), no command carries
+a key (specs/0012: the card's buttons are a fixed list), and a contract
+command's contract is a short id (specs/0019).
 """
 
 import math
@@ -21,6 +22,8 @@ PROTOCOL_VERSION = 1
 
 TOPIC_RE = re.compile(r"^[a-z][a-z0-9_]{0,31}$")
 ACTION_RE = re.compile(r"^[a-zA-Z.]{1,40}$")
+# a contract's id (specs/0019): the game's is "mission" and 32 hex digits
+CONTRACT_RE = re.compile(r"^[A-Za-z0-9_-]{1,64}$")
 ENVELOPE_KEYS = {"v", "seq", "t", "topic", "data"}
 
 # topics that are events: relayed, never kept in the state store
@@ -73,11 +76,12 @@ SIDES = {"left", "right"}
 
 
 def command_refusal(action: Any, value: Any, tool: Any = None, side: Any = None,
-                    key: Any = None) -> Optional[str]:
+                    key: Any = None, contract: Any = None) -> Optional[str]:
     """Why a viewer's command is refused before it reaches the mod, or None:
     the action must be a short dotted name, the value a number or absent,
     the tool a whole number from 0 or absent, the side left, right or
-    absent, and a key absent (specs/0012: implement.key went)."""
+    absent, a key absent (specs/0012: implement.key went), and the contract
+    a short id or absent (specs/0019)."""
     if not isinstance(action, str) or not ACTION_RE.match(action):
         return "action not allowed"
     if value is not None and not _number(value):
@@ -87,5 +91,7 @@ def command_refusal(action: Any, value: Any, tool: Any = None, side: Any = None,
     if side is not None and not (isinstance(side, str) and side in SIDES):
         return "value not allowed"
     if key is not None:
+        return "value not allowed"
+    if contract is not None and not (isinstance(contract, str) and CONTRACT_RE.match(contract)):
         return "value not allowed"
     return None

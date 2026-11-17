@@ -47,8 +47,9 @@
  * @property {string} [gameDir]
  * @property {{dir?: string, next: number, actions?: number}} [commands] where
  *   the companion writes commands and the number the mod reads next;
- *   actions 3: the files name the dashboard's set actions (mod 0.10.0,
- *   specs/0008); 2: its toggles (mod 0.9.x, specs/0007); absent before
+ *   actions 4: and contract commands (mod 0.20.0, specs/0019); 3: the
+ *   files name the dashboard's set actions (mod 0.10.0, specs/0008); 2: its
+ *   toggles (mod 0.9.x, specs/0007); absent before
  */
 
 /**
@@ -349,6 +350,8 @@
  * @property {number} [vehicleCosts] the lease (absent: no lease vehicles)
  * @property {number} [reimbursement] finished
  * @property {number} [stealingCost] finished: the penalty
+ * @property {number} [total] finished: the game's getTotalReward(), what Hand
+ *   in books (mod 0.20.0, specs/0019; a success's reimbursement comes on top)
  * @property {number} [minutesLeft] game minutes to the deadline
  * @property {number} [completion] the game's own 0..1 (running, finished)
  * @property {number} [expectedLiters] harvest, baling

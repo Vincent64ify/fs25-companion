@@ -2,7 +2,7 @@
 -- Runs the dashboard's commands (docs/ARCHITECTURE.md, Commands). The companion
 -- writes one file per command, numbered from 1 per game session, with the
 -- dashboard's action name (specs/0007) and the state it wants (specs/0008;
--- hello says so: commands.actions 3):
+-- hello says so: commands.actions 4, 3 before contracts):
 --
 --     modSettings/FS25_Companion/cmd/<n>.xml
 --     <command session="<sessionId>" id="<n>" action="beacon.set" ref="<companion ref>" value="1.000"/>
@@ -10,6 +10,7 @@
 --     <command ... action="tool.lower" ref="..." value="1.000" tool="9"/>   (a rig id)
 --     <command ... action="tool.width" ref="..." value="-1.000" tool="9" side="left"/>
 --     <command ... action="tool.unload" ref="..." tool="9"/>   (a one-shot: no value)
+--     <command ... action="contract.accept" ref="..." value="1.000" contract="mission0034..."/>   (specs/0019)
 --
 -- (a temp file, read back once, then renamed, so it appears whole). Every
 -- frame the mod checks whether the next number exists (fileExists costs
@@ -950,6 +951,149 @@ local function timeScaleJob(_, value)
     return job
 end
 
+-- specs/0019: a contract's accept, cancel and hand in ----------------------
+-- The first commands that are neither a key nor a vehicle's setter: the
+-- game has no key for them, only its menu's buttons, so the mod calls the
+-- game's own MissionManager functions (docs/ARCHITECTURE.md, the exception
+-- to "the game's keys, not its setters"), host only. Each checks what the
+-- function would refuse first, changes nothing itself, and is ok only once
+-- the game's list shows the change.
+
+-- frames after the call that the game's list may take to show it
+Commands.CONTRACT_WAIT_FRAMES = 10
+
+-- a checked job: ok the frame done() reads true, the call's frame
+-- included; failed after CONTRACT_WAIT_FRAMES more
+local function contractJob(done)
+    local job = { frames = 0 }
+    job.tick = function()
+        if done() then
+            return { ok = true, via = "missionManager", checked = true }
+        end
+        job.frames = job.frames + 1
+        if job.frames > Commands.CONTRACT_WAIT_FRAMES then
+            return { ok = false, reason = "didn't change", via = "missionManager", checked = true }
+        end
+        return nil
+    end
+    return job
+end
+
+local function playerFarm()
+    return g_localPlayer ~= nil and g_localPlayer.farmId or nil
+end
+
+-- your farm's: taken by your farm (an offer has no farm)
+local function isMine(mission, farmId)
+    return farmId ~= nil and mission.farmId == farmId and Api.missionStatus(mission) ~= "offer"
+end
+
+-- Each returns ok, reason, a job, or already (as run() does). value 1: with
+-- lease.
+local function acceptContract(id, value)
+    local farmId = playerFarm()
+    local mission = Api.missionById(id)
+    if mission == nil then
+        return false, "not there any more"
+    end
+    local status = Api.missionStatus(mission)
+    if isMine(mission, farmId) and status ~= "finished" then
+        return true, nil, nil, true
+    end
+    -- another farm's, or yours finished: only an offer is started (as the
+    -- spike checked before it called)
+    if status ~= "offer" then
+        return false, "not available any more"
+    end
+    if not Api.isServer() then
+        return false, "host only"
+    end
+    if not Api.hasMissionCall("startMission") or not Api.hasStartStates() or farmId == nil then
+        return false, "not in this game"
+    end
+    local lease = value == 1
+    if lease then
+        if Api.tryCall(mission, "hasLeasableVehicles") == false then
+            return false, "no lease vehicles"
+        end
+        -- startMission doesn't look: with no room the game starts it and
+        -- deletes the machines it couldn't place (AbstractMission.lua)
+        if not Api.spawnSpaceAvailable(mission) then
+            return false, "no room at the shop"
+        end
+    end
+    local started, why = Api.startMission(mission, farmId, lease)
+    if not started then
+        return false, why
+    end
+    return nil, nil, contractJob(function()
+        local now = Api.missionById(id)
+        local state = now ~= nil and Api.missionStatus(now) or nil
+        return now ~= nil and now.farmId == farmId and (state == "preparing" or state == "running")
+    end)
+end
+
+local function cancelContract(id)
+    local mission = Api.missionById(id)
+    if mission == nil then
+        return false, "not there any more"
+    end
+    if not isMine(mission, playerFarm()) then
+        return false, "not yours"
+    end
+    if Api.missionStatus(mission) == "finished" then
+        return true, nil, nil, true
+    end
+    if not Api.isServer() then
+        return false, "host only"
+    end
+    if not Api.hasMissionCall("cancelMission") then
+        return false, "not in this game"
+    end
+    local done, why = Api.endMission("cancelMission", mission)
+    if not done then
+        return false, why
+    end
+    return nil, nil, contractJob(function()
+        local now = Api.missionById(id)
+        return now ~= nil and Api.missionStatus(now) == "finished"
+    end)
+end
+
+local function handInContract(id)
+    local mission = Api.missionById(id)
+    if mission == nil then
+        -- gone, handed in already; but only when the game's list was read
+        if Api.missionGone(id) then
+            return true, nil, nil, true
+        end
+        return false, "not in this game"
+    end
+    if not isMine(mission, playerFarm()) then
+        return false, "not yours"
+    end
+    if Api.missionStatus(mission) ~= "finished" then
+        return false, "not finished"
+    end
+    if not Api.isServer() then
+        return false, "host only"
+    end
+    if not Api.hasMissionCall("dismissMission") then
+        return false, "not in this game"
+    end
+    local done, why = Api.endMission("dismissMission", mission)
+    if not done then
+        return false, why
+    end
+    return nil, nil, contractJob(function() return Api.missionGone(id) end)
+end
+
+-- a contract's id: the game's ("mission" and 32 hex digits), 1 to 64
+-- letters, digits, - and _
+local function contractIdFits(id)
+    return type(id) == "string" and #id >= 1 and #id <= 64 and id:find("^[%w_%-]+$") ~= nil
+end
+
 -- Attach: only while the game has something in reach (its prompt is up)
 local function attachInReach(vehicle)
     if VehicleState.attachable(vehicle) then
@@ -1074,6 +1218,11 @@ Commands.ACTIONS = {
         fits = function(_, value) return timeScaleStep(value) ~= nil end, job = timeScaleJob },
     -- the Harvester screen: 1 straw swath, 0 chopper (the game's TOGGLE_CHOPPER)
     ["straw.set"] = { state = strawState, values = SET, inputs = { "TOGGLE_CHOPPER" } },
+    -- specs/0019: a contract by its id (`contract`), not tied to a vehicle;
+    -- accept 1 with lease, 0 own machines
+    ["contract.accept"] = { contract = acceptContract, values = SET },
+    ["contract.cancel"] = { contract = cancelContract },
+    ["contract.handIn"] = { contract = handInContract },
 }
 
 -- whether the command's number fits its action
@@ -1088,8 +1237,16 @@ local SIDES = { left = true, right = true }
 -- whether the command's number, tool and side fit its action; a key fits
 -- none (specs/0012: implement.key went, an older companion may still write
 -- one)
-local function valueFits(spec, value, tool, side, key)
+local function valueFits(spec, value, tool, side, key, contract)
     if key ~= nil then
+        return false
+    end
+    -- specs/0019: a contract's id on a contract's action, on no other
+    if spec.contract ~= nil then
+        if not contractIdFits(contract) then
+            return false
+        end
+    elseif contract ~= nil then
         return false
     end
     if spec.width then
@@ -1115,7 +1272,7 @@ local function valueFits(spec, value, tool, side, key)
     return inRange(spec.values, value)
 end
 
-local ATTRIBUTES = { "session", "id", "action", "ref", "value", "tool", "side", "key" }
+local ATTRIBUTES = { "session", "id", "action", "ref", "value", "tool", "side", "key", "contract" }
 
 function Commands.new(dir, sessionId, log)
     local self = setmetatable({}, Commands)
@@ -1134,9 +1291,10 @@ end
 
 -- for hello: where the companion writes, which number the mod reads next
 -- (a companion that starts mid-session continues from there), and that the
--- files name the dashboard's set actions (actions 3, specs/0008)
+-- files name the dashboard's set actions (actions 3, specs/0008) and take
+-- contract commands (actions 4, specs/0019)
 function Commands:info()
-    return { dir = self.dir, next = self.nextId, actions = 3 }
+    return { dir = self.dir, next = self.nextId, actions = 4 }
 end
 
 function Commands:path(id)
@@ -1198,14 +1356,23 @@ end
 
 -- returns ok, reason, via, or a job (specs/0003) as the fourth, or
 -- already (specs/0008) as the fifth; value: the command's number, if it has
--- one; tool: its tool's id; side: tool.width's; key: refused (specs/0012)
-local function run(actionName, value, tool, side, key)
+-- one; tool: its tool's id; side: tool.width's; key: refused (specs/0012);
+-- contract: a contract's id (specs/0019)
+local function run(actionName, value, tool, side, key, contract)
     local spec = Commands.ACTIONS[actionName]
     if spec == nil then
         return false, "action not allowed"
     end
-    if not valueFits(spec, value, tool, side, key) then
+    if not valueFits(spec, value, tool, side, key, contract) then
         return false, "value not allowed"
+    end
+    -- a contract's (specs/0019): the game's, on foot or in a vehicle
+    if spec.contract ~= nil then
+        if not Api.hasMissions() then
+            return false, "not in this game"
+        end
+        local ok, reason, job, already = spec.contract(contract, value)
+        return ok, reason, nil, job, already
     end
     -- the game's, not a vehicle's (specs/0017): before the vehicle check
     if spec.game then
@@ -1554,7 +1721,8 @@ function Commands:poll()
     end
     self.nextId = id + 1
     local ran, reason, via, job, already
-    ok, ran, reason, via, job, already = pcall(run, cmd.action, tonumber(cmd.value), tonumber(cmd.tool), cmd.side, cmd.key)
+    ok, ran, reason, via, job, already = pcall(run, cmd.action, tonumber(cmd.value), tonumber(cmd.tool), cmd.side, cmd.key,
+        cmd.contract)
     if ok and job ~= nil then
         job.ack = { id = id, ref = cmd.ref, action = cmd.action }
         self.job = job

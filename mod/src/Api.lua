@@ -211,6 +211,120 @@ function Api.missionFactors()
     return next(out) ~= nil and out or nil
 end
 
+-- specs/0019, a contract's three actions: the game's own MissionManager
+-- functions (gameSource.zip: MissionManager.lua, server only), run in the
+-- spike of 2026-11-16 but not by the mod yet, hence the guards. Nothing
+-- here is called before the game is known to have it.
+
+-- whether the contract commands can run here at all: the mission manager
+-- and its statuses (without them nothing can be told apart)
+function Api.hasMissions()
+    return type(g_missionManager) == "table" and type(MissionStatus) == "table"
+end
+
+-- whether this game is the server (single player or hosting): the three
+-- functions assert it. No getIsServer: not the server.
+function Api.isServer()
+    return Api.tryCall(g_currentMission, "getIsServer") == true
+end
+
+-- the mission with this unique id that the game still lists (offer,
+-- preparing, running or finished), or nil. getMissionByUniqueId (a function
+-- in the game, spike 2026-11-16; never called there) only when its answer
+-- carries the id, else the list the contracts topic reads.
+function Api.missionById(id)
+    local found = Api.tryCall(g_missionManager, "getMissionByUniqueId", id)
+    if type(found) ~= "table" or Api.tryCall(found, "getUniqueId") ~= id then
+        found = nil
+        for _, mission in ipairs(Api.missions() or {}) do
+            if Api.tryCall(mission, "getUniqueId") == id then
+                found = mission
+                break
+            end
+        end
+    end
+    if found == nil or Api.missionStatus(found) == nil then
+        return nil
+    end
+    return found
+end
+
+-- whether the game's list was read and no mission in it has this id (a
+-- hand-in's check); false when the list can't be read
+function Api.missionGone(id)
+    if Api.missions() == nil then
+        return false
+    end
+    return Api.missionById(id) == nil
+end
+
+-- whether the mission manager has this function
+function Api.hasMissionCall(name)
+    return type(g_missionManager) == "table" and type(g_missionManager[name]) == "function"
+end
+
+-- g_missionManager:<name>(...): true and its first answer, or false when
+-- it raised
+local function missionCall(name, ...)
+    local manager = g_missionManager
+    local ok, result = pcall(manager[name], manager, ...)
+    return ok, result
+end
+
+-- MissionStartState's names (the table isn't in gameSource.zip; the spike
+-- read OK 1 ... NO_PERMISSION 8) and what the ack says for each refusal
+local START_REFUSALS = {
+    LIMIT_REACHED = "limit reached", PENDING_MISSION = "another one is preparing",
+    NOT_AVAILABLE_ANYMORE = "not available any more", CANNOT_BE_STARTED_NOW = "can't be started now",
+    ALREADY_STARTED = "already started", NO_ACCESS = "no access", NO_PERMISSION = "no permission",
+}
+
+-- whether a start's answer can be read: the game's MissionStartState
+function Api.hasStartStates()
+    return type(MissionStartState) == "table" and MissionStartState.OK ~= nil
+end
+
+-- startMission(mission, farmId, spawnVehicles): true, or false and why.
+-- Only MissionStartState.OK is a start; any other answer, none included, is
+-- a refusal, by its name where the table has one.
+function Api.startMission(mission, farmId, lease)
+    local ok, state = missionCall("startMission", mission, farmId, lease == true)
+    if not ok then
+        return false, "failed in game"
+    end
+    if state ~= nil and state == MissionStartState.OK then
+        return true
+    end
+    for key, words in pairs(START_REFUSALS) do
+        if state ~= nil and MissionStartState[key] == state then
+            return false, words
+        end
+    end
+    return false, "refused"
+end
+
+-- cancelMission(mission) (it calls mission:finish(CANCELED)) or
+-- dismissMission(mission) (it books getTotalReward(), then deletes the
+-- mission): true, or false and why
+function Api.endMission(name, mission)
+    local ok, answer = missionCall(name, mission)
+    if not ok then
+        return false, "failed in game"
+    end
+    if answer == false then
+        return false, "refused"
+    end
+    return true
+end
+
+-- whether the shop has room for a contract's leased machines:
+-- mission:isSpawnSpaceAvailable() (AbstractMission.lua; it marks the
+-- places while it looks and unmarks them before it returns). Only false
+-- says no; a missing or failing call leaves it to startMission.
+function Api.spawnSpaceAvailable(mission)
+    return Api.tryCall(mission, "isSpawnSpaceAvailable") ~= false
+end
+
 -- a shop item's specs (item.specs: workingWidth, speedLimit ...), loaded
 -- from its xml as the shop does when it lists the item
 -- (StoreItemUtil.loadSpecsFromXML); the game clears them at start

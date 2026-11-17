@@ -703,14 +703,15 @@ local function commandStubs(dir)
             }
         end,
     }
-    return function(id, session, action, ref, value, tool, side, key)
+    return function(id, session, action, ref, value, tool, side, key, contract)
         local f = assert(io.open(string.format("%s%d.xml", dir, id), "w"))
-        f:write(string.format('<command session="%s" id="%d" action="%s" ref="%s"%s%s%s%s/>',
+        f:write(string.format('<command session="%s" id="%d" action="%s" ref="%s"%s%s%s%s%s/>',
             session, id, action, ref or ("r" .. id),
             value ~= nil and string.format(' value="%.3f"', value) or "",
             tool ~= nil and string.format(' tool="%d"', tool) or "",
             side ~= nil and string.format(' side="%s"', side) or "",
-            key ~= nil and string.format(' key="%s"', key) or ""))
+            key ~= nil and string.format(' key="%s"', key) or "",
+            contract ~= nil and string.format(' contract="%s"', contract) or ""))
         f:close()
     end
 end
@@ -948,7 +949,7 @@ test("commands: keyed by the dashboard's name, each checks its value (specs/0007
     local dir = TMP_DIR .. "/cmdvalue_"
     local write = commandStubs(dir)
     local commands = Companion.Commands.new(dir, "S9", function() end)
-    eq(commands:info().actions, 3, "hello says the files name the set actions (specs/0008)")
+    eq(commands:info().actions, 4, "hello says the files name the set actions (specs/0008) and take contracts (specs/0019)")
     local vehicle = c2Tractor()
     g_inputBinding = nil
     local n = 0
@@ -4240,6 +4241,8 @@ local function contractsGame()
         getReward = function() return 3000 end,
         getVehicleCosts = function() return 350 end,
         getReimbursement = function() return 80.2 end,
+        -- specs/0019: what Hand in books
+        getTotalReward = function() return -469.6 end,
         getMinutesLeft = function() return 0 end,
     }), calls)
     -- another farm's running contract, one already dismissed, and one whose
@@ -4352,6 +4355,9 @@ test("contracts: missions as the dashboard's shape, read only (specs/0018)", fun
     eq(done.reimbursement, 80)
     eq(done.stealingCost, 121)
     eq(done.completion, 0.4)
+    eq(done.total, -470, "specs/0019: the game's total, what Hand in books")
+    eq(byId["m-offer"].total, nil, "only a finished one has a total")
+    eq(byId["m-run"].total, nil)
 
     local wood = byId["m-wood"]
     eq(wood.x, nil, "0, 0 is the base class's answer, not a place")
@@ -4421,6 +4427,373 @@ test("contracts: shop specs load a few a tick; nothing without the game's parts 
     eq(collector.collect({}), nil, "no mission manager: no topic")
 end)
 
+-- specs/0019: accept, cancel, hand in -------------------------------------
+
+-- a mission manager as MissionManager.lua has it (gameSource.zip), the
+-- enums with the spike's values; each function records its calls and does
+-- what the game did in the spike (2026-11-16). game.* steer it.
+local function contractCommandsGame()
+    MissionStatus = { CREATED = 11, PREPARING = 12, RUNNING = 13, FINISHED = 14, DISMISSED = 15 }
+    MissionFinishState = { NONE = 1, SUCCESS = 21, FAILED = 22, TIMED_OUT = 23, CANCELED = 24 }
+    MissionStartState = { OK = 1, LIMIT_REACHED = 2, ALREADY_STARTED = 3, NOT_AVAILABLE_ANYMORE = 4, NO_ACCESS = 5,
+        CANNOT_BE_STARTED_NOW = 6, PENDING_MISSION = 7, NO_PERMISSION = 8 }
+    local game = { server = true, calls = {}, startState = nil, changes = true, delay = 0, space = true }
+    g_localPlayer = { farmId = 1, getCurrentVehicle = function() return nil end }
+    g_currentMission = { getIsServer = function() return game.server end }
+    local list = {}
+    function game.mission(id, status, farmId, lease)
+        local m = { status = MissionStatus[status], farmId = farmId, finishState = MissionFinishState.NONE }
+        m.getUniqueId = function() return id end
+        m.hasLeasableVehicles = function() return lease == true end
+        m.isSpawnSpaceAvailable = function()
+            game.calls[#game.calls + 1] = "isSpawnSpaceAvailable " .. id
+            return game.space
+        end
+        m.getTotalReward = function() return 0 end
+        list[#list + 1] = m
+        return m
+    end
+    -- a change the game makes now, or game.delay frames later (game.later)
+    local pending = {}
+    local function change(fn)
+        if not game.changes then
+            return
+        end
+        if game.delay > 0 then
+            pending[#pending + 1] = { frames = game.delay, fn = fn }
+        else
+            fn()
+        end
+    end
+    function game.later()
+        for i = #pending, 1, -1 do
+            local p = pending[i]
+            p.frames = p.frames - 1
+            if p.frames <= 0 then
+                table.remove(pending, i)
+                p.fn()
+            end
+        end
+    end
+    local function record(text)
+        game.calls[#game.calls + 1] = text
+    end
+    g_missionManager = {
+        getMissions = function() return list end,
+        getMissionByUniqueId = function(_, id)
+            for _, m in ipairs(list) do
+                if m.getUniqueId() == id then
+                    return m
+                end
+            end
+            return nil
+        end,
+        startMission = function(_, m, farmId, spawnVehicles)
+            record(string.format("startMission %s %s %s", m.getUniqueId(), tostring(farmId), tostring(spawnVehicles)))
+            if game.startState ~= nil then
+                return MissionStartState[game.startState]
+            end
+            change(function()
+                m.farmId = farmId
+                m.status = spawnVehicles and MissionStatus.PREPARING or MissionStatus.RUNNING
+            end)
+            return MissionStartState.OK
+        end,
+        cancelMission = function(_, m)
+            record("cancelMission " .. m.getUniqueId())
+            if game.cancelAnswer ~= nil then
+                return game.cancelAnswer
+            end
+            change(function()
+                m.status, m.finishState = MissionStatus.FINISHED, MissionFinishState.CANCELED
+            end)
+            return true
+        end,
+        dismissMission = function(_, m)
+            record("dismissMission " .. m.getUniqueId())
+            change(function()
+                m.status = MissionStatus.DISMISSED
+                for i, other in ipairs(list) do
+                    if other == m then
+                        table.remove(list, i)
+                    end
+                end
+            end)
+            return true
+        end,
+    }
+    -- the ack of one contract command and how many frames it took; the
+    -- game's later changes happen between frames
+    local dir = TMP_DIR .. "/ctcmd_"
+    local write = commandStubs(dir)
+    local commands = Companion.Commands.new(dir, "S19", function() end)
+    local n = 0
+    function game.run(action, contract, value)
+        n = n + 1
+        write(n, "S19", action, nil, value, nil, nil, nil, contract)
+        for i = 1, 60 do
+            local ack = commands:poll()
+            if ack ~= nil then
+                return ack, i
+            end
+            game.later()
+        end
+        error(action .. ": no ack")
+    end
+    return game, list
+end
+
+local function contractGlobalsOff()
+    MissionStatus, MissionFinishState, MissionStartState = nil, nil, nil
+    g_missionManager, g_currentMission, g_localPlayer = nil, nil, nil
+end
+
+test("commands: contract.accept starts the contract for your farm, with lease or not, checked (specs/0019)", function()
+    if TMP_DIR == nil then
+        return
+    end
+    local game = contractCommandsGame()
+    local leased = game.mission("mission00340f3982b386de3c3c23fb16536e09", "CREATED", nil, true)
+    local own = game.mission("c-own", "CREATED", nil, true)
+
+    local ack, frames = game.run("contract.accept", "mission00340f3982b386de3c3c23fb16536e09", 1)
+    eq(ack.ok, true, tostring(ack.reason))
+    eq(ack.checked, true, "checked by the game's list")
+    eq(ack.via, "missionManager")
+    eq(ack.action, "contract.accept")
+    eq(frames, 1, "the same frame")
+    eq(table.concat(game.calls, " | "), "isSpawnSpaceAvailable mission00340f3982b386de3c3c23fb16536e09 | "
+        .. "startMission mission00340f3982b386de3c3c23fb16536e09 1 true", "room looked for, then the game's own start, with lease")
+    eq(leased.status, MissionStatus.PREPARING)
+
+    game.calls = {}
+    ack = game.run("contract.accept", "c-own", 0)
+    eq(ack.ok, true, tostring(ack.reason))
+    eq(table.concat(game.calls, " | "), "startMission c-own 1 false", "own machines: no room looked for, false")
+    eq(own.status, MissionStatus.RUNNING)
+
+    -- the game takes a few frames: ok the frame it reads as yours
+    game.mission("c-slow", "CREATED", nil, false)
+    game.delay = 3
+    ack, frames = game.run("contract.accept", "c-slow", 0)
+    eq(ack.ok, true, tostring(ack.reason))
+    eq(frames, 4)
+
+    -- OK from the game, but the contract never reads as yours: failed
+    game.mission("c-stuck", "CREATED", nil, false)
+    game.delay, game.changes = 0, false
+    ack, frames = game.run("contract.accept", "c-stuck", 0)
+    eq(ack.ok, false)
+    eq(ack.reason, "didn't change")
+    eq(ack.checked, true)
+    eq(frames, Companion.Commands.CONTRACT_WAIT_FRAMES + 1, "the same frame and 10 more")
+    contractGlobalsOff()
+end)
+
+test("commands: contract.accept answers already, the game's refusals and what it checks first (specs/0019)", function()
+    if TMP_DIR == nil then
+        return
+    end
+    local game = contractCommandsGame()
+    game.mission("c-mine", "RUNNING", 1, false)
+    game.mission("c-prep", "PREPARING", 1, true)
+    game.mission("c-offer", "CREATED", nil, true)
+    game.mission("c-nolease", "CREATED", nil, false)
+
+    local ack = game.run("contract.accept", "c-mine", 1)
+    eq(ack.ok, true)
+    eq(ack.already, true, "yours already: nothing runs")
+    eq(game.run("contract.accept", "c-prep", 0).already, true, "preparing is yours too")
+    eq(#game.calls, 0)
+
+    -- each of the game's refusals, by its name
+    for state, reason in pairs({ LIMIT_REACHED = "limit reached", PENDING_MISSION = "another one is preparing",
+        NOT_AVAILABLE_ANYMORE = "not available any more", CANNOT_BE_STARTED_NOW = "can't be started now",
+        ALREADY_STARTED = "already started", NO_ACCESS = "no access", NO_PERMISSION = "no permission" }) do
+        game.startState = state
+        ack = game.run("contract.accept", "c-offer", 0)
+        eq(ack.ok, false, state)
+        eq(ack.reason, reason, state)
+    end
+    game.startState = nil
+    -- an answer the game's table doesn't name, or none, is no OK
+    local start = g_missionManager.startMission
+    g_missionManager.startMission = function() return 99 end
+    eq(game.run("contract.accept", "c-offer", 0).reason, "refused", "an unknown state")
+    g_missionManager.startMission = function() return nil end
+    eq(game.run("contract.accept", "c-offer", 0).ok, false, "no state at all")
+    g_missionManager.startMission = start
+
+    -- no room at the shop for the leased machines: nothing started
+    game.calls, game.space = {}, false
+    ack = game.run("contract.accept", "c-offer", 1)
+    eq(ack.ok, false)
+    eq(ack.reason, "no room at the shop")
+    eq(table.concat(game.calls, " | "), "isSpawnSpaceAvailable c-offer", "startMission isn't called")
+    game.space = true
+    -- with lease on a contract with no lease vehicles: refused, nothing started
+    game.calls = {}
+    eq(game.run("contract.accept", "c-nolease", 1).reason, "no lease vehicles")
+    eq(#game.calls, 0)
+
+    -- an id the game doesn't know, or one dismissed: not there
+    eq(game.run("contract.accept", "c-gone", 0).reason, "not there any more")
+    -- only an offer is started: another farm's, or yours finished, isn't
+    game.mission("c-theirs", "RUNNING", 2, false)
+    game.mission("c-done", "FINISHED", 1, false)
+    game.calls = {}
+    eq(game.run("contract.accept", "c-theirs", 0).reason, "not available any more", "another farm's")
+    eq(game.run("contract.accept", "c-done", 0).reason, "not available any more", "yours, finished")
+    eq(#game.calls, 0, "startMission isn't called for them")
+    -- getMissionByUniqueId missing or wrong: the list is read instead
+    g_missionManager.getMissionByUniqueId = nil
+    eq(game.run("contract.accept", "c-mine", 1).already, true, "found in the list")
+    g_missionManager.getMissionByUniqueId = function() return { getUniqueId = function() return "other" end } end
+    eq(game.run("contract.accept", "c-mine", 1).already, true, "a wrong answer isn't taken")
+
+    -- not the server: host only, nothing called
+    game.server, game.calls = false, {}
+    ack = game.run("contract.accept", "c-offer", 0)
+    eq(ack.reason, "host only")
+    eq(#game.calls, 0)
+    g_currentMission.getIsServer = nil
+    eq(game.run("contract.accept", "c-offer", 0).reason, "host only", "no getIsServer: not the server")
+    g_currentMission.getIsServer = function() return game.server end
+    game.server = true
+
+    -- the values: 1 or 0, a contract's id of letters, digits, - and _
+    eq(game.run("contract.accept", "c-offer", 2).reason, "value not allowed")
+    eq(game.run("contract.accept", "c-offer").reason, "value not allowed", "no value")
+    eq(game.run("contract.accept", nil, 1).reason, "value not allowed", "no contract")
+    eq(game.run("contract.accept", "c offer", 1).reason, "value not allowed", "a space")
+    eq(game.run("contract.accept", string.rep("a", 65), 1).reason, "value not allowed", "too long")
+    eq(game.run("beacon.set", "c-offer", 1).reason, "value not allowed", "a contract on another action")
+    eq(#game.calls, 0, "nothing called for any of these")
+    contractGlobalsOff()
+end)
+
+test("commands: contract.cancel ends your contract as cancelled, checked (specs/0019)", function()
+    if TMP_DIR == nil then
+        return
+    end
+    local game = contractCommandsGame()
+    local mine = game.mission("c-run", "RUNNING", 1, true)
+    game.mission("c-done", "FINISHED", 1, false)
+    game.mission("c-offer", "CREATED", nil, true)
+    game.mission("c-theirs", "RUNNING", 2, false)
+
+    local ack, frames = game.run("contract.cancel", "c-run")
+    eq(ack.ok, true, tostring(ack.reason))
+    eq(ack.checked, true)
+    eq(ack.via, "missionManager")
+    eq(frames, 1)
+    eq(table.concat(game.calls, " | "), "cancelMission c-run", "called once")
+    eq(mine.status, MissionStatus.FINISHED)
+
+    game.calls = {}
+    ack = game.run("contract.cancel", "c-done")
+    eq(ack.already, true, "finished already")
+    eq(game.run("contract.cancel", "c-offer").reason, "not yours", "an offer")
+    eq(game.run("contract.cancel", "c-theirs").reason, "not yours", "another farm's")
+    eq(game.run("contract.cancel", "c-gone").reason, "not there any more")
+    eq(#game.calls, 0)
+
+    game.mission("c-run2", "RUNNING", 1, false)
+    game.cancelAnswer = false
+    ack = game.run("contract.cancel", "c-run2")
+    eq(ack.ok, false)
+    eq(ack.reason, "refused", "the game said no")
+    game.cancelAnswer = nil
+    game.changes = false
+    eq(game.run("contract.cancel", "c-run2").reason, "didn't change", "true, but never finished")
+    game.changes = true
+
+    game.server = false
+    eq(game.run("contract.cancel", "c-run2").reason, "host only")
+    game.server = true
+    eq(game.run("contract.cancel", "c-run2", 1).reason, "value not allowed", "no value taken")
+    contractGlobalsOff()
+end)
+
+test("commands: contract.handIn books a finished contract and removes it, checked (specs/0019)", function()
+    if TMP_DIR == nil then
+        return
+    end
+    local game, list = contractCommandsGame()
+    game.mission("c-done", "FINISHED", 1, true)
+    game.mission("c-run", "RUNNING", 1, false)
+    game.mission("c-theirs", "FINISHED", 2, false)
+
+    local ack, frames = game.run("contract.handIn", "c-done")
+    eq(ack.ok, true, tostring(ack.reason))
+    eq(ack.checked, true)
+    eq(frames, 1)
+    eq(table.concat(game.calls, " | "), "dismissMission c-done", "called once")
+    eq(#list, 2, "gone from the game's list")
+
+    game.calls = {}
+    eq(game.run("contract.handIn", "c-done").already, true, "gone already")
+    -- the list unreadable: not "already", nothing called
+    local getMissions, byId = g_missionManager.getMissions, g_missionManager.getMissionByUniqueId
+    g_missionManager.getMissions, g_missionManager.getMissionByUniqueId = nil, nil
+    eq(game.run("contract.handIn", "c-done").reason, "not in this game", "no list: can't tell it's gone")
+    g_missionManager.getMissions, g_missionManager.getMissionByUniqueId = getMissions, byId
+    eq(game.run("contract.handIn", "c-run").reason, "not finished")
+    eq(game.run("contract.handIn", "c-theirs").reason, "not yours")
+    eq(#game.calls, 0)
+
+    game.mission("c-done2", "FINISHED", 1, false)
+    game.server = false
+    eq(game.run("contract.handIn", "c-done2").reason, "host only")
+    game.server = true
+    game.delay = 2
+    ack, frames = game.run("contract.handIn", "c-done2")
+    eq(ack.ok, true, "ok once the id is gone")
+    eq(frames, 3)
+    game.delay = 0
+    -- true, but still in the game's list: failed
+    game.mission("c-done3", "FINISHED", 1, false)
+    game.changes = false
+    eq(game.run("contract.handIn", "c-done3").reason, "didn't change")
+    contractGlobalsOff()
+end)
+
+test("commands: contract commands run on foot and in a vehicle; a missing game function fails, nothing breaks (specs/0019)", function()
+    if TMP_DIR == nil then
+        return
+    end
+    local game = contractCommandsGame()
+    game.mission("c-a", "CREATED", nil, false)
+    game.mission("c-b", "CREATED", nil, false)
+    eq(game.run("contract.accept", "c-a", 0).ok, true, "on foot")
+    local vehicle = {}
+    g_localPlayer.getCurrentVehicle = function() return vehicle end
+    eq(game.run("contract.accept", "c-b", 0).ok, true, "in a vehicle")
+
+    game.mission("c-c", "CREATED", nil, false)
+    local start = g_missionManager.startMission
+    g_missionManager.startMission = nil
+    eq(game.run("contract.accept", "c-c", 0).reason, "not in this game")
+    g_missionManager.startMission = function() error("boom") end
+    local ack = game.run("contract.accept", "c-c", 0)
+    eq(ack.ok, false)
+    eq(ack.reason, "failed in game", "an error in the game's function")
+    g_missionManager.startMission = start
+    g_missionManager.cancelMission = nil
+    eq(game.run("contract.cancel", "c-a").reason, "not in this game")
+    g_missionManager.dismissMission = nil
+    game.mission("c-d", "FINISHED", 1, false)
+    eq(game.run("contract.handIn", "c-d").reason, "not in this game")
+    MissionStartState = nil
+    eq(game.run("contract.accept", "c-c", 0).reason, "not in this game", "no MissionStartState: no way to read the answer")
+    g_missionManager = nil
+    eq(game.run("contract.accept", "c-c", 0).reason, "not in this game", "no mission manager")
+    -- the queue goes on
+    MissionStatus = nil
+    eq(game.run("contract.handIn", "c-d").reason, "not in this game", "no statuses")
+    contractGlobalsOff()
+end)
+
 test("whole mod streams every topic", function()
     if TMP_DIR == nil then
         print("skip whole-mod test (no TMP_DIR)")
@@ -4482,8 +4855,9 @@ test("whole mod streams every topic", function()
     assert(ls[1]:find('"mapId":"FS25_Test.TestMap"', 1, true), ls[1])
     assert(ls[1]:find('"mapExtensionScaleFactor":0.5', 1, true), ls[1])
     assert(ls[1]:find('"gameDir":"C:/Games/FS25/"', 1, true), ls[1])
-    -- actions 3: the command file names the dashboard's set actions (specs/0008)
-    assert(ls[1]:find('"commands":{"actions":3,"dir":"' .. TMP_DIR .. '/FS25_Companion/cmd/","next":1}', 1, true),
+    -- actions 4: the command file names the dashboard's set actions (specs/0008)
+    -- and takes contract commands (specs/0019)
+    assert(ls[1]:find('"commands":{"actions":4,"dir":"' .. TMP_DIR .. '/FS25_Companion/cmd/","next":1}', 1, true),
         ls[1])
     local text = table.concat(ls, "\n")
     -- on foot: heading from the facing direction (east)
@@ -4549,6 +4923,64 @@ test("whole mod streams every topic", function()
     for i, line in ipairs(ls) do
         assert(line:find('"seq":' .. i .. ',', 1, true), "contiguous seq at line " .. i)
     end
+end)
+
+test("whole mod: a contract command's answer comes with the contracts topic, the same frame (specs/0019)", function()
+    if TMP_DIR == nil then
+        return
+    end
+    local player, _, getListener = stubGame()
+    load("src/collectors/Hello.lua")
+    load("src/collectors/Cab.lua")
+    load("src/collectors/Contracts.lua")
+    load("src/Companion.lua")
+    local mod = getListener()
+    local stream = TMP_DIR .. "/FS25_Companion/stream.ndjson"
+    local writeCommand = commandStubs(TMP_DIR .. "/FS25_Companion/cmd/")
+    MissionStatus = { CREATED = 11, PREPARING = 12, RUNNING = 13, FINISHED = 14, DISMISSED = 15 }
+    MissionFinishState = { NONE = 1, SUCCESS = 21, FAILED = 22, TIMED_OUT = 23, CANCELED = 24 }
+    MissionStartState = { OK = 1 }
+    local offer = { status = MissionStatus.CREATED, finishState = MissionFinishState.NONE,
+        getUniqueId = function() return "c-1" end, hasLeasableVehicles = function() return false end }
+    g_missionManager = {
+        getMissions = function() return { offer } end,
+        startMission = function(_, m, farmId)
+            m.status, m.farmId = MissionStatus.RUNNING, farmId
+            return MissionStartState.OK
+        end,
+    }
+    g_currentMission.getIsServer = function() return true end
+    mod:loadMap("map")
+    for _ = 1, 3 do
+        mod:update(16)
+    end
+    local session = readFile(stream):match('"sessionId":"([^"]+)"')
+    local before = #lines(readFile(stream))
+    writeCommand(1, session, "contract.accept", "k1", 0, nil, nil, nil, "c-1")
+    mod:update(16)
+    local frame = lines(readFile(stream))
+    assert(frame[before + 1]:find('"topic":"command_ack"', 1, true), "ack first: " .. tostring(frame[before + 1]))
+    assert(frame[before + 1]:find('"ok":true', 1, true), frame[before + 1])
+    local contracts = nil
+    for i = before + 2, #frame do
+        if frame[i]:find('"topic":"contracts"', 1, true) then
+            contracts = frame[i]
+        end
+    end
+    assert(contracts ~= nil, "the contracts topic in the ack's frame")
+    assert(contracts:find('"id":"c-1","leased":false,"mine":true,"status":"running"', 1, true), contracts)
+    -- a command that isn't a contract's sends no contracts topic with it
+    before = #frame
+    writeCommand(2, session, "beacon.set", "b2", 1)
+    mod:update(16)
+    frame = lines(readFile(stream))
+    assert(frame[before + 1]:find('"topic":"command_ack"', 1, true), "the beacon's ack")
+    for i = before + 1, #frame do
+        assert(not frame[i]:find('"topic":"contracts"', 1, true), "no contracts with a beacon's ack")
+    end
+    mod:deleteMap()
+    MissionStatus, MissionFinishState, MissionStartState, g_missionManager = nil, nil, nil, nil
+    player.currentVehicle = nil
 end)
 
 -- specs/0004: an ack written in the frame that rotates is sent again in the

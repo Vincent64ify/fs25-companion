@@ -1,6 +1,6 @@
 # 0019: Contracts: accept, cancel, hand in
 
-Status: approved
+Status: built
 Mod: 0.20.0 · Started: 2026-11-16 · Design: the Contracts page of [spec 0018](0018-contracts.md) and its canvas [FS25 Companion: Contracts](https://claude.ai/artifact/T8NwTQTEp6jvCdRq82xHzP) (private, on claude.ai), which gets the action row at 1158 × 676 and 1180 × 820 before the build; [THEMES.md](../docs/THEMES.md#layout)
 
 ## Goal
@@ -106,6 +106,8 @@ now is faded and says why in the line beside it.
   leased machines of a successful contract, and removes the contract.
   The detail moves to the first row of the list, and the limit line
   counts one less.
+- With the row there, the Money section of a finished contract drops
+  spec 0018's "Paid when you dismiss it in the game.": the row says it.
 
 ### Everywhere
 
@@ -121,6 +123,20 @@ now is faded and says why in the line beside it.
   detail's fixed height on the mini (1158 × 676): the detail still
   doesn't scroll. The button is 44 high or more. `warn` only on "Really
   cancel?"; nothing yellow at night.
+- **Room on the mini** (found in the build, 2026-11-17): an offer under
+  Own machines with two tools to pick from and a long work line was
+  11 px too tall with the row. Its "Lease instead" line (already folded
+  to one line by spec 0018 for this) now sits in the left column under
+  Money and Time, where there was 200 px free; the hairline over the row
+  has 8 px under it, and the tile 10 px under the row. Every contract of
+  the fixture, both switches, fits the mini unscrolled.
+- **The row never leaves the tile:** when the columns don't fit (a third
+  tool to pick from on the mini), they scroll above the row; the row and
+  its button stay where they are.
+- **A changed button waits a moment:** for 0.7 s after a contract's
+  button turned into another kind (Cancel contract into Hand in when the
+  game's answer comes back), a tap on it does nothing, so a quick extra
+  tap meant for "Really cancel?" doesn't hand the contract in.
 
 ## Data contract
 
@@ -151,9 +167,13 @@ Topics gain fields (Protocol v1); `v` doesn't change.
   2026-11-16); the fixture's made-up ids ("c-harvest-4") fit too.
 - **Web** (`web/src/types.js`): `total` on a contract; `contract` on a
   command.
-- **Web** (`web/src/data/contracts.js`): `action(contract, contracts,
-  prefs)` → which button, its label, and why it's faded, as a pure
-  function. `web/src/widgets/contractsScreen.js` draws the row.
+- **Web** (`web/src/data/contracts.js`): `action(contract, topic, prefs,
+  units)` → which button (`kind`, `command`, `value`), its label, the
+  line beside it, filled or plain, faded, and Cancel's second ask, as a
+  pure function; `topic` is the contracts topic (its `limit` and
+  `items`), `units` the currency. `web/src/widgets/contractsScreen.js`
+  draws the row; `connection.js`'s `sendCommand` takes the contract's id
+  fifth.
 
 Game API names used. All from FS25's own `dataS/scripts/missions/` in the
 SDK's `gameSource.zip` (read 2026-11-16) unless said; none is verified
@@ -185,30 +205,46 @@ doubled command does nothing wrong.
 
 - **`contract.accept`**, `contract`, value 1 (with lease) or 0 (own
   machines). Wants: this contract is your farm's.
-  - Already your farm's and not finished → `already`.
+  - Already your farm's and not finished → `already`. Not on offer
+    (another farm's, or yours finished) → failed "not available any
+    more", nothing called.
   - Not the server → failed "host only". No such contract → failed "not
     there any more". With lease and `isSpawnSpaceAvailable()` false →
     failed "no room at the shop", nothing started (`startMission` itself
-    doesn't look).
+    doesn't look). With lease on a contract whose
+    `hasLeasableVehicles()` is false → failed "no lease vehicles" (the
+    dashboard never sends that).
   - Else `startMission(mission, your farm, lease)`; anything but `OK` →
     failed with the state's name as the reason ("limit reached",
     "another one is preparing", "not available any more", "can't be
-    started now").
+    started now", "already started", "no access", "no permission"); an
+    answer the table doesn't name, or none, → "refused".
   - Checked: ok only once the contract reads as your farm's and
-    preparing or running (the same frame, or within 10 frames).
-    `via`: "missionManager".
+    preparing or running (the same frame, or within 10 frames; else
+    failed "didn't change"). `via`: "missionManager".
 - **`contract.cancel`**, `contract`, no value. Wants: this contract is
   finished.
-  - Already finished → `already`. Not your farm's, or still on offer →
-    failed "not yours". Not the server → "host only".
-  - Else `cancelMission(mission)`; false → failed. Checked: ok once its
-    status reads finished.
+  - No such contract → failed "not there any more". Not your farm's, or
+    still on offer → failed "not yours". Already finished → `already`.
+    Not the server → "host only".
+  - Else `cancelMission(mission)`; false → failed "refused". Checked: ok
+    once its status reads finished.
 - **`contract.handIn`**, `contract`, no value. Wants: this contract is
   gone.
-  - No such contract → `already`. Not your farm's → failed "not yours".
+  - No such contract, read from the game's list → `already`; the list
+    can't be read → failed "not in this game". Not your farm's → failed
+    "not yours".
     Not finished → failed "not finished". Not the server → "host only".
   - Else `dismissMission(mission)`. Checked: ok once the id is no
     longer in the game's list.
+- **All three:** the contract is looked up with `getMissionByUniqueId`
+  only when its answer carries that id, else in the list the contracts
+  topic reads; a dismissed one counts as gone. No mission manager or no
+  `MissionStatus`, or the function (or `MissionStartState`) missing →
+  failed "not in this game", nothing called; an error inside the game's
+  function → "failed in game". A `contract` on any other action, or an
+  id that isn't 1 to 64 letters, digits, `-` and `_`, → "value not
+  allowed".
 - **The dashboard, the same frame:** the button goes pending on
   touch-down; the ack and the `contracts` message arrive together, and
   the row redraws from the message. The second tap of Cancel is the
@@ -251,44 +287,44 @@ doubled command does nothing wrong.
 ## Acceptance
 
 Automated (each one a test that exists before the work is called built):
-- [ ] `mod/tests/run.lua`: `contract.accept` with value 1 calls
+- [x] `mod/tests/run.lua`: `contract.accept` with value 1 calls
   `startMission` with the mission, your farm and true, and answers ok
   `checked` once the fake mission reads as yours; value 0 passes false.
-- [ ] `mod/tests/run.lua`: accept answers `already` for one that's yours;
+- [x] `mod/tests/run.lua`: accept answers `already` for one that's yours;
   fails with the state's reason for each `MissionStartState` but `OK`;
   fails "no room at the shop" without calling `startMission`; fails
   "host only" when not the server; fails "not there any more" for an
   unknown id; fails when the status never changes.
-- [ ] `mod/tests/run.lua`: `contract.cancel` calls `cancelMission` once
+- [x] `mod/tests/run.lua`: `contract.cancel` calls `cancelMission` once
   and is ok when the status is finished; `already` on a finished one;
   "not yours" on an offer and on another farm's.
-- [ ] `mod/tests/run.lua`: `contract.handIn` calls `dismissMission` once
+- [x] `mod/tests/run.lua`: `contract.handIn` calls `dismissMission` once
   and is ok when the id is gone; `already` for an unknown id; "not
   finished" on a running one; "not yours" on another farm's.
-- [ ] `mod/tests/run.lua`: all three run on foot; a missing game function
+- [x] `mod/tests/run.lua`: all three run on foot; a missing game function
   fails the command and breaks nothing; `contracts` is sent with the
   answer; a finished contract carries `total`; `hello` says `actions` 4.
-- [ ] `companion/tests/`: a command with `contract` reaches the file with
+- [x] `companion/tests/`: a command with `contract` reaches the file with
   that attribute; a `contract` that isn't a short id, or isn't a string,
   is refused "value not allowed"; commands without it are as before;
   a `hello` with `actions` 4 still gets commands written by name.
-- [ ] `tests/test_golden.py`: unchanged.
-- [ ] `web/test.html`: `action()`: an offer gives Accept with the lease's
+- [x] `tests/test_golden.py`: unchanged.
+- [x] `web/test.html`: `action()`: an offer gives Accept with the lease's
   price under With lease, "Accept, own machines" under Own machines and
   for a contract without lease vehicles; faded with "3 of 3 taken" at
   the limit and with the preparing line while one prepares; a running or
   preparing one of yours gives Cancel contract; a finished one Hand in
   with its signed total, and no sum without `total`.
-- [ ] `web/test.html`: Accept sends `contract.accept` with the id and 1
+- [x] `web/test.html`: Accept sends `contract.accept` with the id and 1
   or 0 by the switch; pending until the answer; a second tap while
   pending sends nothing; a failed answer, or none in time, says "Failed".
-- [ ] `web/test.html`: Cancel's first tap sends nothing and shows "Really
+- [x] `web/test.html`: Cancel's first tap sends nothing and shows "Really
   cancel?" with its line; the second sends `contract.cancel`; after 4 s
   without one the button is back. Hand in sends `contract.handIn` on the
   first tap.
-- [ ] `web/test.html`: with `hello.commands.actions` 3 the detail has no
+- [x] `web/test.html`: with `hello.commands.actions` 3 the detail has no
   action row.
-- [ ] Replay in the browser pane (`replay-solek` plus the fixture): the
+- [x] Replay in the browser pane (`replay-solek` plus the fixture): the
   row on an offer (both switches), on a running, a preparing and a
   finished contract, faded at the limit, "Really cancel?", and "Failed"
   (the replay refuses commands); at 1158 × 676 and 1180 × 820, day and
@@ -340,6 +376,9 @@ Live check (in game, Solek, mod 0.20.0, single player, with
   button's.
 - [ ] **In a vehicle and on foot,** and with the game's menu open: what
   each button does.
+- [ ] **A quick extra tap:** Cancel contract, then three quick taps on
+  "Really cancel?": it's cancelled and shows Hand in, and nothing is
+  handed in until a tap after it settled.
 - [ ] After each of the above, save and load: the game's state is as the
   dashboard left it.
 
@@ -453,3 +492,48 @@ finished contract).
     `isSpawnSpaceAvailable()` false, and a refusal from `startMission`.
     They stay in the live check.
   Open question 1 is settled: the build uses the game's functions.
+- 2026-11-17: built, mod 0.20.0. Tests first, then the code; pytest 134
+  (the Lua suite ran: 80 tests, six of them new for this spec),
+  `web/test.html` 395 green (eleven new), the golden file unchanged.
+  Mod: `Api.lua` (the guarded calls: `hasMissions`, `isServer`,
+  `missionById`, `missionGone`, `startMission`, `endMission`,
+  `spawnSpaceAvailable`), the three actions and their checked jobs in
+  `Commands.lua` (a `contract` attribute; `actions` 4), `contracts` sent
+  with a contract command's ack (`Companion.lua`), `total` in
+  `collectors/Contracts.lua`. Companion: `contract` checked for shape and
+  written as the file's attribute; `actions` 3 or more reads names.
+  Web: the commander's `contract`, `action()`, the row with pending,
+  Failed and the two-tap Cancel, the theme's `.ct-act` and `.ct-do` (the
+  canvas's look on the theme's tokens), `total` 1740 on the fixture's
+  finished contract. Where the code ended up different from the draft,
+  now in Behaviour, Data contract and Commands: the "Lease instead" line
+  of an own-machines offer moved under Money and Time (the mini was
+  11 px short), the finished contract's "Paid when you dismiss it" line
+  goes, cancel on an unknown id is "not there any more", a with-lease
+  accept on a contract with no lease vehicles is "no lease vehicles", a
+  missing game function is "not in this game", and `action()` takes the
+  units. Pane check in the Solek replay with the fixture patched in
+  (`hello.commands.actions` 4): at 1158 × 676 every contract under both
+  switches fits unscrolled, the button 272 × 48; faded at 3 of 3 with
+  its line; Accept went pending and then said "Failed" (the replay
+  refuses, "no game (replay)"); preparing, "Really cancel?" in `warn` at
+  night, Hand in · +£1,740 slate at night at 1180 × 820; at 820 × 1180
+  the row sits at the foot of the detail over the list. No console
+  errors. The live check is open.
+- 2026-11-17, the build's review (advisor): accept now refuses a
+  contract that isn't on offer before calling `startMission` (as the
+  spike did); hand in answers `already` only when the game's list was
+  read; the companion's cross-check of the web's action names now covers
+  `command: "contract.…"`; the row is pinned (the columns scroll above it,
+  measured with a third tool patched in: the columns 4 px over, the tile
+  0, the button 11 px from the tile's foot as in every other view); a
+  changed button ignores taps for 0.7 s (a test for it). Seen in the pane
+  besides the first pass: 1180 × 820 by day, the pending ring set by hand
+  on a filled and a plain button (the replay answers too fast to see it),
+  faded and Failed at night. pytest 134, the Lua suite 80, `web/test.html`
+  395, all green. For Vincent: the lease line's move and the scrolling
+  columns are a layout change to the approved canvas; the Contracts
+  canvas doesn't show them.
+- 2026-11-17: Vincent: both layout changes (the lease line under Money
+  and Time, the columns scrolling above the pinned row) and the 0.7 s
+  settle are fine. Mod 0.20.0 built and installed for the live check.

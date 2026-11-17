@@ -36,9 +36,10 @@ class Writer:
         self.got = []
         self.answer = None
 
-    def submit(self, ref, action, value=None, tool=None, side=None):
+    def submit(self, ref, action, value=None, tool=None, side=None, *, contract=None):
         got = (ref, action, value) if tool is None else (ref, action, value, tool)
-        self.got.append(got if side is None else (*got, side))
+        got = got if side is None else (*got, side)
+        self.got.append(got if contract is None else (*got, {"contract": contract}))
         if self.answer is not None:
             self.hub.put_ack(ack_envelope(ref, self.answer))
 
@@ -231,6 +232,25 @@ def test_a_width_command_passes_through_with_its_side(setup):
         command(viewer, "w-bad", action="tool.width", value=1, tool=1031, side=bad)
         assert recv(viewer) == {"type": "command_ack", "id": "w-bad", "ok": False, "reason": "value not allowed"}
     assert len(hub.writer.got) == 1
+
+
+def test_a_contract_passes_through(setup):
+    """specs/0019: a contract command goes to the writer with its contract's
+    id; a contract that isn't a short id is refused at once."""
+    client, hub, _ = setup
+    viewer = connect(client)
+    hub.writer.answer = "no game (replay)"
+    command(viewer, "c1", action="contract.accept", value=1, contract="mission00340f3982b386de3c3c23fb16536e09")
+    assert recv(viewer)["id"] == "c1"
+    command(viewer, "c2", action="contract.handIn", contract="c-sow-59")
+    assert recv(viewer)["id"] == "c2"
+    assert [g[1:] for g in hub.writer.got] == [
+        ("contract.accept", 1, {"contract": "mission00340f3982b386de3c3c23fb16536e09"}),
+        ("contract.handIn", None, {"contract": "c-sow-59"})]
+    for bad in ("", "c 1", "x" * 65, 3, True, [], {}):
+        command(viewer, "c-bad", action="contract.cancel", contract=bad)
+        assert recv(viewer) == {"type": "command_ack", "id": "c-bad", "ok": False, "reason": "value not allowed"}
+    assert len(hub.writer.got) == 2
 
 
 def test_a_key_is_refused_and_the_card_buttons_pass_through(setup):
