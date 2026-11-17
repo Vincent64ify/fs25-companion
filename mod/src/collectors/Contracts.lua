@@ -4,12 +4,17 @@
 -- work out net, time and money per hour. Other farms' and dismissed ones
 -- are left out.
 --
+-- Between those sends changed() looks at the game's list every frame,
+-- reading only: a contract new or gone, or one whose status or farm moved,
+-- sends at once. It also loads the shop files a few a frame, and their
+-- widths go out in one send when the last is in.
+--
 -- Read-only. Nothing is written into a mission and no call that changes
 -- the game's state is made: never getCompletion() (it drives the field's
 -- completion modifier; mission.completion is the value the game keeps) and
 -- never tryToResolveSellingStation(). The one thing loaded is a shop
 -- item's specs (its working width and speed), as the shop does when it
--- lists the item: once per item, two items a tick at most.
+-- lists the item: once per item, two items a frame at most.
 --
 -- The names are from the game's own scripts (gameSource.zip:
 -- dataS/scripts/missions/*.lua) and, for harvest and baling contracts,
@@ -31,13 +36,18 @@ Companion.Collectors = Companion.Collectors or {}
 local Api = Companion.Api
 local Geo = Companion.Geo
 
--- shop files whose specs may be loaded in one tick
-local SPEC_LOADS_PER_TICK = 2
+-- shop files whose specs may be loaded in one frame
+local SPEC_LOADS_PER_FRAME = 2
 
 -- shop xml filename -> {name, brand, category, categoryTitle, workingWidth,
--- speedLimit, done}; done once its specs were read. Cleared per map.
+-- speedLimit, done, queued}; done once its specs were read or tried.
+-- Cleared per map.
 local shop = {}
-local specBudget = 0
+-- shop files whose specs the shop hasn't read yet, oldest first
+local pending = {}
+-- the game's list at the last send: mission, status, farm id for each, in
+-- the list's order, and n; nil before the first
+local seen = nil
 
 -- the widest width a shop item lists: its own, else its configurations'
 local function shopWidth(specs)
@@ -61,9 +71,18 @@ local function shopWidth(specs)
     return widest
 end
 
+local function readSpecs(info, specs)
+    info.workingWidth = Geo.round(shopWidth(specs), 2)
+    if type(specs.speedLimit) == "number" then
+        info.speedLimit = Geo.round(specs.speedLimit, 1)
+    end
+    info.done = true
+end
+
 -- a shop item by its xml file: brand and category as Vehicles.lua reads
 -- them (verified there for a vehicle's configFileName), the working width
--- (m) and working speed limit (km/h) from its specs
+-- (m) and working speed limit (km/h) from its specs. Specs the shop hasn't
+-- read yet are queued for changed(), never loaded here.
 local function shopInfo(filename)
     if type(filename) ~= "string" then
         return nil
@@ -94,20 +113,71 @@ local function shopInfo(filename)
         end
         shop[filename] = info
     end
-    if item.specs == nil and specBudget > 0 then
-        specBudget = specBudget - 1
-        Api.loadShopSpecs(item)
-        -- read or not, this file isn't tried again
-        info.done = true
-    end
     if type(item.specs) == "table" then
-        info.workingWidth = Geo.round(shopWidth(item.specs), 2)
-        if type(item.specs.speedLimit) == "number" then
-            info.speedLimit = Geo.round(item.specs.speedLimit, 1)
-        end
-        info.done = true
+        readSpecs(info, item.specs)
+    elseif not info.queued then
+        info.queued = true
+        pending[#pending + 1] = filename
     end
     return info
+end
+
+-- loads the next few queued shop files' specs, as the shop does; true when
+-- the queue has just run empty
+local function loadPending()
+    if #pending == 0 then
+        return false
+    end
+    local loads = 0
+    while loads < SPEC_LOADS_PER_FRAME and #pending > 0 do
+        local filename = table.remove(pending, 1)
+        local item = Api.tryCall(g_storeManager, "getItemByXMLFilename", filename)
+        if type(item) == "table" and item.specs == nil then
+            loads = loads + 1
+            Api.loadShopSpecs(item)
+        end
+        local info = shop[filename]
+        if info ~= nil then
+            if type(item) == "table" and type(item.specs) == "table" then
+                readSpecs(info, item.specs)
+            end
+            -- read or not, this file isn't tried again
+            info.done = true
+        end
+    end
+    return #pending == 0
+end
+
+-- the game's list as the last send saw it
+local function remember(missions)
+    seen = { n = #missions }
+    for i, mission in ipairs(missions) do
+        seen[3 * i - 2] = mission
+        seen[3 * i - 1] = mission.status
+        seen[3 * i] = mission.farmId
+    end
+end
+
+-- whether the game's list differs from the last send's: a contract new or
+-- gone, one whose status or farm moved. Runs every frame, so it reads the
+-- game's own table in place (in Api.missions()'s order) and makes nothing.
+local function listChanged()
+    local list = Api.missionTable()
+    if list == nil or seen == nil then
+        return list ~= nil
+    end
+    local n = 0
+    for k, v in pairs(list) do
+        local mission = type(v) == "table" and v or (type(k) == "table" and k or nil)
+        if mission ~= nil then
+            n = n + 1
+            local i = 3 * n
+            if seen[i - 2] ~= mission or seen[i - 1] ~= mission.status or seen[i] ~= mission.farmId then
+                return true
+            end
+        end
+    end
+    return n ~= seen.n
 end
 
 local function leaseVehicles(mission)
@@ -302,13 +372,21 @@ Companion.Collectors.Contracts = {
     interval = 2000,
     reset = function()
         shop = {}
+        pending = {}
+        seen = nil
+    end,
+    -- every frame between sends (Scheduler.lua): true sends now
+    changed = function()
+        return loadPending() or listChanged()
     end,
     collect = function(ctx)
         local missions = Api.missions()
         if missions == nil then
+            seen = nil
             return nil
         end
-        specBudget = SPEC_LOADS_PER_TICK
+        -- first, so a collect that throws further on isn't asked for every frame
+        remember(missions)
         local farmId = g_localPlayer ~= nil and g_localPlayer.farmId or nil
         local items = {}
         for _, mission in ipairs(missions) do

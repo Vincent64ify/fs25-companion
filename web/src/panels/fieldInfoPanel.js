@@ -196,7 +196,7 @@ export function createFieldInfoPanel(store, box) {
     const now = JSON.stringify(unitsOf(store));
     if (now !== units) { units = now; render(); }
   });
-  // contracts arrive every 2 s (and the game speed with env): draw again
+  // contracts arrive every 2 s and on each change (the game speed with env): draw again
   // only when the selected field's contract rows change
   for (const key of ["contracts", "env"]) {
     store.subscribe(key, () => {

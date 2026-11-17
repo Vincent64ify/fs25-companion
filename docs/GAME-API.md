@@ -574,7 +574,10 @@ name with where it came from.
 - **The list:** `g_missionManager:getMissions()`; a mission's
   `getUniqueId()`, `type.name`, `status` against `MissionStatus`,
   `finishState` against `MissionFinishState`, `farmId`.
-  `MissionManager.MAX_MISSIONS_PER_FARM` is 3.
+  `MissionManager.MAX_MISSIONS_PER_FARM` is 3. `getMissions()` returns
+  the manager's own `missions` table, not a copy (SDK
+  MissionManager.lua); mod 0.20.1 reads it every frame for changes with
+  no stutter (live-checked 2026-11-17).
 - **What it says:** `getTitle()`, `getNPC().title`, `getLocation()`,
   `getWorldPosition()`, `field` (with `getAreaHa()` and
   `getIndicatorPosition()`), `getReward()`, `getMinutesLeft()` (game

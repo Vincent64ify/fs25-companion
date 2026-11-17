@@ -268,6 +268,47 @@ test("scheduler skips nil data and emits on demand", function()
     eq(tr.sent[1].t, 7)
 end)
 
+test("scheduler runs a collector at once when it says it changed", function()
+    local tr = fakeTransport()
+    local logs = {}
+    local s = Scheduler.new(tr, function(msg) logs[#logs + 1] = msg end)
+    local change, calls = false, 0
+    s:add({ topic = "list", interval = 1000,
+        changed = function()
+            calls = calls + 1
+            if change == "throw" then
+                error("no list")
+            end
+            return change
+        end,
+        collect = function() return {} end })
+    local ctx = { time = 0 }
+    s:update(16, ctx)
+    eq(#tr.sent, 1, "the first update, as always")
+    eq(calls, 0, "changed isn't asked on a frame that runs anyway")
+    for _ = 1, 10 do
+        s:update(16, ctx)
+    end
+    eq(#tr.sent, 1, "no change: nothing")
+    eq(calls, 10, "asked every frame")
+    change = true
+    s:update(16, ctx)
+    eq(#tr.sent, 2, "a change: sent that frame")
+    change = false
+    for _ = 1, 62 do
+        s:update(16, ctx)
+    end
+    eq(#tr.sent, 2, "the interval starts again from the change: 992 ms")
+    s:update(16, ctx)
+    eq(#tr.sent, 3, "and runs 1 s after it")
+    change = "throw"
+    s:update(16, ctx)
+    s:update(16, ctx)
+    eq(#tr.sent, 3, "a failing changed is no change")
+    eq(#logs, 1, "logged once")
+    assert(logs[1]:find("topic list changed failed", 1, true), logs[1])
+end)
+
 test("scheduler resets collectors and resends the last data after a rotation", function()
     local tr = fakeTransport()
     local s = Scheduler.new(tr, function() end)
@@ -4308,6 +4349,9 @@ test("contracts: missions as the dashboard's shape, read only (specs/0018)", fun
     for i, m in ipairs(missions) do
         before[i] = shallow(m)
     end
+    collector.collect({})
+    eq(#specLoads, 0, "collect loads no shop file: changed() does, a few a frame")
+    eq(collector.changed(), true, "the one queued shop file is in: send")
     local data = collector.collect({})
     eq(data.limit, 3, "the game's per-farm limit")
     eq(Json.encode(data.shop), '{"x":-64.3,"z":277.1}', "the shop's first spawn place: where leased machines appear")
@@ -4386,7 +4430,7 @@ test("contracts: missions as the dashboard's shape, read only (specs/0018)", fun
     eq(#specLoads, 1, "and kept")
 end)
 
-test("contracts: shop specs load a few a tick; nothing without the game's parts (specs/0018)", function()
+test("contracts: shop specs load a few a frame, then one send (specs/0018)", function()
     local _, _, specLoads = contractsGame()
     load("src/collectors/Contracts.lua")
     local collector = Companion.Collectors.Contracts
@@ -4407,14 +4451,42 @@ test("contracts: shop specs load a few a tick; nothing without the game's parts 
         getVehicleCosts = function() return 600 end,
     } } }
     local first = collector.collect({})
-    eq(#specLoads, 2, "two shop files a tick at most")
+    eq(#specLoads, 0, "collect loads none")
     eq(#first.items[1].vehicles, 6, "every vehicle is listed at once")
     eq(first.items[1].vehicles[6].workingWidth, nil, "its width comes later")
-    collector.collect({})
-    collector.collect({})
+    eq(collector.changed(), false, "frame 1")
+    eq(#specLoads, 2, "two shop files a frame at most")
+    eq(collector.changed(), false, "frame 2")
+    eq(collector.changed(), true, "frame 3: the last is in, send once")
     eq(#specLoads, 6)
-    eq(collector.collect({}).items[1].vehicles[6].workingWidth, 2.4)
+    eq(collector.changed(), false, "nothing left, nothing changed")
+    local full = collector.collect({})
+    eq(full.items[1].vehicles[6].workingWidth, 2.4)
+    eq(full.items[1].vehicles[1].speedLimit, 12)
+    eq(collector.changed(), false)
     eq(#specLoads, 6, "each once")
+
+    -- a file the shop can't load is tried once and sent without a width
+    items["data/v7.xml"] = { name = "V7", categoryName = "PLOWS" }
+    vehicles[7] = { filename = "data/v7.xml" }
+    StoreItemUtil = { loadSpecsFromXML = function() error("no xml") end }
+    collector.collect({})
+    eq(collector.changed(), true, "tried: send")
+    eq(collector.collect({}).items[1].vehicles[7].workingWidth, nil)
+    eq(collector.changed(), false, "not queued again")
+end)
+
+test("contracts: shop specs and list checks need the game's parts (specs/0018)", function()
+    contractsGame()
+    load("src/collectors/Contracts.lua")
+    local collector = Companion.Collectors.Contracts
+    collector.reset()
+    g_currentMission = { vehicleSystem = { vehicles = {} } }
+    g_missionManager = { missions = { {
+        type = { name = "plowMission" }, status = MissionStatus.CREATED,
+        getUniqueId = function() return "m1" end, getTitle = function() return "Plough" end,
+    } } }
+    collector.collect({})
 
     -- the status names are the game's: without them nothing can be told apart
     MissionStatus = nil
@@ -4425,6 +4497,66 @@ test("contracts: shop specs load a few a tick; nothing without the game's parts 
     eq(bare.factors, nil)
     g_missionManager = nil
     eq(collector.collect({}), nil, "no mission manager: no topic")
+    eq(collector.changed(), false, "and no change to send")
+end)
+
+test("contracts: a change to the game's list sends at once, completion waits (specs/0018)", function()
+    local missions = contractsGame()
+    load("src/collectors/Contracts.lua")
+    local collector = Companion.Collectors.Contracts
+    collector.reset()
+    eq(collector.changed(), true, "before the first send: send")
+    collector.collect({})
+    -- the plough offer's shop file
+    eq(collector.changed(), true)
+    collector.collect({})
+    eq(collector.changed(), false, "the same list: nothing to send")
+
+    -- the missions throw on any write (fakeMission): the checks only read.
+    -- completion moves every few seconds in the game: the 2 s send has it
+    local running = missions[3]
+    rawset(running, "completion", 0.9)
+    eq(collector.changed(), false, "completion isn't a change")
+
+    rawset(running, "status", MissionStatus.FINISHED)
+    eq(collector.changed(), true, "a contract finished")
+    collector.collect({})
+    eq(collector.changed(), false, "sent")
+
+    local offer = missions[1]
+    rawset(offer, "farmId", 1)
+    eq(collector.changed(), true, "an offer taken by a farm")
+    rawset(offer, "status", MissionStatus.RUNNING)
+    collector.collect({})
+    eq(collector.changed(), false)
+
+    missions[#missions + 1] = fakeMission({ type = { name = "plowMission" }, status = MissionStatus.CREATED,
+        getUniqueId = function() return "m-new" end }, {})
+    eq(collector.changed(), true, "a new offer")
+    collector.collect({})
+    eq(collector.changed(), false)
+
+    table.remove(missions, 2)
+    eq(collector.changed(), true, "one gone")
+    collector.collect({})
+    eq(collector.changed(), false)
+
+    -- the same contracts in another order count as a change: one send too many, never one too few
+    missions[1], missions[2] = missions[2], missions[1]
+    eq(collector.changed(), true, "reordered")
+    collector.collect({})
+    eq(collector.changed(), false)
+
+    -- missions kept as keys (Api.listOf's other shape)
+    local keyed = {}
+    for _, m in ipairs(missions) do
+        keyed[m] = true
+    end
+    g_missionManager = { missions = keyed }
+    collector.collect({})
+    eq(collector.changed(), false, "keys work too")
+    rawset(missions[1], "status", MissionStatus.DISMISSED)
+    eq(collector.changed(), true, "handed in")
 end)
 
 -- specs/0019: accept, cancel, hand in -------------------------------------
@@ -4925,7 +5057,7 @@ test("whole mod streams every topic", function()
     end
 end)
 
-test("whole mod: a contract command's answer comes with the contracts topic, the same frame (specs/0019)", function()
+test("whole mod: a contract command's answer comes with the contracts topic, the same frame (specs/0019); a change in the game too (specs/0018)", function()
     if TMP_DIR == nil then
         return
     end
@@ -4978,6 +5110,27 @@ test("whole mod: a contract command's answer comes with the contracts topic, the
     for i = before + 1, #frame do
         assert(not frame[i]:find('"topic":"contracts"', 1, true), "no contracts with a beacon's ack")
     end
+    -- specs/0018, mod 0.20.1: a change in the game itself goes out that
+    -- frame, and quiet frames send nothing until the 2 s beat
+    local function contractsIn(from)
+        local all, n = lines(readFile(stream)), 0
+        for i = from + 1, #all do
+            if all[i]:find('"topic":"contracts"', 1, true) then
+                n = n + 1
+            end
+        end
+        return n, #all
+    end
+    local sent
+    sent, before = contractsIn(#lines(readFile(stream)))
+    offer.status = MissionStatus.FINISHED
+    mod:update(16)
+    sent, before = contractsIn(before)
+    eq(sent, 1, "finished in the game: sent that frame")
+    for _ = 1, 30 do
+        mod:update(16)
+    end
+    eq(contractsIn(before), 0, "no change: no send for half a second")
     mod:deleteMap()
     MissionStatus, MissionFinishState, MissionStartState, g_missionManager = nil, nil, nil, nil
     player.currentVehicle = nil

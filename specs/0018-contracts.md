@@ -1,7 +1,7 @@
 # 0018: Contracts (read-only)
 
 Status: live-checked
-Mod: 0.19.1 · Started: 2026-11-14 · Design: the chrome in [THEMES.md](../docs/THEMES.md#layout); the tiles after the HEADLAND canvas's Haul and Yard pages (private, on claude.ai); the canvas [FS25 Companion: Contracts](https://claude.ai/artifact/T8NwTQTEp6jvCdRq82xHzP) (private, on claude.ai; at 1158 × 676 and 1180 × 820, day and night; version 9 reviewed by Vincent 2026-11-14: the detail in two columns at full height, the switches over the list)
+Mod: 0.20.1 · Started: 2026-11-14 · Design: the chrome in [THEMES.md](../docs/THEMES.md#layout); the tiles after the HEADLAND canvas's Haul and Yard pages (private, on claude.ai); the canvas [FS25 Companion: Contracts](https://claude.ai/artifact/T8NwTQTEp6jvCdRq82xHzP) (private, on claude.ai; at 1158 × 676 and 1180 × 820, day and night; version 9 reviewed by Vincent 2026-11-14: the detail in two columns at full height, the switches over the list)
 
 ## Goal
 
@@ -263,6 +263,11 @@ canvas first.
 - **Mod → companion:** a new `contracts` topic, about every 2 s (a running
   contract's completion changes every 2.5 s in the game), from a new
   collector `mod/src/collectors/Contracts.lua`. Protocol v1, no `v` change.
+  Between those sends the collector's `changed()` reads the game's list
+  every frame and sends at once when a contract is new or gone, or its
+  status or farm moved. The lease machines' and your tools' shop files
+  load two a frame (never in the send itself), and the send after the
+  last one carries their widths and speeds (mod 0.20.1).
 
   ```
   contracts = {
@@ -433,6 +438,15 @@ Automated (each one a test that exists before the work is called built):
   whose calls throw is skipped, the others still sent; it never calls
   `getCompletion` or `tryToResolveSellingStation`, and changes nothing on
   the missions.
+- [x] `mod/tests/run.lua` (mod 0.20.1): a new, gone, finished or taken
+  contract makes `changed()` true the same frame, a completion alone
+  doesn't; missions kept as keys work too; the shop files load two a
+  frame, never in `collect`, each once (one that fails too), and
+  `changed()` is true once when the last is in. The scheduler runs a
+  collector the frame its `changed()` says so, starts the interval again
+  from there, and takes a failing `changed()` as no change, logged once.
+  The whole mod: a contract finished in the game is sent that frame, and
+  30 quiet frames send none.
 - [x] `companion/tests/`: a `contracts` envelope reaches a viewer unchanged.
 - [x] `tests/test_golden.py`: the Solek golden is unchanged (it has no
   contracts).
@@ -497,6 +511,20 @@ Vincent to run):
   resolve the sell point; if they're missing until you deliver, say so).
 - [x] The pins sit on the right fields; the Contracts tab works with
   Precision Farming on and off.
+
+Live check of the near-instant sends (Solek, mod 0.20.1, with
+`scripts/livewatch.py`; for Vincent to run):
+- [x] Load a save with the Contracts page open: the offers come in a
+  second or so after the map, and per hour, job time and the fitting
+  tools fill in a moment later, not over many seconds.
+- [x] A new offer, one taken or cancelled in the game's own screen, and
+  one finishing show on the dashboard at once, not up to 2 s later.
+- [x] No stutter in the game after a load or while contracts change;
+  afterwards, `stream.ndjson` has one `contracts` line per change plus
+  one per 2 s, never a run of them frame after frame (Claude counts
+  them from the file). (2026-11-17: the last session's file, 24 s with
+  nine offers and no change: 13 sends, 1.75 to 2 s apart, none back to
+  back. The load and the changes were in an earlier file.)
 
 ## Decisions
 
@@ -623,3 +651,14 @@ Open after the build, for Vincent:
   game has no `BaleMission.FILL_SUCCESS_FACTOR`, so a baling contract has
   no litres needed or Extra (in [NEXT.md](../docs/NEXT.md)); a potato
   harvest's expected litres arrive as 0.
+- 2026-11-17: from NEXT.md (Vincent: "contract information loads
+  slowly"). The mod reads the game's list every frame and sends at once
+  when a contract is new or gone, or its status or farm moved (it waited
+  for the next 2 s send); the shop files load two a frame with one send
+  after the last (it was two per 2 s send, so a load took many seconds).
+  The scheduler gains `changed()` for it. Built, mod 0.20.1; Status
+  built until its live check.
+- 2026-11-17: live check by Vincent on mod 0.20.1 (Solek): "everything
+  worked great": the offers and their figures right after a load,
+  changes at once, no stutter. The three boxes ticked; Status
+  live-checked.

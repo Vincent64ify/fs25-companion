@@ -29,7 +29,9 @@ The dashboard (browser): store → map layers and widgets, drawn by a theme
 - **A collector can't break the game.** The scheduler runs each one under
   `pcall`: a failing API call drops that topic for that tick and logs
   once. Slow work (the farmland grid) is a cursor job cut into slices per
-  frame, since the game's Luau has no coroutines.
+  frame, since the game's Luau has no coroutines. A topic too costly to
+  collect every frame can still follow the game at once: its
+  `changed()` reads a little every frame and asks for a send (contracts).
 - **Rotation.** At 2 MB the mod reopens the file with `"w"`, which empties
   it, then sends `hello` again, the last data of every topic sent once,
   and the command answers of the last 5 s

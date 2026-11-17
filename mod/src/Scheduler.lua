@@ -12,6 +12,10 @@
 --   clear state kept from the previous map
 -- * optional resend = true: the last data sent is sent again after a file
 --   rotation, for topics sent only once (the farmland grid)
+-- * optional changed(): called every frame between the interval's runs;
+--   true runs the collector at once and starts its interval again, for a
+--   topic too costly to collect every frame that must still follow the
+--   game quickly (contracts). It may do a bounded slice of work too.
 --
 -- Luau has no coroutines, so expensive work is an explicit cursor job: a
 -- collector with interval 0 runs every frame, does a bounded slice of work
@@ -71,6 +75,21 @@ function Scheduler:run(entry, ctx)
     end
 end
 
+-- a collector's changed(), under pcall: a failing one counts as no change
+-- and is logged once
+function Scheduler:hasChanged(entry)
+    local ok, changed = pcall(entry.collector.changed)
+    if not ok then
+        if not entry.changedFailing then
+            self.log(string.format("topic %s changed failed: %s", entry.collector.topic, tostring(changed)))
+        end
+        entry.changedFailing = true
+        return false
+    end
+    entry.changedFailing = false
+    return changed == true
+end
+
 function Scheduler:update(dt, ctx)
     for _, entry in ipairs(self.collectors) do
         local interval = entry.collector.interval
@@ -79,6 +98,9 @@ function Scheduler:update(dt, ctx)
             if entry.elapsed >= interval then
                 -- keep the remainder, but don't burst after a long frame
                 entry.elapsed = math.min(entry.elapsed - interval, interval)
+                self:run(entry, ctx)
+            elseif entry.collector.changed ~= nil and self:hasChanged(entry) then
+                entry.elapsed = 0
                 self:run(entry, ctx)
             end
         end

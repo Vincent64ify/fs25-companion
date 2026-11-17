@@ -12,7 +12,7 @@
 // scale, the land panel), it starts or ends at the point, or goes to the
 // other side. Looked at again when the view comes to rest.
 //
-// The topic arrives every 2 s: a pin is touched only when its place or its
+// The topic arrives every 2 s and on each change: a pin is touched only when its place or its
 // words change, so an open popup stays open.
 
 import { worldToLatLng } from "../mapView.js";

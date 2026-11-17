@@ -74,7 +74,7 @@ What each topic's data holds is described once, in
 | `field_outlines` | once per map, and after each rotation | each field's outline in world meters |
 | `fields` | every 15 s | each field's state (fruit, growth, ground, spray, lime, plow, roller, stubble, weeds, stones), farmland, sign position, area |
 | `cab` | every frame, sent only on change | what the controls show: lights, engine, cruise, AI worker, the rig (the vehicle and every attached tool, with what each can do and its state) |
-| `contracts` | every 2 s | the game's contracts, read-only: the ones on offer and your farm's, each with its reward, lease price and vehicles, time left, completion, expected and delivered litres and sell point; the per-farm limit, the game's success factors, the shop's place (where leased machines appear), and your own tools ([spec 0018](../specs/0018-contracts.md)); a finished one's `total`, what hand in books ([spec 0019](../specs/0019-contract-actions.md)); also sent with a contract command's ack |
+| `contracts` | every 2 s, and at once when the game's list changes (a contract new or gone, or its status or farm moved) or the last lease machine's shop file is read | the game's contracts, read-only: the ones on offer and your farm's, each with its reward, lease price and vehicles, time left, completion, expected and delivered litres and sell point; the per-farm limit, the game's success factors, the shop's place (where leased machines appear), and your own tools ([spec 0018](../specs/0018-contracts.md)); a finished one's `total`, what hand in books ([spec 0019](../specs/0019-contract-actions.md)); also sent with a contract command's ack |
 | `command_ack` | the frame a command runs, with `cab` | the command's number and `ref`, ok or the reason, what ran (`via`), `already` when nothing had to |
 
 A collector whose API call fails drops only its own topic (or a single
@@ -86,7 +86,9 @@ Add `src/collectors/<Name>.lua` returning
 `{ topic = "...", interval = ms, collect = function(ctx) return data end }`,
 list it in `modDesc.xml` and register it in `Companion.lua`. Optional:
 `reset()` clears per-map state, and `resend = true` re-sends the last data
-after a file rotation (for topics sent once). Expensive work is a cursor
+after a file rotation (for topics sent once), and `changed()`, asked every
+frame between the interval's runs, runs the collector at once when it
+answers true (see `Contracts.lua`). Expensive work is a cursor
 job: `interval = 0`, a bounded slice per call, and `nil` until done (see
 `FarmlandGrid.lua`). The companion passes unknown topics through
 unchanged; describe the new one in `web/src/types.js`.

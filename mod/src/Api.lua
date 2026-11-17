@@ -134,9 +134,9 @@ end
 -- (gameSource.zip: dataS/scripts/missions/) or FS25_BetterContracts, none
 -- verified in game yet.
 
--- every mission the game holds, as an array, or nil: MissionManager's
+-- the game's own table of missions, not copied, or nil: MissionManager's
 -- getMissions(), else its missions table
-function Api.missions()
+function Api.missionTable()
     local manager = g_missionManager
     if type(manager) ~= "table" then
         return nil
@@ -145,7 +145,13 @@ function Api.missions()
     if type(list) ~= "table" then
         list = manager.missions
     end
-    return type(list) == "table" and Api.listOf(list) or nil
+    return type(list) == "table" and list or nil
+end
+
+-- every mission the game holds, as an array, or nil
+function Api.missions()
+    local list = Api.missionTable()
+    return list ~= nil and Api.listOf(list) or nil
 end
 
 -- the game's enums are blanked in gameSource.zip: compared at run time

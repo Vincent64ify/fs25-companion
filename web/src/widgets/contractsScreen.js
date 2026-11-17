@@ -12,7 +12,7 @@
 // does or why it's faded. Pending from touch-down until the mod answers,
 // "Failed" on the button when it says no; Cancel asks once more.
 //
-// The topic arrives every 2 s: the page is drawn again only when what it
+// The topic arrives every 2 s and on each change: the page is drawn again only when what it
 // shows changed, and the list keeps its scroll. While another screen shows
 // it does nothing (the player's place arrives ten times a second); it
 // draws when it's shown again.
