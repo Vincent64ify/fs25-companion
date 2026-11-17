@@ -61,7 +61,7 @@ now is faded and says why in the line beside it.
 - **Faded, with the reason beside it:**
   - "3 of 3 taken: hand one in first." when your farm holds the game's
     limit (finished ones count until handed in);
-  - "Another contract is still getting ready" while one of yours is
+  - "Another contract is still getting ready." while one of yours is
     preparing (the game starts one at a time).
 - **A tap:** the button is pending from touch-down. When the game took
   it, the contract moves to Yours, the detail stays on it, and the row
@@ -145,9 +145,13 @@ Topics gain fields (Protocol v1); `v` doesn't change.
 - **Mod → companion** (`contracts`, as spec 0018):
   - `total` (number, €, finished contracts): the game's
     `getTotalReward()`, what Hand in will book (before a successful
-    contract's reimbursement, Behaviour). A plain read: it adds up four
-    getters and changes nothing. Absent when the call fails; then the
-    button has no sum.
+    contract's reimbursement, Behaviour). Read **only on a finished
+    contract**: on one that isn't, it works out the completion, which on a
+    harvest contract starts the field's completion with no modifier; once
+    that contract is taken the game's update fails every frame
+    (`AbstractFieldMission.lua:493`) and the game stops (three freezes
+    from the spike, 2026-11-17, spec 0018's Log). Absent when the call
+    fails; then the button has no sum.
   - Nothing else is new: the limit (`limit`), who holds what (`mine`,
     `status`), and whether there's a lease (`vehicles`, `vehicleCosts`)
     are already there.
@@ -165,8 +169,9 @@ Topics gain fields (Protocol v1); `v` doesn't change.
   attribute. A real id is "mission" and 32 hex digits
   (`mission00340f3982b386de3c3c23fb16536e09`, the stream of
   2026-11-16); the fixture's made-up ids ("c-harvest-4") fit too.
-- **Web** (`web/src/types.js`): `total` on a contract; `contract` on a
-  command.
+- **Web** (`web/src/types.js`): `total` on a contract. A command's
+  `contract` is the last argument of `send()` in `web/src/commands.js` and
+  of `sendCommand` in `connection.js` (there's no command type).
 - **Web** (`web/src/data/contracts.js`): `action(contract, topic, prefs,
   units)` → which button (`kind`, `command`, `value`), its label, the
   line beside it, filled or plain, faded, and Cancel's second ask, as a
@@ -176,18 +181,19 @@ Topics gain fields (Protocol v1); `v` doesn't change.
   fifth.
 
 Game API names used. All from FS25's own `dataS/scripts/missions/` in the
-SDK's `gameSource.zip` (read 2026-11-16) unless said; none is verified
-live, so all go behind guards in `mod/src/Api.lua`.
+SDK's `gameSource.zip` (read 2026-11-16) unless said; all go behind guards
+in `mod/src/Api.lua`, and each row says how far it's verified (the spike
+and live checks of 2026-11-16 and 17; GAME-API.md has them).
 
 | Name | Where from | State |
 |---|---|---|
-| `g_missionManager:getMissionByUniqueId(id)` | MissionManager.lua | a function in the game (spike 2026-11-16); not called yet |
+| `g_missionManager:getMissionByUniqueId(id)` | MissionManager.lua | a function in the game (spike 2026-11-16); called first by every contract command (`Api.missionById`), its answer taken only when it carries that id |
 | `g_missionManager:startMission(mission, farmId, spawnVehicles)` → a `MissionStartState` | MissionManager.lua (asserts it runs on the server) | verified (spike 2026-11-16: `OK` with lease and without) |
 | `MissionStartState.OK`, `NO_ACCESS`, `LIMIT_REACHED`, `ALREADY_STARTED`, `PENDING_MISSION`, `NOT_AVAILABLE_ANYMORE`, `CANNOT_BE_STARTED_NOW`, and `NO_PERMISSION` | MissionManager.lua (the table itself isn't in the zip) | there (spike 2026-11-16: OK 1, LIMIT_REACHED 2, ALREADY_STARTED 3, NOT_AVAILABLE_ANYMORE 4, NO_ACCESS 5, CANNOT_BE_STARTED_NOW 6, PENDING_MISSION 7, NO_PERMISSION 8, which the script never returns); the mod compares by name |
 | `g_missionManager:cancelMission(mission)` → true or false | MissionManager.lua (server only; calls `mission:finish(MissionFinishState.CANCELED)`) | verified (spike 2026-11-16: true, finished and `CANCELED` the same frame) |
 | `g_missionManager:dismissMission(mission)` | MissionManager.lua (server only; `mission:dismiss()` books `getTotalReward()`, then `mission:delete()`) | verified (spike 2026-11-16: true; the money moved by the total and the contract left the list the same frame) |
 | `g_missionManager:hasFarmReachedMissionLimit(farmId)` | MissionManager.lua | verified (spike 2026-11-16: true with three held, false after the hand-in) |
-| `mission:getTotalReward()` | AbstractMission.lua | verified for a cancelled, leased contract (−400, the lease; booked exactly); a success not seen. Nothing for a harvest contract on offer |
+| `mission:getTotalReward()` | AbstractMission.lua | verified for a cancelled, leased contract (−400, the lease; booked exactly), and a success (live check 2026-11-17). **Only on a finished contract**: on a harvest contract that isn't, it froze the game once taken (2026-11-17) |
 | `mission:hasLeasableVehicles()`, `mission:isSpawnSpaceAvailable()` | AbstractMission.lua (the second marks shop places while it looks and unmarks them before it returns) | verified for `isSpawnSpaceAvailable()` true (spike 2026-11-16); false not seen. Called once, on an Accept with lease |
 | What the game does with no room: `failedToLoadVehicles`, the loaded machines deleted, `spawnedVehicles` false, the contract still started | AbstractMission.lua (the vehicle loading callback) | read only to explain the check before Accept; unverified |
 | `g_currentMission:getIsServer()` | used all through the game's scripts | verified (true in single player) |
@@ -548,3 +554,8 @@ finished contract).
   success's reimbursement, and `startMission` refused nothing (no
   refusal seen; `isSpawnSpaceAvailable()` false not seen either). The
   game's log has no error from the calls.
+- 2026-11-17: an egm drift report fixed, words only: `total` is read only
+  on a finished contract (`getTotalReward()` isn't a plain read: the
+  freezes in spec 0018's Log), `getMissionByUniqueId` is called by every
+  contract command, the table's verified state, where a command's
+  `contract` is typed, and a full stop.

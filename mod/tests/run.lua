@@ -4406,7 +4406,10 @@ test("contracts: missions as the dashboard's shape, read only (specs/0018)", fun
     eq(Json.encode(data.shop), '{"x":-64.3,"z":277.1}', "the shop's first spawn place: where leased machines appear")
     g_currentMission.storeSpawnPlaces = nil
     eq(collector.collect({}).shop, nil, "no spawn places: no shop")
-    eq(Json.encode(data.factors), '{"bale":0.9,"field":0.95,"harvest":0.93}', "the success factors, read")
+    -- BaleMission.FILL_SUCCESS_FACTOR is FS25_BetterContracts' own (it sets
+    -- it at load): the base game has no baling factor and a baling
+    -- contract no litres (spike, 2026-11-17), so it isn't read
+    eq(Json.encode(data.factors), '{"field":0.95,"harvest":0.93}', "the success factors, read; no bale")
 
     local byId = {}
     for _, item in ipairs(data.items) do

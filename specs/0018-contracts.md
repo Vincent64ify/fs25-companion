@@ -1,7 +1,7 @@
 # 0018: Contracts (read-only)
 
 Status: live-checked
-Mod: 0.20.4 · Started: 2026-11-14 · Design: the chrome in [THEMES.md](../docs/THEMES.md#layout); the tiles after the HEADLAND canvas's Haul and Yard pages (private, on claude.ai); the canvas [FS25 Companion: Contracts](https://claude.ai/artifact/T8NwTQTEp6jvCdRq82xHzP) (private, on claude.ai; at 1158 × 676 and 1180 × 820, day and night; version 9 reviewed by Vincent 2026-11-14: the detail in two columns at full height, the switches over the list)
+Mod: 0.20.5 · Started: 2026-11-14 · Design: the chrome in [THEMES.md](../docs/THEMES.md#layout); the tiles after the HEADLAND canvas's Haul and Yard pages (private, on claude.ai); the canvas [FS25 Companion: Contracts](https://claude.ai/artifact/T8NwTQTEp6jvCdRq82xHzP) (private, on claude.ai; at 1158 × 676 and 1180 × 820, day and night; version 9 reviewed by Vincent 2026-11-14: the detail in two columns at full height, the switches over the list)
 
 ## Goal
 
@@ -20,7 +20,8 @@ SDK's `gameSource.zip`) and from
 [FS25_BetterContracts](https://github.com/Mmtrx/FS25_BetterContracts) by
 Mmtrx (GPL 3.0, like this project), which reads and works out the same
 things. We take facts and names from it, no code. The dashboard never needs
-it installed, and reads raw values, so they're the same with it on or off.
+it installed. It reads the game's values, so with BetterContracts on, the
+harvest factor is the one it sets (0.94), which its game then uses too.
 
 ## Behaviour
 
@@ -56,7 +57,7 @@ it installed, and reads raw values, so they're the same with it on or off.
   wheat"), who it's for, then four numbers in one line: **Net** (reward
   minus the lease, if you lease), **Time** (estimated work time), **Per
   hour** (net ÷ the whole job's time, below) and **Left** (time before the deadline). A harvest
-  or baling contract adds **+ extra** (what the crop you keep is worth, see
+  contract adds **+ extra** (what the crop you keep is worth, see
   below). A number the game doesn't give is left out, not shown as 0.
   One of yours shows its progress instead: the bar and %, then "field 83 %
   worked of 95 %" or "delivered 9,800 l of 14,880 l · 5,080 l to go", then
@@ -103,7 +104,7 @@ A tap on a row opens its detail in a tile beside the list (over it when
 narrow):
 
 - **Money:** Reward, Lease (the game's vehicle cost, if leased), **Net**,
-  and for a harvest or baling contract **Extra**: the litres you keep and
+  and for a harvest contract **Extra**: the litres you keep and
   their value at the contract's sell point, with the price used ("1 240 l
   wheat · 268 € at Grain mill, 216 €/1000 l"). **Total** = Net + Extra.
 - **Work:** the field (number, area), the estimated work time and how it's
@@ -138,7 +139,9 @@ always labelled an estimate:
     fit a wrapping contract, whose bales already lie on the field.
   - **no estimate** for the other kinds (stone picking, wood ...).
 - **The rate:** width × working speed ÷ 10 ha/h, the speed being the
-  tool's own limit (shop data), or the tractor's cruise top when lower.
+  tool's own limit (shop data), or the cruise top of what you drive when
+  lower and the tool is on that rig (a leased tool, or one of yours not
+  attached, goes by its own limit).
 - **The overhead per job:** headland turns, overlaps, refills and unloading
   make real work slower than that rate, and more for some jobs than
   others. The time is multiplied by a factor per contract type, starting
@@ -196,7 +199,7 @@ nearest deadline first, with:
   `spawnedVehicles`), not the page's switch: Net and the vehicles follow
   it. With your own machines the detail names the tool of yours that fits.
 - **Time left** as in the detail.
-- **Where to deliver** (harvest, baling, transport): the sell point's name,
+- **Where to deliver** (harvest, transport): the sell point's name,
   and a pin on the map.
 - **Finished:** a finished contract shows its outcome (success, failed,
   timed out) and the game's final sums (reward, lease, reimbursement,
@@ -212,7 +215,8 @@ mini, and a drawer like the canvas's Fleet would cover the tool cards.
 Instead (agreed to try, 2026-11-14):
 - **The field panel** (Map and Vehicle pages), on a field with one of your
   running contracts: one more row for that contract, "Contract · Plough ·
-  87 % · 2 days 4 h left". A tap opens the Contracts tab on it. The game
+  87 %" over its two times ("deadline 2 days 4 h game time · work left ≈
+  6 min real time"). A tap opens the Contracts tab on it. The game
   allows one contract per farmland as far as the SDK shows
   (`getIsMissionRunningOnFarmland`); if a field ever has two, each gets
   its row. The Map's land panel shows the row under the field you tapped.
@@ -273,7 +277,7 @@ canvas first.
   contracts = {
     shop        = { x, z },     -- where leased machines appear (absent: unknown)
     limit       = 3,            -- contracts one farm may hold (absent: unknown)
-    factors     = { field = 0.95, harvest = 0.93, bale = 0.9 },  -- read at run time
+    factors     = { field = 0.98, harvest = 0.93 },  -- read at run time (no baling one)
     items = [{
       id          = "…",        -- the mission's unique id
       type        = "harvestMission",   -- the game's type name
@@ -298,7 +302,8 @@ canvas first.
       stealingCost  = 0,        -- € (finished)
       minutesLeft = 3120,       -- game minutes to the deadline (absent: none)
       completion  = 0.87,       -- the game's own 0..1 (running, finished)
-      expectedLiters  = 44000,  -- harvest, baling, delivery
+      expectedLiters  = 44000,  -- harvest: the game's once it runs; an offer's
+                                -- from getMaxCutLiters() (the game says 0)
       depositedLiters = 41200,  -- running
       sellPoint   = { name = "Grain mill", x, z, price = 0.216 },  -- €/l, effective
       vehicles = [{ name, brand, category, categoryTitle, workingWidth, speedLimit }],
@@ -320,14 +325,18 @@ canvas first.
   `VehiclePropertyState.MISSION`).
 
   The mod only reads: no game function is replaced, nothing is written into
-  a mission, and calls that change state (`getCompletion()` drives the
-  field's completion modifier, `tryToResolveSellingStation()` sets the sell
-  point) are never made. A running contract's completion is the value the
-  game keeps (`mission.completion`). One thing is loaded: a shop item's
-  specs (`item.specs`, which the game clears at start and the shop fills
-  when it lists the item), through the game's own
-  `StoreItemUtil.loadSpecsFromXML`: once per item, two items a tick at
-  most, so a width can arrive a few seconds after its vehicle.
+  a mission, and calls that change state are never made:
+  `getCompletion()` and `getFieldCompletion()` (they drive the field's
+  completion modifier), `getTotalReward()` and `getReimbursement()` on a
+  contract that isn't finished (on a harvest one they start its completion
+  with no modifier, and the game freezes once it's taken: spec Log,
+  2026-11-17), and `tryToResolveSellingStation()` (it sets the sell
+  point). A running contract's completion is the value the game keeps
+  (`mission.completion`). One thing is loaded: a shop item's specs
+  (`item.specs`, which the game clears at start and the shop fills when it
+  lists the item), through the game's own
+  `StoreItemUtil.loadSpecsFromXML`: once per item, two a frame in
+  `changed()` and never in the send, as above.
 
 - **Web** (`web/src/types.js`): a `Contracts` typedef with the fields above.
 - **Web** (`web/src/data/contracts.js`, new, pure functions): `net`,
@@ -378,12 +387,13 @@ uses FS22's `getMissionsList` and `AbstractMission.STATUS_RUNNING`).
 | `mission:getMinutesLeft()` | SDK AbstractMission.lua (game minutes from `endDate`) | verified (live check 2026-11-15 and 16) |
 | `mission.completion` | SDK AbstractMission.lua (`updateTick`) | verified (live check 2026-11-15 and 16) |
 | `AbstractMission.SUCCESS_FACTOR` | SDK AbstractFieldMission.lua (value blanked; BC says 0.95) | verified: sent as 0.98 on Solek (not BC's 0.95) |
-| `HarvestMission.SUCCESS_FACTOR`, `BaleMission.FILL_SUCCESS_FACTOR` | BC betterContracts.lua (0.93 or 0.94; 0.9) | `HarvestMission.SUCCESS_FACTOR` verified (0.93); `BaleMission.FILL_SUCCESS_FACTOR` isn't there: no `bale` factor is sent ([NEXT.md](../docs/NEXT.md)) |
+| `HarvestMission.SUCCESS_FACTOR` | BC betterContracts.lua (0.93 or 0.94) | verified (0.93); with BetterContracts on, its config's value |
+| `BaleMission.FILL_SUCCESS_FACTOR` | BC betterContracts.lua (BetterContracts sets it at load) | not read from mod 0.20.5: the base game has none, and a baling contract has no litres (spike, 2026-11-17) |
 | `mission.expectedLiters`, `mission.depositedLiters`, `mission.fillTypeIndex` | BC betterContracts.lua | verified (live check 2026-11-15 and 16) |
 | `getTotalReward()`, `getReimbursement()` on a contract not finished; `getFieldCompletion()` | AbstractMission.lua | **never called** (only a finished one's sums): on a harvest offer `getTotalReward()` starts the field's completion with no modifier; once the contract starts the game's update fails every frame (`AbstractFieldMission.lua:493`, ipairs on nil) and the game stops (live, 2026-11-17, the spike's `csMissions`) |
-| `HarvestMission:getMaxCutLiters()`, read when `expectedLiters` is 0 (every harvest offer) | BC betterContracts.lua (its addMission does the same) | safe on an offer: spike 0.0.14's `csMaxCut`, 2026-11-17 (11,452 l, the completion state unchanged); its litres against the game's not checked yet |
+| `HarvestMission:getMaxCutLiters()`, read when `expectedLiters` is 0 (every harvest offer) | BC betterContracts.lua (its addMission does the same) | safe on an offer: spike 0.0.14's `csMaxCut`, 2026-11-17 (11,452 l, the completion state unchanged); its litres match the game's contracts screen (live, 2026-11-17) |
 | `mission.sellingStation`, `:getName()`, `:getEffectiveFillTypePrice(fillType)` | BC betterContracts.lua | verified (live check 2026-11-15 and 16) |
-| `g_storeManager:getItemByXMLFilename(filename)`, `item.name`, brand and category titles | [GAME-API.md](../docs/GAME-API.md#verified-since-phase-0) "Brand and shop category" | verified for a vehicle's `configFileName`; unverified for a lease's `filename` |
+| `g_storeManager:getItemByXMLFilename(filename)`, `item.name`, brand and category titles | [GAME-API.md](../docs/GAME-API.md#verified-since-phase-0) "Brand and shop category" | verified for a vehicle's `configFileName`, and for a lease's `filename` (the lease vehicles match the game's list, live check 2026-11-15) |
 | `item.specs.workingWidth.width` (a table `{width, minWidth}`), `item.specs.workingWidthConfig[config][index].width`, `item.specs.speedLimit` (km/h) | SDK Vehicle.lua (`loadSpecValueWorkingWidth`, `...Config`, `loadSpecValueSpeedLimit`) | verified (live check 2026-11-15 and 16) |
 | `StoreItemUtil.loadSpecsFromXML(item)` (fills `item.specs`) | SDK StoreItemUtil.lua, StoreManager.lua (`specs = nil` at load) | verified (live check 2026-11-15 and 16) |
 | `mission.spawnedVehicles` (you took the lease) | SDK AbstractMission.lua | verified (live check 2026-11-15 and 16) |
@@ -408,7 +418,8 @@ scope).
 - **Mod:** `collectors/Contracts.lua` (read-only, one entry per mission,
   each read guarded), the names in `Api.lua`, registered at 2000 ms in
   `Companion.lua`; version 0.19.0 in `modDesc.xml`; the topic in
-  `mod/README.md`.
+  `mod/README.md`. Mod 0.20.1: the scheduler's per-frame `changed()` hook
+  (`Scheduler.lua`) for the near-instant sends.
 - **Companion:** nothing (it passes topics through); a test that
   `contracts` reaches a viewer.
 - **Web:** `types.js`, `data/contracts.js`, `widgets/contractsScreen.js`,
@@ -457,6 +468,10 @@ Automated (each one a test that exists before the work is called built):
   spike asks only a finished contract for its sums and reads `fields`
   first; `csMaxCut` calls once on a harvest offer and records the state
   around it.
+- [x] (mod 0.20.5) `mod/tests/run.lua`: no `bale` factor is read, even
+  with `BaleMission.FILL_SUCCESS_FACTOR` there. `web/test.html`: a baling
+  or bale-wrapping contract has no success factor, no field-worked line
+  and no extra litres, even when the factors carry BetterContracts' `bale`.
 - [x] `companion/tests/`: a `contracts` envelope reaches a viewer unchanged.
 - [x] `tests/test_golden.py`: the Solek golden is unchanged (it has no
   contracts).
@@ -751,3 +766,13 @@ Open after the build, for Vincent:
   match the game's contracts screen; that box ticked. Then the freeze
   box too, by Vincent, on the baling and Farmland 79 runs (a potato
   harvest not taken again). Every box ticked; Status live-checked.
+- 2026-11-17: an egm drift report (specs 0018 and 0019) fixed. Mod 0.20.5
+  no longer reads `BaleMission.FILL_SUCCESS_FACTOR`, and the web gives
+  baling and bale wrapping no success factor: with BetterContracts on, a
+  baling contract read "field X % worked of 90 %" from a factor the base
+  game doesn't use. `types.js`: the topic's `shop`, and its words. The
+  spec's words brought in line: no Extra or delivery for baling, the
+  shop specs two a frame, every call never made, the field panel row, the
+  cruise top only for the tool on your rig, the Plan's `Scheduler.lua`,
+  stale table rows. No change a vanilla game shows; Status stays
+  live-checked.

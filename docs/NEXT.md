@@ -11,6 +11,5 @@ spec, and features waiting for one. Longer-term ideas are in
   `THRESHOLD_LITERS` 1500) or of the area, and whether any straw or bales
   are yours to keep (an Extra). Check: at a noted %, the litres in the
   bales made against `spawnedLiters` × completion; then see what's left
-  after it finishes. `BaleMission.FILL_SUCCESS_FACTOR` is only
-  BetterContracts'; the mod's read of it and the web's `bale` branch do
-  nothing in a vanilla game.
+  after it finishes. (Mod 0.20.5 no longer reads BetterContracts'
+  `BaleMission.FILL_SUCCESS_FACTOR`; the web gives baling no factor.)

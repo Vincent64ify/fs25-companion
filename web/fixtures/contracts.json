@@ -2,7 +2,7 @@
   "about": "A made-up contracts topic (specs/0018), in the shape mod/src/collectors/Contracts.lua sends, on real Solek fields so it fits the replay. Replaced by a real dump after the live check.",
   "contracts": {
     "limit": 3,
-    "factors": { "field": 0.95, "harvest": 0.93, "bale": 0.9 },
+    "factors": { "field": 0.95, "harvest": 0.93 },
     "items": [
       {
         "id": "c-harvest-4", "type": "harvestMission", "title": "Harvest", "npc": "Mill", "location": "Field 4",

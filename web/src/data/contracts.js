@@ -12,7 +12,7 @@ import { cabOf, controlledVehicle, rigOf } from "./selectors.js";
 /** @typedef {import("../types.js").Contract} Contract */
 /** @typedef {import("../types.js").ContractTool} ContractTool */
 /** @typedef {import("../types.js").ContractVehicle} ContractVehicle */
-/** @typedef {{field?: number, harvest?: number, bale?: number}} Factors */
+/** @typedef {{field?: number, harvest?: number}} Factors */
 /** @typedef {"lease"|"own"} Mode */
 /** @typedef {"hour"|"net"|"left"|"km"} SortKey */
 
@@ -111,15 +111,17 @@ export function net(c, leased) {
 
 /**
  * The share of a contract that counts as done, read from the game: of the
- * expected litres for a harvest or baling contract, of the field for
- * field work.
+ * expected litres for a harvest, of the field for field work. None for
+ * baling and bale wrapping: their completion isn't the field's share over
+ * a factor (a baling contract's is the game's fieldPercentageDone itself,
+ * spike 2026-11-17), whatever factor a mod puts in.
  * @param {Contract} c @param {Factors|undefined} factors
  * @returns {number|undefined}
  */
 export function successFactor(c, factors) {
   const type = (c.type || "").toLowerCase();
   if (type.includes("harvest")) return num(factors?.harvest);
-  if (type.includes("bale")) return num(factors?.bale);
+  if (type.includes("bale")) return undefined;
   return c.fieldId !== undefined ? num(factors?.field) : undefined;
 }
 

@@ -3283,23 +3283,28 @@ check("contracts: an offer counts the lease by the switch, yours by what you too
   ct.withLease({ ...ploughOffer, status: "running", mine: true, leased: false }, "lease"),
   ct.withLease({ ...ploughOffer, status: "running", mine: true, leased: true }, "own")], [true, false, false, false, true]);
 
-// the extra crop: what the game doesn't ask for, at the sell point's price
+// the extra crop: what the game doesn't ask for, at the sell point's price.
+// bale: 0.9 is what FS25_BetterContracts puts in the game; the base game has
+// no baling factor, and a baling contract has no litres (spike, 2026-11-17)
 const ctFactors = { field: 0.95, harvest: 0.93, bale: 0.9 };
 const harvestRun = { id: "h", status: "running", mine: true, type: "harvestMission", fieldId: 3, expectedLiters: 44000,
   depositedLiters: 37000, sellPoint: { name: "Grain mill", price: 0.216 } };
 check("contracts: extra litres and their value from the game's factor and the price", [
   r2(ct.extraLiters(harvestRun, ctFactors)), r2(ct.extraValue(harvestRun, ctFactors)), r2(ct.neededLiters(harvestRun, ctFactors)),
-  r2(ct.extraLiters({ ...harvestRun, type: "baleMission" }, ctFactors)),
+  ct.extraLiters({ ...harvestRun, type: "baleMission" }, ctFactors),
   ct.extraLiters(harvestRun, {}), ct.extraValue({ ...harvestRun, sellPoint: { name: "Mill" } }, ctFactors),
-  ct.extraLiters(ploughOffer, ctFactors)], [3080, 665.28, 40920, 4400, undefined, undefined, undefined]);
+  ct.extraLiters(ploughOffer, ctFactors)], [3080, 665.28, 40920, undefined, undefined, undefined, undefined]);
 check("contracts: litres to go against the litres the game asks for; never below 0", [
   r2(ct.deliveredToGo(harvestRun, ctFactors)), ct.deliveredToGo({ ...harvestRun, depositedLiters: 50000 }, ctFactors),
   ct.deliveredToGo({ ...harvestRun, depositedLiters: undefined }, ctFactors), ct.deliveredToGo(harvestRun, undefined)],
 [3920, 0, undefined, undefined]);
-check("contracts: the field worked is the game's completion × its factor", [
+check("contracts: the field worked is the game's completion × its factor; baling has none, whatever a mod puts in", [
   r2(ct.fieldWorked({ id: "f", status: "running", fieldId: 1, type: "plowMission", completion: 0.87 }, ctFactors)),
-  ct.fieldWorked(harvestRun, ctFactors), ct.fieldWorked({ id: "f", status: "running", fieldId: 1, completion: 0.87 }, {})],
-[0.83, undefined, undefined]);
+  ct.fieldWorked(harvestRun, ctFactors), ct.fieldWorked({ id: "f", status: "running", fieldId: 1, completion: 0.87 }, {}),
+  ct.fieldWorked({ id: "b", status: "running", fieldId: 135, type: "baleMission", completion: 0.62 }, ctFactors),
+  ct.successFactor({ id: "b", type: "baleMission", fieldId: 135 }, ctFactors),
+  ct.successFactor({ id: "w", type: "baleWrapMission", fieldId: 36 }, ctFactors)],
+[0.83, undefined, undefined, undefined, undefined, undefined]);
 
 // your tools that fit: by shop category, attached first, then widest
 const ctTools = [

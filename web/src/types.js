@@ -355,20 +355,23 @@
  *   in books (mod 0.20.0, specs/0019; a success's reimbursement comes on top)
  * @property {number} [minutesLeft] game minutes to the deadline
  * @property {number} [completion] the game's own 0..1 (running, finished)
- * @property {number} [expectedLiters] harvest, baling
+ * @property {number} [expectedLiters] a harvest's: the game's once it runs; an
+ *   offer's from getMaxCutLiters() (the game says 0 until it starts, mod 0.20.4)
  * @property {number} [depositedLiters] yours
  * @property {{name?: string, x?: number, z?: number, price?: number}} [sellPoint] price per litre, effective
  * @property {ContractVehicle[]} [vehicles] the lease's
  */
 
 /**
- * The contracts topic, every 2 s (mod 0.19.0, specs/0018). limit: how many
- * contracts one farm may hold; factors: the share that counts as done, read
- * from the game (of the field worked, of a harvest's or a baling
- * contract's expected litres delivered).
+ * The contracts topic, every 2 s and the frame a contract is new or gone or
+ * its status or farm moves (mod 0.19.0 and 0.20.1, specs/0018). shop: where
+ * leased machines appear (mod 0.19.1); limit: how many contracts one farm
+ * may hold; factors: the share that counts as done, read from the game (of
+ * the field worked, of a harvest's expected litres delivered).
  * @typedef {Object} Contracts
+ * @property {{x: number, z: number}} [shop]
  * @property {number} [limit]
- * @property {{field?: number, harvest?: number, bale?: number}} [factors]
+ * @property {{field?: number, harvest?: number}} [factors]
  * @property {Contract[]} items
  * @property {ContractTool[]} [tools]
  */

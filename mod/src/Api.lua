@@ -224,14 +224,15 @@ local function factorOf(class, key)
 end
 
 -- the share that counts as done: of a field worked (AbstractMission), of a
--- harvest's expected litres delivered (HarvestMission), of a baling
--- contract's (BaleMission; the last two from BetterContracts). nil when
--- none is there.
+-- harvest's expected litres delivered (HarvestMission, after
+-- BetterContracts; with it installed, its own value, which the game then
+-- uses too). nil when none is there. No baling factor: the base game has
+-- none (BaleMission.FILL_SUCCESS_FACTOR is BetterContracts' own) and a
+-- baling contract has no litres (spike, 2026-11-17).
 function Api.missionFactors()
     local out = {
         field = factorOf(AbstractMission, "SUCCESS_FACTOR"),
         harvest = factorOf(HarvestMission, "SUCCESS_FACTOR"),
-        bale = factorOf(BaleMission, "FILL_SUCCESS_FACTOR"),
     }
     return next(out) ~= nil and out or nil
 end
