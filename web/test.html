@@ -1362,16 +1362,18 @@ check("implement controls: Detach sends the selected tool's id, Lower all the st
 
 // the tanks on a card (the Implement screen's, the Vehicle page's cards' since specs/0003)
 const { tankRows } = await import("./src/widgets/vehicleTools.js");
-const tank = (level, minutes, full) => ({ entry: { depth: 1 }, fill: { level, capacity: 1000, fillType: "seeds" },
+const tank = (level, minutes, full, pipe) => ({ entry: { depth: 1, pipe }, fill: { level, capacity: 1000, fillType: "seeds" },
   left: minutes === undefined ? undefined : { minutes, full } });
-check("implement card: the tank that runs out first; a filling tank nearly full calls a trailer",
+check("implement card: the tank that runs out first; a filling tank nearly full calls a trailer only on a tool with a pipe "
+  + "(a baler drops its bales, a forage wagon tips its own)",
   [tankRows([tank(500, 30, false), tank(400, 12, false)]).map((t) => t.chips),
-    tankRows([tank(500, 30, false)]).map((t) => t.chips), tankRows([tank(850, 4, true)]).map((t) => [t.chips, t.when])],
-  [[[], ["Runs out first"]], [[]], [[["Call a trailer"], "full in ≈ 4 min"]]]);
+    tankRows([tank(500, 30, false)]).map((t) => t.chips), tankRows([tank(850, 4, true, { out: false })]).map((t) => [t.chips, t.when]),
+    tankRows([tank(850, 4, true)]).map((t) => [t.chips, t.when])],
+  [[[], ["Runs out first"]], [[]], [[["Call a trailer"], "full in ≈ 4 min"]], [[[], "full in ≈ 4 min"]]]);
 const limited = (level, limit, max, minutes, pipe) => ({ entry: { depth: 0, pipe }, left: minutes === undefined ? undefined
   : { minutes, full: true }, fill: { level, capacity: 1000, limit, maxReached: max, fillType: "wheat" } });
 check("implement card: the weight limit: MAX, near full of the limit calls a trailer, a harvester at MAX too", [
-  tankRows([limited(500, 600, false, 10)]).map((t) => [t.chips, t.max]),
+  tankRows([limited(500, 600, false, 10, { out: false })]).map((t) => [t.chips, t.max]),
   tankRows([limited(760, 760, true, undefined, { out: false })]).map((t) => [t.chips, t.max, t.when]),
   tankRows([limited(760, 760, true, undefined)]).map((t) => [t.chips, t.when]),
   [{ level: 760, capacity: 1000, limit: 760, maxReached: true }, { level: 10, capacity: 100, limit: 50 }, { level: 10, capacity: 100 }]

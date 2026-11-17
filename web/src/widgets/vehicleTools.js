@@ -118,7 +118,9 @@ export function rigTanks(rig, v, rates) {
  * A card's tanks: each fill unit with its litres and estimate; the one that
  * runs out first (of two or more) gets a chip, and a tank filling up that's
  * nearly full asks for a trailer, as does a harvester's tank at its weight
- * limit (the game's MAX: it takes no more).
+ * limit (the game's MAX: it takes no more). Only a tool with a pipe unloads
+ * into a trailer: a baler drops its bales, a forage wagon tips its own load
+ * (Vincent, 2026-11-17), so their full tanks ask for none.
  * @param {ReturnType<typeof rigTanks>} tanks the card tool's
  */
 export function tankRows(tanks) {
@@ -131,7 +133,7 @@ export function tankRows(tanks) {
     const ofStop = (100 * t.fill.level) / fillStop(t.fill);
     const chips = [];
     if (t === first) chips.push("Runs out first");
-    if ((t.left?.full && (ofStop >= CALL_TRAILER_PCT || t.left.minutes <= CALL_TRAILER_MIN)) || (max && t.entry.pipe)) {
+    if (t.entry.pipe && ((t.left?.full && (ofStop >= CALL_TRAILER_PCT || t.left.minutes <= CALL_TRAILER_MIN)) || max)) {
       chips.push("Call a trailer");
     }
     return {

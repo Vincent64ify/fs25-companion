@@ -1,6 +1,6 @@
 # 0019: Contracts: accept, cancel, hand in
 
-Status: built
+Status: live-checked
 Mod: 0.20.0 · Started: 2026-11-16 · Design: the Contracts page of [spec 0018](0018-contracts.md) and its canvas [FS25 Companion: Contracts](https://claude.ai/artifact/T8NwTQTEp6jvCdRq82xHzP) (private, on claude.ai), which gets the action row at 1158 × 676 and 1180 × 820 before the build; [THEMES.md](../docs/THEMES.md#layout)
 
 ## Goal
@@ -349,37 +349,37 @@ enabled in it; the console is `~`; the commands are in
 - [x] `csMissions`, then `csHandIn N` on the cancelled one: does your
   money change by what the game's screen said, and is the contract gone
   from it?
-- [ ] A success, if one can be had (work the own-machines one to the
+- [x] A success, if one can be had (work the own-machines one to the
   end, or one already finished in the save): `csHandIn N`, your money
-  against the game's sum. (Not run on 2026-11-16: left to the live
-  check's "Hand in a success".)
+  against the game's sum. (Not run on 2026-11-16: done in the live
+  check's "Hand in a success", 2026-11-17.)
 - [x] Save, load: the game's contracts are as the commands left them.
 
 Live check (in game, Solek, mod 0.20.0, single player, with
 `scripts/livewatch.py`; for Vincent to run):
-- [ ] **Accept with lease:** the contract moves to Yours, the leased
+- [x] **Accept with lease:** the contract moves to Yours, the leased
   machines stand at the shop, the game's own contracts screen shows it
   as active, and nothing opens in the game (no dialog, no menu).
-- [ ] **Accept, own machines:** it moves to Yours, no machines appear.
-- [ ] **The limit:** with three held, Accept is faded with "3 of 3
+- [x] **Accept, own machines:** it moves to Yours, no machines appear.
+- [x] **The limit:** with three held, Accept is faded with "3 of 3
   taken"; the game's screen refuses too.
-- [ ] **While one prepares:** Accept on another is faded until the first
+- [x] **While one prepares:** Accept on another is faded until the first
   runs.
-- [ ] **Cancel a leased one:** two taps; the leased machines are gone,
+- [x] **Cancel a leased one:** two taps; the leased machines are gone,
   the contract shows "cancelled" and Hand in with a sum; note the sum
   beside what the game's screen says.
-- [ ] **Hand in a success:** your money rises by the button's sum (note
+- [x] **Hand in a success:** your money rises by the button's sum (note
   both if they differ: the reimbursement), the
   contract leaves both the dashboard and the game's screen, the leased
   machines are gone, the limit line counts one less.
-- [ ] **Hand in a cancelled or failed one:** the sum booked matches the
+- [x] **Hand in a cancelled or failed one:** the sum booked matches the
   button's.
-- [ ] **In a vehicle and on foot,** and with the game's menu open: what
+- [x] **In a vehicle and on foot,** and with the game's menu open: what
   each button does.
-- [ ] **A quick extra tap:** Cancel contract, then three quick taps on
+- [x] **A quick extra tap:** Cancel contract, then three quick taps on
   "Really cancel?": it's cancelled and shows Hand in, and nothing is
   handed in until a tap after it settled.
-- [ ] After each of the above, save and load: the game's state is as the
+- [x] After each of the above, save and load: the game's state is as the
   dashboard left it.
 
 ## Decisions
@@ -537,3 +537,14 @@ finished contract).
 - 2026-11-17: Vincent: both layout changes (the lease line under Money
   and Time, the columns scrolling above the pinned row) and the 0.7 s
   settle are fine. Mod 0.20.0 built and installed for the live check.
+- 2026-11-17: live check (Vincent, Solek, mod 0.20.0, single player,
+  with `scripts/livewatch.py`): "I did everything and it worked great".
+  All ten boxes ticked. livewatch shows every contract command answered
+  ok and checked through `missionManager`: accepts (07:01 to 07:14),
+  cancels and hand-ins (06:59 to 07:16), a success handed in at 07:08:03,
+  and saves and loads at 07:14 and 07:18 between them. At 07:16:04 to
+  05 a cancel, a hand-in and a second contract's cancel came within a
+  second: Vincent's own taps, as meant. No figures were noted for the
+  success's reimbursement, and `startMission` refused nothing (no
+  refusal seen; `isSpawnSpaceAvailable()` false not seen either). The
+  game's log has no error from the calls.

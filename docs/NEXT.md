@@ -10,6 +10,22 @@ spec, and features waiting for one. Longer-term ideas are in
   and `harvest` factors arrive), so the mod sends no `bale` factor. Find
   the baling contract's real factor in the game's `BaleMission.lua`
   (gameSource.zip) and read that.
+- **Contracts: load and change near instantly** (Vincent, 2026-11-17:
+  "contract information loads slowly"). The mod sends `contracts` every
+  2 s, so a new, gone, started or finished contract waits up to 2 s; and
+  after a load it reads the lease machines' shop files (their width and
+  speed) only 2 per 2 s tick, so per hour, job time and the fitting tools
+  fill in over many seconds. Fix in `collectors/Contracts.lua`: a cheap
+  fingerprint of the game's list every frame (how many, their states),
+  sending at once when it changes; the shop files a few per frame, then
+  one send. A mod version and a short live check: load a save, watch new
+  offers appear.
+- **Trail: a self-propelled sprayer leaves none** (Vincent, 2026-11-17,
+  the Rogator on a contract). `web/src/data/coverage.js` follows only the
+  attached tools (`implementsOf`); a Rogator's boom is the vehicle
+  itself. Count the vehicle as a tool when it has a working width or
+  sections ([spec 0013](../specs/0013-vehicle-screen-calm.md)'s trail).
+  Contract fields already count as yours (spec 0018).
 - **Contracts: a potato harvest's expected litres arrive as 0** (same
   stream), so it shows "0 l" where it should show nothing or the real
   number. Look at how `HarvestMission` fills `expectedLiters` for root

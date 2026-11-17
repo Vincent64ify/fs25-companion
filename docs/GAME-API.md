@@ -602,8 +602,8 @@ name with where it came from.
   leases a sprayer as often as a spreader; a potato harvest a
   `POTATOHARVESTING` machine.
 - **Accept, cancel, hand in** (spike 0.0.10 on a copy of the save,
-  2026-11-16, single player; [specs/0019](../specs/0019-contract-actions.md);
-  not in the mod yet):
+  2026-11-16, single player; then mod 0.20.0, live-checked 2026-11-17;
+  [specs/0019](../specs/0019-contract-actions.md)):
   - `g_currentMission:getIsServer()` is true in single player.
   - `g_missionManager:startMission(mission, farmId, lease)` returns
     `MissionStartState.OK` (1). The contract is `PREPARING` the same
@@ -620,6 +620,12 @@ name with where it came from.
     frame the farm's money moves by `mission:getTotalReward()` and the
     contract leaves `getMissions()`. A cancelled, leased contract's
     total is minus its lease. It also ran with the game's menu open.
+  - The mod 0.20.0 live check: accept with lease and without, cancel
+    and hand in, from the dashboard, on foot, in a vehicle and with the
+    game's menu open, each answered ok once the game's list showed the
+    change; a successful contract's hand-in booked what the button said
+    (no figures noted). The contracts were as left after a save and a
+    load.
   - `g_missionManager:hasFarmReachedMissionLimit(farmId)`: true with
     three held, false after a hand-in.
   - `mission:isSpawnSpaceAvailable()` true before a lease (false not
@@ -692,8 +698,9 @@ says so.
 - **Contracts, the rest** ([specs/0018](../specs/0018-contracts.md)):
   `BaleMission.FILL_SUCCESS_FACTOR` (not there on 2026-11-16: no `bale`
   factor is sent), `getReimbursement()` and `stealingCost` (never seen in
-  a stream), a successful contract's total and reimbursement at hand-in
-  and a refusal from `startMission` ([specs/0019](../specs/0019-contract-actions.md)),
+  a stream), the figures of a successful contract's reimbursement at
+  hand-in, a refusal from `startMission` and `isSpawnSpaceAvailable()`
+  false ([specs/0019](../specs/0019-contract-actions.md)),
   the shop categories `DISCHARROWS`,
   `PLANTERS`, `WEEDERS`, `CORNHEADERS`, `MANURESPREADERS` and
   `BALERSSQUARE`, and the type names `plowMission`, weeding and stone
