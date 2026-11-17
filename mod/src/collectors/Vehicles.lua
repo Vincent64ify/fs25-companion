@@ -117,6 +117,11 @@ local function vehicleEntry(vehicle, detailed, all)
         -- limit while something works
         entry.crop = Parts.cropOf(vehicle)
         entry.speedLimit = Parts.speedLimitOf(vehicle, true)
+        -- the trail and Area (specs/0013): a self-propelled sprayer's boom
+        -- is the vehicle's own, read as a tool's (nil on a tractor)
+        entry.workWidth = Parts.workWidthOf(vehicle)
+        entry.workSpans = Parts.workSpansOf(vehicle, vehicle)
+        entry.spraySpans = Parts.spraySpansOf(vehicle, vehicle)
         -- the Harvester screen: worked area and Precision Farming's yield
         entry.hectares = Parts.hectaresOf(vehicle)
         entry.yield = Parts.yieldOf(vehicle)

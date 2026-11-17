@@ -94,7 +94,8 @@
  *   (0..1), operatingHours, mass, lights (as the cab's), implements
  *   ({name?, depth, lowered, turnedOn, wear?, pto?, hitch? (0 raised .. 1
  *   lowered; absent: a fixed joint), fills}[]; Lua writes an empty one as
- *   []).
+ *   []); workWidth, workSpans and spraySpans as a tool's, when the
+ *   vehicle works the ground itself (a self-propelled sprayer, mod 0.20.2).
  * An AI worker's vehicle carries ai {job?, description?, helper?}.
  * @typedef {Pose & {
  *   id: number|string, name?: string, typeName?: string, farmId?: number,

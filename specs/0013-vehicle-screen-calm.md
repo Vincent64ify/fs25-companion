@@ -1,6 +1,6 @@
 # 0013: Vehicle page, calm
 
-Status: live-checked (2026-11-07; Precision Farming off checked 2026-11-10), with revisions 2 (a light field panel), 3 (your fields, a trail only while working, every mower) 4 (what Precision Farming's nozzles spray) 5 (the cards from the front of the rig to the back; no mod change; live-checked 2026-11-08) and 6 (a failed answer shows only on its button; live-checked 2026-11-09); revision 7 (Also attached over the field panel, a rig strip that fits) live-checked 2026-11-11; revision 8 (the stats in one line, smaller buttons on a short screen) live-checked 2026-11-14
+Status: live-checked (2026-11-07; Precision Farming off checked 2026-11-10), with revisions 2 (a light field panel), 3 (your fields, a trail only while working, every mower) 4 (what Precision Farming's nozzles spray) 5 (the cards from the front of the rig to the back; no mod change; live-checked 2026-11-08) and 6 (a failed answer shows only on its button; live-checked 2026-11-09); revision 7 (Also attached over the field panel, a rig strip that fits) live-checked 2026-11-11; revision 8 (the stats in one line, smaller buttons on a short screen) live-checked 2026-11-14; a self-propelled sprayer's own trail (mod 0.20.2) live-checked 2026-11-17
 Mod: 0.15.0 (revision 4; 0.14.0 revision 3; no change before) · Started: 2026-11-03 · Design: the canvas [FS25 Companion: Vehicle screen, calm](https://claude.ai/artifact/JApsdXjoSFwsddKv2kNYZ3) (private, on claude.ai; approved by Vincent on 2026-11-03), a THEMES.md section at build; specs [0003](0003-implement-screen.md) (the page), [0010](0010-tidy-states-and-motion.md) (the states), [0012](0012-card-buttons.md) (the buttons)
 
 ## Goal
@@ -913,7 +913,11 @@ page shows was already sent and live.
     centre line, rounded to 0.1 m, left first; the AI's area types only;
     and (revision 4, mod 0.15.0) `spraySpans`, the stretches Precision
     Farming's nozzles spray, the same way (`[]` none; absent without its
-    nozzles).
+    nozzles). From mod 0.20.2 the controlled vehicle carries the same
+    three of its own when it works the ground itself (a self-propelled
+    sprayer's boom; none on a tractor), and `workToolsOf` in
+    `data/selectors.js` counts it as the first tool for the trail and
+    Area.
   - `cab.rig`: `can`, `lowered`, `turnedOn`, `width`, `selected`.
   - `fields` (`farmlandId`), `farmlands` (`farmId`), `field_outlines`,
     `crop_types`.
@@ -1062,6 +1066,10 @@ None new.
 Automated (each one a test that exists before the work is called built):
 - [x] `web/test.html`, `fieldAt`: a point inside a concave outline, one
   in its notch, and one outside; no outlines gives undefined.
+- [x] (mod 0.20.2) `mod/tests/run.lua`: a self-propelled sprayer's own
+  `workWidth`, `workSpans` and `spraySpans` on the vehicle; a tractor has
+  none. `web/test.html`: its own boom leaves a trail and Area while on;
+  off, or without a width of its own, none; with a tool too, both.
 - [x] `web/test.html`, coverage:
   - a 100 m straight pass at 10 m width over a 100 × 100 m field gives
     ≈ 10 %;
@@ -1127,6 +1135,14 @@ Live check (in game; Solek):
 - [x] **At night,** on every screen: nothing on screen is yellow (the
   orange "until full" aside); "on" buttons and the field number badges
   are steel grey. **By day,** "on" buttons are outlined.
+
+Live check of a self-propelled sprayer's trail (Solek, mod 0.20.2; for
+Vincent to run):
+- [x] **The RoGator, spraying a field of yours or a contract's:** the
+  trail follows at the boom's width (narrower with sections off), "This
+  run" climbs, and the card's Area moves; turned off, neither moves.
+- [ ] **A tractor with a trailed sprayer:** the trail is as before, one
+  tool's, not two. (Not run on 2026-11-17; `web/test.html` covers it.)
 
 ## Decisions
 
@@ -1396,3 +1412,12 @@ page's memory; off a field the panel shows the map around the rig.
   fields your farm owns": a field with one of your running contracts counts
   too (the panel, its trail and "This run"), and gets a row for the
   contract. Not live-checked yet.
+- 2026-11-17: from NEXT.md (Vincent, the RoGator on a contract: no
+  trail). The trail and Area followed only attached tools; a
+  self-propelled sprayer's boom is the vehicle's own. The mod sends the
+  vehicle's own `workWidth`, `workSpans` and `spraySpans` (mod 0.20.2) and
+  `workToolsOf` counts the vehicle as a tool when it has any. Built; the
+  live check waits.
+- 2026-11-17: live check by Vincent on mod 0.20.2 (Solek): "I did test
+  with RoGator, it worked!" The RoGator box ticked; the trailed sprayer
+  wasn't run again.

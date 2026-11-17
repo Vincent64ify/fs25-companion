@@ -323,7 +323,7 @@ local function missionEntry(mission, farmId)
     if status == "running" or status == "finished" then
         entry.completion = rounded(mission.completion, 4)
     end
-    entry.expectedLiters = rounded(mission.expectedLiters)
+    entry.expectedLiters = rounded(Api.expectedLiters(mission))
     if mine then
         entry.depositedLiters = rounded(mission.depositedLiters)
     end

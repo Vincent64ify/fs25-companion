@@ -255,6 +255,21 @@ export function implementsOf(v) {
 }
 
 /**
+ * What works the ground, for the trail and Area (specs/0013): the vehicle
+ * itself first when it has a width of its own (a self-propelled sprayer's
+ * boom, mod 0.20.2: workWidth, workSpans or spraySpans), then the
+ * attached tools. A tractor has none of the three.
+ * @param {Vehicle|undefined} v
+ * @returns {Implement[]}
+ */
+export function workToolsOf(v) {
+  const own = /** @type {any} */ (v);
+  const hasOwn = own && ((typeof own.workWidth === "number" && own.workWidth > 0)
+    || (Array.isArray(own.workSpans) && own.workSpans.length > 0) || Array.isArray(own.spraySpans));
+  return hasOwn ? [/** @type {Implement} */ (own), ...implementsOf(v)] : implementsOf(v);
+}
+
+/**
  * The cab's rig (Controls C3): the vehicle, then what's attached; empty on
  * foot or from a mod before 0.7.0.
  * @param {import("../types.js").Cab|undefined} cab

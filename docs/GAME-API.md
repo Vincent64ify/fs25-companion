@@ -574,7 +574,19 @@ name with where it came from.
 - **The list:** `g_missionManager:getMissions()`; a mission's
   `getUniqueId()`, `type.name`, `status` against `MissionStatus`,
   `finishState` against `MissionFinishState`, `farmId`.
-  `MissionManager.MAX_MISSIONS_PER_FARM` is 3. `getMissions()` returns
+  `MissionManager.MAX_MISSIONS_PER_FARM` is 3. **Never ask a contract
+  that isn't finished for `getTotalReward()` or `getReimbursement()`**
+  (nor call `getCompletion()` or `getFieldCompletion()`): on a harvest
+  offer they set
+  `isFieldCompletionInitialized` with no completion modifier yet, and once
+  the contract starts the game's update fails every frame
+  (`AbstractFieldMission.lua:493`, ipairs on nil) and the game stops
+  (three freezes, 2026-11-17, from the spike's `csMissions`). A harvest
+  offer's `expectedLiters` is 0: the game sets it when the contract
+  starts. `getMaxCutLiters()` on a harvest offer gives its litres and
+  leaves the completion state as it was (spike 0.0.14, Farmland 79,
+  11,452 l; that contract then taken with lease and worked, no errors).
+  `getMissions()` returns
   the manager's own `missions` table, not a copy (SDK
   MissionManager.lua); mod 0.20.1 reads it every frame for changes with
   no stutter (live-checked 2026-11-17).
@@ -594,7 +606,13 @@ name with where it came from.
   without `tryToResolveSellingStation()`. A potato harvest's
   `expectedLiters` is 0.
 - **The factors:** `AbstractMission.SUCCESS_FACTOR` 0.98 and
-  `HarvestMission.SUCCESS_FACTOR` 0.93 on Solek.
+  `HarvestMission.SUCCESS_FACTOR` 0.93 on Solek. `BaleMission` has none;
+  it has `THRESHOLD_LITERS` 1500 (spike 0.0.11, 2026-11-17).
+- **A baling contract** (spike 0.0.14, running, 2026-11-17): no
+  `expectedLiters` or `depositedLiters`; its `completion` equals
+  `fieldPercentageDone` (no factor divided in); `spawnedLiters` is the
+  windrow the game laid on the field. At what completion the game calls
+  it done: not seen yet.
 - **The shop's data:** a store item's `specs` is empty until
   `StoreItemUtil.loadSpecsFromXML(item)`; then `specs.workingWidth.width`
   and `specs.speedLimit`. A baler has no working width.

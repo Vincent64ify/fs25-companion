@@ -23,7 +23,7 @@
 CompanionSpike = {}
 local CS = CompanionSpike
 
-local SPIKE_VERSION = "0.0.10"
+local SPIKE_VERSION = "0.0.14"
 local MOD_DIR = g_currentModDirectory or ""
 
 local LIMITS = {
@@ -2046,7 +2046,7 @@ end
 ---------------------------------------------------------------------------
 
 local MISSION_MS = 6000
-local MISSION_COMMANDS = { "csMissions", "csAccept", "csCancel", "csHandIn" }
+local MISSION_COMMANDS = { "csMissions", "csAccept", "csCancel", "csHandIn", "csMaxCut" }
 -- looked up by name: the manager's functions, and what the menu's buttons
 -- may send (remembered from FS22, not in the SDK's zip)
 local MISSION_MANAGER_FNS = { "getMissions", "getMissionByUniqueId", "startMission", "cancelMission", "dismissMission",
@@ -2054,6 +2054,11 @@ local MISSION_MANAGER_FNS = { "getMissions", "getMissionByUniqueId", "startMissi
 local MISSION_GLOBALS = { "MissionStartEvent", "MissionCancelEvent", "MissionDismissEvent", "MissionStartedEvent",
     "MissionFinishedEvent", "MissionDeleteEvent", "InGameMenuContractsFrame" }
 local MISSION_ENUMS = { "MissionStartState", "MissionStatus", "MissionFinishState" }
+-- 0.0.11 (spec 0018, NEXT.md): the mission classes' constants and
+-- functions: what a baling contract counts and its factor, and whether
+-- HarvestMission has getMaxCutLiters (listed, never called)
+local MISSION_CLASSES = { "AbstractMission", "AbstractFieldMission", "HarvestMission", "BaleMission",
+    "BaleWrapMission" }
 
 -- a global by name. Never loadstring: the game refuses it for mods and
 -- logs an Error (seen 2026-11-16); _G[name] reaches the game's globals
@@ -2166,13 +2171,27 @@ local function countOf(t)
     return type(t) == "table" and #t or nil
 end
 
+-- whether a contract is finished: only then are its sums asked for.
+-- 0.0.13: getTotalReward() and getReimbursement() on an offer work out
+-- its completion, which on a harvest offer sets isFieldCompletionInitialized
+-- with no completion modifier (then throws, hidden by callOn); once that
+-- contract starts, the game's update fails every frame
+-- (AbstractFieldMission.lua:493, ipairs on nil) and the game stops. Three
+-- freezes on 2026-11-17, each after csMissions on offers.
+local function isFinished(m)
+    return enumIs("MissionStatus", "FINISHED", m.status)
+end
+
 -- what the game holds for one contract. Only reads: never getCompletion
 -- (it drives the field's completion) nor isSpawnSpaceAvailable (it marks
--- shop places while it looks)
+-- shop places while it looks); the sums only on a finished one
 local function missionFacts(m)
     if type(m) ~= "table" then
         return nil
     end
+    -- before any call: what the game holds, untouched by this probe
+    local fields = plainFieldsOf(m)
+    local finished = isFinished(m)
     return {
         uniqueId = missionId(m),
         class = classNameOf(m),
@@ -2183,12 +2202,16 @@ local function missionFacts(m)
         finishState = enumName("MissionFinishState", m.finishState), finishStateRaw = m.finishState,
         farmId = m.farmId, activeMissionId = m.activeMissionId,
         reward = (callOn(m, "getReward")), vehicleCosts = (callOn(m, "getVehicleCosts")),
-        totalReward = (callOn(m, "getTotalReward")), reimbursement = (callOn(m, "getReimbursement")),
+        totalReward = finished and (callOn(m, "getTotalReward")) or nil,
+        reimbursement = finished and (callOn(m, "getReimbursement")) or nil,
         stealingCost = m.stealingCost,
         hasLeasableVehicles = (callOn(m, "hasLeasableVehicles")),
         vehiclesToLoad = countOf(m.vehiclesToLoad), vehicles = countOf(m.vehicles),
         spawnedVehicles = m.spawnedVehicles, failedToLoadVehicles = m.failedToLoadVehicles,
         completion = m.completion, minutesLeft = (callOn(m, "getMinutesLeft")),
+        -- 0.0.11: every plain field it holds (litres, bales, fill type ...),
+        -- read first. 0.0.12: never getMaxCutLiters nor getFieldCompletion
+        fields = fields,
     }
 end
 
@@ -2216,8 +2239,13 @@ local function missionGlobals()
         farmId = farmId, money = farmMoney(farmId),
         limit = type(MissionManager) == "table" and MissionManager.MAX_MISSIONS_PER_FARM or nil,
         limitReached = (callOn(g_missionManager, "hasFarmReachedMissionLimit", farmId)),
-        manager = {}, enums = {}, named = {}, missionNames = {},
+        manager = {}, enums = {}, named = {}, missionNames = {}, classes = {},
     }
+    for _, name in ipairs(MISSION_CLASSES) do
+        local cls = globalByName(name)
+        out.classes[name] = type(cls) == "table"
+            and { constants = plainFieldsOf(cls), functions = functionNamesOf(cls) } or type(cls)
+    end
     for _, name in ipairs(MISSION_MANAGER_FNS) do
         out.manager[name] = type(g_missionManager) == "table" and type(g_missionManager[name]) or "no g_missionManager"
     end
@@ -2301,8 +2329,8 @@ local function missionFrameState(run)
         farmId = m.farmId, activeMissionId = m.activeMissionId,
         spawnedVehicles = m.spawnedVehicles, vehicles = countOf(m.vehicles),
         failedToLoadVehicles = m.failedToLoadVehicles,
-        totalReward = inList and (callOn(m, "getTotalReward")) or nil,
-        reimbursement = inList and (callOn(m, "getReimbursement")) or nil,
+        totalReward = inList and isFinished(m) and (callOn(m, "getTotalReward")) or nil,
+        reimbursement = inList and isFinished(m) and (callOn(m, "getReimbursement")) or nil,
         money = farmMoney(run.farmId),
         limitReached = (callOn(g_missionManager, "hasFarmReachedMissionLimit", run.farmId)),
         guiName = gui.currentGuiName, guiVisible = gui.guiVisible, dialogVisible = gui.dialogVisible,
@@ -2516,6 +2544,67 @@ function CompanionSpike:consoleHandIn(arg)
         tostring(run.before.facts.totalReward), MISSION_MS / 1000)
 end
 
+-- 0.0.14 (spec 0018): does getMaxCutLiters() start a harvest offer's
+-- field completion (the state that froze the game once the contract
+-- started, 2026-11-17)? One call on one offer, its completion state read
+-- before and after. Changed: don't take that contract; quit without saving.
+local COMPLETION_KEYS = { "isFieldCompletionInitialized", "currentPartitionCompletionIndex", "completionPartitions",
+    "completionModifier", "fieldPercentageDone", "expectedLiters" }
+
+local function completionState(m)
+    local out = {}
+    for _, key in ipairs(COMPLETION_KEYS) do
+        local v = m[key]
+        if key == "completionPartitions" or key == "completionModifier" then
+            out[key] = type(v)
+        else
+            out[key] = v
+        end
+    end
+    return out
+end
+
+function CompanionSpike:consoleMaxCut(arg)
+    local m, why = pickMission(arg)
+    if m == nil then
+        return "csMaxCut: " .. tostring(why)
+    end
+    if not enumIs("MissionStatus", "CREATED", m.status) then
+        return "csMaxCut: only an offer (this one isn't): nothing called"
+    end
+    if type(m.getMaxCutLiters) ~= "function" then
+        return "csMaxCut: not a harvest contract (no getMaxCutLiters): nothing called"
+    end
+    if m.isFieldCompletionInitialized == true then
+        return "csMaxCut: its completion already started (something else called it): nothing called, "
+            .. "try another offer after loading the save again"
+    end
+    local id = missionId(m)
+    local before = completionState(m)
+    local ok, value = pcall(m.getMaxCutLiters, m)
+    local after = completionState(m)
+    local changed = false
+    for _, key in ipairs(COMPLETION_KEYS) do
+        if before[key] ~= after[key] then
+            changed = true
+        end
+    end
+    local out = {
+        uniqueId = id, type = type(m.type) == "table" and m.type.name or nil,
+        location = (callOn(m, "getLocation")),
+        ok = ok, value = ok and value or nil, error = not ok and tostring(value) or nil,
+        before = before, after = after, changed = changed,
+    }
+    local file = "maxcut-" .. tostring(id):gsub("[^%w_-]", "") .. ".json"
+    local written = writeJson(file, { maxCut = out })
+    ctx.status = string.format("csMaxCut %s: %s", tostring(id), changed and "CHANGED" or "unchanged")
+    log("csMaxCut %s: ok %s, value %s, changed %s", tostring(id), tostring(ok), tostring(value), tostring(changed))
+    return string.format("csMaxCut %s: %s litres (%s); completion state %s; %s", tostring(id),
+        ok and tostring(value) or "no answer", ok and "ok" or tostring(value),
+        changed and "CHANGED: don't take this contract, quit without saving" or "unchanged",
+        written and ("written to " .. file) or "write FAILED")
+end
+
 ---------------------------------------------------------------------------
 -- Mod event listener
 ---------------------------------------------------------------------------
@@ -2550,6 +2639,9 @@ function CompanionSpike:loadMap(name)
             "consoleCancel", CompanionSpike)
         addConsoleCommand("csHandIn", "CHANGES THE SAVE: hand in your finished contract N (from csMissions); books its money",
             "consoleHandIn", CompanionSpike)
+        addConsoleCommand("csMaxCut", "Call getMaxCutLiters() once on harvest offer N and record its completion state "
+            .. "before and after to maxcut-ID.json (a changed one: don't take it, quit without saving)",
+            "consoleMaxCut", CompanionSpike)
     end
 end
 

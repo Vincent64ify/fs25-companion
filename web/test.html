@@ -2758,6 +2758,34 @@ two.at(100, 21, 90, 0);
 check("calm: coverage: a trail per tool (green spraying, pale yellow mowing); detaching one clears its trail", [
   twoBefore, two.c.trails(1).map((t) => `${t.tool}:${t.kind}`), near(two.c.percent(1), 10)],
   [[["2:work", "3:mow"], true], ["3:mow"], true]);
+// a self-propelled sprayer (the Rogator, 2026-11-17): its boom is the
+// vehicle itself, so the vehicle is a tool when it has a width (mod 0.20.2)
+const selfPass = ({ turnedOn = true, own = { workWidth: 24 }, tools = [] } = {}) => {
+  const s = createStore();
+  const c = cov.createCoverage(s);
+  let now = 0;
+  const ra = rt.createRates(s, () => now);
+  s.set("field_outlines", { fields: [square100] });
+  s.set("fields", { fields: [{ id: 1, farmlandId: 1 }] });
+  s.set("farmlands", { farmlands: [{ id: 1, farmId: 1 }] });
+  for (let x = 0; x <= 100; x += 5) {
+    now += 500;
+    s.set("cab", { inVehicle: true, rig: [{ id: 30, depth: 0, can: ["fold", "turnOn"], turnedOn, unfolded: true },
+      ...tools.map((t) => ({ id: t.id, depth: 1, side: "rear", can: ["turnOn", "detach"], turnedOn: true }))] });
+    s.set("vehicles", { controlledId: 30, vehicles: [{ id: 30, name: "RoGator 600", category: "sprayers", x, z: 51,
+      heading: 90, speed: 36, ...own, implements: tools.map((t) => ({ depth: 1, ...t })) }] });
+  }
+  const pct = c.percent(1);
+  return [pct === undefined ? "none" : near(pct, 24, 3), c.trails(1).map((t) => [t.tool, t.runs[0]?.w]),
+    ra.area(30) > 0];
+};
+check("calm: coverage: a self-propelled sprayer's own boom leaves its trail and Area while on; off, or no width of its own "
+  + "(a tractor), none; with a tool too, both", [
+  selfPass(), selfPass({ turnedOn: false }), selfPass({ own: {} }),
+  selfPass({ own: { workWidth: 36, spraySpans: [[-12, 12]] } }),
+  selfPass({ own: {}, tools: [sprayer10] })[1], selfPass({ tools: [sprayer10] })[1]],
+  [[true, [[30, 24]], true], ["none", [], false], ["none", [], false], [true, [[30, 24]], true],
+    [[2, 10]], [[30, 24], [2, 10]]]);
 // the cap: older points merge; the percentage stays within 1 %
 const capped = covRig({ maxPoints: 40 });
 const uncapped = covRig();

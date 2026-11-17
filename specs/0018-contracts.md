@@ -1,7 +1,7 @@
 # 0018: Contracts (read-only)
 
-Status: live-checked
-Mod: 0.20.1 · Started: 2026-11-14 · Design: the chrome in [THEMES.md](../docs/THEMES.md#layout); the tiles after the HEADLAND canvas's Haul and Yard pages (private, on claude.ai); the canvas [FS25 Companion: Contracts](https://claude.ai/artifact/T8NwTQTEp6jvCdRq82xHzP) (private, on claude.ai; at 1158 × 676 and 1180 × 820, day and night; version 9 reviewed by Vincent 2026-11-14: the detail in two columns at full height, the switches over the list)
+Status: built (mod 0.20.4: a harvest offer's litres from getMaxCutLiters; everything before live-checked)
+Mod: 0.20.4 · Started: 2026-11-14 · Design: the chrome in [THEMES.md](../docs/THEMES.md#layout); the tiles after the HEADLAND canvas's Haul and Yard pages (private, on claude.ai); the canvas [FS25 Companion: Contracts](https://claude.ai/artifact/T8NwTQTEp6jvCdRq82xHzP) (private, on claude.ai; at 1158 × 676 and 1180 × 820, day and night; version 9 reviewed by Vincent 2026-11-14: the detail in two columns at full height, the switches over the list)
 
 ## Goal
 
@@ -380,6 +380,8 @@ uses FS22's `getMissionsList` and `AbstractMission.STATUS_RUNNING`).
 | `AbstractMission.SUCCESS_FACTOR` | SDK AbstractFieldMission.lua (value blanked; BC says 0.95) | verified: sent as 0.98 on Solek (not BC's 0.95) |
 | `HarvestMission.SUCCESS_FACTOR`, `BaleMission.FILL_SUCCESS_FACTOR` | BC betterContracts.lua (0.93 or 0.94; 0.9) | `HarvestMission.SUCCESS_FACTOR` verified (0.93); `BaleMission.FILL_SUCCESS_FACTOR` isn't there: no `bale` factor is sent ([NEXT.md](../docs/NEXT.md)) |
 | `mission.expectedLiters`, `mission.depositedLiters`, `mission.fillTypeIndex` | BC betterContracts.lua | verified (live check 2026-11-15 and 16) |
+| `getTotalReward()`, `getReimbursement()` on a contract not finished; `getFieldCompletion()` | AbstractMission.lua | **never called** (only a finished one's sums): on a harvest offer `getTotalReward()` starts the field's completion with no modifier; once the contract starts the game's update fails every frame (`AbstractFieldMission.lua:493`, ipairs on nil) and the game stops (live, 2026-11-17, the spike's `csMissions`) |
+| `HarvestMission:getMaxCutLiters()`, read when `expectedLiters` is 0 (every harvest offer) | BC betterContracts.lua (its addMission does the same) | safe on an offer: spike 0.0.14's `csMaxCut`, 2026-11-17 (11,452 l, the completion state unchanged); its litres against the game's not checked yet |
 | `mission.sellingStation`, `:getName()`, `:getEffectiveFillTypePrice(fillType)` | BC betterContracts.lua | verified (live check 2026-11-15 and 16) |
 | `g_storeManager:getItemByXMLFilename(filename)`, `item.name`, brand and category titles | [GAME-API.md](../docs/GAME-API.md#verified-since-phase-0) "Brand and shop category" | verified for a vehicle's `configFileName`; unverified for a lease's `filename` |
 | `item.specs.workingWidth.width` (a table `{width, minWidth}`), `item.specs.workingWidthConfig[config][index].width`, `item.specs.speedLimit` (km/h) | SDK Vehicle.lua (`loadSpecValueWorkingWidth`, `...Config`, `loadSpecValueSpeedLimit`) | verified (live check 2026-11-15 and 16) |
@@ -447,6 +449,14 @@ Automated (each one a test that exists before the work is called built):
   from there, and takes a failing `changed()` as no change, logged once.
   The whole mod: a contract finished in the game is sent that frame, and
   30 quiet frames send none.
+- [x] `mod/tests/run.lua` (mod 0.20.4): a harvest's `expectedLiters` of 0
+  comes from `getMaxCutLiters()`; the game's own number first; 0 both
+  ways, no such call or one that throws: none, never 0 l. No test mission
+  ever has `getFieldCompletion` called, nor a sum while not finished
+  (they throw if they are). `mod/tests/test_spike_contracts.py`: the
+  spike asks only a finished contract for its sums and reads `fields`
+  first; `csMaxCut` calls once on a harvest offer and records the state
+  around it.
 - [x] `companion/tests/`: a `contracts` envelope reaches a viewer unchanged.
 - [x] `tests/test_golden.py`: the Solek golden is unchanged (it has no
   contracts).
@@ -525,6 +535,18 @@ Live check of the near-instant sends (Solek, mod 0.20.1, with
   them from the file). (2026-11-17: the last session's file, 24 s with
   nine offers and no change: 13 sends, 1.75 to 2 s apart, none back to
   back. The load and the changes were in an earlier file.)
+
+Live check of a harvest's litres (Solek, mod 0.20.4, with the spike
+0.0.14 beside it; for Vincent to run):
+- [x] `csMaxCut N` on a harvest offer: the completion state unchanged.
+  (2026-11-17: Farmland 79, 11,452 l.)
+- [ ] A harvest on offer (potatoes and grain) shows litres near the
+  game's contracts screen, never "0 l"; once taken, the game's own.
+  (2026-11-17: offers show litres; not yet compared with the game's.)
+- [ ] Take a potato harvest and a baling contract, get in the lease
+  machines and drive: no red errors, the game and the dashboard follow
+  (the freeze); then `csMissions running` (spike 0.0.13: `csMissions offer`
+  before taking them is safe too).
 
 ## Decisions
 
@@ -662,3 +684,62 @@ Open after the build, for Vincent:
   worked great": the offers and their figures right after a load,
   changes at once, no stutter. The three boxes ticked; Status
   live-checked.
+- 2026-11-17: a potato harvest's `expectedLiters` arrives as 0; the mod
+  then reads `getMaxCutLiters()`, as BetterContracts does (the SDK's
+  gameSource.zip has no HarvestMission.lua), and sends none rather than 0
+  when that has nothing either (mod 0.20.2). Built; the live check waits.
+  The baling contract's litres stay open (NEXT.md): a vanilla baling offer
+  carries no `expectedLiters`, fill type or sell point, and
+  `BaleMission.FILL_SUCCESS_FACTOR` is BetterContracts' own (it sets it).
+- 2026-11-17: live on mod 0.20.2 (Vincent, Solek): the potato offer showed
+  its litres, but after taking a potato harvest and a baling contract the
+  game froze in the leased JCB: `AbstractFieldMission.lua:493: invalid
+  argument #1 to 'ipairs'` every frame, from 3 s after the potato
+  machines spawned. The spike's dump (`missions-offer.json`) showed every
+  harvest offer with `isFieldCompletionInitialized` true, which no bale
+  offer had: the mod's `getMaxCutLiters()` (called on each harvest offer,
+  since every one says `expectedLiters` 0) starts the field's completion
+  before the contract has a modifier, and the game's own check fails
+  every frame once it runs. Mod 0.20.3 never calls it (nor the spike,
+  0.0.12): an offer's litres are none until it starts. **That cause was
+  wrong** (see the next line). The same dump:
+  `BaleMission` has `THRESHOLD_LITERS` 1500 and its own
+  `getFieldCompletion`, no success factor.
+- 2026-11-17, the real cause: on mod 0.20.3 (no `getMaxCutLiters`) and
+  without FS25_CompleteStuckContracts the freeze came back, twice: right
+  after accepting a baling contract with lease (once; the next time it
+  worked) and a potato harvest with lease. The harvest offers still had
+  `isFieldCompletionInitialized` set. Each freeze came after the spike's
+  `csMissions offer`, which called `getTotalReward()` and
+  `getReimbursement()` on every contract: on a harvest offer that works out
+  the completion, sets the flag with no modifier and throws (the
+  spike hid it; spec 0019 noted "nothing for a harvest contract on
+  offer"), so the contract never builds its partitions once it starts. The
+  dumps read `fields` after those calls, which is why every harvest offer
+  showed the flag. The mod asks only a finished contract for its sums, as
+  it always has. Spike 0.0.13 does the same and reads `fields` before any
+  call (a test pins both).
+- 2026-11-17: confirmed live with spike 0.0.13: a fresh `csMissions offer`
+  shows none of the eight harvest offers with the flag (every one had it
+  when the spike asked them for their sums). With FS25_CompleteStuckContracts
+  removed, a baling contract with lease from the dashboard worked. Spike
+  0.0.14's `csMaxCut 23` called `getMaxCutLiters()` once on the Farmland 79
+  offer: 11,452 l, the completion state unchanged. Mod 0.20.4 reads it
+  again for a harvest offer's litres. Vincent then took that contract with
+  lease and drove: no errors.
+- 2026-11-17, mod 0.20.4 (Vincent): harvest offers show their litres
+  (not yet compared with the game's screen). `csMissions running` on a
+  round-baling contract (Farmland 135, rye) at 12.3 %: no
+  `expectedLiters` or `depositedLiters`; `completion` is
+  `fieldPercentageDone` itself (0.1233 both, not divided by a factor as
+  field work's is); `spawnedLiters` 24,324 (the windrow the game laid);
+  `BaleMission.THRESHOLD_LITERS` 1500, no success factor. No litres to
+  deliver, so no litres needed is right. What its completion measures is
+  **not known**: `BaleMission` has its own completion modifier and
+  `getFieldCompletion` (not in the SDK); it may be the share of the
+  windrow's straw picked up (Vincent's reading; `spawnedLiters` and
+  `THRESHOLD_LITERS` point at litres) rather than area. Whether you keep
+  any straw or bales (an Extra) is not known either. Its progress shows
+  as the game's own completion (the tile and the detail's Progress, 62 %
+  live, mod 0.20.4). To tell: the litres in the bales made against
+  `spawnedLiters` × completion (NEXT.md).

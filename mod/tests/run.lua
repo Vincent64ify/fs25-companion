@@ -1789,6 +1789,46 @@ test("vehicles topic: what Precision Farming's nozzles spray (specs/0013 revisio
     localToLocal, g_localPlayer, g_currentMission = nil, nil, nil
 end)
 
+test("vehicles topic: a self-propelled sprayer's own boom: width, spans and nozzles on the vehicle (specs/0013 trail)", function()
+    loadVehicles()
+    getWorldTranslation = function() return 0, 0, 0 end
+    localDirectionToWorld = function() return 0, 0, -1 end
+    FillType = { UNKNOWN = 0 }
+    g_storeManager, g_brandManager, g_fillTypeManager, g_fruitTypeManager = nil, nil, nil, nil
+    g_workAreaTypeManager = { getWorkAreaTypeIsAIArea = function() return true end }
+    -- a 36 m boom across the vehicle's own frame (GIANTS' +x left), its
+    -- middle nozzles on
+    local xOf = { [121] = 18, [122] = -18, [123] = 18, [201] = 3, [202] = 0, [203] = -3 }
+    localToLocal = function(node, to)
+        assert(to == 1, "into its own root node")
+        return xOf[node], 0, 0
+    end
+    local rogator = { id = 50, typeName = "selfPropelledSprayer", rootNode = 1, spec_motorized = {}, spec_sprayer = {},
+        getFullName = function() return "RoGator 600" end,
+        getAIWorkAreaWidth = function() return 36.04 end,
+        spec_workArea = { workAreas = { { type = 1, start = 121, width = 122, height = 123, workWidth = 36 } } },
+        ["spec_FS25_precisionFarming.extendedSprayerEffects"] = { sprayerEffects = {
+            { effectNode = 201, isActive = false }, { effectNode = 202, isActive = true },
+            { effectNode = 203, isActive = false } } },
+        getAttachedImplements = function() return {} end }
+    g_localPlayer = { getCurrentVehicle = function() return rogator end }
+    g_currentMission = { vehicleSystem = { vehicles = { rogator } } }
+    local v = Companion.Collectors.Vehicles.collect({}).vehicles[1]
+    eq(v.workWidth, 36, "the AI work area's width, as a tool's")
+    eq(Json.encode(v.workSpans), "[[-18,18]]", "its boom across its own centre line")
+    eq(Json.encode(v.spraySpans), "[[-1.5,1.5]]", "the nozzle on")
+    -- a tractor has no work areas and no sprayer: none of the three
+    local tractor = { id = 51, typeName = "tractor", rootNode = 1, spec_motorized = {},
+        getFullName = function() return "T7" end, getAttachedImplements = function() return {} end }
+    g_localPlayer = { getCurrentVehicle = function() return tractor end }
+    g_currentMission = { vehicleSystem = { vehicles = { tractor } } }
+    local t = Companion.Collectors.Vehicles.collect({}).vehicles[1]
+    eq(t.workWidth, nil)
+    eq(t.workSpans, nil)
+    eq(t.spraySpans, nil)
+    localToLocal, g_workAreaTypeManager, g_localPlayer, g_currentMission = nil, nil, nil, nil
+end)
+
 test("harvester screen: straw, its key, worked area and Precision Farming's yield", function()
     load("src/collectors/Cab.lua")
     local Cab = Companion.Collectors.Cab
@@ -4170,6 +4210,15 @@ local function fakeMission(fields, calls)
         calls.tryToResolveSellingStation = (calls.tryToResolveSellingStation or 0) + 1
         error("tryToResolveSellingStation sets the sell point")
     end
+    -- live, 2026-11-17: on a harvest offer these (and getTotalReward or
+    -- getReimbursement, below) set isFieldCompletionInitialized with no
+    -- completion modifier yet; once the contract starts, the game's update
+    -- fails every frame (ipairs on nil, AbstractFieldMission.lua:493) and
+    -- the game stops
+    m.getFieldCompletion = function()
+        calls.getFieldCompletion = (calls.getFieldCompletion or 0) + 1
+        error("getFieldCompletion starts the field's completion: the game freezes once the contract starts")
+    end
     return setmetatable(m, { __newindex = function(_, k) error("wrote mission." .. tostring(k)) end })
 end
 
@@ -4417,6 +4466,7 @@ test("contracts: missions as the dashboard's shape, read only (specs/0018)", fun
 
     eq(calls.getCompletion, nil, "getCompletion is never called")
     eq(calls.tryToResolveSellingStation, nil, "tryToResolveSellingStation is never called")
+    eq(calls.getFieldCompletion, nil, "getFieldCompletion is never called")
     for i, m in ipairs(missions) do
         for k, v in pairs(before[i]) do
             assert(rawequal(m[k], v), "mission " .. i .. " changed at " .. tostring(k))
@@ -4498,6 +4548,54 @@ test("contracts: shop specs and list checks need the game's parts (specs/0018)",
     g_missionManager = nil
     eq(collector.collect({}), nil, "no mission manager: no topic")
     eq(collector.changed(), false, "and no change to send")
+end)
+
+test("contracts: a harvest's expected litres of 0 come from getMaxCutLiters, else none (specs/0018)", function()
+    contractsGame()
+    load("src/collectors/Contracts.lua")
+    local collector = Companion.Collectors.Contracts
+    collector.reset()
+    g_currentMission = { vehicleSystem = { vehicles = {} } }
+    local calls = {}
+    local function harvest(id, status, expected, maxCut)
+        return fakeMission({
+            type = { name = "harvestMission" }, status = status, fillTypeIndex = 6, farmId = 1,
+            expectedLiters = expected, getUniqueId = function() return id end,
+            -- spike 0.0.14, 2026-11-17: on an offer it leaves the completion
+            -- state as it was (11,452 l for Farmland 79)
+            getMaxCutLiters = maxCut,
+            -- the sums only on a finished one: on an offer they freeze the game
+            getTotalReward = function() error("getTotalReward on a contract not finished") end,
+            getReimbursement = function() error("getReimbursement on a contract not finished") end,
+        }, calls)
+    end
+    local function cut(litres)
+        return function()
+            calls.getMaxCutLiters = (calls.getMaxCutLiters or 0) + 1
+            return litres
+        end
+    end
+    g_missionManager = { missions = {
+        -- every harvest offer says 0: the game sets it at the start
+        harvest("m-offer", MissionStatus.CREATED, 0, cut(11451.96)),
+        harvest("m-run", MissionStatus.RUNNING, 44000, function() error("not asked when the game has a number") end),
+        harvest("m-none", MissionStatus.CREATED, 0, nil),
+        harvest("m-zero", MissionStatus.CREATED, 0, cut(0)),
+        harvest("m-throws", MissionStatus.CREATED, 0, function() error("no field") end),
+        harvest("m-nil", MissionStatus.CREATED, nil, function() error("not asked without expectedLiters") end),
+    } }
+    local byId = {}
+    for _, item in ipairs(collector.collect({}).items) do
+        byId[item.id] = item
+    end
+    eq(byId["m-offer"].expectedLiters, 11452, "0 from the game: the litres worked out")
+    eq(byId["m-run"].expectedLiters, 44000, "the game's own number first")
+    eq(byId["m-none"].expectedLiters, nil, "no getMaxCutLiters: none, never 0")
+    eq(byId["m-zero"].expectedLiters, nil, "0 both ways: none")
+    eq(byId["m-throws"].expectedLiters, nil, "a call that throws: none, the contract still sent")
+    eq(byId["m-nil"].expectedLiters, nil, "no expectedLiters (not a harvest): nothing asked")
+    eq(calls.getMaxCutLiters, 2, "asked only where the game says 0")
+    eq(calls.getFieldCompletion, nil, "never getFieldCompletion")
 end)
 
 test("contracts: a change to the game's list sends at once, completion waits (specs/0018)", function()

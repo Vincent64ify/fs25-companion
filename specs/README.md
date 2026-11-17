@@ -51,12 +51,12 @@ behaviour, in Behaviour too: the spec always says what the code does now.
 | [0010](0010-tidy-states-and-motion.md) | Tidy states, surfaces and motion | live-checked (revision 2: selecting) | no change |
 | [0011](0011-sprayer.md) | Sprayer: Fold, Turn on, the working width | live-checked (closed with 0012's check; Precision Farming off checked 2026-11-10: the width keys' sign fixed) | 0.17.3 |
 | [0012](0012-card-buttons.md) | Card buttons: what a tool has, what it can do now | live-checked (every rig on the farm; Tip's fade on a side that can't tip: spec 0015) | 0.13.3 |
-| [0013](0013-vehicle-screen-calm.md) | Vehicle page, calm: rig strip, tool cards, field panel, no yellow at night | live-checked with revisions 2 to 4 (Precision Farming off checked 2026-11-10); revision 5 live-checked (cards front to back); revision 6 live-checked (failures on the button only); revision 7 live-checked (Also attached over the field panel, the strip fits); revision 8 live-checked (the stats in one line, smaller buttons on a short screen) | 0.15.0 |
+| [0013](0013-vehicle-screen-calm.md) | Vehicle page, calm: rig strip, tool cards, field panel, no yellow at night | live-checked with revisions 2 to 4 (Precision Farming off checked 2026-11-10); revision 5 live-checked (cards front to back); revision 6 live-checked (failures on the button only); revision 7 live-checked (Also attached over the field panel, the strip fits); revision 8 live-checked (the stats in one line, smaller buttons on a short screen); a self-propelled sprayer's own trail live-checked (0.20.2) | 0.20.2 |
 | [0014](0014-checked-pipe-tipside-cover.md) | Pipe, Tip side and Cover answer once they moved | live-checked | 0.16.0 |
 | [0015](0015-trailer-tip-fades.md) | Trailer: Tip fades when the game won't tip | live-checked (the engine off; the side fades removed: NEXT.md) | 0.17.1 |
 | [0016](0016-attach.md) | Attach: Drive's sixth button, lit while the game has something in reach | live-checked (Engine one column wide) | no change |
 | [0017](0017-game-speed.md) | Game speed: the speed on the clock pill, a panel of the game's steps | live-checked (paused: a tap says Failed) | 0.18.0 |
-| [0018](0018-contracts.md) | Contracts, read-only: on offer and yours, net, time, per hour, the extra crop, lease vehicles, on the map | live-checked (near-instant sends, 0.20.1) | 0.20.1 |
+| [0018](0018-contracts.md) | Contracts, read-only: on offer and yours, net, time, per hour, the extra crop, lease vehicles, on the map | built (0.20.4: a harvest offer's litres; the freezes were the spike's); live-checked through 0.20.1 | 0.20.4 |
 | [0019](0019-contract-actions.md) | Contracts: accept, cancel and hand in from the detail | live-checked | 0.20.0 |
 
 ## Before the specs

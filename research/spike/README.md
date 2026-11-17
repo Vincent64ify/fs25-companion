@@ -186,6 +186,44 @@ live:
 The files land in `modSettings/FS25_CompanionSpike/`. The steps are in
 spec 0012's Live check ("Probe first").
 
+## Contracts: is getMaxCutLiters safe on an offer? (spike 0.0.14, spec 0018)
+
+`csMaxCut N` calls `getMaxCutLiters()` once on harvest offer N (its
+number from `csMissions`, or a piece of its id) and writes
+`maxcut-ID.json`: the litres, and the offer's completion state
+(`isFieldCompletionInitialized`, its partitions and modifier) before and
+after. It refuses anything but a harvest offer, and an offer whose
+completion had already started.
+
+1. Load the save fresh (nothing taken, no `csMissions` needed but it's safe).
+2. `csMissions offer`, pick a harvest offer you won't take, `csMaxCut N`.
+3. **Unchanged:** mod 0.20.4 can read it again for offers' litres.
+   **CHANGED:** don't take that contract; quit without saving.
+4. Send back `maxcut-*.json`.
+
+## Contracts: what a baling and a potato contract hold (spike 0.0.13, spec 0018)
+
+**Spike 0.0.10 to 0.0.12 froze the game:** `csMissions` asked every
+contract for `getTotalReward()` and `getReimbursement()`; on a harvest
+offer that starts its field completion with no modifier, and once you take
+it the game's update fails every frame (`AbstractFieldMission.lua:493`).
+0.0.13 asks only a finished contract, and reads `fields` first. A save
+where it happened is fine once loaded again without saving.
+
+`csMissions` also writes, for each contract, every plain field it holds
+(`fields`: litres, bales, fill type ...), and in `globals.classes` the
+constants and functions of `AbstractMission`, `AbstractFieldMission`,
+`HarvestMission`, `BaleMission` and `BaleWrapMission`. It only reads.
+0.0.11 also called `getMaxCutLiters()`: never again, it froze the game
+once the contract started (spec 0018's Log, 2026-11-17).
+
+1. Rebuild the zip from `FS25_CompanionSpike/` and install it beside FS25
+   Companion 0.20.3 (0.0.13 or later only).
+2. With a baling and a potato harvest contract on offer: `csMissions offer`.
+3. Take both (own machines or lease), work each a little:
+   `csMissions running`.
+4. Send back `missions-offer.json` and `missions-running.json`.
+
 ## Contracts: accept, cancel, hand in (spike 0.0.10, spec 0019)
 
 [Spec 0019](../../specs/0019-contract-actions.md) calls the game's own

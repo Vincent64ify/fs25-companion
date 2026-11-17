@@ -10,7 +10,7 @@
 // samples, when the line fits badly (unsteady: a refill, stop and go) or
 // when the level barely moves.
 
-import { bandsOf, cabOf, controlledVehicle, implementsOf, isWorking, rigEntry } from "./selectors.js";
+import { bandsOf, cabOf, controlledVehicle, implementsOf, isWorking, rigEntry, workToolsOf } from "./selectors.js";
 
 export const RATE_WINDOW_MS = 60000;
 export const RATE_MIN_SPAN_MS = 20000;
@@ -125,8 +125,9 @@ export function createRates(store, now = () => performance.now()) {
     const cab = cabOf(store);
     const dt = Math.min(t - lastAt, MAX_STEP_MS);
     const ids = new Set();
-    for (const impl of implementsOf(v)) {
-      sample(impl.id, impl.fills);
+    for (const impl of implementsOf(v)) sample(impl.id, impl.fills);
+    // the tools that work, a self-propelled sprayer's own boom too (workToolsOf)
+    for (const impl of workToolsOf(v)) {
       if (typeof impl.id !== "number") continue;
       ids.add(impl.id);
       // working as the cab has it now (selectors' isWorking), over its

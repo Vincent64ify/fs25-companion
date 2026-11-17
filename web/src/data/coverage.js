@@ -5,7 +5,8 @@
 // game's own sprayed or mowed map.
 //
 // Fed as rates.js is (the vehicles topic). A tool records while it works
-// (selectors' isWorking, as Area: on if it turns on, lowered if it lowers),
+// (selectors' isWorking, as Area: on if it turns on, lowered if it lowers;
+// the vehicle too when it has a width of its own, a self-propelled sprayer),
 // the rig faster than 0.5 km/h, on a field of yours (revision 3). Its bands
 // are bandsOf's: a sprayer's sections that are on (specs/0011), so a
 // narrower pass is narrower and shifted to the side still on; else each of
@@ -20,7 +21,7 @@
 // cells, so it doesn't change). A tool's trail goes when it's detached, and
 // everything when you change vehicles or get out, as Area does.
 
-import { bandsOf, cabOf, controlledVehicle, implementsOf, isWorking, outlineBounds, ownFieldAt, rigEntry } from "./selectors.js";
+import { bandsOf, cabOf, controlledVehicle, isWorking, outlineBounds, ownFieldAt, rigEntry, workToolsOf } from "./selectors.js";
 
 export const CELL_M = 2;
 export const MAX_POINTS = 20000;
@@ -229,7 +230,8 @@ export function createCoverage(store, { maxPoints = MAX_POINTS, cell = CELL_M } 
     const x = /** @type {any} */ (v).x, z = /** @type {any} */ (v).z;
     const heading = /** @type {any} */ (v).heading;
     const outline = typeof x === "number" && typeof z === "number" ? ownFieldAt(store, x, z) : undefined;
-    for (const impl of implementsOf(v)) {
+    // a self-propelled sprayer's own boom too (workToolsOf)
+    for (const impl of workToolsOf(v)) {
       if (typeof impl.id !== "number") continue;
       const id = impl.id;
       ids.add(id);

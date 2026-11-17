@@ -117,6 +117,88 @@ def test_missions_lists_contracts_and_names(lua):
     assert list(lua.globals().calls.values()) == []
 
 
+def test_missions_never_asks_an_unfinished_contract_for_its_sums(lua):
+    """Spike 0.0.13: getTotalReward and getReimbursement on a harvest offer
+    started its field completion with no modifier; once taken, the game froze
+    (three times, 2026-11-17). Only a finished contract is asked; fields are
+    read before any call."""
+    lua.execute("""
+        asked = {}
+        for _, m in ipairs(g_missionManager.missions) do
+            local total, reimb = m.getTotalReward, m.getReimbursement
+            m.getTotalReward = function(self)
+                asked[#asked + 1] = "total " .. self.uniqueId
+                return total(self)
+            end
+            m.getReimbursement = function(self)
+                asked[#asked + 1] = "reimbursement " .. self.uniqueId
+                return reimb(self)
+            end
+            m.getMaxCutLiters = function() error("never getMaxCutLiters") end
+            m.getFieldCompletion = function() error("never getFieldCompletion") end
+        end
+        -- a call that would change a field shows in the dump if fields came after it
+        local reward = offer.getReward
+        offer.getReward = function(self) self.touched = true; return reward(self) end
+    """)
+    lua.eval('CompanionSpike:consoleMissions("")')
+    assert sorted(lua.globals().asked.values()) == ["reimbursement mission00dd44", "total mission00dd44"]
+    out = json.loads((OUT["dir"] / "missions.json").read_text(encoding="utf-8"))["contracts"]
+    assert "totalReward" not in out["missions"][0] and "totalReward" not in out["missions"][2]
+    assert out["missions"][3]["totalReward"] == 9000
+    assert "touched" not in out["missions"][0]["fields"], "fields are read before any call"
+
+
+HARVEST_OFFERS = r"""
+local function harvestOffer(id, sets)
+    local m = { uniqueId = id, status = MissionStatus.CREATED, type = { name = "harvestMission" }, expectedLiters = 0 }
+    function m:getUniqueId() return self.uniqueId end
+    function m:getLocation() return "Farmland 23" end
+    function m:getMaxCutLiters()
+        maxCutCalls = (maxCutCalls or 0) + 1
+        -- the suspicion: the field's completion started, no modifier
+        if sets then self.isFieldCompletionInitialized = true; self.currentPartitionCompletionIndex = 1 end
+        return 16324.47
+    end
+    table.insert(g_missionManager.missions, m)
+end
+harvestOffer("mission00ff66", true)
+harvestOffer("mission00gg77", false)
+"""
+
+
+def test_maxcut_reads_the_completion_state_around_one_call(lua):
+    """Spike 0.0.14: csMaxCut N calls getMaxCutLiters() once on one harvest
+    offer and records the completion state before and after."""
+    lua.execute(HARVEST_OFFERS)
+    msg = lua.eval('CompanionSpike:consoleMaxCut("ff66")')
+    assert "CHANGED" in msg and "quit without saving" in msg
+    out = json.loads((OUT["dir"] / "maxcut-mission00ff66.json").read_text(encoding="utf-8"))["maxCut"]
+    assert out["changed"] is True and out["value"] == 16324.47
+    assert "isFieldCompletionInitialized" not in out["before"]
+    assert out["after"]["isFieldCompletionInitialized"] is True
+    assert out["before"]["completionPartitions"] == "nil"
+
+    msg = lua.eval('CompanionSpike:consoleMaxCut("gg77")')
+    assert "unchanged" in msg and "16324" in msg
+    out = json.loads((OUT["dir"] / "maxcut-mission00gg77.json").read_text(encoding="utf-8"))["maxCut"]
+    assert out["changed"] is False and out["before"] == out["after"]
+    assert lua.eval("maxCutCalls") == 2, "one call each"
+
+
+def test_maxcut_only_on_a_harvest_offer(lua):
+    lua.execute(HARVEST_OFFERS)
+    lua.execute("g_missionManager.missions[6].status = MissionStatus.RUNNING")
+    assert "only an offer" in lua.eval('CompanionSpike:consoleMaxCut("ff66")')
+    assert "not a harvest" in lua.eval('CompanionSpike:consoleMaxCut("aa11")')
+    assert "give the contract" in lua.eval('CompanionSpike:consoleMaxCut("")')
+    assert lua.eval("maxCutCalls") is None, "never called"
+    # an offer whose completion had already started says so: the run proves nothing
+    lua.execute("g_missionManager.missions[7].isFieldCompletionInitialized = true")
+    assert "already started" in lua.eval('CompanionSpike:consoleMaxCut("gg77")')
+    assert lua.eval("maxCutCalls") is None
+
+
 def test_accept_with_lease_calls_the_games_function(lua):
     assert "accepting mission00aa11 (lease)" in lua.eval('CompanionSpike:consoleAccept("1", "lease")')
     assert "already recording" in lua.eval('CompanionSpike:consoleCancel("3")')

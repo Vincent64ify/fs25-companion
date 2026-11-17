@@ -193,6 +193,25 @@ function Api.storeSpawnPoint()
     return place.startX, place.startZ
 end
 
+-- the litres a harvest contract expects, or nil: mission.expectedLiters,
+-- which the game sets when the contract starts; every harvest offer says
+-- 0, and then mission:getMaxCutLiters() works it out, as
+-- FS25_BetterContracts does. Spike 0.0.14 (2026-11-17): on an offer it
+-- leaves the completion state as it was. 0 both ways is none. Never
+-- getFieldCompletion(), getCompletion(), or a sum on a contract not
+-- finished: those freeze the game once the contract starts (GAME-API.md).
+function Api.expectedLiters(mission)
+    local expected = mission.expectedLiters
+    if type(expected) ~= "number" then
+        return nil
+    end
+    if expected > 0 then
+        return expected
+    end
+    local cut = Api.tryCall(mission, "getMaxCutLiters")
+    return type(cut) == "number" and cut > 0 and cut or nil
+end
+
 -- how many contracts one farm may hold, or nil
 function Api.missionLimit()
     local limit = type(MissionManager) == "table" and MissionManager.MAX_MISSIONS_PER_FARM or nil

@@ -66,7 +66,7 @@ What each topic's data holds is described once, in
 | `hello` | start, and after each rotation | protocol and mod version, session, platform, the map's id, title and folders, terrain size, the PDA's map values (`ingameMap`), game and profile folders, player and farm, where commands go and the number read next |
 | `env` | 1 Hz | day, season, time, weather, temperatures, money per farm, the player's units |
 | `player` | 10 Hz | position, heading, in a vehicle or not, vehicle id, farm |
-| `vehicles` | 2 Hz | every vehicle: pose, name, type, farm, AI, hitched or not, speed. The one you drive also carries its engine, fuel, gear, wear, fills and each attached tool |
+| `vehicles` | 2 Hz | every vehicle: pose, name, type, farm, AI, hitched or not, speed. The one you drive also carries its engine, fuel, gear, wear, fills and each attached tool, and its own working width, work spans and spray spans when it has them (a self-propelled sprayer) |
 | `hotspots` | 0.1 Hz | the PDA's places: category, name, position, owner farm, visible; fields, vehicles, AI and the player are left out |
 | `farmlands` | 0.1 Hz | id, owner farm (0 = nobody), price, area, centre, listed |
 | `farmland_grid` | once per map, and after each rotation | the farmland id per 4 m cell (at most 512 cells a side), run-length encoded |
