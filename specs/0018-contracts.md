@@ -508,8 +508,8 @@ Vincent to run):
 ## Out of scope / open questions
 
 Later, each its own spec once this one is live-checked:
-- **Accept and cancel from the dashboard:** `g_missionManager:startMission`
-  is server-only; a client sends the game's start event. Unverified.
+- **Accept, cancel and hand in from the dashboard:**
+  [spec 0019](0019-contract-actions.md) (draft, 2026-11-16).
 - **Finish a stuck contract** (Vincent, 2026-11-14): the "91 %" is the
   success factor. A field contract counts the field as done at about 95 %
   worked, and a harvest at about 93 % delivered, and the game finishes at

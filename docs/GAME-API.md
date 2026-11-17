@@ -601,6 +601,38 @@ name with where it came from.
   `deadwoodMission`, `destructibleRockMission`. A fertilising contract
   leases a sprayer as often as a spreader; a potato harvest a
   `POTATOHARVESTING` machine.
+- **Accept, cancel, hand in** (spike 0.0.10 on a copy of the save,
+  2026-11-16, single player; [specs/0019](../specs/0019-contract-actions.md);
+  not in the mod yet):
+  - `g_currentMission:getIsServer()` is true in single player.
+  - `g_missionManager:startMission(mission, farmId, lease)` returns
+    `MissionStartState.OK` (1). The contract is `PREPARING` the same
+    frame with `farmId`, `activeMissionId` and `spawnedVehicles` set,
+    and `RUNNING` within a second (0.7 s with two leased machines,
+    0.2 s without). No money moves; no dialog or menu opens.
+  - `MissionStartState`: `OK` 1, `LIMIT_REACHED` 2, `ALREADY_STARTED` 3,
+    `NOT_AVAILABLE_ANYMORE` 4, `NO_ACCESS` 5, `CANNOT_BE_STARTED_NOW` 6,
+    `PENDING_MISSION` 7, `NO_PERMISSION` 8 (only `OK` seen returned).
+  - `g_missionManager:cancelMission(mission)` returns true: `FINISHED`
+    and `MissionFinishState.CANCELED` the same frame, the leased
+    machines deleted the same frame.
+  - `g_missionManager:dismissMission(mission)` returns true: the same
+    frame the farm's money moves by `mission:getTotalReward()` and the
+    contract leaves `getMissions()`. A cancelled, leased contract's
+    total is minus its lease. It also ran with the game's menu open.
+  - `g_missionManager:hasFarmReachedMissionLimit(farmId)`: true with
+    three held, false after a hand-in.
+  - `mission:isSpawnSpaceAvailable()` true before a lease (false not
+    seen); `mission:hasLeasableVehicles()`.
+  - `MissionFinishState` has `NONE` (1): an unfinished contract's
+    `finishState`. `SUCCESS` 2, `FAILED` 3, `TIMED_OUT` 4, `CANCELED` 5.
+  - A contract's id is "mission" and 32 hex digits.
+  - `MissionStartEvent`, `MissionCancelEvent`, `MissionDismissEvent`
+    exist (each with `new` and `newServerToClient`); the menu frame
+    `InGameMenuContractsFrame` has `onButtonAccept`, `onButtonLease`,
+    `startContract`, `onButtonCancel`, `onButtonDismiss`. Not used.
+  - **A mod may not call `loadstring`**: the game logs "tried to compile
+    script code at runtime ... Disabled for security reasons".
 - **Shop categories seen:** `CUTTERS`, `POTATOHARVESTING`, `PLOWS`,
   `CULTIVATORS`, `POWERHARROWS`, `SEEDERS`, `SPRAYERS`,
   `FERTILIZERSPREADERS`, `SLURRYTANKS`, `SLURRYTOOLS`, `MOWERS`,
@@ -660,7 +692,9 @@ says so.
 - **Contracts, the rest** ([specs/0018](../specs/0018-contracts.md)):
   `BaleMission.FILL_SUCCESS_FACTOR` (not there on 2026-11-16: no `bale`
   factor is sent), `getReimbursement()` and `stealingCost` (never seen in
-  a stream), `MissionStatus.DISMISSED`, the shop categories `DISCHARROWS`,
+  a stream), a successful contract's total and reimbursement at hand-in
+  and a refusal from `startMission` ([specs/0019](../specs/0019-contract-actions.md)),
+  the shop categories `DISCHARROWS`,
   `PLANTERS`, `WEEDERS`, `CORNHEADERS`, `MANURESPREADERS` and
   `BALERSSQUARE`, and the type names `plowMission`, weeding and stone
   picking.

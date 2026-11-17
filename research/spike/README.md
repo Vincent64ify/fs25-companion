@@ -186,6 +186,31 @@ live:
 The files land in `modSettings/FS25_CompanionSpike/`. The steps are in
 spec 0012's Live check ("Probe first").
 
+## Contracts: accept, cancel, hand in (spike 0.0.10, spec 0019)
+
+[Spec 0019](../../specs/0019-contract-actions.md) calls the game's own
+`g_missionManager:startMission`, `cancelMission` and `dismissMission`,
+read in the SDK's scripts but never run by us. Four console commands:
+
+- `csMissions [NAME]`: `missions.json` (`missions-NAME.json`). Only
+  reads: whether the game is the server, the three functions, the
+  `MissionStartState` names, what the menu's events and contracts frame
+  hold (for a multiplayer client later), your money, and every contract
+  with its number, id, status, reward, lease and the game's total. It
+  also prints one line per contract in the console.
+- `csAccept N lease` or `csAccept N own`, `csCancel N`, `csHandIn N`: N
+  is the contract's number from `csMissions` (or a piece of its id).
+  **Each changes the save**; a hand-in books money. Each makes the call
+  on the next frame, then records for 6 s every change in the contract
+  (status, farm, leased machines), your money, and whether the game
+  shows a menu or a dialog: `accept-<id>-lease.json`,
+  `cancel-<id>.json`, `handin-<id>.json`. A command the spec would
+  refuse (not the server, not yours, not finished, no room at the shop)
+  says so and calls nothing.
+
+The numbers move when the list changes: run `csMissions` again before
+each command. The steps are in spec 0019's Live check ("Spike first").
+
 ## Command spike (C0)
 
 `FS25_CommandSpike` checked the command channel before Controls was built

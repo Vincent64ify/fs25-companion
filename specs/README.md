@@ -57,6 +57,7 @@ behaviour, in Behaviour too: the spec always says what the code does now.
 | [0016](0016-attach.md) | Attach: Drive's sixth button, lit while the game has something in reach | live-checked (Engine one column wide) | no change |
 | [0017](0017-game-speed.md) | Game speed: the speed on the clock pill, a panel of the game's steps | live-checked (paused: a tap says Failed) | 0.18.0 |
 | [0018](0018-contracts.md) | Contracts, read-only: on offer and yours, net, time, per hour, the extra crop, lease vehicles, on the map | live-checked | 0.19.1 |
+| [0019](0019-contract-actions.md) | Contracts: accept, cancel and hand in from the detail | approved (spike run 2026-11-16: the game's functions work; build next) | 0.20.0 |
 
 ## Before the specs
 

@@ -23,7 +23,7 @@
 CompanionSpike = {}
 local CS = CompanionSpike
 
-local SPIKE_VERSION = "0.0.9"
+local SPIKE_VERSION = "0.0.10"
 local MOD_DIR = g_currentModDirectory or ""
 
 local LIMITS = {
@@ -2039,6 +2039,484 @@ local function writeStreamLine()
 end
 
 ---------------------------------------------------------------------------
+-- Contracts (0.0.10, spec 0019): accept, cancel and hand in through the
+-- game's own MissionManager functions (dataS/scripts/missions in the SDK's
+-- gameSource.zip). csMissions only reads. csAccept, csCancel and csHandIn
+-- CHANGE THE SAVE (a hand-in books money): run them on a copy.
+---------------------------------------------------------------------------
+
+local MISSION_MS = 6000
+local MISSION_COMMANDS = { "csMissions", "csAccept", "csCancel", "csHandIn" }
+-- looked up by name: the manager's functions, and what the menu's buttons
+-- may send (remembered from FS22, not in the SDK's zip)
+local MISSION_MANAGER_FNS = { "getMissions", "getMissionByUniqueId", "startMission", "cancelMission", "dismissMission",
+    "hasFarmReachedMissionLimit", "getIsMissionRunningOnFarmland" }
+local MISSION_GLOBALS = { "MissionStartEvent", "MissionCancelEvent", "MissionDismissEvent", "MissionStartedEvent",
+    "MissionFinishedEvent", "MissionDeleteEvent", "InGameMenuContractsFrame" }
+local MISSION_ENUMS = { "MissionStartState", "MissionStatus", "MissionFinishState" }
+
+-- a global by name. Never loadstring: the game refuses it for mods and
+-- logs an Error (seen 2026-11-16); _G[name] reaches the game's globals
+local function globalByName(name)
+    return _G[name]
+end
+
+-- obj:name(...) under pcall: the first answer, or nil and why
+local function callOn(obj, name, ...)
+    if type(obj) ~= "table" or type(obj[name]) ~= "function" then
+        return nil, "no " .. name
+    end
+    local r = pack(pcall(obj[name], obj, ...))
+    if not r[1] then
+        return nil, tostring(r[2])
+    end
+    return r[2]
+end
+
+local MISSION_ENUM_KEYS = {
+    MissionStatus = { "CREATED", "PREPARING", "RUNNING", "FINISHED", "DISMISSED" },
+    MissionFinishState = { "SUCCESS", "FAILED", "TIMED_OUT", "CANCELED" },
+    MissionStartState = { "OK", "NO_ACCESS", "LIMIT_REACHED", "ALREADY_STARTED", "PENDING_MISSION",
+        "NOT_AVAILABLE_ANYMORE", "CANNOT_BE_STARTED_NOW" },
+}
+
+-- enum[key] == value, by the key's name: mod/src/Api.lua's way (the game's
+-- enums may not list their keys to pairs)
+local function enumIs(enumName_, key, value)
+    local enum = globalByName(enumName_)
+    if type(enum) ~= "table" or value == nil then
+        return false
+    end
+    local ok, v = pcall(function() return enum[key] end)
+    return ok and v ~= nil and v == value
+end
+
+local function enumName(enumName_, value)
+    for _, key in ipairs(MISSION_ENUM_KEYS[enumName_] or {}) do
+        if enumIs(enumName_, key, value) then
+            return key
+        end
+    end
+    local enum = globalByName(enumName_)
+    if type(enum) == "table" then
+        for k, v in pairs(enum) do
+            if v == value and type(k) == "string" then
+                return k
+            end
+        end
+    end
+    return value ~= nil and tostring(value) or nil
+end
+
+local function functionNamesOf(t)
+    local names = {}
+    if type(t) == "table" then
+        for k, v in pairs(t) do
+            if type(k) == "string" and type(v) == "function" then
+                names[#names + 1] = k
+            end
+        end
+        table.sort(names)
+    end
+    return names
+end
+
+local function plainFieldsOf(t)
+    local out = {}
+    if type(t) == "table" then
+        for k, v in pairs(t) do
+            local tv = type(v)
+            if type(k) == "string" and (tv == "number" or tv == "string" or tv == "boolean") then
+                out[k] = v
+            end
+        end
+    end
+    return out
+end
+
+local function missionFarmId()
+    local player = g_localPlayer
+    if type(player) == "table" and type(player.farmId) == "number" then
+        return player.farmId
+    end
+    return (callOn(g_currentMission, "getFarmId"))
+end
+
+local function farmMoney(farmId)
+    local farm = callOn(g_farmManager, "getFarmById", farmId)
+    if type(farm) ~= "table" then
+        return nil
+    end
+    return type(farm.money) == "number" and farm.money or (callOn(farm, "getBalance"))
+end
+
+local function missionsNow()
+    local list = callOn(g_missionManager, "getMissions")
+    if type(list) ~= "table" and type(g_missionManager) == "table" then
+        list = g_missionManager.missions
+    end
+    return type(list) == "table" and list or {}
+end
+
+local function missionId(m)
+    return (callOn(m, "getUniqueId")) or (type(m) == "table" and m.uniqueId or nil)
+end
+
+local function countOf(t)
+    return type(t) == "table" and #t or nil
+end
+
+-- what the game holds for one contract. Only reads: never getCompletion
+-- (it drives the field's completion) nor isSpawnSpaceAvailable (it marks
+-- shop places while it looks)
+local function missionFacts(m)
+    if type(m) ~= "table" then
+        return nil
+    end
+    return {
+        uniqueId = missionId(m),
+        class = classNameOf(m),
+        type = type(m.type) == "table" and m.type.name or nil,
+        title = (callOn(m, "getTitle")),
+        location = (callOn(m, "getLocation")),
+        status = enumName("MissionStatus", m.status), statusRaw = m.status,
+        finishState = enumName("MissionFinishState", m.finishState), finishStateRaw = m.finishState,
+        farmId = m.farmId, activeMissionId = m.activeMissionId,
+        reward = (callOn(m, "getReward")), vehicleCosts = (callOn(m, "getVehicleCosts")),
+        totalReward = (callOn(m, "getTotalReward")), reimbursement = (callOn(m, "getReimbursement")),
+        stealingCost = m.stealingCost,
+        hasLeasableVehicles = (callOn(m, "hasLeasableVehicles")),
+        vehiclesToLoad = countOf(m.vehiclesToLoad), vehicles = countOf(m.vehicles),
+        spawnedVehicles = m.spawnedVehicles, failedToLoadVehicles = m.failedToLoadVehicles,
+        completion = m.completion, minutesLeft = (callOn(m, "getMinutesLeft")),
+    }
+end
+
+-- whether the game shows a menu or a dialog now
+local function guiFacts()
+    local gui = g_gui
+    if type(gui) ~= "table" then
+        return { missing = true }
+    end
+    return {
+        currentGuiName = type(gui.currentGuiName) == "string" and gui.currentGuiName or nil,
+        guiVisible = (callOn(gui, "getIsGuiVisible")),
+        dialogVisible = (callOn(gui, "getIsDialogVisible")),
+        dialogs = countOf(gui.dialogs),
+        paused = type(g_currentMission) == "table" and g_currentMission.paused or nil,
+    }
+end
+
+-- the names spec 0019 leans on: there or not, and what they hold
+local function missionGlobals()
+    local farmId = missionFarmId()
+    local out = {
+        isServer = (callOn(g_currentMission, "getIsServer")), isClient = (callOn(g_currentMission, "getIsClient")),
+        hasServer = g_server ~= nil, hasClient = g_client ~= nil,
+        farmId = farmId, money = farmMoney(farmId),
+        limit = type(MissionManager) == "table" and MissionManager.MAX_MISSIONS_PER_FARM or nil,
+        limitReached = (callOn(g_missionManager, "hasFarmReachedMissionLimit", farmId)),
+        manager = {}, enums = {}, named = {}, missionNames = {},
+    }
+    for _, name in ipairs(MISSION_MANAGER_FNS) do
+        out.manager[name] = type(g_missionManager) == "table" and type(g_missionManager[name]) or "no g_missionManager"
+    end
+    for _, name in ipairs(MISSION_ENUMS) do
+        local enum = globalByName(name)
+        if type(enum) == "table" then
+            local fields = plainFieldsOf(enum)
+            for _, key in ipairs(MISSION_ENUM_KEYS[name] or {}) do
+                local ok, v = pcall(function() return enum[key] end)
+                if ok and fields[key] == nil and (type(v) == "number" or type(v) == "string") then
+                    fields[key] = v
+                end
+            end
+            out.enums[name] = fields
+        else
+            out.enums[name] = type(enum)
+        end
+    end
+    for _, name in ipairs(MISSION_GLOBALS) do
+        local t = globalByName(name)
+        out.named[name] = type(t) == "table" and functionNamesOf(t) or type(t)
+    end
+    -- every global the mod can list with Mission or Contract in its name
+    for k, v in pairs(_G) do
+        if type(k) == "string" and (k:find("Mission", 1, true) or k:find("Contract", 1, true)) then
+            out.missionNames[#out.missionNames + 1] = k .. ":" .. type(v)
+        end
+    end
+    table.sort(out.missionNames)
+    return out
+end
+
+local function probeMissions()
+    local out = { globals = missionGlobals(), gui = guiFacts(), missions = {} }
+    for i, m in ipairs(missionsNow()) do
+        local ok, facts = pcall(missionFacts, m)
+        facts = ok and facts or { error = tostring(facts) }
+        facts.index = i
+        out.missions[i] = facts
+    end
+    return out
+end
+
+-- a contract by its place in csMissions' list, or by a piece of its id
+local function pickMission(arg)
+    local list = missionsNow()
+    local n = tonumber(arg)
+    if n ~= nil and n == math.floor(n) and list[n] ~= nil and #tostring(arg) <= 3 then
+        return list[n]
+    end
+    local found, count = nil, 0
+    arg = tostring(arg or "")
+    if arg == "" then
+        return nil, "give the contract's number from csMissions, or a piece of its id"
+    end
+    for _, m in ipairs(list) do
+        local id = missionId(m)
+        if type(id) == "string" and (id == arg or id:find(arg, 1, true) ~= nil) then
+            found, count = m, count + 1
+        end
+    end
+    if count == 1 then
+        return found
+    end
+    return nil, count == 0 and ("no contract matches " .. arg) or (count .. " contracts match " .. arg)
+end
+
+-- one flat reading a frame: what a contract command may change
+local function missionFrameState(run)
+    local m = run.mission
+    local inList = false
+    for _, other in ipairs(missionsNow()) do
+        if other == m or (run.id ~= nil and missionId(other) == run.id) then
+            inList = true
+        end
+    end
+    local gui = guiFacts()
+    local s = {
+        inList = inList,
+        status = enumName("MissionStatus", m.status), finishState = enumName("MissionFinishState", m.finishState),
+        farmId = m.farmId, activeMissionId = m.activeMissionId,
+        spawnedVehicles = m.spawnedVehicles, vehicles = countOf(m.vehicles),
+        failedToLoadVehicles = m.failedToLoadVehicles,
+        totalReward = inList and (callOn(m, "getTotalReward")) or nil,
+        reimbursement = inList and (callOn(m, "getReimbursement")) or nil,
+        money = farmMoney(run.farmId),
+        limitReached = (callOn(g_missionManager, "hasFarmReachedMissionLimit", run.farmId)),
+        guiName = gui.currentGuiName, guiVisible = gui.guiVisible, dialogVisible = gui.dialogVisible,
+        dialogs = gui.dialogs,
+    }
+    return s
+end
+
+local MISSION_FRAME_KEYS = { "inList", "status", "finishState", "farmId", "activeMissionId", "spawnedVehicles", "vehicles",
+    "failedToLoadVehicles", "totalReward", "reimbursement", "money", "limitReached", "guiName", "guiVisible",
+    "dialogVisible", "dialogs" }
+
+-- the game's function, called as the mod will call it; its answers kept
+local function missionAct(run)
+    local mgr = g_missionManager
+    local r
+    if run.verb == "accept" then
+        r = pack(pcall(mgr.startMission, mgr, run.mission, run.farmId, run.lease))
+    elseif run.verb == "cancel" then
+        r = pack(pcall(mgr.cancelMission, mgr, run.mission))
+    else
+        r = pack(pcall(mgr.dismissMission, mgr, run.mission))
+    end
+    local res = { ok = r[1], returned = r.n - 1 }
+    if not r[1] then
+        res.error = tostring(r[2])
+    else
+        local v = r[2]
+        res.value = (type(v) == "table" or type(v) == "function") and type(v) or v
+        if run.verb == "accept" then
+            res.name = enumName("MissionStartState", v)
+        end
+    end
+    return res
+end
+
+-- true when the recording is over
+local function missionFrame(run)
+    local now = missionFrameState(run)
+    for _, k in ipairs(MISSION_FRAME_KEYS) do
+        if now[k] ~= run.last[k] then
+            run.changes[#run.changes + 1] = { ms = g_time - run.start, key = k, from = run.last[k], to = now[k] }
+        end
+    end
+    run.last = now
+    return g_time - run.start >= MISSION_MS
+end
+
+local function missionFile(run)
+    local id = tostring(run.id or "unknown")
+    local tail = id:sub(-6):gsub("[^%w]", "")
+    return run.verb .. "-" .. tail .. (run.verb == "accept" and (run.lease and "-lease" or "-own") or "") .. ".json"
+end
+
+-- start a recording for one contract, or say why not
+local function missionStart(verb, arg, lease)
+    if ctx.missionRun ~= nil then
+        return nil, "already recording"
+    end
+    if type(g_missionManager) ~= "table" then
+        return nil, "no g_missionManager"
+    end
+    local fn = ({ accept = "startMission", cancel = "cancelMission", handin = "dismissMission" })[verb]
+    if type(g_missionManager[fn]) ~= "function" then
+        return nil, "the game has no MissionManager:" .. fn
+    end
+    if callOn(g_currentMission, "getIsServer") ~= true then
+        return nil, "this game is not the server: host only"
+    end
+    local m, why = pickMission(arg)
+    if m == nil then
+        return nil, why
+    end
+    local farmId = missionFarmId()
+    local run = { verb = verb, mission = m, id = missionId(m), farmId = farmId, lease = lease == true, changes = {} }
+    local facts = missionFacts(m)
+    local status = facts.status
+    local finished = enumIs("MissionStatus", "FINISHED", m.status)
+    if verb == "accept" then
+        if m.farmId ~= nil or not enumIs("MissionStatus", "CREATED", m.status) then
+            return nil, "that contract is already taken (" .. tostring(status) .. ")"
+        end
+        if run.lease then
+            if callOn(m, "hasLeasableVehicles") ~= true then
+                return nil, "that contract has no lease vehicles: csAccept N own"
+            end
+            -- the one call that marks shop places while it looks (and unmarks them)
+            local space, err = callOn(m, "isSpawnSpaceAvailable")
+            run.spawnSpace, run.spawnSpaceError = space, err
+            if space == false then
+                return nil, "no room at the shop for the leased machines: nothing started"
+            end
+        end
+    elseif m.farmId ~= farmId then
+        return nil, "that contract is not your farm's"
+    elseif verb == "handin" and not finished then
+        return nil, "that contract is not finished (" .. tostring(status) .. "): nothing handed in"
+    elseif verb == "cancel" and finished then
+        return nil, "that contract is already finished"
+    end
+    run.before = { facts = facts, gui = guiFacts(), money = farmMoney(farmId), globals = missionGlobals() }
+    ctx.missionRun = run
+    return run
+end
+
+local function missionFinish(run, err)
+    local inList = nil
+    if run.last ~= nil then
+        inList = run.last.inList
+    end
+    local okF, facts
+    if inList == false then
+        okF, facts = true, plainFieldsOf(run.mission)
+        facts.deleted = true
+    else
+        okF, facts = pcall(missionFacts, run.mission)
+    end
+    local out = { contract = {
+        verb = run.verb, id = run.id, lease = run.verb == "accept" and run.lease or nil, farmId = run.farmId,
+        spawnSpace = run.spawnSpace, spawnSpaceError = run.spawnSpaceError,
+        before = run.before, result = run.result, changes = run.changes,
+        after = { facts = okF and facts or { error = tostring(facts) }, gui = guiFacts(), money = farmMoney(run.farmId),
+            inList = inList },
+        moneyChange = (run.before.money ~= nil and farmMoney(run.farmId) ~= nil)
+            and (farmMoney(run.farmId) - run.before.money) or nil,
+        error = err,
+    } }
+    local file = missionFile(run)
+    ctx.status = writeJson(file, out) and (run.verb .. " written to " .. file) or (run.verb .. ": write FAILED")
+    log("contract %s %s: %s, %d change(s)", run.verb, tostring(run.id),
+        run.result ~= nil and (run.result.ok and ("returned " .. tostring(run.result.name or run.result.value))
+            or ("ERROR " .. tostring(run.result.error))) or "not called", #run.changes)
+end
+
+-- one frame of a contract recording: the call on the first, then readings
+local function missionUpdate()
+    local run = ctx.missionRun
+    if run == nil then
+        return
+    end
+    local ok, done = pcall(function()
+        if run.start == nil then
+            run.start = g_time
+            run.last = missionFrameState(run)
+            run.before.frame = run.last
+            run.result = missionAct(run)
+        end
+        return missionFrame(run)
+    end)
+    if not ok or done then
+        ctx.missionRun = nil
+        missionFinish(run, not ok and tostring(done) or nil)
+    end
+end
+
+function CompanionSpike:consoleMissions(name)
+    local ok, res = pcall(probeMissions)
+    if not ok then
+        log("missions probe failed: %s", tostring(res))
+        return "missions probe failed, see log"
+    end
+    local offers, mine = 0, 0
+    for _, f in ipairs(res.missions) do
+        if f.farmId == res.globals.farmId and f.farmId ~= nil then
+            mine = mine + 1
+        elseif f.farmId == nil then
+            offers = offers + 1
+        end
+        print(string.format("[CompanionSpike] %2d  %-9s %-22s %-14s %-9s %s%s", f.index, tostring(f.status),
+            tostring(f.type), tostring(f.location), f.hasLeasableVehicles == true and "lease" or "no lease",
+            tostring(f.uniqueId),
+            f.farmId ~= nil and ("  farm " .. tostring(f.farmId)) or ""))
+    end
+    local file = name ~= nil and name ~= "" and ("missions-" .. tostring(name):gsub("[^%w_-]", "") .. ".json")
+        or "missions.json"
+    local written = writeJson(file, { contracts = res })
+    ctx.status = written and ("missions written to " .. file) or "missions: write FAILED"
+    return string.format("%s: %d contract(s), %d on offer, %d yours; server %s; startMission %s", ctx.status,
+        #res.missions, offers, mine, tostring(res.globals.isServer), tostring(res.globals.manager.startMission))
+end
+
+function CompanionSpike:consoleAccept(arg, how)
+    how = tostring(how or ""):lower()
+    if how ~= "lease" and how ~= "own" then
+        return "csAccept N lease, or csAccept N own (N from csMissions). It changes the save."
+    end
+    local run, why = missionStart("accept", arg, how == "lease")
+    if run == nil then
+        return "csAccept: " .. tostring(why)
+    end
+    ctx.status = "accepting " .. tostring(run.id)
+    return string.format("accepting %s (%s) next frame, recording %d s", tostring(run.id), how, MISSION_MS / 1000)
+end
+
+function CompanionSpike:consoleCancel(arg)
+    local run, why = missionStart("cancel", arg)
+    if run == nil then
+        return "csCancel: " .. tostring(why)
+    end
+    ctx.status = "cancelling " .. tostring(run.id)
+    return string.format("cancelling %s next frame, recording %d s", tostring(run.id), MISSION_MS / 1000)
+end
+
+function CompanionSpike:consoleHandIn(arg)
+    local run, why = missionStart("handin", arg)
+    if run == nil then
+        return "csHandIn: " .. tostring(why)
+    end
+    ctx.status = "handing in " .. tostring(run.id)
+    return string.format("handing in %s next frame (the game says %s), recording %d s", tostring(run.id),
+        tostring(run.before.facts.totalReward), MISSION_MS / 1000)
+end
+
+---------------------------------------------------------------------------
 -- Mod event listener
 ---------------------------------------------------------------------------
 
@@ -2064,6 +2542,14 @@ function CompanionSpike:loadMap(name)
             "consoleParts", CompanionSpike)
         addConsoleCommand("csRate", "Press Precision Farming's rate key (or KEY, with VALUE) and record its sprayer part to rate-KEY.json",
             "consoleRate", CompanionSpike)
+        addConsoleCommand("csMissions", "Write the game's contracts and the names spec 0019 uses to missions.json (csMissions NAME: missions-NAME.json)",
+            "consoleMissions", CompanionSpike)
+        addConsoleCommand("csAccept", "CHANGES THE SAVE: accept contract N (from csMissions) with lease or own, e.g. csAccept 4 lease",
+            "consoleAccept", CompanionSpike)
+        addConsoleCommand("csCancel", "CHANGES THE SAVE: cancel your contract N (from csMissions)",
+            "consoleCancel", CompanionSpike)
+        addConsoleCommand("csHandIn", "CHANGES THE SAVE: hand in your finished contract N (from csMissions); books its money",
+            "consoleHandIn", CompanionSpike)
     end
 end
 
@@ -2079,7 +2565,11 @@ function CompanionSpike:deleteMap()
         removeConsoleCommand("csTrace")
         removeConsoleCommand("csPress")
         removeConsoleCommand("csCombo")
+        for _, name in ipairs(MISSION_COMMANDS) do
+            removeConsoleCommand(name)
+        end
     end
+    ctx.missionRun = nil
     ctx.selectRun = nil
     ctx.pressNext = nil
     ctx.combo = nil
@@ -2278,6 +2768,7 @@ function CompanionSpike:update(dt)
             log("csRate %s: %d change(s) recorded", rate.key, #rate.changes)
         end
     end
+    missionUpdate()
     if ctx.pressNext ~= nil then
         local name = ctx.pressNext
         ctx.pressNext = nil
@@ -2373,6 +2864,7 @@ CS._probeCombo, CS._comboState = probeCombo, comboState
 CS._partsOf, CS._probeParts, CS._rateTarget, CS._rateState, CS._rateFrame = partsOf, probeParts, rateTarget, rateState,
     rateFrame
 CS._traceWrap, CS._traceUnwrap, CS._traceFrame, CS._newTrace = traceWrap, traceUnwrap, traceFrame, newTrace
+CS._probeMissions, CS._pickMission = probeMissions, pickMission
 
 if addModEventListener ~= nil then
     addModEventListener(CompanionSpike)
