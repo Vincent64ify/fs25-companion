@@ -1,6 +1,6 @@
 # 0018: Contracts (read-only)
 
-Status: built (mod 0.20.4: a harvest offer's litres from getMaxCutLiters; everything before live-checked)
+Status: live-checked
 Mod: 0.20.4 · Started: 2026-11-14 · Design: the chrome in [THEMES.md](../docs/THEMES.md#layout); the tiles after the HEADLAND canvas's Haul and Yard pages (private, on claude.ai); the canvas [FS25 Companion: Contracts](https://claude.ai/artifact/T8NwTQTEp6jvCdRq82xHzP) (private, on claude.ai; at 1158 × 676 and 1180 × 820, day and night; version 9 reviewed by Vincent 2026-11-14: the detail in two columns at full height, the switches over the list)
 
 ## Goal
@@ -540,13 +540,17 @@ Live check of a harvest's litres (Solek, mod 0.20.4, with the spike
 0.0.14 beside it; for Vincent to run):
 - [x] `csMaxCut N` on a harvest offer: the completion state unchanged.
   (2026-11-17: Farmland 79, 11,452 l.)
-- [ ] A harvest on offer (potatoes and grain) shows litres near the
+- [x] A harvest on offer (potatoes and grain) shows litres near the
   game's contracts screen, never "0 l"; once taken, the game's own.
-  (2026-11-17: offers show litres; not yet compared with the game's.)
-- [ ] Take a potato harvest and a baling contract, get in the lease
+  (2026-11-17, Vincent: confirmed. The stream then: rye 13,664 l on
+  field 38, potatoes 73,720 l on field 152, wheat 3,898 l on field 183.)
+- [x] Take a potato harvest and a baling contract, get in the lease
   machines and drive: no red errors, the game and the dashboard follow
   (the freeze); then `csMissions running` (spike 0.0.13: `csMissions offer`
-  before taking them is safe too).
+  before taking them is safe too). (2026-11-17: a baling contract with
+  lease ran and finished, the Farmland 79 harvest with lease ran, no
+  errors, `csMissions running` done; a potato harvest not taken again.
+  Ticked by Vincent on those runs.)
 
 ## Decisions
 
@@ -743,3 +747,7 @@ Open after the build, for Vincent:
   as the game's own completion (the tile and the detail's Progress, 62 %
   live, mod 0.20.4). To tell: the litres in the bales made against
   `spawnedLiters` × completion (NEXT.md).
+- 2026-11-17: live check by Vincent on mod 0.20.4: harvest offers' litres
+  match the game's contracts screen; that box ticked. Then the freeze
+  box too, by Vincent, on the baling and Farmland 79 runs (a potato
+  harvest not taken again). Every box ticked; Status live-checked.
