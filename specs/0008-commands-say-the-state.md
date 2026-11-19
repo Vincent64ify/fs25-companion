@@ -112,7 +112,7 @@ else the setter; S4 trims setters). The toggles they replace go.
 | `highBeam.set`, `beacon.set`, `hazard.set`, `turnLeft.set`, `turnRight.set` | 0 or 1 | no | the `.toggle`s |
 | `engine.set` | 0 or 1 | no | `engine.toggle` |
 | `cruiseOn.set` | 0 or 1 | no | `cruise.toggle` |
-| `ai.set` | 0 or 1 | no | `ai.toggle` |
+| `ai.set` | 0 or 1 (refused in Steering Assist mode since mod 0.21.0: [spec 0020](0020-steering-assist-state.md)'s `steering.set` there) | no | `ai.toggle` |
 | `straw.set` | 1 swath, 0 chopper | no | `implement.straw` |
 | `tool.lower`, `tool.fold`, `tool.turnOn`, `tool.pipe`, `tool.tip` | 0 or 1 (lowered, folded, on, out, tipping) | yes | `implement.lower`, `.fold`, `.turnOn`, `.pipe`, `.unload` |
 | `implement.lowerAll`, `.foldAll`, `.turnOnAll` | 0 or 1 | no | the same names without a value |

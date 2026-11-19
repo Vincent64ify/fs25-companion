@@ -186,6 +186,31 @@ live:
 The files land in `modSettings/FS25_CompanionSpike/`. The steps are in
 spec 0012's Live check ("Probe first").
 
+## Steering Assist: the mode, the course, the steering key (spike 0.0.15, spec 0020)
+
+`csParts NAME` gains `steering` on each rig member with Steering Assist
+(`spec_aiModeSelection` or `spec_aiAutomaticSteering`): both parts' plain
+fields, `currentMode` and its name among `AIModeSelection.MODE`'s keys,
+`steeringEnabled`, the course's class and plain fields, and the
+`TOGGLE_AI_STEERING` event found through the steering part's
+`actionEvents` in `g_inputBinding.events` (`registered`, `found`,
+`active`, `text`, `shown`). Reads only, no game calls.
+
+1. Install the zip beside FS25 Companion 0.20.5, on Solek, a tractor with
+   a cultivator (or the plough).
+2. In the cab, `csParts NAME` for each (copy nothing between: each has its
+   own file):
+   - `worker`: AI worker mode, on a field;
+   - `off`: Steering Assist mode (set in the dialog, hold H), off the field;
+   - `ready`: the same, on a field you may work, once the course shows,
+     not steering;
+   - `steering`: the same, steering (Activate lane);
+   - `building`: the same, right after driving onto the field, before the
+     course shows (if you catch it);
+   - `noassist`: a loader or a truck.
+3. Send back the `parts-*.json` files from
+   `modSettings/FS25_CompanionSpike/`.
+
 ## Contracts: is getMaxCutLiters safe on an offer? (spike 0.0.14, spec 0018)
 
 `csMaxCut N` calls `getMaxCutLiters()` once on harvest offer N (its

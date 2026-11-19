@@ -38,7 +38,9 @@
 -- createFields, autoDrop, bales {count}, doubledRate, sprayRate {auto,
 -- step, min, max}), and canNow / whyNot for what the game refuses now and
 -- why; no list of the keys the game registered. cab.attachable is true
--- while something is in reach to attach.
+-- while something is in reach to attach. Since 0.21.0 (specs/0020)
+-- steering {mode = "worker"|"steeringAssist", state = "off"|"ready"|
+-- "steering", canSteer} on a vehicle with Steering Assist's two parts.
 --
 -- On foot: {"inVehicle":false}.
 
@@ -102,6 +104,11 @@ local function cabOf(vehicle)
     -- specs/0003: something in reach to attach (the game's Attach prompt)
     if VehicleState.attachable(vehicle) then
         cab.attachable = true
+    end
+    -- specs/0020: a read that fails drops only steering
+    local ok, steering = pcall(VehicleState.steering, vehicle)
+    if ok then
+        cab.steering = steering
     end
     return cab
 end

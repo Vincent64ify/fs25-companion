@@ -549,6 +549,69 @@ tap(engAlready);
 await new Promise((r) => setTimeout(r, 0));
 check("specs/0008: already: no wait for a change", engAlready.dataset.state, "off");
 
+// specs/0020: the Drive group's fifth button follows the mode: AI worker,
+// or Steering (steering.set) in Steering Assist mode; faded where the game
+// can't steer, never while it steers
+const sa = createStore();
+const sentSa = [];
+let saAnswer = { ok: true };
+const saSend = (a, v) => { sentSa.push([a, v]); return Promise.resolve(saAnswer); };
+const saGroup = controlGroup({ label: "Drive", controls: ["cruiseDown", "cruise", "cruiseUp", "engineOn", "aiWorker", "attach"] },
+  sa, saSend);
+const saBtn = saGroup.querySelectorAll(".control")[4];
+const saCab = (steering, extra) => ({ ...c2cab({}), ...(steering ? { steering } : {}), ...extra });
+const saLook = () => [saBtn.querySelector(".control-label")?.textContent, saBtn.querySelector("svg")?.dataset.icon,
+  saBtn.dataset.state];
+const saTap = async () => {
+  await new Promise((r) => setTimeout(r, 0));
+  sentSa.length = 0;
+  tap(saBtn);
+  await new Promise((r) => setTimeout(r, 0));
+  return [...sentSa];
+};
+const ready = { mode: "steeringAssist", state: "ready", canSteer: true };
+sa.set("cab", saCab(undefined));
+const saToday = [saLook(), await saTap()];
+sa.set("cab", saCab({ mode: "worker", state: "off", canSteer: false }));
+const saWorker = [saLook(), await saTap()];
+sa.set("cab", saCab({ mode: "worker", state: "off", canSteer: false }, { aiActive: true }));
+const saWorkerLit = saLook()[2];
+sa.set("cab", saCab(ready));
+const saReady = [saLook(), await saTap()];
+sa.set("cab", saCab({ ...ready, state: "steering" }));
+const saSteering = [saLook(), await saTap()];
+sa.set("cab", saCab({ ...ready, state: "steering", canSteer: false }));
+const saSteeringNoLane = saLook()[2];
+sa.set("cab", saCab({ ...ready, state: "off", canSteer: false }));
+const saFaded = [saLook(), await saTap()];
+sa.set("cab", saCab({ ...ready, state: "ready", canSteer: false }));
+const saFadedReady = saLook()[2];
+sa.set("cab", saCab(undefined));
+const saGone = saLook();
+check("specs/0020: the button's label, icon and state follow the mode, faded only where the game can't steer",
+  [saToday, saWorker, saWorkerLit, saReady, saSteering, saSteeringNoLane, saFaded, saFadedReady, saGone],
+  [[["AI worker", "aiWorker", "off"], [["ai.set", 1]]],
+    [["AI worker", "aiWorker", "off"], [["ai.set", 1]]],
+    "on",
+    [["Steering", "steering", "off"], [["steering.set", 1]]],
+    [["Steering", "steering", "on"], [["steering.set", 0]]],
+    "on",
+    [["Steering", "steering", "unavailable"], []],
+    "unavailable",
+    ["AI worker", "aiWorker", "off"]]);
+// steering turned off by the game (the wheel): unlit, no Failed
+sa.set("cab", saCab({ ...ready, state: "steering" }));
+sa.set("cab", saCab(ready));
+const saByGame = [saBtn.dataset.state, saBtn.hasAttribute("data-error")];
+// a press the mod answers failed says Failed on the button
+saAnswer = { ok: false, reason: "didn't change" };
+await saTap();
+await new Promise((r) => setTimeout(r, 0));
+const saFailed = [saBtn.querySelector(".control-label")?.textContent, saBtn.hasAttribute("data-error")];
+saAnswer = { ok: true };
+check("specs/0020: steering stopped by the game shows no Failed; a failed press does", [saByGame, saFailed],
+  [["off", false], ["Failed", true]]);
+
 // C2 feedback: running border, settle (engine, hitch), cruise set speed
 const fb = createStore();
 let answer;

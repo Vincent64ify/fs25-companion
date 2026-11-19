@@ -156,7 +156,9 @@ The regular layout, for tablets:
 - **Control column:** labelled groups of buttons, the same on every
   screen: Lights (Lights, High beam, Beacon, Hazard, Turn L, Turn R) and
   Drive (Cruise −, Cruise, Cruise +, Engine, AI worker, Attach: two rows
-  of three, [spec 0016](../specs/0016-attach.md)). The Vehicle page
+  of three, [spec 0016](../specs/0016-attach.md)). In Steering Assist
+  mode AI worker is Steering, with its own icon
+  ([spec 0020](../specs/0020-steering-assist-state.md)). The Vehicle page
   adds All tools with two working tools or more. One page has no column:
   Contracts ([spec 0018](../specs/0018-contracts.md)) takes the whole
   width, since choosing a contract isn't done while driving.
@@ -399,7 +401,7 @@ the row, which never moves.
   unless it has a title). No sprite file, no fetch, so it works offline on
   a LAN. An unknown name returns an empty placeholder of the same size and
   logs once, so a layout never moves.
-- **The set:** 81 icons, listed by group in `ICON_GROUPS`.
+- **The set:** 83 icons, listed by group in `ICON_GROUPS`.
 - **Contact sheet:** `web/tools/icons.html` shows every icon at 16, 26 and
   48 px, in both palettes, on a card and in a badge, and in context (the
   status bar, the map toolbar, the tab bar, the control column). It's how
@@ -438,12 +440,12 @@ the row, which never moves.
 The design system
 [FS25 Companion](https://claude.ai/artifact/LBCPbVhewCFvKcYyEFE9GH)
 (private, on claude.ai) is what new canvases are built from: the tokens of
-both palettes, Archivo, the 81 icons of `web/src/ui/icons.js`, and the
+both palettes, Archivo, the 83 icons of `web/src/ui/icons.js`, and the
 shared parts as components (`Screen`, status bar, tab bar, control column
 and groups, cards, readout card, rig tiles and links, tool cards, chips, meters).
 The code stays the source of truth: **when `theme.css`, `icons.js` or the
 values in this section change, refresh the design system in the same
-change.** Built from commit `0ccf814`; refreshed for specs/0010 (2026-11-01) and specs/0013 (2026-11-07: the night palette, "on", where you are, working badges, the rig on the ground; revision 2's trail tokens) and for the tool card (2026-11-08: seven icons, 81 now; `ToolCard` with More, its open row and the width row of specs/0011 and 0012; no selected tint on the card) and for specs/0017 (2026-11-14: the status bar's pill centred between its two sides with the game speed, `SpeedPanel`, `Screen`'s `speedPanel`).
+change.** Built from commit `0ccf814`; refreshed for specs/0010 (2026-11-01) and specs/0013 (2026-11-07: the night palette, "on", where you are, working badges, the rig on the ground; revision 2's trail tokens) and for the tool card (2026-11-08: seven icons, 81 now; `ToolCard` with More, its open row and the width row of specs/0011 and 0012; no selected tint on the card) and for specs/0017 (2026-11-14: the status bar's pill centred between its two sides with the game speed, `SpeedPanel`, `Screen`'s `speedPanel`) and for specs/0020 (2026-11-19: 83 icons, `install` and `steering` added; `DriveGroup` as the app has it, Engine one column wide, Attach sixth, and Steering in Steering Assist mode).
 
 ### Type
 

@@ -1,7 +1,7 @@
 # 0020: Steering Assist: state and the Drive button
 
-Status: approved
-Mod: 0.21.0 (planned) · Started: 2026-11-17 · Design: [THEMES.md](../docs/THEMES.md#layout) (the Drive group); the brainstorm's brief, `concepts_brief.md`, is in git history (commit b0cffeb)
+Status: built
+Mod: 0.21.0 · Started: 2026-11-17 · Design: [THEMES.md](../docs/THEMES.md#layout) (the Drive group); the canvas [FS25 Companion: Steering](https://claude.ai/artifact/HrDpmDUhL6iE4sEaRqcvaQ) (private, on claude.ai; at 1158 × 676 and 1180 × 820, day and night; the button's states and three ideas for the icon; Vincent picked C, 2026-11-19); the brainstorm's brief, `concepts_brief.md`, is in git history (commit b0cffeb)
 
 ## Goal
 
@@ -30,8 +30,10 @@ The first of three GPS specs: this one, then the GPS screen
     - **Can't steer now** (off the field, the course still building, or no
       lane under you): the button fades and a tap does nothing, as Attach
       does. It still reads "Steering". A lit button never fades.
-  - **Without Steering Assist** (a loader, a truck, any vehicle the game
-    gives no Steering Assist): the button as today.
+  - **Without Steering Assist** (any vehicle the game gives neither part):
+    the button as today. A truck may carry both parts (spike 0.0.15: the
+    Arocs 4133 hooklift does, in AI worker mode); in AI worker mode it
+    looks as today either way.
 - **The game turning steering off** (you move the wheel or the joystick,
   you reverse, you leave the cab, the course is dropped, the settings
   change, you leave Steering Assist mode): the button follows, with no
@@ -58,6 +60,8 @@ cut into segments. A **lane** here is the segment under you, the one
   controlled vehicle has no Steering Assist (no `spec_aiAutomaticSteering`
   or no `spec_aiModeSelection`) or a read fails:
   - `mode` (`"worker"` or `"steeringAssist"`): the vehicle's AI mode.
+    Sent for every vehicle with both parts, trucks included (spike
+    0.0.15), so the web never tells a truck from a tractor: the mode does.
   - `state` (`"off"`, `"ready"` or `"steering"`): no course; a course, not
     steering; steering.
   - `canSteer` (boolean): whether the game would take the steering key now,
@@ -78,10 +82,10 @@ through `runInputAction`:
 
 | Name | Cab field | Where from | State |
 |---|---|---|---|
-| `spec_aiModeSelection.currentMode`, against `AIModeSelection.MODE.WORKER` / `.STEERING_ASSIST` | `mode` | AIModeSelection.lua:91; the save writes `currentMode="STEERING_ASSIST"`. The MODE values are blanked in the archive, so the mod compares names at run time (`enumName` in Api.lua) | unverified |
-| `spec_aiAutomaticSteering.steeringEnabled` | `state` `"steering"`; `steering.set`'s reading | AIAutomaticSteering.lua:141 | unverified |
-| `spec_aiAutomaticSteering.steeringFieldCourse` | `state` `"ready"` (set) or `"off"` (nil) | AIAutomaticSteering.lua:133; in the save | unverified |
-| `TOGGLE_AI_STEERING`: "Activate lane" / "Deactivate lane"; acts on key-down and ignores the input value; its event is active only with a course and a current segment (the game's own check, `getIsAIAutomaticSteeringAllowed()`, never called here) | `canSteer` (its event's `isActive`); `steering.set`'s key | AIAutomaticSteering.lua:781-792, 887, 905-918; registered with `active: false` in all four spike0012 dumps, three vehicles (`mod/tests/fixtures/spike0012/`) | unverified |
+| `spec_aiModeSelection.currentMode`, against `AIModeSelection.MODE.WORKER` / `.STEERING_ASSIST` | `mode` | AIModeSelection.lua:91; the save writes `currentMode="STEERING_ASSIST"`. The MODE values are blanked in the archive, so the mod compares names at run time (`enumName` in Api.lua); at run time `WORKER = 1`, `STEERING_ASSIST = 2`, `currentMode` 1 or 2 as the dialog set it (spike 0.0.15, `mod/tests/fixtures/spike0020/`) | unverified (read by the spike) |
+| `spec_aiAutomaticSteering.steeringEnabled` | `state` `"steering"`; `steering.set`'s reading | AIAutomaticSteering.lua:141; `true` only in the steering dump (spike 0.0.15) | unverified (read by the spike) |
+| `spec_aiAutomaticSteering.steeringFieldCourse` | `state` `"ready"` (set) or `"off"` (nil) | AIAutomaticSteering.lua:133; in the save; nil in the worker and off dumps, a course in ready and steering (spike 0.0.15) | unverified (read by the spike) |
+| `TOGGLE_AI_STEERING`: "Activate lane" / "Deactivate lane"; acts on key-down and ignores the input value; its event is active only with a course and a current segment (the game's own check, `getIsAIAutomaticSteeringAllowed()`, never called here) | `canSteer` (its event's `isActive`); `steering.set`'s key | AIAutomaticSteering.lua:781-792, 887, 905-918; registered with `active: false` in all four spike0012 dumps, three vehicles (`mod/tests/fixtures/spike0012/`); spike 0.0.15: found through the steering part's `actionEvents` in `g_inputBinding.events`, inactive in worker, off and the truck, active in ready and steering; its text is "Toggle Steering Assist" | unverified (read by the spike) |
 | `TOGGLE_AI` (H) | `ai.set`'s key, unchanged | AIModeSelection.lua:214 | the name verified ([GAME-API.md, C0](../docs/GAME-API.md#c0-the-command-channel)) |
 | `getIsAIActive()` | `aiActive`, unchanged | AIJobVehicle | the name verified ([GAME-API.md, Phase 0](../docs/GAME-API.md#phase-0-spike-on-solek-windows-2026-10-20)); its turning on not yet (GAME-API.md, Not verified yet) |
 
@@ -163,7 +167,8 @@ refuses `ai.set` in Steering Assist mode needs the web that sends
      or "Steering" with `steering`. Only this control sets its label while
      faded.
    - Icon `steering` in `web/src/ui/icons.js`, `ICON_GROUPS`' Controls
-     group: a steering wheel above a straight lane line, in the set's
+     group: a steering wheel above a dotted lane line (five round dots,
+     the middle one under the wheel's spoke: the canvas's C), in the set's
      stroke style; reviewed on `web/tools/icons.html` before the web uses
      it.
 5. **Docs, in the same change:** `docs/THEMES.md` (the Drive line; the
@@ -194,24 +199,24 @@ unverified, until the spike and the live check.
 ## Acceptance
 
 Automated:
-- [ ] `mod/tests/run.lua`: `cab.steering` from a faked vehicle, its keys
+- [x] `mod/tests/run.lua`: `cab.steering` from a faked vehicle, its keys
   built with `SpikeRigs.register` so `liveKey` and the press reach the same
   event: AI worker and Steering Assist modes; off, ready and steering;
   `canSteer` true with the vehicle's event active, false when it is
   inactive or not registered; absent without `spec_aiAutomaticSteering` or
   `spec_aiModeSelection`, and when the mode matches neither name; a read
   that raises drops only `steering`.
-- [ ] `mod/tests/run.lua`: `steering.set` 1 and 0 press the vehicle's
+- [x] `mod/tests/run.lua`: `steering.set` 1 and 0 press the vehicle's
   `TOGGLE_AI_STEERING` once and answer ok `checked` when `steeringEnabled`
   reaches the value within `STEERING_WAIT_FRAMES`; "didn't change" after
   it; `already`, nothing pressed; no live event → "not available now"; AI
   worker mode and no Steering Assist → refused, nothing pressed; with
   `canSteer` true the press finds the event.
-- [ ] `mod/tests/run.lua`: `ai.set` in Steering Assist mode → refused,
+- [x] `mod/tests/run.lua`: `ai.set` in Steering Assist mode → refused,
   nothing pressed; in AI worker mode, with `spec_aiModeSelection` present,
   it still presses `TOGGLE_AI`; hello says `actions` 5.
-- [ ] `tests/test_golden.py` unchanged (the Solek replay has no `cab`).
-- [ ] `web/test.html`: the Drive button reads "AI worker" (icon `aiWorker`)
+- [x] `tests/test_golden.py` unchanged (the Solek replay has no `cab`).
+- [x] `web/test.html`: the Drive button reads "AI worker" (icon `aiWorker`)
   or "Steering" (icon `steering`) by the mode, including while faded, and
   goes back to "AI worker" when `cab.steering` goes; lit while steering;
   faded when not steering and `canSteer` is false; steering with `canSteer`
@@ -219,7 +224,7 @@ Automated:
   with the opposite state, in AI worker mode `ai.set`; a tap on the faded
   button sends nothing; steering turning off by itself shows no "Failed";
   without `cab.steering`, the button is as today.
-- [ ] Replay in the browser pane (`replay-solek`, a patched `cab`): both
+- [x] Replay in the browser pane (`replay-solek`, a patched `cab`): both
   modes, ready, steering and faded, at 1158×676 and 1180×820, day and
   night; the Drive group keeps its two rows of three, and the label fits.
 
@@ -239,6 +244,8 @@ Live check (Solek, a tractor with a cultivator, mod 0.21.0):
   check): a tap still steers.
 - [ ] **AI worker mode:** the button lights while a worker hired in game
   drives, as today.
+- [ ] **A truck in Steering Assist mode,** if the game's dialog lets you
+  set it there: the button follows as on a tractor.
 - [ ] **Without Steering Assist** (a loader or a truck): the button is as
   today.
 - [ ] The rows above with Precision Farming on and off.
@@ -303,3 +310,39 @@ Live check (Solek, a tractor with a cultivator, mod 0.21.0):
 - 2026-11-19: approved by Vincent as drafted. Not built yet: the build
   starts with the spike (Plan, step 1), and a dump that disagrees with the
   Data contract sends it back for approval before step 2.
+- 2026-11-19: the canvas drawn before the build: the Drive group as the
+  app has it (Engine one column wide, Attach sixth), the fifth button in
+  each state, and three ideas for the `steering` icon (A in the screens).
+  Waiting for Vincent's look and his pick of the icon.
+- 2026-11-19: Vincent picked icon C, the dotted line centred with the
+  wheel: five round dots (r 1) at x 3 to 21, the middle one under the
+  wheel's spoke (the canvas has it). Build, step 1: spike 0.0.15's
+  `csParts` gains `steering` (tests in `mod/tests/test_spike_steering.py`);
+  waiting for Vincent's dumps, the gate before step 2.
+- 2026-11-19: spike 0.0.15 run by Vincent on Solek (Antonio Carraro Mach
+  4R with a Pöttinger Terria 6040; the Arocs 4133 hooklift truck): five
+  dumps, `building` not caught, in `mod/tests/fixtures/spike0020/`. The
+  mode, `steeringEnabled`, the course and the steering key's `isActive`
+  read as the contract says, in all four tractor rigs. One difference:
+  the truck carries both parts, in AI worker mode, so `steering` is sent
+  for it; Behaviour, the contract and a live check row say so. Waiting
+  for Vincent's approval of that before step 2.
+- 2026-11-19: approved by Vincent ("Approved, build"). Built, mod 0.21.0,
+  as planned: `Api.aiMode` and `Api.automaticSteering`, the new
+  `state/Steering.lua` (`VehicleState.steering`, `steeringEnabled`), `cab.steering`
+  in a `pcall`, `steering.set` (press the vehicle's own key, read each frame,
+  `STEERING_WAIT_FRAMES` 10) and `ai.set` refused in Steering Assist mode,
+  hello `actions` 5. Web: the `aiWorker` control gains `actionOf` (the
+  literal `action: "steering.set"` sits in `STEERING` beside it) and
+  `labelsAlways` (its label follows the mode while faded); icon `steering`
+  (Vincent's C on the canvas, 83 icons; reviewed on the canvas rather than
+  `web/tools/icons.html`). The mod tests build the vehicle from the five
+  spike0020 dumps. Checks: pytest 142 passed, `web/test.html` 398 all
+  green; the replay with a patched `cab` (the plough rig): ready, steering,
+  faded, AI worker mode and no `steering`, each at 1180 × 820 and
+  1158 × 676, day and night (20, read off the button: label, icon, state,
+  size, the label fits), screenshots of four; the Drive group two rows of
+  three. The spike's readings in GAME-API.md (Steering Assist), the press
+  under its Not verified yet. The design system refreshed (versions 23 and
+  24: the icon, `DriveGroup` as the app has it with Steering, its cards).
+  Mod 0.21.0 installed in the game's mods folder. The live check is next.

@@ -2,7 +2,7 @@
 <modDesc descVersion="105">
     <author>fs25-companion</author>
     <authorContact>https://github.com/Vincent64ify/fs25-companion</authorContact>
-    <version>0.20.5</version>
+    <version>0.21.0</version>
     <title>
         <en>FS25 Companion</en>
     </title>
@@ -21,6 +21,7 @@
         <sourceFile filename="src/state/Motor.lua"/>
         <sourceFile filename="src/state/Tools.lua"/>
         <sourceFile filename="src/state/Rig.lua"/>
+        <sourceFile filename="src/state/Steering.lua"/>
         <sourceFile filename="src/Commands.lua"/>
         <sourceFile filename="src/collectors/Hello.lua"/>
         <sourceFile filename="src/collectors/Env.lua"/>

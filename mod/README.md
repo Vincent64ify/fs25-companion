@@ -35,7 +35,8 @@ src/
   Transport.lua   file open / write / flush / rotate at 2 MB, seq counter
   Scheduler.lua   runs each collector at its interval, under pcall
   state/          VehicleState, the readers vehicles, cab and commands share:
-                  Lights, Motor (engine, cruise, AI), Tools, Rig
+                  Lights, Motor (engine, cruise, AI), Tools, Rig, Steering
+                  (Steering Assist's mode and state, specs/0020)
   Commands.lua    reads cmd/<n>.xml every frame, runs allowed input actions
                   (their keys; setters only where the game has none; a
                   contract's accept, cancel, hand in through the game's
@@ -73,7 +74,7 @@ What each topic's data holds is described once, in
 | `crop_types` | once per map, and after each rotation | fruit types with the PDA's colours and growth thresholds, ground type names, lime / plow / spray maximums |
 | `field_outlines` | once per map, and after each rotation | each field's outline in world meters |
 | `fields` | every 15 s | each field's state (fruit, growth, ground, spray, lime, plow, roller, stubble, weeds, stones), farmland, sign position, area |
-| `cab` | every frame, sent only on change | what the controls show: lights, engine, cruise, AI worker, the rig (the vehicle and every attached tool, with what each can do and its state) |
+| `cab` | every frame, sent only on change | what the controls show: lights, engine, cruise, AI worker, Steering Assist (`steering`: mode, state, canSteer; specs/0020), the rig (the vehicle and every attached tool, with what each can do and its state) |
 | `contracts` | every 2 s, and at once when the game's list changes (a contract new or gone, or its status or farm moved) or the last lease machine's shop file is read | the game's contracts, read-only: the ones on offer and your farm's, each with its reward, lease price and vehicles, time left, completion, expected and delivered litres and sell point; the per-farm limit, the game's success factors, the shop's place (where leased machines appear), and your own tools ([spec 0018](../specs/0018-contracts.md)); a finished one's `total`, what hand in books ([spec 0019](../specs/0019-contract-actions.md)); also sent with a contract command's ack |
 | `command_ack` | the frame a command runs, with `cab` | the command's number and `ref`, ok or the reason, what ran (`via`), `already` when nothing had to |
 

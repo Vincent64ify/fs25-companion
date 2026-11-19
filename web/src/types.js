@@ -47,7 +47,8 @@
  * @property {string} [gameDir]
  * @property {{dir?: string, next: number, actions?: number}} [commands] where
  *   the companion writes commands and the number the mod reads next;
- *   actions 4: and contract commands (mod 0.20.0, specs/0019); 3: the
+ *   actions 5: and steering.set (mod 0.21.0, specs/0020); 4: and
+ *   contract commands (mod 0.20.0, specs/0019); 3: the
  *   files name the dashboard's set actions (mod 0.10.0, specs/0008); 2: its
  *   toggles (mod 0.9.x, specs/0007); absent before
  */
@@ -120,6 +121,16 @@
  */
 
 /**
+ * Steering Assist (specs/0020): the vehicle's AI mode; no course, a course,
+ * steering; and whether the game would take its steering key now (a course
+ * and a lane under you).
+ * @typedef {Object} CabSteering
+ * @property {"worker"|"steeringAssist"} mode
+ * @property {"off"|"ready"|"steering"} state
+ * @property {boolean} canSteer
+ */
+
+/**
  * The cab topic: what the controls show, for the controlled vehicle, sent
  * the frame it changes. On foot: {inVehicle: false}.
  * @typedef {Object} Cab
@@ -134,6 +145,8 @@
  * @property {boolean} [hitched] something is attached
  * @property {boolean} [attachable] something is in reach to attach: the
  *   game's Attach prompt is up (mod 0.8.7)
+ * @property {CabSteering} [steering] Steering Assist, on a vehicle with its
+ *   two parts (mod 0.21.0, specs/0020); a truck may carry them too
  * @property {SelectedImplement} [implement] the one the implement keys act on
  * @property {{lowered: boolean, turnedOn: boolean}[]} [implements]
  * @property {RigEntry[]} [rig] the vehicle, then everything attached, depth

@@ -21,6 +21,9 @@ Contents:
 - [Verified since Phase 0](#verified-since-phase-0): everything after, by
   date
 - [The Implement screen's readings](#the-implement-screens-readings-mods-080-to-082-2026-10-24-and-25)
+- [Contracts](#contracts-mod-0191-live-checked-2026-11-15-and-16)
+- [Steering Assist](#steering-assist-spike-0015-2026-11-19): the mode, the
+  course and the steering key, read by the spike
 - [Not verified yet](#not-verified-yet)
 
 ---
@@ -665,6 +668,36 @@ name with where it came from.
   `FERTILIZERSPREADERS`, `SLURRYTANKS`, `SLURRYTOOLS`, `MOWERS`,
   `TEDDERS`, `BALERSROUND`, `BALEWRAPPERS`.
 
+## Steering Assist (spike 0.0.15, 2026-11-19)
+
+Read by spike 0.0.15's `csParts` on Solek, single player
+([specs/0020](../specs/0020-steering-assist-state.md); the dumps in
+`mod/tests/fixtures/spike0020/`): the Antonio Carraro Mach 4R with a
+Pöttinger Terria 6040 in four rigs, and the Mercedes-Benz Arocs 4133
+hooklift truck. Reads only; nothing pressed. Mod 0.21.0 reads these names;
+its press is not checked yet (Not verified yet).
+
+- **Both parts on the tractor and on the truck:** `spec_aiModeSelection`
+  and `spec_aiAutomaticSteering`. The truck sat in AI worker mode; whether
+  its dialog offers Steering Assist is not known.
+- **The mode:** `AIModeSelection.MODE` reads `WORKER` = 1 and
+  `STEERING_ASSIST` = 2 at run time (blanked in the archive);
+  `spec_aiModeSelection.currentMode` is 1 or 2 as the dialog (hold H) set
+  it. `TOGGLE_AI`'s text follows the mode: "Toggle AI Worker" or "Toggle
+  Steering Assist".
+- **Steering:** `spec_aiAutomaticSteering.steeringEnabled` is true only
+  while the game steers; `steeringFieldCourse` is nil in AI worker mode and
+  off the field, a course on a field you may work (ready and steering).
+  Also there: `fieldCourseDetectionInProgress`, `lastIsOnField`,
+  `steeringLockedMovingDirection`; the course's `currentSegmentIndex` and
+  `vehicleSteeringEnabled`.
+- **The steering key:** `TOGGLE_AI_STEERING` is found through
+  `spec_aiAutomaticSteering.actionEvents` in `g_inputBinding.events` (the
+  path `VehicleState.liveKey` walks), registered in every rig, its text
+  "Toggle Steering Assist". `isActive` is false without a course (AI worker
+  mode, off the field, the truck) and true with one (ready, steering).
+  `TOGGLE_AI_STEERING_LINES` is active with `displayIsVisible` false.
+
 ## Not verified yet
 
 Read by the mod behind `mod/src/Api.lua`'s guards, but not recorded above
@@ -716,6 +749,11 @@ says so.
 - **`g_currentMission:getEffectiveTimeScale()`**
   ([specs/0017](../specs/0017-game-speed.md)): the fallback when
   `missionInfo.timeScale` is missing; never needed live.
+- **Steering Assist's press** ([specs/0020](../specs/0020-steering-assist-state.md),
+  mod 0.21.0): `runInputAction("TOGGLE_AI_STEERING")` on the vehicle's
+  event steering and stopping, with the key unbound too; the game
+  switching the mode back to AI worker after a hitch
+  (AIAutomaticSteering.lua:532-544); a truck in Steering Assist mode.
 - **Contracts, the rest** ([specs/0018](../specs/0018-contracts.md)):
   `BaleMission.FILL_SUCCESS_FACTOR` (not there on 2026-11-16: no `bale`
   factor is sent), `getReimbursement()` and `stealingCost` (never seen in

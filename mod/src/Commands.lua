@@ -2,7 +2,8 @@
 -- Runs the dashboard's commands (docs/ARCHITECTURE.md, Commands). The companion
 -- writes one file per command, numbered from 1 per game session, with the
 -- dashboard's action name (specs/0007) and the state it wants (specs/0008;
--- hello says so: commands.actions 4, 3 before contracts):
+-- hello says so: commands.actions 5, 4 before steering.set, 3 before
+-- contracts):
 --
 --     modSettings/FS25_Companion/cmd/<n>.xml
 --     <command session="<sessionId>" id="<n>" action="beacon.set" ref="<companion ref>" value="1.000"/>
@@ -1094,6 +1095,70 @@ local function contractIdFits(id)
     return type(id) == "string" and #id >= 1 and #id <= 64 and id:find("^[%w_%-]+$") ~= nil
 end
 
+-- Steering Assist (specs/0020) ----------------------------------------------
+-- In Steering Assist mode the Drive group's AI worker button is Steering:
+-- steering.set presses the vehicle's own steering key (TOGGLE_AI_STEERING,
+-- "Activate lane" / "Deactivate lane": one job, key-down, no hold, so it
+-- can't open the AI Settings dialog as TOGGLE_AI's hold does), once, then
+-- reads steeringEnabled each frame. No fallback key (Vincent, 2026-11-18).
+
+-- frames after the press that the game may take to steer or stop
+Commands.STEERING_WAIT_FRAMES = 10
+
+local function steeringOf(vehicle)
+    local ok, s = pcall(VehicleState.steering, vehicle)
+    return ok and s or nil
+end
+
+-- refused before the reading: AI worker mode, no Steering Assist
+local function inSteeringAssist(vehicle)
+    local s = steeringOf(vehicle)
+    if s == nil then
+        return false, "no Steering Assist"
+    end
+    if s.mode ~= "steeringAssist" then
+        return false, "not in Steering Assist mode"
+    end
+    return true
+end
+
+-- ai.set only in AI worker mode (or without Steering Assist, as today)
+local function notSteeringAssist(vehicle)
+    local s = steeringOf(vehicle)
+    if s ~= nil and s.mode == "steeringAssist" then
+        return false, "in Steering Assist mode"
+    end
+    return true
+end
+
+local function steeringState(vehicle)
+    return VehicleState.steeringEnabled(vehicle) and 1 or 0
+end
+
+-- the press, then a checked wait: ok the frame steeringEnabled reads the
+-- value asked for (the press's frame included), "didn't change" after
+-- STEERING_WAIT_FRAMES more. nil (so "not available now") when the
+-- vehicle's steering key has no live event: no course or no lane under you
+local function steeringJob(vehicle, value)
+    local want = value == 1
+    local key = VehicleState.STEERING_KEY
+    if runInputAction(key, nil, vehicle) == 0 then
+        return nil
+    end
+    local job = { frames = 0 }
+    job.tick = function()
+        if VehicleState.steeringEnabled(vehicle) == want then
+            return { ok = true, via = key, checked = true }
+        end
+        job.frames = job.frames + 1
+        if job.frames > Commands.STEERING_WAIT_FRAMES then
+            return { ok = false, reason = "didn't change", via = key, checked = true }
+        end
+        return nil
+    end
+    return job
+end
+
 -- Attach: only while the game has something in reach (its prompt is up)
 local function attachInReach(vehicle)
     if VehicleState.attachable(vehicle) then
@@ -1163,7 +1228,11 @@ Commands.ACTIONS = {
     ["cruiseOn.set"] = { state = cruiseOn, values = SET, inputs = { "TOGGLE_CRUISE_CONTROL" } },
     -- an absolute set speed in km/h: the dashboard's −/+ while held
     ["cruise.set"] = { direct = cruiseSet, values = { 1, 250 } },
-    ["ai.set"] = { state = aiState, values = SET, inputs = { "TOGGLE_AI" } },
+    -- the AI worker: only in AI worker mode (specs/0020)
+    ["ai.set"] = { when = notSteeringAssist, state = aiState, values = SET, inputs = { "TOGGLE_AI" } },
+    -- specs/0020: Steering Assist steering (1) or not (0), the vehicle's
+    -- own steering key, checked
+    ["steering.set"] = { when = inSteeringAssist, state = steeringState, values = SET, job = steeringJob },
     -- one tool's state by its id (specs/0008): lowered, folded, on, pipe
     -- out, tipping
     ["tool.lower"] = { tool = true, aim = AIMED.LOWER_IMPLEMENT, values = SET },
@@ -1294,7 +1363,9 @@ end
 -- files name the dashboard's set actions (actions 3, specs/0008) and take
 -- contract commands (actions 4, specs/0019)
 function Commands:info()
-    return { dir = self.dir, next = self.nextId, actions = 4 }
+    -- actions: 3 names the set actions (specs/0008), 4 takes contracts
+    -- (specs/0019), 5 steering.set (specs/0020)
+    return { dir = self.dir, next = self.nextId, actions = 5 }
 end
 
 function Commands:path(id)

@@ -51,6 +51,11 @@ import { h } from "../ui/dom.js";
  * @property {(v: any, cab: any) => {label: string, icon?: string}|undefined} [labels]
  *   the label (and icon) for the game's state: what a tap will do, as the
  *   game's help names it ("Raise" while lowered)
+ * @property {boolean} [labelsAlways] labels sets the label while unavailable
+ *   too (the Drive group's AI worker / Steering, specs/0020)
+ * @property {(v: any, cab: any) => string} [actionOf] the action a tap sends
+ *   now, when it follows the game's state (Steering Assist mode sends
+ *   steering.set, specs/0020); else action
  * @property {boolean} [progressive] "Raising…" while its command runs
  * @property {-1|1} [hold] a held step: the cruise set speed down or up
  *   (cruise.set with the target, see cruiseStepper)
@@ -305,6 +310,15 @@ export function cruiseStepper(store, send) {
   };
 }
 
+/** the Drive button in Steering Assist mode (specs/0020) */
+const STEERING = { action: "steering.set", icon: "steering" };
+
+/**
+ * The cab's Steering Assist when the vehicle is in Steering Assist mode.
+ * @param {import("../types.js").Cab|undefined} cab
+ */
+const steeringAssist = (cab) => (cab?.inVehicle && cab.steering?.mode === "steeringAssist" ? cab.steering : undefined);
+
 /** @type {WeakMap<object, ReturnType<typeof cruiseStepper>>} */
 const steppers = new WeakMap();
 
@@ -336,8 +350,21 @@ export const CONTROLS = {
     read: (v, cab) => (CONTROLS.cruise.read(v, cab) === undefined ? undefined : false) },
   cruiseUp: { label: "Cruise +", icon: "cruiseUp", action: "cruise.set", hold: 1,
     read: (v, cab) => (CONTROLS.cruise.read(v, cab) === undefined ? undefined : false) },
+  // specs/0020: the button's job follows the vehicle's AI mode. AI worker
+  // mode (and without Steering Assist): the AI worker, as today. Steering
+  // Assist mode: Steering, lit while the game steers, faded where it
+  // can't (no course or no lane under you), never while it steers; its
+  // label and icon follow the mode even while faded
   aiWorker: { label: "AI worker", icon: "aiWorker", action: "ai.set",
-    read: (v, cab) => either(v, cab, (src) => (cab ? bool(src.aiActive) : src.isAI === true)),
+    actionOf: (v, cab) => (steeringAssist(cab) ? STEERING.action : "ai.set"),
+    read: (v, cab) => {
+      const s = steeringAssist(cab);
+      if (s) return s.state === "steering" ? true : s.canSteer ? false : undefined;
+      return either(v, cab, (src) => (cab ? bool(src.aiActive) : src.isAI === true));
+    },
+    labels: (v, cab) => (steeringAssist(cab) ? { label: "Steering", icon: STEERING.icon }
+      : { label: "AI worker", icon: "aiWorker" }),
+    labelsAlways: true,
     send: (v, cab) => ({ value: CONTROLS.aiWorker.read(v, cab) ? 0 : 1 }) },
   // the tool the lower and fold keys act on (the Harvester screen's tiles)
   // the label is what a tap will do, as the game's help says it; lit: the
@@ -463,8 +490,10 @@ export const TILES = {
  * @param {ControlDef} def @param {Store} store @param {Send} send
  */
 const pressOf = (def, store, send) => () => {
-  const out = def.send?.(controlledVehicle(store), cabOf(store)) ?? {};
-  return send(/** @type {string} */ (def.action), out.value, out.tool);
+  const v = controlledVehicle(store);
+  const cab = cabOf(store);
+  const out = def.send?.(v, cab) ?? {};
+  return send(/** @type {string} */ (def.actionOf?.(v, cab) ?? def.action), out.value, out.tool);
 };
 
 /**
@@ -566,7 +595,7 @@ export function controlGroup(group, store, send = sendCommand) {
       const moving = on !== undefined && (def.moving ? def.moving(v, cab) === true
         : def === CONTROLS.cruise ? store.get("cruiseTarget") !== undefined : false);
       if (def.value) ui.setValue(on === undefined ? undefined : def.value(v, cab, unitsOf(store), store));
-      if (def.labels && on !== undefined) {
+      if (def.labels && (on !== undefined || def.labelsAlways)) {
         const l = def.labels(v, cab);
         if (l) ui.setLabel(l.label, l.icon);
       }

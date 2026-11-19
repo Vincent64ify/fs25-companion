@@ -170,6 +170,28 @@ local function enumName(enum, value, names)
     return nil
 end
 
+-- specs/0020: Steering Assist. AIModeSelection.MODE is blanked in the
+-- archive too (WORKER 1, STEERING_ASSIST 2 at run time, spike 0.0.15):
+-- compared by name. Unverified until spec 0020's live check.
+local AI_MODE = { WORKER = "worker", STEERING_ASSIST = "steeringAssist" }
+
+-- "worker" or "steeringAssist" (AIModeSelection.lua's currentMode); nil
+-- without the part, the enum, or for a mode neither name has
+function Api.aiMode(vehicle)
+    local spec = type(vehicle) == "table" and vehicle.spec_aiModeSelection or nil
+    if type(spec) ~= "table" then
+        return nil
+    end
+    return enumName(type(AIModeSelection) == "table" and AIModeSelection.MODE or nil, spec.currentMode, AI_MODE)
+end
+
+-- the steering part (AIAutomaticSteering.lua: steeringEnabled, and
+-- steeringFieldCourse while the game has a course for the field), or nil
+function Api.automaticSteering(vehicle)
+    local spec = type(vehicle) == "table" and vehicle.spec_aiAutomaticSteering or nil
+    return type(spec) == "table" and spec or nil
+end
+
 -- "offer", "preparing", "running" or "finished"; nil for a dismissed one
 -- and when the game's MissionStatus isn't there
 function Api.missionStatus(mission)

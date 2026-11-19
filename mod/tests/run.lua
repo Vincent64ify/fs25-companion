@@ -33,6 +33,7 @@ load("src/state/Lights.lua")
 load("src/state/Motor.lua")
 load("src/state/Tools.lua")
 load("src/state/Rig.lua")
+load("src/state/Steering.lua")
 load("src/Commands.lua")
 
 local Json, Geo, Transport, Scheduler =
@@ -990,7 +991,7 @@ test("commands: keyed by the dashboard's name, each checks its value (specs/0007
     local dir = TMP_DIR .. "/cmdvalue_"
     local write = commandStubs(dir)
     local commands = Companion.Commands.new(dir, "S9", function() end)
-    eq(commands:info().actions, 4, "hello says the files name the set actions (specs/0008) and take contracts (specs/0019)")
+    eq(commands:info().actions, 5, "hello says the files name the set actions (specs/0008), take contracts (specs/0019) and steering.set (specs/0020)")
     local vehicle = c2Tractor()
     g_inputBinding = nil
     local n = 0
@@ -5088,9 +5089,9 @@ test("whole mod streams every topic", function()
     assert(ls[1]:find('"mapId":"FS25_Test.TestMap"', 1, true), ls[1])
     assert(ls[1]:find('"mapExtensionScaleFactor":0.5', 1, true), ls[1])
     assert(ls[1]:find('"gameDir":"C:/Games/FS25/"', 1, true), ls[1])
-    -- actions 4: the command file names the dashboard's set actions (specs/0008)
-    -- and takes contract commands (specs/0019)
-    assert(ls[1]:find('"commands":{"actions":4,"dir":"' .. TMP_DIR .. '/FS25_Companion/cmd/","next":1}', 1, true),
+    -- actions 5: the command file names the dashboard's set actions (specs/0008),
+    -- takes contract commands (specs/0019) and steering.set (specs/0020)
+    assert(ls[1]:find('"commands":{"actions":5,"dir":"' .. TMP_DIR .. '/FS25_Companion/cmd/","next":1}', 1, true),
         ls[1])
     local text = table.concat(ls, "\n")
     -- on foot: heading from the facing direction (east)
@@ -5318,6 +5319,251 @@ test("acks survive a rotation", function()
     eq(transport.rotations, 3)
     eq(acksIn(lines(readFile(stream))), "19", "only this frame's: the old ones aren't replayed")
     mod:deleteMap()
+end)
+
+-- Steering Assist (specs/0020) ------------------------------------------------
+-- The mode, the steering and whether the game would take the steering key,
+-- from spike 0.0.15's dumps (mod/tests/fixtures/spike0020/: the Mach 4R in
+-- AI worker mode, Steering Assist off the field, ready and steering; the
+-- Arocs truck). The vehicle's own TOGGLE_AI_STEERING is registered with
+-- SpikeRigs.register, so the cab's read and the press reach the same event.
+
+local STEER = MOD_ROOT .. "tests/fixtures/spike0020/"
+
+-- the controlled vehicle as the dump read it, its keys registered; a press
+-- of the steering key toggles steeringEnabled unless `stuck`
+local function steeringVehicle(name)
+    local dump = SpikeRigs.decode(SpikeRigs.readFile(STEER .. name .. ".json"))
+    local s = dump.parts.rig[1].steering
+    AIModeSelection = { MODE = { WORKER = s.modes.WORKER, STEERING_ASSIST = s.modes.STEERING_ASSIST } }
+    local b = SpikeRigs.binding()
+    local vehicle = {
+        id = 3,
+        spec_aiModeSelection = { currentMode = s.currentMode },
+        spec_aiAutomaticSteering = { steeringEnabled = s.steeringEnabled,
+            steeringFieldCourse = s.hasCourse and { currentSegmentIndex = 17 } or nil },
+        getIsAIActive = function() return false end,
+        getAttachedImplements = function() return {} end,
+    }
+    vehicle.onKey = function(action)
+        if action == "TOGGLE_AI_STEERING" and not vehicle.stuck then
+            local spec = vehicle.spec_aiAutomaticSteering
+            spec.steeringEnabled = not spec.steeringEnabled
+        end
+    end
+    SpikeRigs.register(vehicle, "spec_aiAutomaticSteering", { action = "TOGGLE_AI_STEERING", active = s.steeringKey.active })
+    SpikeRigs.register(vehicle, "spec_aiModeSelection", { action = "TOGGLE_AI", active = true })
+    local player = { vehicle = vehicle }
+    player.getCurrentVehicle = function(self) return self.vehicle end
+    g_localPlayer = player
+    return vehicle, b
+end
+
+local function steeringOff()
+    AIModeSelection, g_inputBinding, g_localPlayer = nil, nil, nil
+end
+
+test("cab: steering from the spike's rigs: the mode, off, ready, steering, canSteer (specs/0020)", function()
+    load("src/collectors/Cab.lua")
+    local Cab = Companion.Collectors.Cab
+    local want = {
+        worker = { "worker", "off", false },
+        off = { "steeringAssist", "off", false },
+        ready = { "steeringAssist", "ready", true },
+        steering = { "steeringAssist", "steering", true },
+        -- a truck carries both parts, in AI worker mode (spike 0.0.15)
+        noassist = { "worker", "off", false },
+    }
+    for _, name in ipairs({ "worker", "off", "ready", "steering", "noassist" }) do
+        Cab.reset()
+        steeringVehicle(name)
+        local cab = Cab.collect({})
+        local w = want[name]
+        eq(cab.steering ~= nil, true, name .. ": steering sent")
+        eq(cab.steering.mode, w[1], name .. " mode")
+        eq(cab.steering.state, w[2], name .. " state")
+        eq(cab.steering.canSteer, w[3], name .. " canSteer")
+    end
+    steeringOff()
+end)
+
+test("cab: steering canSteer false with no event, absent without a part or a known mode, a raising read drops only it (specs/0020)", function()
+    load("src/collectors/Cab.lua")
+    local Cab = Companion.Collectors.Cab
+    local VS = Companion.VehicleState
+    -- no steering key registered: canSteer false, steering still sent
+    local vehicle = steeringVehicle("ready")
+    SpikeRigs.unregister(vehicle)
+    local s = VS.steering(vehicle)
+    eq(s.canSteer, false, "no event: false")
+    eq(s.state, "ready", "still sent")
+    -- the key inactive
+    vehicle = steeringVehicle("ready")
+    for _, e in pairs(g_inputBinding.events) do e.isActive = false end
+    eq(VS.steering(vehicle).canSteer, false, "inactive event: false")
+    -- either part missing: absent
+    vehicle = steeringVehicle("ready")
+    vehicle.spec_aiAutomaticSteering = nil
+    eq(VS.steering(vehicle), nil, "no spec_aiAutomaticSteering")
+    vehicle = steeringVehicle("ready")
+    vehicle.spec_aiModeSelection = nil
+    eq(VS.steering(vehicle), nil, "no spec_aiModeSelection")
+    -- a mode that matches neither name
+    vehicle = steeringVehicle("ready")
+    vehicle.spec_aiModeSelection.currentMode = 7
+    eq(VS.steering(vehicle), nil, "an unknown mode")
+    AIModeSelection = nil
+    eq(VS.steering(vehicle), nil, "no AIModeSelection")
+    -- a read that raises: the cab goes out without steering
+    Cab.reset()
+    vehicle = steeringVehicle("ready")
+    vehicle.spec_aiModeSelection = setmetatable({}, { __index = function(_, k)
+        if k == "currentMode" then
+            error("boom")
+        end
+    end })
+    local cab = Cab.collect({})
+    eq(cab.inVehicle, true, "the cab still goes out")
+    eq(cab.steering, nil, "only steering dropped")
+    steeringOff()
+end)
+
+-- the commands over a vehicle from the dumps: the ack and the frames it took
+local function steeringCommands(name)
+    local dir = TMP_DIR .. "/steercmd_" .. name .. "_"
+    local write = commandStubs(dir)
+    local commands = Companion.Commands.new(dir, "S20", function() end)
+    local vehicle, b = steeringVehicle(name)
+    local n = 0
+    local function run(action, value)
+        n = n + 1
+        write(n, "S20", action, nil, value)
+        for i = 1, 300 do
+            local ack = commands:poll()
+            if ack ~= nil then
+                return ack, i
+            end
+        end
+        error(action .. ": no ack")
+    end
+    local function pressed(action)
+        local count = 0
+        for _, p in ipairs(b.pressed) do
+            if p.action == action then
+                count = count + 1
+            end
+        end
+        return count
+    end
+    return run, vehicle, pressed, commands
+end
+
+test("commands: steering.set presses the vehicle's steering key once and waits for the change (specs/0020)", function()
+    if TMP_DIR == nil then
+        return
+    end
+    local run, vehicle, pressed = steeringCommands("ready")
+    local ack, frames = run("steering.set", 1)
+    eq(ack.ok, true, tostring(ack.reason))
+    eq(ack.via, "TOGGLE_AI_STEERING")
+    eq(ack.checked, true)
+    eq(frames, 1, "the press's frame: the mock steers at once")
+    eq(pressed("TOGGLE_AI_STEERING"), 1, "pressed once")
+    eq(vehicle.spec_aiAutomaticSteering.steeringEnabled, true)
+    -- already steering: nothing pressed
+    ack = run("steering.set", 1)
+    eq(ack.ok, true)
+    eq(ack.already, true)
+    eq(pressed("TOGGLE_AI_STEERING"), 1, "not pressed again")
+    -- off again
+    ack = run("steering.set", 0)
+    eq(ack.ok, true, tostring(ack.reason))
+    eq(pressed("TOGGLE_AI_STEERING"), 2)
+    eq(vehicle.spec_aiAutomaticSteering.steeringEnabled, false)
+    -- the game takes a few frames: steering reads true on the fourth read
+    -- after the press
+    local game = vehicle.onKey
+    local poll = vehicle.spec_aiAutomaticSteering
+    local late
+    poll.steeringEnabled = nil
+    setmetatable(poll, { __index = function(_, k)
+        if k ~= "steeringEnabled" then
+            return nil
+        end
+        if late == nil then
+            return false
+        end
+        if late > 0 then
+            late = late - 1
+            return false
+        end
+        return true
+    end })
+    vehicle.onKey = function() late = 3 end
+    ack, frames = run("steering.set", 1)
+    eq(ack.ok, true, tostring(ack.reason))
+    eq(frames, 4, "ok the frame it reads steering")
+    -- the key pressed, steering never changes: didn't change after the wait
+    setmetatable(poll, nil)
+    poll.steeringEnabled = false
+    vehicle.onKey = function() end
+    ack, frames = run("steering.set", 1)
+    eq(ack.ok, false)
+    eq(ack.reason, "didn't change")
+    eq(ack.checked, true)
+    eq(ack.via, "TOGGLE_AI_STEERING")
+    eq(frames, Companion.Commands.STEERING_WAIT_FRAMES + 1, "the press's frame and 10 more")
+    vehicle.onKey = game
+    steeringOff()
+end)
+
+test("commands: steering.set refused in AI worker mode and without Steering Assist; no live key: not available now (specs/0020)", function()
+    if TMP_DIR == nil then
+        return
+    end
+    -- no course under you: the key's event is inactive
+    local run, vehicle, pressed = steeringCommands("off")
+    local ack = run("steering.set", 1)
+    eq(ack.ok, false)
+    eq(ack.reason, "not available now")
+    eq(pressed("TOGGLE_AI_STEERING"), 0, "nothing pressed")
+    eq(vehicle.spec_aiAutomaticSteering.steeringEnabled, false)
+    -- AI worker mode: refused before the reading, nothing pressed
+    run, vehicle, pressed = steeringCommands("worker")
+    ack = run("steering.set", 0)
+    eq(ack.ok, false)
+    eq(ack.reason, "not in Steering Assist mode", "refused before the reading (it would be already)")
+    eq(pressed("TOGGLE_AI_STEERING"), 0)
+    -- no Steering Assist at all
+    run, vehicle, pressed = steeringCommands("ready")
+    vehicle.spec_aiAutomaticSteering = nil
+    ack = run("steering.set", 1)
+    eq(ack.ok, false)
+    eq(ack.reason, "no Steering Assist")
+    eq(pressed("TOGGLE_AI_STEERING"), 0)
+    -- canSteer true: the press finds the event the cab read
+    run, vehicle, pressed = steeringCommands("ready")
+    eq(Companion.VehicleState.steering(vehicle).canSteer, true)
+    eq(run("steering.set", 1).ok, true)
+    eq(pressed("TOGGLE_AI_STEERING"), 1)
+    steeringOff()
+end)
+
+test("commands: ai.set refused in Steering Assist mode, as today in AI worker mode (specs/0020)", function()
+    if TMP_DIR == nil then
+        return
+    end
+    local run, _, pressed = steeringCommands("steering")
+    local ack = run("ai.set", 1)
+    eq(ack.ok, false)
+    eq(ack.reason, "in Steering Assist mode")
+    eq(pressed("TOGGLE_AI"), 0, "nothing pressed")
+    run, _, pressed = steeringCommands("worker")
+    ack = run("ai.set", 1)
+    eq(ack.ok, true, tostring(ack.reason))
+    eq(ack.via, "TOGGLE_AI")
+    eq(pressed("TOGGLE_AI"), 1, "AI worker mode: TOGGLE_AI as today")
+    steeringOff()
 end)
 
 -- runner -------------------------------------------------------------------

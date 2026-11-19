@@ -183,6 +183,12 @@ const PATHS = {
   // a worker in a cap
   aiWorker: '<circle cx="12" cy="9.5" r="3.5"/><path d="M8.5 9.5a3.5 3.5 0 0 1 7 0zM15.5 9.5H18" fill="currentColor"/>' +
     '<path d="M5 20.5a7 7 0 0 1 14 0"/>',
+  // Steering Assist (specs/0020): a steering wheel over a dotted lane, the
+  // middle dot under the wheel's spoke (Vincent's pick on the canvas, C)
+  steering: '<circle cx="12" cy="9.5" r="6.5"/><circle cx="12" cy="9.5" r="1.8"/>' +
+    '<path d="M5.5 9.5h4.7M13.8 9.5h4.7M12 11.3V16"/>' +
+    '<g fill="currentColor" stroke="none"><circle cx="3" cy="20.5" r="1"/><circle cx="7.5" cy="20.5" r="1"/>' +
+    '<circle cx="12" cy="20.5" r="1"/><circle cx="16.5" cy="20.5" r="1"/><circle cx="21" cy="20.5" r="1"/></g>',
   // the engine block (ISO engine symbol)
   engineOn: ENGINE,
   // the previous or next tool (G): a chevron over the implement's tines
@@ -231,7 +237,7 @@ export const ICON_GROUPS = {
   "Map and tabs": ["map", "zoomIn", "zoomOut", "recentre", "wholeMap", "layers"],
   Controls: ["lights", "highBeam", "beacon", "hazard", "turnLeft", "turnRight", "cruise",
              "cruiseDown", "cruiseUp", "pto", "hitchUp", "hitchDown", "fold", "hitch", "implementOn",
-             "aiWorker", "engineOn", "toolPrev", "toolNext"],
+             "aiWorker", "steering", "engineOn", "toolPrev", "toolNext"],
   "Implement screen": ["lowerAll", "pipe", "unload", "cover", "straw", "lock", "workWidth", "area"],
   "Vehicle page": ["tipSide", "rotate", "reset", "widthLeftIn", "widthLeftOut", "widthRightIn", "widthRightOut"],
 };

@@ -23,7 +23,7 @@
 CompanionSpike = {}
 local CS = CompanionSpike
 
-local SPIKE_VERSION = "0.0.14"
+local SPIKE_VERSION = "0.0.15"
 local MOD_DIR = g_currentModDirectory or ""
 
 local LIMITS = {
@@ -1689,6 +1689,63 @@ local function answerOf(obj, name, ...)
     return r[2]
 end
 
+-- 0.0.15 (spec 0020): Steering Assist, read only, no calls. The mode part
+-- (AIModeSelection.lua) and the steering part (AIAutomaticSteering.lua):
+-- their plain fields, the course's class and plain fields, the MODE names,
+-- and the steering key's event, walked as VehicleState.liveKey walks it
+local STEERING_KEY = "TOGGLE_AI_STEERING"
+
+local function steeringOf(o)
+    local sel, aut = o.spec_aiModeSelection, o.spec_aiAutomaticSteering
+    if type(sel) ~= "table" and type(aut) ~= "table" then
+        return nil
+    end
+    local out = { hasModeSelection = type(sel) == "table", hasAutomaticSteering = type(aut) == "table" }
+    local modes = type(AIModeSelection) == "table" and AIModeSelection.MODE or nil
+    if type(modes) == "table" then
+        out.modes = {}
+        for k, v in pairs(modes) do
+            out.modes[tostring(k)] = (type(v) == "number" or type(v) == "string" or type(v) == "boolean") and v
+                or "<" .. type(v) .. ">"
+        end
+    end
+    if type(sel) == "table" then
+        out.modeSelection = flatten(sel, "modeSelection", 1, {})
+        local mode = sel.currentMode
+        out.currentMode = (type(mode) == "table" and "<table>") or mode
+        if type(modes) == "table" then
+            for k, v in pairs(modes) do
+                if v == mode then
+                    out.currentModeName = tostring(k)
+                end
+            end
+        end
+    end
+    if type(aut) == "table" then
+        out.automaticSteering = flatten(aut, "automaticSteering", 0, {})
+        out.steeringEnabled = aut.steeringEnabled
+        local course = aut.steeringFieldCourse
+        out.hasCourse = course ~= nil
+        if type(course) == "table" then
+            out.courseClass = classNameOf(course)
+            out.course = flatten(course, "course", 0, {})
+        end
+        local events = type(g_inputBinding) == "table" and g_inputBinding.events or nil
+        local key = InputAction ~= nil and InputAction[STEERING_KEY] or STEERING_KEY
+        local ev = type(aut.actionEvents) == "table" and aut.actionEvents[key] or nil
+        out.steeringKey = { registered = type(ev) == "table", id = type(ev) == "table" and ev.actionEventId or nil }
+        local e = type(ev) == "table" and ev.actionEventId ~= nil and type(events) == "table"
+            and events[ev.actionEventId] or nil
+        if type(e) == "table" then
+            out.steeringKey.found = true
+            out.steeringKey.active = e.isActive
+            out.steeringKey.text = e.contextDisplayText
+            out.steeringKey.shown = e.displayIsVisible
+        end
+    end
+    return out
+end
+
 -- one rig member: each part spec 0012 reads, its plain fields, and the
 -- getters that answer "has it" and "can it now"
 local function partsOf(o)
@@ -1755,6 +1812,8 @@ local function partsOf(o)
         out.rateMethods = rateMethods(o)
     end
     out.keys = actionEventsOf(o)
+    local okSteer, steering = pcall(steeringOf, o)
+    out.steering = okSteer and steering or (not okSteer and { error = tostring(steering) } or nil)
     return out
 end
 
