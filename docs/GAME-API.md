@@ -22,8 +22,8 @@ Contents:
   date
 - [The Implement screen's readings](#the-implement-screens-readings-mods-080-to-082-2026-10-24-and-25)
 - [Contracts](#contracts-mod-0191-live-checked-2026-11-15-and-16)
-- [Steering Assist](#steering-assist-spike-0015-2026-11-19): the mode, the
-  course and the steering key, read by the spike
+- [Steering Assist](#steering-assist-mod-0210-live-checked-2026-11-19): the
+  mode, the course, the steering key and its press
 - [Not verified yet](#not-verified-yet)
 
 ---
@@ -668,18 +668,22 @@ name with where it came from.
   `FERTILIZERSPREADERS`, `SLURRYTANKS`, `SLURRYTOOLS`, `MOWERS`,
   `TEDDERS`, `BALERSROUND`, `BALEWRAPPERS`.
 
-## Steering Assist (spike 0.0.15, 2026-11-19)
+## Steering Assist (mod 0.21.0, live-checked 2026-11-19)
 
 Read by spike 0.0.15's `csParts` on Solek, single player
 ([specs/0020](../specs/0020-steering-assist-state.md); the dumps in
 `mod/tests/fixtures/spike0020/`): the Antonio Carraro Mach 4R with a
 Pöttinger Terria 6040 in four rigs, and the Mercedes-Benz Arocs 4133
-hooklift truck. Reads only; nothing pressed. Mod 0.21.0 reads these names;
-its press is not checked yet (Not verified yet).
+hooklift truck. Then live-checked with mod 0.21.0 on the Versatile Nemesis
+255 CVT with the Terria, Precision Farming on and off.
 
-- **Both parts on the tractor and on the truck:** `spec_aiModeSelection`
-  and `spec_aiAutomaticSteering`. The truck sat in AI worker mode; whether
-  its dialog offers Steering Assist is not known.
+- **Both parts on nearly every drivable:** `spec_aiModeSelection` and
+  `spec_aiAutomaticSteering` come with `baseDrivable` (the SDK's
+  `xmlDoku/vehicleTypes.xml`): tractors, trucks, cars, loaders, harvesters.
+  Neither on the horse, conveyor belts, the inline wrapper, the seed
+  treater, the forwarder trailer, the receiving hopper and the locomotive
+  (live: the Grimme TC 816 conveyor belt). The Arocs's dialog greys out
+  Steering Assist, as with a tractor whose tool doesn't allow it.
 - **The mode:** `AIModeSelection.MODE` reads `WORKER` = 1 and
   `STEERING_ASSIST` = 2 at run time (blanked in the archive);
   `spec_aiModeSelection.currentMode` is 1 or 2 as the dialog (hold H) set
@@ -697,6 +701,17 @@ its press is not checked yet (Not verified yet).
   "Toggle Steering Assist". `isActive` is false without a course (AI worker
   mode, off the field, the truck) and true with one (ready, steering).
   `TOGGLE_AI_STEERING_LINES` is active with `displayIsVisible` false.
+- **The press:** `runInputAction("TOGGLE_AI_STEERING")` on the vehicle's
+  own event steers and stops; `steeringEnabled` reads the new value within
+  the mod's wait (`STEERING_WAIT_FRAMES`, 10). It works with the action bound to nothing at all.
+- **H in Steering Assist mode:** a short press calls
+  `setAIAutomaticSteeringEnabled()` itself (AIModeSelection.lua:264-267),
+  not through `TOGGLE_AI_STEERING`, so it works unbound too; a short press
+  right after a dashboard tap toggles the lane and opens no dialog.
+- **Back to AI worker:** the game switches the mode to AI worker as soon as
+  the last tool that allows steering is unhitched
+  (AIAutomaticSteering.lua:532-544), and the dialog greys out Steering
+  Assist while it stays so (a weight hitched).
 
 ## Not verified yet
 
@@ -749,11 +764,6 @@ says so.
 - **`g_currentMission:getEffectiveTimeScale()`**
   ([specs/0017](../specs/0017-game-speed.md)): the fallback when
   `missionInfo.timeScale` is missing; never needed live.
-- **Steering Assist's press** ([specs/0020](../specs/0020-steering-assist-state.md),
-  mod 0.21.0): `runInputAction("TOGGLE_AI_STEERING")` on the vehicle's
-  event steering and stopping, with the key unbound too; the game
-  switching the mode back to AI worker after a hitch
-  (AIAutomaticSteering.lua:532-544); a truck in Steering Assist mode.
 - **Contracts, the rest** ([specs/0018](../specs/0018-contracts.md)):
   `BaleMission.FILL_SUCCESS_FACTOR` (not there on 2026-11-16: no `bale`
   factor is sent), `getReimbursement()` and `stealingCost` (never seen in
