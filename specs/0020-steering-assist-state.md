@@ -294,10 +294,7 @@ Live check (Solek, a tractor with a cultivator, mod 0.21.0):
   Vincent wants the GPS set up and run from the dashboard alone. His
   answers: a short press of H is Activate / Deactivate lane and its hold
   opens the dialog; setters are allowed (they come with 0022).
-- 2026-11-18: egm review, Stages 5 to 9 (`zoom_out_report.md`,
-  `comprehension_report.md`, `critic_report.md`,
-  `intermediate_zoom_out_report.md`, `implementation_readiness_report.md`,
-  `goldfish_review_report.md`). Vincent's choices: AI worker mode as today,
+- 2026-11-18: egm review, Stages 5 to 9. Vincent's choices: AI worker mode as today,
   no fallback key, faded when you can't steer, the label "Steering".
   `steering.set` waits for the change and reads one value, pressing the
   vehicle's own event; `whyNot` (the reason steering can't start) dropped,
