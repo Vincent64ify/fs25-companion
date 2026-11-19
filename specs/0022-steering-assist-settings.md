@@ -1,7 +1,7 @@
 # 0022: Steering Assist settings from the dashboard
 
 Status: draft
-Mod: 0.23.0 (planned) · Started: 2026-11-17 · Design: the settings panel on the GPS screen's canvas (spec 0021); the brainstorm is in [concepts_brief.md](../concepts_brief.md) until the GPS specs are approved
+Mod: 0.23.0 (planned) · Started: 2026-11-17 · Design: the settings panel on the GPS screen's canvas (spec 0021); the brainstorm's brief, `concepts_brief.md`, is in git history (commit b0cffeb)
 
 ## Goal
 
@@ -62,7 +62,8 @@ Topics gain fields (Protocol v1); `v` doesn't change.
   - absent until the game has settings for this vehicle; never filled in
     by calling the game's width getter or course builder.
 - **Web** (`web/src/types.js`): `Cab.steering.settings`; the panel in
-  `web/src/ui/` or `widgets/`.
+  `web/src/ui/` or `widgets/`. The rows fade off the field from
+  `cab.steering.onField` (spec 0021).
 
 What Vincent's Solek save showed (2026-11-17, with set values and on Auto),
 all **unverified** live:

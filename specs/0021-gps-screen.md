@@ -1,7 +1,7 @@
 # 0021: GPS screen: the field, its lanes and the progress
 
 Status: draft
-Mod: 0.22.0 (planned) · Started: 2026-11-17 · Design: a canvas at 1158×676 and 1180×820, to draw before approval; the brainstorm is in [concepts_brief.md](../concepts_brief.md) until the GPS specs are approved
+Mod: 0.22.0 (planned) · Started: 2026-11-17 · Design: a canvas at 1158×676 and 1180×820, to draw before approval; the brainstorm's brief, `concepts_brief.md`, is in git history (commit b0cffeb)
 
 ## Goal
 
@@ -65,7 +65,9 @@ Topics gain fields (Protocol v1); `v` doesn't change.
   - `done`: the indices done (the save calls them `workedLines`);
   - `current`: the segment you're on, and its side.
 - **`cab.steering`** (spec 0020) gains `courseKey` so the web knows the
-  topic matches.
+  topic matches, and `onField` (boolean): the game's own "on a field the
+  farm may work" for this vehicle, for the "Drive onto a field you may
+  work" words (moved here from 0020, its first reader).
 - **Web** (`web/src/types.js`): `SteeringCourse`; a new screen in
   `web/src/widgets/` and its tab.
 
@@ -76,6 +78,7 @@ Game API names, all **unverified**:
 | `spec_aiAutomaticSteering.steeringFieldCourse`, `.lastActiveSteeringFieldCourse` | AIAutomaticSteering.lua:133-134; both are in the save | unverified |
 | the course's segments, which are headland and which lanes, and their geometry | `SteeringFieldCourse` is not in the archive; the AI worker's `FieldCourse` has `.segments` (AIDriveStrategyFieldCourse.lua:203) | **unknown: the spike** |
 | `currentSegmentIndex`, `currentSegmentIsLeft`, `currentSegment` | AIAutomaticSteering.lua:357, 689-690 | unverified |
+| `spec_aiAutomaticSteering.lastIsOnField` (`onField`) | AIAutomaticSteering.lua:129-141; the game updates it only for the local player's vehicle in Steering Assist mode (:440-441), so it may be stale outside it | unverified |
 | the lanes done: the save's `workedLines indices` (segment indices: one round and one lane gave five); in memory, the field name is unknown | Vincent's Solek save, 2026-11-17 | **unknown: the spike** |
 | the field's outline: the save's `field boundary positions` (x z pairs, world metres) | Vincent's Solek save | unverified |
 

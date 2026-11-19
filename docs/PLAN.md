@@ -24,11 +24,16 @@ here is history, and nothing here is a check:
   every 60 s), and a way to show it.
 - **AI workers:** their routes on the map.
 - **AI worker button opens the game's worker screen** (spec 0008's live
-  check, 2026-10-31): `TOGGLE_AI` does nothing in a vehicle with no job
-  set up, so the button can't hire. A tap should open the game's AI job
+  check, 2026-10-31): `TOGGLE_AI` did nothing live in a vehicle with no
+  job set up, so the button can't hire. A tap should open the game's AI job
   screen (pick the job there), and stop a worker that runs. Opening that
   screen from the mod needs a game GUI call that isn't verified. Complex
-  to put in place: it gets its own spec (Vincent, 2026-11-10).
+  to put in place: it gets its own spec (Vincent, 2026-11-10). Open for
+  that spec (spec 0020's review, 2026-11-18): the mod presses `TOGGLE_AI`
+  down only, and the game's handler acts on a later call (per the game's
+  source, unverified); whether a
+  dashboard tap leaves H's hold timer armed (so the next real H opens the
+  AI Settings dialog), and whether "needs a job" was the real cause.
 - **Refill from the dashboard** (Vincent, spec 0011's live check,
   2026-11-02): a button for the game's Refill when the game offers it.
   Complex, so it gets its own spec (Vincent, 2026-11-10): a tool fills
