@@ -691,7 +691,9 @@ hooklift truck. Then live-checked with mod 0.21.0 on the Versatile Nemesis
   Steering Assist".
 - **Steering:** `spec_aiAutomaticSteering.steeringEnabled` is true only
   while the game steers; `steeringFieldCourse` is nil in AI worker mode and
-  off the field, a course on a field you may work (ready and steering).
+  before you reach a field, a course on a field you may work (ready and
+  steering). Live, mod 0.21.0: the course stays when you drive off the
+  field (`state` stays ready), and only the key goes inactive.
   Also there: `fieldCourseDetectionInProgress`, `lastIsOnField`,
   `steeringLockedMovingDirection`; the course's `currentSegmentIndex` and
   `vehicleSteeringEnabled`.
@@ -699,7 +701,9 @@ hooklift truck. Then live-checked with mod 0.21.0 on the Versatile Nemesis
   `spec_aiAutomaticSteering.actionEvents` in `g_inputBinding.events` (the
   path `VehicleState.liveKey` walks), registered in every rig, its text
   "Toggle Steering Assist". `isActive` is false without a course (AI worker
-  mode, off the field, the truck) and true with one (ready, steering).
+  mode, the spike's off-field rig, the truck) and true with one and a lane
+  under you (ready, steering); live, off the field with the course kept,
+  it is false.
   `TOGGLE_AI_STEERING_LINES` is active with `displayIsVisible` false.
 - **The press:** `runInputAction("TOGGLE_AI_STEERING")` on the vehicle's
   own event steers and stops; `steeringEnabled` reads the new value within
