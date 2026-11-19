@@ -23,6 +23,10 @@ here is history, and nothing here is a check:
 - **Sell prices:** a `prices` topic (sell point → fill type → price, about
   every 60 s), and a way to show it.
 - **AI workers:** their routes on the map.
+- **GPS lanes on the Map** (Vincent, 2026-11-19, from
+  [specs/0021](../specs/0021-gps-screen.md)'s questions): the lanes of the
+  field you're on as a Map layer you can switch on and off, from the
+  `steering_course` topic once it exists.
 - **AI worker button opens the game's worker screen** (spec 0008's live
   check, 2026-10-31): `TOGGLE_AI` did nothing live in a vehicle with no
   job set up, so the button can't hire. A tap should open the game's AI job

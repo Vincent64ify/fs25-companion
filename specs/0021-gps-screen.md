@@ -1,6 +1,6 @@
 # 0021: GPS screen: the field, its lanes and the progress
 
-Status: draft
+Status: approved
 Mod: 0.22.0 (planned) · Started: 2026-11-17 · Design: the canvas [FS25 Companion: GPS](https://claude.ai/artifact/45ruF2v1hH49JJi4HyRTeM) (private, on claude.ai; at 1158 × 676 and 1180 × 820, day and night; approved by Vincent, 2026-11-19); the brainstorm's brief, `concepts_brief.md`, is in git history (commit b0cffeb)
 
 ## Goal
@@ -44,7 +44,14 @@ To be drawn on a canvas first; this is what it holds.
   so what you worked while ignoring the lanes still shows (Vincent,
   2026-11-19). It is that trail as it is today, kept in each browser.
 - **Time left:** "≈ 18 min left", in real time (work runs at real-time
-  rates at any game speed), hidden until the estimate settles.
+  rates at any game speed), from your own times on this field in this
+  session: the lanes left times your time per lane and per turn, plus the
+  rounds left at your time per metre. So it follows skipping, your speed
+  and your turns (Vincent, 2026-11-19). "–" until two lanes are done.
+- **A contract's field:** the same screen; the field line names your
+  running contract on it ("Field 58 · Contract: Cultivating"), from the
+  `contracts` topic (spec 0018: its `fieldId` and `title`) (Vincent,
+  2026-11-19).
 - **When there are no lanes,** the screen says why, in the game's words:
   - not in Steering Assist mode ("Steering Assist is off for this tractor");
   - off the field ("Drive onto a field you may work");
@@ -128,6 +135,9 @@ Automated (to be filled in once the spike shows the course):
   each "no lanes" reason shows its words; a new `key` redraws the whole
   course, a changed `done` repaints only the lanes that changed (counted),
   and a rig update repaints no lane.
+- [ ] `web/test.html`: time left reads "–" until two lanes are done, then
+  follows the lane and turn times fed in (skipping lanes included); a
+  running contract on the field names it in the field line.
 - [ ] A course fixture from the spike's dump (Precision Farming on and off).
 - [ ] Replay in the browser pane at 1158×676 and 1180×820, day and night.
 
@@ -152,10 +162,9 @@ Live check (Solek, mod 0.22.0):
 1. ~~The counts~~: lanes done, and the lane you're on (Behaviour).
 2. ~~The worked part~~: the Vehicle page's trail under the lanes
    (Behaviour).
-3. **Time left:** from the lanes left and your time per lane and per turn
-   on this field, or from the area left and the work rate.
-4. A GPS layer on the Map too?
-5. Contract fields have lanes too: what the screen shows there.
+3. ~~Time left~~: your own lane and turn times on this field (Behaviour).
+4. ~~A GPS layer on the Map~~: not in this spec; PLAN.md keeps it.
+5. ~~Contract fields~~: the same screen, the contract named (Behaviour).
 
 ## Log
 
@@ -183,3 +192,10 @@ Live check (Solek, mod 0.22.0):
 - 2026-11-19: the canvas approved by Vincent ("Looks right"). Open before
   the spec's approval: questions 3 to 5 (time left, a Map layer, contract
   fields).
+- 2026-11-19: Vincent answered questions 3 to 5: time left from his own
+  lane and turn times on this field ("–" until two lanes are done); no Map
+  layer in this spec (PLAN.md); a contract's field shows the same screen
+  with the contract named. No open questions left: ready for his approval.
+- 2026-11-19: approved by Vincent. Next: the build, starting with the spike
+  (Plan, step 1); a dump that disagrees with the Data contract sends it
+  back for approval.
