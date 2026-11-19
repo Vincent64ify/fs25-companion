@@ -1,6 +1,6 @@
 # 0020: Steering Assist: state and the Drive button
 
-Status: draft
+Status: approved
 Mod: 0.21.0 (planned) · Started: 2026-11-17 · Design: [THEMES.md](../docs/THEMES.md#layout) (the Drive group); the brainstorm's brief, `concepts_brief.md`, is in git history (commit b0cffeb)
 
 ## Goal
@@ -300,3 +300,6 @@ Live check (Solek, a tractor with a cultivator, mod 0.21.0):
   vehicle's own event; `whyNot` (the reason steering can't start) dropped,
   `onField` moved to 0021; the mode value is `"steeringAssist"`; the Plan
   gained its file list and the spike its gate.
+- 2026-11-19: approved by Vincent as drafted. Not built yet: the build
+  starts with the spike (Plan, step 1), and a dump that disagrees with the
+  Data contract sends it back for approval before step 2.
