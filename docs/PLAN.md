@@ -27,6 +27,15 @@ here is history, and nothing here is a check:
   [specs/0021](../specs/0021-gps-screen.md)'s questions): the lanes of the
   field you're on as a Map layer you can switch on and off, from the
   `steering_course` topic once it exists.
+- **Tidy GPS lanes** (Vincent, 2026-11-23, from
+  [specs/0021](../specs/0021-gps-screen.md)'s canvas): the game's lanes
+  bend over their last metres and its headland round is four pieces, so
+  drawn as they are the ends don't quite meet. The GPS screen could draw
+  the round as one closed ring and each lane straight along its longest
+  piece, run out to the ring and cut flush with a hairline. Which lanes
+  exist and which are done stay the game's; the ends could be a few
+  metres off its own lines. The canvas shows it as the "lines: tidy"
+  Tweak on Main.
 - **AI worker button opens the game's worker screen** (spec 0008's live
   check, 2026-10-31): `TOGGLE_AI` did nothing live in a vehicle with no
   job set up, so the button can't hire. A tap should open the game's AI job
