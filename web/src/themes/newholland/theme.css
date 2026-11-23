@@ -2182,8 +2182,8 @@ button.day-clock[aria-expanded="true"] .day-clock-when { color: inherit; opacity
 .gps-map[data-empty="true"] .gps-ground { visibility: hidden; }
 .gps-course[data-dim="true"] { opacity: 0.4; }
 .gps-edge { fill: none; stroke: var(--gps-edge); stroke-width: 2px; stroke-linejoin: round; vector-effect: non-scaling-stroke; }
-/* the lane you're on, worked so far: green up to the rig, inside the lane's own colour */
-.gps-fill { fill: none; stroke: var(--gps-done); stroke-linecap: butt; stroke-linejoin: round; }
+/* the lane you're on, worked so far: green up to the rig, square cut there, masked by the rounds */
+.gps-fill { fill: none; stroke: var(--gps-done); stroke-linecap: butt; stroke-linejoin: miter; }
 .gps-rig { position: absolute; top: 0; left: 0; width: 0; height: 0; pointer-events: none; will-change: transform; }
 .gps-rig[hidden] { display: none; }
 .gps-rig-svg { position: absolute; top: 0; left: 0; overflow: visible; }
@@ -2204,11 +2204,13 @@ button.day-clock[aria-expanded="true"] .day-clock-when { color: inherit; opacity
 }
 .gps-legend[hidden], .gps-key[hidden] { display: none; }
 .gps-key { display: inline-flex; align-items: center; gap: 6px; }
-.gps-key i { display: inline-block; width: 18px; height: 10px; border-radius: 2px; }
+/* the strips as the field draws them (specs/0021 revision 2) */
+.gps-key i { display: inline-block; width: 18px; height: 10px; border-radius: 1px; }
 .gps-key i.done { background: var(--gps-done); }
-.gps-key i.current { background: linear-gradient(90deg, var(--gps-done) 45%, var(--gps-current) 45%);
-  box-shadow: 0 0 0 1px var(--gps-rig-edge), 0 0 0 2px var(--gps-current); }
-.gps-key i.todo { height: 0; border-top: 2px dashed var(--gps-todo); border-radius: 0; }
+.gps-key i.current { background: linear-gradient(90deg, var(--gps-done) 50%,
+  color-mix(in srgb, var(--gps-current) 20%, var(--gps-field)) 50%); box-shadow: inset 0 0 0 1.5px var(--gps-current); }
+.gps-key i.todo { background: color-mix(in srgb, var(--gps-todo) 16%, var(--gps-field));
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--gps-todo) 30%, transparent); }
 .gps-key i.trail { background: var(--trail-work); }
 /* no lanes: the reason, in the game's words, over the field */
 .gps-words {

@@ -29,6 +29,8 @@ export const MOVING_KMH = 0.5;
 export const LANES_FOR_TIME = 2;
 // a lane width the topic doesn't give
 const DEFAULT_WIDTH_M = 6;
+// a round's pieces meet within this (they meet to the centimetre on fields 6 and 7)
+const JOINT_M = 0.05;
 
 /**
  * The course on screen: the topic while its key is the cab's courseKey (the
@@ -159,6 +161,105 @@ export function fillOf(c, rig) {
 function reversed(pts) {
   const out = [];
   for (let i = pts.length - 2; i >= 0; i -= 2) out.push(pts[i], pts[i + 1]);
+  return out;
+}
+
+/**
+ * The headland rounds, each one closed loop: its pieces end to end in the
+ * game's order (they meet to the centimetre: fields 6 and 7), the joint
+ * points once, the last one dropped when it closes on the first.
+ * @param {SteeringCourse} c
+ * @returns {{round: number, pts: number[], starts: number[], pieces: number[]}[]}
+ *   starts: the loop point each piece begins at; pieces: their segment indices
+ */
+export function roundLoopsOf(c) {
+  /** @type {Map<number, CourseSegment[]>} */
+  const byRound = new Map();
+  for (const s of c.segments) {
+    if (typeof s.round !== "number" || s.pts.length < 4) continue;
+    if (!byRound.has(s.round)) byRound.set(s.round, []);
+    /** @type {CourseSegment[]} */ (byRound.get(s.round)).push(s);
+  }
+  return [...byRound.entries()].sort((a, b) => a[0] - b[0]).map(([round, pcs]) => {
+    /** @type {number[]} */
+    const pts = [];
+    /** @type {number[]} */
+    const starts = [];
+    for (const s of pcs) {
+      const n = pts.length / 2;
+      const joins = n > 0 && Math.hypot(s.pts[0] - pts[2 * n - 2], s.pts[1] - pts[2 * n - 1]) < JOINT_M;
+      starts.push(joins ? n - 1 : n);
+      pts.push(...(joins ? s.pts.slice(2) : s.pts));
+    }
+    const n = pts.length / 2;
+    if (n > 2 && Math.hypot(pts[0] - pts[2 * n - 2], pts[1] - pts[2 * n - 1]) < JOINT_M) pts.length -= 2;
+    return { round, pts, starts, pieces: pcs.map((s) => s.i) };
+  });
+}
+
+/**
+ * A round's pieces in runs of one state. A whole round is one run with no
+ * sector; else each run's sector, the loop's polygon cut on the corner's
+ * bisector at the run's two joints, `w` × 1.5 either side of the loop, to
+ * clip the loop's stroke to.
+ * @param {{pts: number[], starts: number[]}} loop @param {string[]} states a piece each @param {number} w
+ * @returns {{state: string, sector: number[]|undefined}[]}
+ */
+export function roundRuns(loop, states, w) {
+  const k = states.length;
+  if (states.every((x) => x === states[0])) return [{ state: states[0], sector: undefined }];
+  const L = loop.pts, n = L.length / 2;
+  /** the corner's bisector at loop point j, a unit vector to the loop's left */
+  const bis = (/** @type {number} */ j) => {
+    const a = (j - 1 + n) % n, b = (j + 1) % n;
+    const u1x = L[2 * j] - L[2 * a], u1z = L[2 * j + 1] - L[2 * a + 1], l1 = Math.hypot(u1x, u1z) || 1;
+    const u2x = L[2 * b] - L[2 * j], u2z = L[2 * b + 1] - L[2 * j + 1], l2 = Math.hypot(u2x, u2z) || 1;
+    const mx = -u1z / l1 - u2z / l2, mz = u1x / l1 + u2x / l2, ml = Math.hypot(mx, mz) || 1;
+    return [mx / ml, mz / ml];
+  };
+  const reach = w * 1.5;
+  const first = states.findIndex((x, i) => x !== states[(i - 1 + k) % k]);
+  /** @type {{state: string, sector: number[]|undefined}[]} */
+  const runs = [];
+  for (let c = 0; c < k;) {
+    const a = (first + c) % k;
+    let len = 1;
+    while (len < k && states[(a + len) % k] === states[a]) len++;
+    const from = loop.starts[a], to = loop.starts[(a + len) % k] % n;
+    /** @type {number[]} */
+    const idx = [];
+    for (let j = from; idx.length <= n; j = (j + 1) % n) {
+      idx.push(j);
+      if (j === to && idx.length > 1) break;
+    }
+    /** @type {number[]} */
+    const left = [], right = [];
+    for (const j of idx) {
+      const [mx, mz] = bis(j);
+      left.push(L[2 * j] + mx * reach, L[2 * j + 1] + mz * reach);
+      right.unshift(L[2 * j] - mx * reach, L[2 * j + 1] - mz * reach);
+    }
+    runs.push({ state: states[a], sector: left.concat(right) });
+    c += len;
+  }
+  return runs;
+}
+
+/**
+ * A lane's polyline run out `w` metres past each end along its end pieces,
+ * so its strip can be cut flush by the round it ends in.
+ * @param {number[]} pts @param {number} w
+ */
+export function runOut(pts, w) {
+  const n = pts.length / 2;
+  if (n < 2) return pts.slice();
+  const ax = pts[2] - pts[0], az = pts[3] - pts[1], al = Math.hypot(ax, az) || 1;
+  const bx = pts[2 * n - 2] - pts[2 * n - 4], bz = pts[2 * n - 1] - pts[2 * n - 3], bl = Math.hypot(bx, bz) || 1;
+  const out = pts.slice();
+  out[0] = pts[0] - (ax / al) * w;
+  out[1] = pts[1] - (az / al) * w;
+  out[2 * n - 2] = pts[2 * n - 2] + (bx / bl) * w;
+  out[2 * n - 1] = pts[2 * n - 1] + (bz / bl) * w;
   return out;
 }
 

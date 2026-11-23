@@ -4162,6 +4162,120 @@ check("gps screen: each no-lanes reason in the game's words; off the field the c
   ["Drive onto a field you may work", false, true, "true"],
   ["No lane here", false, true, "false"]]);
 
+// --- GPS screen, revision 2: the lanes as strips (specs/0021) ----------------------
+
+const gpsPair = (/** @type {number[]} */ a, /** @type {number} */ i) => [a[2 * i], a[2 * i + 1]];
+const gpsLoops = gps.roundLoopsOf(gpsCourse);
+check("gps strips: a round's pieces end to end, one closed loop (field 7: seven points, a piece starting at each joint)",
+  [gpsLoops.length, gpsLoops[0].round, gpsLoops[0].pts.length / 2, gpsLoops[0].starts, gpsLoops[0].pieces,
+    gpsPair(gpsLoops[0].pts, 3)], [1, 1, 7, [0, 3, 4, 5], [11, 12, 13, 14], [-608.3, -554.1]]);
+const gpsOut = gps.runOut([0, 0, 10, 0, 10, 10], 6);
+check("gps strips: a lane's polyline run out a width past each end, along its end pieces", gpsOut, [-6, 0, 10, 0, 10, 16]);
+// point in a polygon, flat [x1, z1, ...]
+const gpsIn = (/** @type {number[]} */ poly, /** @type {number} */ x, /** @type {number} */ z) => {
+  let inside = false;
+  for (let i = 0, j = poly.length / 2 - 1; i < poly.length / 2; j = i++) {
+    const [xi, zi] = gpsPair(poly, i), [xj, zj] = gpsPair(poly, j);
+    if ((zi > z) !== (zj > z) && x < ((xj - xi) * (z - zi)) / (zj - zi) + xi) inside = !inside;
+  }
+  return inside;
+};
+const gpsRuns = gps.roundRuns(gpsLoops[0], ["done", "done", "todo", "todo"], 6);
+const gpsOne = gps.roundRuns(gpsLoops[0], ["done", "done", "done", "done"], 6);
+// 1.5 m into piece 12 and into piece 13 from their joint (-801.5, -604)
+const gpsOn12 = [-801.5 + 1.5 * 0.968, -604 + 1.5 * 0.25], gpsOn13 = [-801.5 + 1.5 * 0.121, -604 - 1.5 * 0.993];
+check("gps strips: a round worked part way in runs of one state, each a sector cut on the bisectors at its joints; whole: one run, no sector", [
+  gpsRuns.map((r) => r.state), gpsIn(gpsRuns[0].sector, gpsOn12[0], gpsOn12[1]), gpsIn(gpsRuns[0].sector, gpsOn13[0], gpsOn13[1]),
+  gpsIn(gpsRuns[1].sector, gpsOn13[0], gpsOn13[1]), gpsOne.length, gpsOne[0].sector], [
+  ["done", "todo"], true, false, true, 1, undefined]);
+
+// the course canvas's pixels: a screen at 800 × 400, world metres to device pixels
+const g2Store = createStore();
+g2Store.set("hello", { farmId: 1 });
+g2Store.set("field_outlines", { fields: [{ id: 7, points: gpsCourse.boundary }] });
+g2Store.set("fields", { fields: [{ id: 7, farmlandId: 7, areaHa: 1.62 }] });
+g2Store.set("vehicles", { controlledId: 7, vehicles: [{ id: 7, name: "Mach 4R", x: -693.9, z: -596.15, heading: 102.6, speed: 10 }] });
+g2Store.set("cab", { inVehicle: true, vehicleId: 7, ...gpsSa() });
+g2Store.set("steering_course", gpsCourse);
+/** @type {{tool: number, kind: string, runs: {w: number, pts: number[]}[]}[]} */
+let g2Trails = [];
+let g2Version = 0;
+let g2Size = (/** @type {number} */ _w, /** @type {number} */ _h) => {};
+const g2Screen = gsw.gpsScreen(g2Store, { watchSize: (_el, cb) => { g2Size = cb; },
+  coverage: { trails: () => g2Trails, percent: () => undefined, version: () => g2Version } });
+g2Size(800, 400);
+const g2Course = /** @type {HTMLCanvasElement} */ (g2Screen.querySelector(".gps-course"));
+const g2Trail = /** @type {HTMLCanvasElement} */ (g2Screen.querySelector(".gps-trail"));
+const { fitView: g2FitView } = await import("./src/ui/trailCanvas.js");
+const g2Fit = g2FitView(gsw.courseView(gpsCourse.boundary), 800, 400);
+const g2Dpr = window.devicePixelRatio || 1;
+/** rgba at a world point @param {HTMLCanvasElement} cv @param {number} x @param {number} z */
+const g2At = (cv, x, z) => [...(/** @type {CanvasRenderingContext2D} */ (cv.getContext("2d"))).getImageData(
+  Math.floor((g2Fit.x0 + x * g2Fit.k) * g2Dpr), Math.floor((g2Fit.z0 + z * g2Fit.k) * g2Dpr), 1, 1).data];
+// what's there: "none", "done" (opaque green), "tint" (faint), "this" (the on blue's outline or more)
+const g2Kind = (/** @type {number[]} */ p) => p[3] < 8 ? "none" : p[3] < 120 ? "tint" : p[1] > p[0] && p[1] > p[2] ? "done" : "this";
+// a point d metres along a polyline's first piece from its first point, and o metres to its side
+const g2Along = (/** @type {number[]} */ pts, /** @type {number} */ d, o = 0) => {
+  const dx = pts[2] - pts[0], dz = pts[3] - pts[1], l = Math.hypot(dx, dz);
+  return [pts[0] + (dx / l) * d - (dz / l) * o, pts[1] + (dz / l) * d + (dx / l) * o];
+};
+const g2Seg = (/** @type {number} */ i) => gpsCourse.segments.find((/** @type {any} */ s) => s.i === i).pts;
+// the round's corner at (-801.5, -604): its outer mitre point, 2.5 m in from the strip's edge each way
+const g2Corner = (() => {
+  const L = gpsLoops[0].pts, j = 4, n = L.length / 2;
+  const [px, pz] = gpsPair(L, j), [ax, az] = gpsPair(L, j - 1), [bx, bz] = gpsPair(L, (j + 1) % n);
+  const u1 = [(px - ax) / Math.hypot(px - ax, pz - az), (pz - az) / Math.hypot(px - ax, pz - az)];
+  const u2 = [(bx - px) / Math.hypot(bx - px, bz - pz), (bz - pz) / Math.hypot(bx - px, bz - pz)];
+  const m = [-u1[1] - u2[1], u1[0] + u2[0]], ml = Math.hypot(m[0], m[1]), c = (m[0] * -u1[1] + m[1] * u1[0]) / ml;
+  const d = 2.5 / c, sign = Math.hypot(px + (m[0] / ml) * d + 690, pz + (m[1] / ml) * d + 610) > Math.hypot(px + 690, pz + 610) ? 1 : -1;
+  return [px + sign * (m[0] / ml) * d, pz + sign * (m[1] / ml) * d];
+})();
+const g2Lane10Mid = g2Along(g2Seg(10), 60), g2Lane8Side = g2Along(g2Seg(8).slice(2), 60, 1.5);
+check("gps strips: the round reaches its corner's mitre point (no rounded end); a lane to do is a tinted strip, not a dashed line", [
+  g2Kind(g2At(g2Course, g2Corner[0], g2Corner[1])), g2Kind(g2At(g2Course, g2Lane10Mid[0], g2Lane10Mid[1])),
+  g2Kind(g2At(g2Course, g2Lane8Side[0], g2Lane8Side[1]))], ["done", "done", "tint"]);
+// the round to do, lanes 9 and 10 done: a lane's end inside the round shows the round's tint (cut flush);
+// the round worked part way (11, 12 done): green on one side of the joint's bisector, tinted on the other
+g2Store.set("steering_course", { ...gpsCourse, done: [9, 10] });
+const g2End10 = gpsPair(g2Seg(10), 1);
+const g2Back10 = g2Along([g2End10[0], g2End10[1], ...gpsPair(g2Seg(10), 0)], 5);
+const g2Flush = [g2Kind(g2At(g2Course, g2End10[0], g2End10[1])), g2Kind(g2At(g2Course, g2Back10[0], g2Back10[1]))];
+g2Store.set("steering_course", { ...gpsCourse, done: [9, 10, 11, 12] });
+check("gps strips: a done lane's end inside a round to do shows the round's tint; a round worked part way is cut at the joint",
+  [g2Flush, g2Kind(g2At(g2Course, gpsOn12[0], gpsOn12[1])), g2Kind(g2At(g2Course, gpsOn13[0], gpsOn13[1]))],
+  [["tint", "done"], "done", "tint"]);
+
+// the fill: the lane's width less a pixel, square ended, masked by the rounds; the legend's words
+const g2Fill = /** @type {SVGPolylineElement} */ (g2Screen.querySelector(".gps-fill"));
+const g2Mask = g2Screen.querySelector(`mask#${(g2Fill.getAttribute("mask") || "").replace(/^url\(#|\)$/g, "")}`);
+check("gps strips: the fill the lane's width less a pixel, masked by the round; the legend's words", [
+  g2Fill.getAttribute("stroke-width"), String(Math.round((6 - 1 / g2Fit.k) * 10) / 10), !!g2Mask,
+  g2Mask?.querySelectorAll("path").length, [...g2Screen.querySelectorAll(".gps-key")].map((k) => k.textContent)], [
+  String(Math.round((6 - 1 / g2Fit.k) * 10) / 10), String(Math.round((6 - 1 / g2Fit.k) * 10) / 10), true, 1,
+  ["Done", "This lane", "To do", "Worked, not counted"]]);
+
+// the trail only inside the lanes to do: along lane 8 (to do), lane 9 (done), lane 7 (yours),
+// one along lane 8 moved 2.5 m sideways (a spill), and one across the round
+g2Store.set("steering_course", gpsCourse);
+const g2Run = (/** @type {number[]} */ pts) => ({ w: 6.6, pts });
+const g2Shift = (/** @type {number[]} */ pts, /** @type {number} */ o) => {
+  const a = g2Along(pts.slice(2), 0, o), b = g2Along(pts.slice(2), 150, o);
+  return [a[0], a[1], b[0], b[1]];
+};
+g2Trails = [{ tool: 1, kind: "work", runs: [g2Run(g2Seg(8)), g2Run(g2Seg(9)), g2Run(g2Seg(7)), g2Run(g2Shift(g2Seg(6), -5)),
+  g2Run([-801.5, -630, -796, -630])] }];
+g2Version++;
+g2Size(800, 401);
+g2Size(800, 400);
+const g2T = (/** @type {number[]} */ p) => g2At(g2Trail, p[0], p[1])[3] > 8;
+const g2On8 = g2Along(g2Seg(8).slice(2), 60), g2On9 = g2Along(g2Seg(9).slice(2), 60), g2On7 = g2Along(g2Seg(7).slice(2), 60);
+const g2Edge6 = g2Along(g2Seg(6).slice(2), 60, -2.2), g2Round = [-798.5, -630];
+const g2Before = [g2T(g2On8), g2T(g2On9), g2T(g2On7), g2T(g2Edge6), g2T(g2Round)];
+// lane 9 back to to do (the game unflagged it): the trail in it shows
+g2Store.set("steering_course", { ...gpsCourse, done: [7, 10, 11, 12, 13, 14] });
+check("gps strips: the trail only inside the lanes to do, 1.5 m in from their sides; not on a done lane, yours or a round; a lane back to to do shows it",
+  [g2Before, g2T(g2On9)], [[true, false, false, false, false], true]);
+
 // the theme: a GPS tab with the control column, between Vehicle and Contracts
 const { default: nhTheme } = await import("./src/themes/newholland/theme.js");
 const nhGps = nhTheme.screens?.find((s) => s.id === "gps");

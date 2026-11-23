@@ -1,7 +1,7 @@
 # 0021: GPS screen: the field, its lanes and the progress
 
-Status: live-checked
-Mod: 0.22.0 · Started: 2026-11-17 · Design: the canvas [FS25 Companion: GPS](https://claude.ai/artifact/45ruF2v1hH49JJi4HyRTeM) (private, on claude.ai; at 1158 × 676 and 1180 × 820, day and night; approved by Vincent, 2026-11-19); the brainstorm's brief, `concepts_brief.md`, is in git history (commit b0cffeb)
+Status: revision 2 built (the lanes as strips); its live check next
+Mod: 0.22.0 · Started: 2026-11-17 · Design: the canvas [FS25 Companion: GPS](https://claude.ai/artifact/45ruF2v1hH49JJi4HyRTeM) (private, on claude.ai; at 1158 × 676 and 1180 × 820, day and night; approved by Vincent, 2026-11-19; revision 2's "Refined lanes" row approved 2026-11-23); the brainstorm's brief, `concepts_brief.md`, is in git history (commit b0cffeb)
 
 ## Goal
 
@@ -15,6 +15,64 @@ along you are and how long is left. Vincent drives with the joystick (turns,
 the tool), so the screen is for looking at, not pressing: the field panel on
 the Vehicle page is far too small for this.
 
+## Revision 2: the lanes as strips
+
+Drafted 2026-11-23 after the live check, from Vincent's screenshot of
+field 6, drawn on the canvas's "Refined lanes" row and approved by
+Vincent the same day (the trail inside the lanes still to do; to do as
+faint strips). This section is the revision whole; Behaviour below says
+the same. No mod change.
+
+**Why.** Two things on field 6 looked wrong:
+- The rounds were drawn with rounded ends, so at every joint they bulged
+  out and nicked in: a corner looked as if a bit was missed. Lanes ended
+  square across the round, at an angle to it.
+- The trail sat beside and past every done lane as a pale halo. The
+  Terria works 6.6 m on lanes the game spaced 6.0 m apart, so each pass
+  spills 0.3 m onto its neighbours, and the trail runs on past a lane's
+  end into the headland.
+
+**Behaviour.**
+- **Every lane and round is the strip it works:** its working width wide
+  (the course's `width`), square ends, mitred corners, never a rounded
+  end.
+  - A round is one closed strip (its pieces end to end; on fields 6 and
+    7 they close to 0.0 m). A notch narrower than the width overlaps
+    itself, as the tool does. A round worked part way is cut on the
+    corner's bisector at the joint between done and to do.
+  - A lane stops flush at the innermost round, a hairline before it. The
+    game's lanes already run 0.6 to 3 m into that round (fields 6 and
+    7): nothing is moved or run out, the overlap is only hidden.
+  - A hairline of the field between strips, so they stay countable.
+- **Done:** solid green. **To do:** the strip faintly tinted (the to-do
+  colour at 16 %), not a dashed line. **The lane you're on:** outlined
+  in this lane's colour, the part ahead tinted with it, solid green up to
+  the rig with a square cut there.
+- **The trail only inside the lanes still to do**, at least 1.5 m in from
+  their sides: what you worked that the game hasn't counted. Beside and
+  past done lanes, on the rounds and under the lane you're on it's
+  hidden. The legend calls it "Worked, not counted". This changes
+  Vincent's 2026-11-19 answer (the trail under every lane).
+- **Colours:** the `--gps-*` and `--trail-work` ones; nothing new.
+
+**Painting** (Fast on the iPad stays):
+- The course canvas: each lane a stroke its width less a pixel, square
+  ends, mitred, its polyline run out a width past each end; then the
+  rounds' strokes a pixel wider erase what reaches into them; then each
+  round one closed stroke its width less a pixel (a round worked part way:
+  its stroke clipped to each run's sector, cut on the bisectors). All
+  clipped to the course's outline.
+- A changed lane: erased its width wide, painted again, and the rounds
+  over it again (as today: the counted pieces). A changed round: erased
+  and painted again.
+- The lane you're on filled by one SVG line its width less a pixel,
+  square ends, masked by the rounds (an SVG mask made once per course), so
+  a vehicles message still repaints no lane.
+- The trail canvas (the Vehicle page's painter) gains a mask step for
+  this screen only: after it paints, it keeps what's inside the lanes to
+  do (their strokes 3 m narrower) and erases the rounds. When a lane goes
+  back to to do, the trail is painted whole again.
+
 ## Behaviour
 
 To be drawn on a canvas first; this is what it holds.
@@ -25,12 +83,16 @@ To be drawn on a canvas first; this is what it holds.
   button here (one control per action).
 - **The field, big:** the field's outline from the game's course, the
   headland rounds and the lanes in world metres, filling the screen.
+  - Every lane and round is the strip it works, its width wide, square
+    ends and mitred corners; lanes stop flush a hairline before the
+    innermost round; a hairline of the field between strips so they can
+    be counted (revision 2).
   - Done lanes and rounds are solid green ("worked", like the trail but
-    darker), a hairline of the field between them so they can be counted;
-    the lane you're on is the on blue with an outline, filled green up to
-    where you are along it (measured from its points and your position,
-    no rule of ours); the ones to do are faint dashed lines. A small legend sits in the field's corner
-    (Vincent, 2026-11-19: done must read clearly against the lines).
+    darker); the ones to do are the strip faintly tinted; the lane you're
+    on is outlined in the on blue, the part ahead tinted with it, filled
+    green up to where you are along it (measured from its points and your
+    position, no rule of ours) with a square cut. A small legend sits in
+    the field's corner (Vincent, 2026-11-19: done must read clearly).
   - The rig's position and heading, live.
   - With lanes closer than about 1 px on screen, they are shaded by state
     instead of drawn one by one.
@@ -41,19 +103,22 @@ To be drawn on a canvas first; this is what it holds.
   (the dialog has no such setting), so done is counted from the lanes the game marks,
   never from the lane you're on (Vincent, 2026-11-19). The lane you're on
   never counts as done, whatever the game's flag says: once you leave it,
-  the game's flag decides, solid green and counted, or back to dashed
+  the game's flag decides, solid green and counted, or back to to do
   (Vincent, 2026-11-23: the game may mark a lane as you start it). The game
   cuts a lane crossing a notch in pieces with one number, each flagged on
   its own; the lane counts once, done once every piece is, as a round
   (Vincent, 2026-11-23, field 6: 19 lanes, 27 pieces). A lane
-  started and left after a few metres counts as the game says; the trail
-  under it shows what was worked. Headland rounds count too (Vincent,
+  started and left after a few metres counts as the game says; if it
+  stays to do, the trail inside it shows what was worked. Headland rounds count too (Vincent,
   2026-11-17): a round is done once every piece of it is, and the piece
   you're on never counts, as with a lane. On a headland piece "On lane"
   reads "On headland" and the round's number (Vincent, 2026-11-23).
-- **The worked part:** the Vehicle page's trail (spec 0013) under the lanes,
-  so what you worked while ignoring the lanes still shows (Vincent,
-  2026-11-19). It is that trail as it is today, kept in each browser.
+- **The worked part:** the Vehicle page's trail (spec 0013), only inside
+  the lanes still to do, 1.5 m in from their sides: what you worked that
+  the game hasn't counted ("Worked, not counted"). Beside and past done
+  lanes, on the rounds and under the lane you're on it's hidden
+  (revision 2; on 2026-11-19 Vincent had it under every lane). It is that
+  trail as it is today, kept in each browser.
 - **Time left:** "≈ 18 min left", in real time (work runs at real-time
   rates at any game speed), from your own times on this field in this
   session: the lanes left times your time per lane and per turn, plus the
@@ -99,12 +164,12 @@ To be drawn on a canvas first; this is what it holds.
   light grey).
 - **Fast on the iPad:** the field is drawn on a `<canvas>`, never an
   element per lane: the course once per `key` (and per size and palette),
-  then only the lanes whose state changed, and the round's pieces over
-  their ends; the trail as on the Vehicle page (its newest stretch, the
-  same painter: `web/src/ui/trailCanvas.js`); the rig one element moved by
-  a CSS transform, the lane you're on filled by one SVG line, so a
-  vehicles message repaints no lane; nothing painted while the page is
-  hidden. The Vehicle page's field
+  then only the lanes whose state changed, and the rounds over their ends
+  (revision 2's painting); the trail as on the Vehicle page (its newest
+  stretch, the same painter: `web/src/ui/trailCanvas.js`), masked to the
+  lanes to do; the rig one element moved by a CSS transform, the lane
+  you're on filled by one SVG line masked by the rounds, so a vehicles
+  message repaints no lane; nothing painted while the page is hidden. The Vehicle page's field
   panel was slow on iPad Safari for doing otherwise (spec 0013).
 - **Sizes:** works on any tablet down to 1158×676; the compact class keeps
   the field on top and the control column under it.
@@ -218,6 +283,26 @@ Automated:
   (counted); a rig update repaints no lane (the fill is its own element);
   nothing painted while the page is hidden (0 × 0).
 - [x] `web/test.html`: the theme has the GPS tab with the control column.
+- [x] `web/test.html`, revision 2 (`web/src/data/gps.js`): each round's
+  pieces end to end into one closed loop (field 7: seven points, the joints
+  where the pieces meet); a round worked part way in runs of one state,
+  each a sector cut on the bisectors at its joints; a lane's polyline run
+  out a width past each end.
+- [x] `web/test.html`, revision 2, the course canvas's pixels: at a
+  round's outer corner the strip reaches the mitre's point (no rounded
+  end); a done lane's end inside a round to do shows the round's tint, not
+  the lane's green (cut flush); between two done lanes a hairline of the
+  field; a round worked part way green on one side of the joint's
+  bisector and tinted on the other; a lane to do tinted, not dashed.
+- [x] `web/test.html`, revision 2, the trail: painted in a lane to do's
+  middle, not on a done lane, within 1.5 m of a lane to do's side, on a
+  round or under the lane you're on; a lane going back to to do paints the
+  trail whole again; the Vehicle page's trail unmasked as before.
+- [x] `web/test.html`, revision 2: the fill is the lane's width less a
+  pixel, square ended, masked by the rounds; a rig update still repaints
+  no lane; the legend reads Done, This lane, To do, Worked, not counted.
+- [x] Replay in the browser pane, field 6's course and trail fed in, at
+  1158×676 and 1180×820, day and night.
 - [x] Replay in the browser pane at 1158×676 and 1180×820, day and night,
   the fixture's course fed in.
 
@@ -237,7 +322,19 @@ Live check (Solek, mod 0.22.0):
 - [x] The time left against the clock over a whole field (field 7
   replayed through the fix; field 6 over five lanes).
 
+Live check, revision 2 (no mod change: 0.22.0):
+- [ ] On the iPad, day and night, a field being worked: the rounds' corners
+  square, lanes flush against the headland, no halo beside or past the
+  lanes; a lane started and left (to do) shows its trail inside it.
+- [ ] Smooth on the iPad as before: a lane going done, the rig moving.
+
 ## Decisions
+
+- **Strips, not lines** (revision 2, Vincent, 2026-11-23): every lane and
+  round drawn as the strip it works, cut flush and mitred; the game's
+  lanes and their ends stay the game's, only the overlap under the round
+  is hidden. Replaces PLAN.md's "Tidy GPS lanes" (which would have
+  straightened lanes and run them out).
 
 - **A screen of its own** (Vincent, 2026-11-17), not a layer on the
   Vehicle page's field panel, which the brainstorm had proposed.
@@ -381,3 +478,13 @@ Live check (Solek, mod 0.22.0):
   rounds 2 and 3), "≈ 27 min" on lane 7 after lane 5; the iPad matched
   the replay of the page's own code each time. Island fields not tried.
   Verified names moved into GAME-API.md's Steering Assist section.
+- 2026-11-23: revision 2 built (web only, mod 0.22.0): `data/gps.js`
+  `roundLoopsOf`, `roundRuns`, `runOut`; `widgets/gpsScreen.js` paints the
+  strips (lanes, cut by the rounds' strokes, then each round, worked part
+  way by sector), the fill masked by the rounds; `ui/trailCanvas.js` takes
+  a mask (the GPS screen's: the lanes to do, 1.5 m in, less the rounds),
+  the Vehicle page's trail unmasked as before; the legend's swatches and
+  "Worked, not counted". test.html 422 green (seven new); field 6's
+  recorded session replayed in the pane at 1180×820 day and 1158×676
+  night: corners square, lanes flush, no halo. PLAN.md's "Tidy GPS lanes"
+  removed (this replaces it).

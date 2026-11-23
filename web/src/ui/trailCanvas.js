@@ -4,11 +4,13 @@
 // fitted to a view of world metres and clipped to the field's outline. All
 // of it when the field, size or palette changed or a tool's trail went;
 // else only each run's newest stretch, so a vehicles message paints a few
-// points.
+// points. The GPS screen passes a mask (specs/0021 revision 2): applied
+// after each paint, in the same fit and clip; a new mask key paints whole.
 
 /** @typedef {[number, number, number, number]} View x, z, width, height in world metres */
 /** @typedef {{k: number, x0: number, z0: number}} Fit pixels a metre, and where x = 0 and z = 0 land */
 /** @typedef {{trails: (fieldId: number) => any[], version: (fieldId: number) => number}} TrailSource */
+/** @typedef {{key: string, apply: (ctx: CanvasRenderingContext2D) => void}} TrailMask what to keep, applied after each paint */
 
 // the trail's colours when the theme has none (the day's)
 export const TRAIL_FALLBACK = { work: "#B4D6C8", mow: "#E8E1BF" };
@@ -33,7 +35,7 @@ export function createTrailCanvas(canvas, coverage, colourOf) {
   const ctx = /** @type {CanvasRenderingContext2D} */ (canvas.getContext("2d"));
   /** what the canvas holds: a field at a size and palette, by these tools, at this version */
   const painted = { field: /** @type {number|undefined} */ (undefined), w: 0, h: 0, dpr: 0, palette: "", version: -1,
-    seam: 0, tools: /** @type {Set<number>} */ (new Set()) };
+    seam: 0, tools: /** @type {Set<number>} */ (new Set()), mask: "" };
   /** how many points of each run are on the canvas */
   /** @type {WeakMap<object, number>} */
   const drawnPts = new WeakMap();
@@ -56,10 +58,10 @@ export function createTrailCanvas(canvas, coverage, colourOf) {
 
   /**
    * The field's trail in the box, or a clear canvas without a field.
-   * @param {{fieldId: number|undefined, view: View|undefined, clip: number[]|undefined, w: number, h: number}} at
-   *   clip: the field's outline, [x1, z1, ...]
+   * @param {{fieldId: number|undefined, view: View|undefined, clip: number[]|undefined, w: number, h: number,
+   *   mask?: TrailMask}} at clip: the field's outline, [x1, z1, ...]
    */
-  function paint({ fieldId, view, clip, w: boxW, h: boxH }) {
+  function paint({ fieldId, view, clip, w: boxW, h: boxH, mask }) {
     const dpr = window.devicePixelRatio || 1;
     const palette = document.documentElement.dataset.palette || "";
     if (fieldId === undefined || !view || !clip) {
@@ -75,8 +77,9 @@ export function createTrailCanvas(canvas, coverage, colourOf) {
       return;
     }
     const version = coverage.version(fieldId);
+    const maskKey = mask ? mask.key : "";
     const full = painted.field !== fieldId || painted.w !== boxW || painted.h !== boxH || painted.dpr !== dpr
-      || painted.palette !== palette;
+      || painted.palette !== palette || painted.mask !== maskKey;
     if (!full && version === painted.version) return;
     const list = coverage.trails(fieldId);
     const ids = new Set(list.map((t) => t.tool));
@@ -101,7 +104,7 @@ export function createTrailCanvas(canvas, coverage, colourOf) {
       ctx.lineCap = "butt";
       ctx.lineJoin = "round";
       // a pixel wider (in metres), so passes side by side leave no seam
-      Object.assign(painted, { field: fieldId, w: boxW, h: boxH, dpr, palette, seam: 1 / fit.k });
+      Object.assign(painted, { field: fieldId, w: boxW, h: boxH, dpr, palette, seam: 1 / fit.k, mask: maskKey });
       const colours = { work: colourOf("work"), mow: colourOf("mow") };
       for (const t of list) {
         for (const run of t.runs) {
@@ -128,6 +131,11 @@ export function createTrailCanvas(canvas, coverage, colourOf) {
           drawnPts.set(run, n);
         }
       }
+    }
+    if (mask) {
+      ctx.save();
+      mask.apply(ctx);
+      ctx.restore();
     }
     painted.version = version;
     painted.tools = ids;

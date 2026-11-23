@@ -321,12 +321,16 @@ Companion: GPS"). The tab sits between Vehicle and Contracts, its icon
 field's badge and name, its area, the running contract on it and the
 working width; then Lanes done, On lane (On headland on a headland piece),
 Rounds done, a hairline and Time left, 32 px numbers (26 on the mini).
-Under it the field's card: the field in `--gps-field` with its edge, the
-trail (`--trail-work`) under the lanes, done lanes and the round solid
-`--gps-done` a pixel apart, the lane you're on `--gps-current` filling
-`--gps-done` up to the rig, the ones to do dashed `--gps-todo` (closer
-than 4 px: full width, shaded); a legend pill bottom-left; the rig an
-arrow. No lanes: the reason in a glass card in the middle, the course kept
+Under it the field's card: the field in `--gps-field` with its edge;
+every lane and round the strip it works (revision 2): its width wide less
+a pixel, square ends, mitred corners, lanes cut flush a hairline before
+the innermost round. Done solid `--gps-done`; to do the strip in
+`--gps-todo` at 16 %; the lane you're on outlined in `--gps-current`, the
+part ahead tinted with it at 20 %, `--gps-done` up to the rig with a square
+cut (closer than 4 px: full width, no hairline). The trail
+(`--trail-work`) only inside the lanes to do, 1.5 m in from their sides:
+"Worked, not counted". A legend pill bottom-left with the strips as
+swatches; the rig an arrow. No lanes: the reason in a glass card in the middle, the course kept
 and dimmed off the field. No readout. Compact: the field 420 tall over the
 dock.
 
