@@ -1,6 +1,6 @@
 # 0021: GPS screen: the field, its lanes and the progress
 
-Status: built
+Status: live-checked
 Mod: 0.22.0 · Started: 2026-11-17 · Design: the canvas [FS25 Companion: GPS](https://claude.ai/artifact/45ruF2v1hH49JJi4HyRTeM) (private, on claude.ai; at 1158 × 676 and 1180 × 820, day and night; approved by Vincent, 2026-11-19); the brainstorm's brief, `concepts_brief.md`, is in git history (commit b0cffeb)
 
 ## Goal
@@ -42,13 +42,15 @@ To be drawn on a canvas first; this is what it holds.
   never from the lane you're on (Vincent, 2026-11-19). The lane you're on
   never counts as done, whatever the game's flag says: once you leave it,
   the game's flag decides, solid green and counted, or back to dashed
-  (Vincent, 2026-11-23: the game may mark a lane as you start it). A lane
+  (Vincent, 2026-11-23: the game may mark a lane as you start it). The game
+  cuts a lane crossing a notch in pieces with one number, each flagged on
+  its own; the lane counts once, done once every piece is, as a round
+  (Vincent, 2026-11-23, field 6: 19 lanes, 27 pieces). A lane
   started and left after a few metres counts as the game says; the trail
   under it shows what was worked. Headland rounds count too (Vincent,
   2026-11-17): a round is done once every piece of it is, and the piece
   you're on never counts, as with a lane. On a headland piece "On lane"
-  reads "On round" and the round's number (build, 2026-11-23, for
-  Vincent's OK).
+  reads "On headland" and the round's number (Vincent, 2026-11-23).
 - **The worked part:** the Vehicle page's trail (spec 0013) under the lanes,
   so what you worked while ignoring the lanes still shows (Vincent,
   2026-11-19). It is that trail as it is today, kept in each browser.
@@ -58,12 +60,17 @@ To be drawn on a canvas first; this is what it holds.
   rounds left at your time per metre, less how far along the lane you're
   on you are. So it follows skipping, your speed and your turns (Vincent,
   2026-11-19), and doesn't drop a lane as you start one (2026-11-23). "–"
-  until two lanes are done. Built as one rate (build, 2026-11-23, for
-  Vincent's OK): the seconds you spent on each lane, its turn in included
+  until two lanes are done. Built as one rate (Vincent's OK, 2026-11-23,
+  judged in the live check): the seconds you spent on each lane, its turn in included
   (the game moves to the next lane as you reach the end, so the turn
   counts with the lane it leads to), over its metres; only lanes the game
   marks done as you leave them, and only time the rig moves (over
   0.5 km/h, as the trail), so a skipped lane or a pause doesn't count.
+  Each lane counts once, and only once you drove half of it: in a turn
+  the game's lane under you flickers for a second across the round and
+  the lanes beside you, and every moving second since the last lane
+  counted, whatever it crossed, goes to the next one (the first lane
+  counted takes only its own seconds). Live check, 2026-11-23.
   What's left is the metres of the lanes and pieces not done, less how
   far along the one you're on you are, at that rate. Kept per course in
   the page, so a new course starts again.
@@ -79,7 +86,7 @@ To be drawn on a canvas first; this is what it holds.
 
   On the field, the outline shows while the lanes are building. On foot
   "Get into a vehicle", and on a vehicle without Steering Assist "No
-  Steering Assist on this vehicle" (build, 2026-11-23, for Vincent's OK).
+  Steering Assist on this vehicle" (Vincent's OK, 2026-11-23).
 - **The lane you're on fills** up to the rig: the rig's place on the lane
   by its length, from the end it drives from (its heading against the
   lane), while it is within a lane's width of it; else not at all.
@@ -125,7 +132,8 @@ Topics gain fields (Protocol v1); `v` doesn't change.
   - `segments`: every segment in the game's order, `i` its index, `lane`
     (a lane's number) or `round` (a headland piece's round), `pts` its
     polyline, flat, 0.1 m (one list where the draft had `headlands` and
-    `lanes`: build, 2026-11-23, for Vincent's OK);
+    `lanes`: simpler, the game's own one table in its order; Vincent's
+    OK, 2026-11-23);
   - `done`: the indices whose flag is set, ascending (the save calls them `workedLines`);
   - `current`: the segment under you and its side; absent with none (the
     game's `currentSegment` nil: "No lane here").
@@ -179,8 +187,8 @@ Automated:
 - [x] Course fixtures from the spike's dumps: `mod/tests/fixtures/spike0021/`
   (fresh, reload, skip1) and `web/fixtures/steering_course.json` (the
   topic from skip1). Precision Farming doesn't touch the course (its
-  settings hold no Precision Farming field); its on and off are the live
-  check's.
+  settings hold no Precision Farming field), so there's no PF-off live
+  check (Vincent, 2026-11-23).
 - [x] `mod/tests/run.lua`: `steering_course` from the dumps' courses: the
   boundary, the ten lanes and four round pieces with their numbers and
   points, `width`, `done` (none, `9..14`, `7 9..14`) and `current`; the
@@ -191,11 +199,16 @@ Automated:
   `courseKey` and `onField`; 100 lanes of three points stay under 12 KB.
 - [x] `web/test.html`, the counts (`web/src/data/gps.js`): from the
   fixture, lanes done 2 of 10 on lane 7 (lane 7's flag set: it's the one
-  you're on), rounds 1 of 1; on a round piece "On round 1" and the round
+  you're on), rounds 1 of 1; on a round piece "On headland 1" and the round
   not done; the fill from the rig's place and heading, 0 off the lane.
 - [x] `web/test.html`, time left: "–" until two lanes are done; then the
   rate from the lane times fed in, a skipped lane and a stop left out,
   less the part of the lane you're on done; a new course starts again.
+- [x] `web/test.html`, time left in a turn (the live check's flicker): a
+  lane brushed for a second never counts, done before or timed already;
+  each lane once; the turn's seconds go to the lane after it.
+- [x] `web/test.html`, the counts: a lane in two pieces (one number) is
+  one lane, done once both pieces are.
 - [x] `web/test.html`, the screen: the fixture's course drawn with its
   counts and the field line naming a running contract on the field; each
   "no lanes" reason shows its words (on foot, no part, AI worker mode, off
@@ -209,17 +222,20 @@ Automated:
   the fixture's course fed in.
 
 Live check (Solek, mod 0.22.0):
-- [ ] The dashboard's lanes match the ones the game draws.
-- [ ] Two headlands, and a field with an island: the rounds count and the
+- [x] The dashboard's lanes match the ones the game draws (fields 7 and 6).
+- [x] Two headlands, and a field with an island: the rounds count and the
   pieces draw (the spike saw one round, no island, `lineGroupIndex` 1 only).
-- [ ] Building the lanes: the words and the outline (the spike never caught it).
-- [ ] Field 7: the field line (its area, the contract), the trail under
+  Field 6: three headlands and a notch that cuts lanes in two; no island
+  field tried.
+- [x] Building the lanes: the words and the outline (the spike never caught it).
+- [x] Field 7: the field line (its area, the contract), the trail under
   the lanes, and the lanes at the top and bottom edges against the round.
-- [ ] One round, then lanes: the counts step once per round and per lane.
-- [ ] Save and reload: the done lanes come back.
-- [ ] Off the field, building, no lane: the words.
-- [ ] The time left against the clock over a whole field.
-- [ ] Precision Farming on and off.
+- [x] One round, then lanes: the counts step once per round and per lane.
+- [x] Save and reload: the done lanes come back.
+- [x] Off the field, building, no lane: the words ("No lane here" from
+  the files: the game has no lane only for half a second near an edge).
+- [x] The time left against the clock over a whole field (field 7
+  replayed through the fix; field 6 over five lanes).
 
 ## Decisions
 
@@ -322,3 +338,46 @@ Live check (Solek, mod 0.22.0):
   1180×820 and 1158×676, day and night (lane 7 and lane 1 at the edge),
   and the tab bar with four tabs at 1158. Live check next; the design
   system isn't refreshed for the `--gps-*` tokens yet.
+- 2026-11-23: Vincent answered the four build choices: one `segments`
+  list (the simpler code), the words on foot and without the part, and
+  the time left as one rate (judged against the clock in the live
+  check) stay; a headland piece reads "On headland 1", not "On round 1".
+- 2026-11-23: live check, Solek field 7 (mod 0.22.0, Precision Farming
+  on), working its contract: the lanes match the game's; the counts right
+  (2 of 10, on lane 7, round 1 of 1, then one lane at a time in Vincent's
+  skipping order 7, 5, 3, 1, 2, 4, 6, 8; 9 of 10 at the end, as the
+  contract ended on lane 8 before he left it); the field line whole at
+  1180 and 1158 ("1.46 ha · Contract: Cultivating · 6.0 m"); "Get into a
+  vehicle" on foot. The time left was about half the real one: in each
+  turn the game's `current` flickers for a second across the round and
+  the lanes beside you (7, round, 8, 7, round, 5), and each brush of a
+  done lane counted it again (6 lanes driven, 14 timed). Fixed in
+  `data/gps.js` (web only): each lane once, half of it driven, the turn's
+  seconds to the next lane. The lap replayed through the fix against the
+  clock: 5 to 6 min shown with 5.6 left, 3 with 3.1, 2 with 2.0, 1 with
+  0.7; it moves by about a minute within a turn. test.html 414 green.
+- 2026-11-23: live check, Solek field 6 (yours, 3 headlands): "Building
+  the lanes…" with the outline, seen at last; three rounds (11, 11 and 10
+  pieces) and 19 lanes, matching the game's. The game cuts lanes 11 to 18
+  in two at the field's notch, one number on both pieces, each flagged
+  done on its own, so "Lanes done" said "of 27": now it counts lane
+  numbers, a lane done once all its pieces are (Vincent's pick). test.html
+  415 green.
+- 2026-11-23: field 6, round 1: every piece flagged, yet "Rounds done 0
+  of 3" while Vincent kept driving on it (a round ends on its first
+  piece, which you're on, so it never counts there); it went to 1 of 3
+  as he moved onto round 2. The rule stays (Vincent). Lanes 13 and 14
+  counted whole; the short pieces of 15 to 17 east of the notch wait for
+  their long pieces, as chosen.
+- 2026-11-23: the Precision Farming on-and-off live check removed
+  (Vincent): PF has no GPS functions of its own, and the screen reads
+  nothing from it.
+- 2026-11-23: live-checked. Field 6, after the save and reload (spike
+  still on, read only): the same 18 done segments came back; off the
+  field "Drive onto a field you may work" with the course faded; "No lane
+  here" only as the game's half-second blinks near the edge (four in an
+  hour, from the files). The time left with the fix: "≈ 29 min" after
+  lanes 1 and 3 (about 90 s a 240 m lane with its turn, 4.6 km left with
+  rounds 2 and 3), "≈ 27 min" on lane 7 after lane 5; the iPad matched
+  the replay of the page's own code each time. Island fields not tried.
+  Verified names moved into GAME-API.md's Steering Assist section.

@@ -3979,10 +3979,20 @@ const gpsCourse = await (await fetch("fixtures/steering_course.json")).json();
 const gpsWith = (/** @type {any} */ patch) => ({ ...gpsCourse, ...patch });
 check("gps counts: lanes done from the game's flags, not the lane you're on (its flag set); the round done", gps.countsOf(gpsCourse),
   { lanes: 10, lanesDone: 2, rounds: 1, roundsDone: 1, on: { kind: "lane", n: 7 } });
-check("gps counts: on a round piece the round isn't done and reads On round; the lane left counts by its flag",
+check("gps counts: on a round piece the round isn't done and reads On headland; the lane left counts by its flag",
   gps.countsOf(gpsWith({ current: { i: 12, left: false } })),
   { lanes: 10, lanesDone: 3, rounds: 1, roundsDone: 0, on: { kind: "round", n: 1 } });
 check("gps counts: no lane under you", gps.countsOf(gpsWith({ current: undefined })).on, undefined);
+// Solek field 6 (live check, 2026-11-23): the game cuts a lane crossing a notch
+// in two segments with one lane number, each flagged on its own; here lane 8
+// as segments 8 and 15
+const gpsSplit = (/** @type {number[]} */ done, /** @type {number} */ cur) => gpsWith({ done, current: { i: cur, left: true },
+  segments: [...gpsCourse.segments.map((/** @type {any} */ s) => s.i === 8 ? { ...s, pts: s.pts.slice(0, 4) } : s),
+    { i: 15, lane: 8, pts: gpsCourse.segments.find((/** @type {any} */ s) => s.i === 8).pts.slice(-4) }] });
+check("gps counts: a lane in two pieces is one lane, done once both pieces are (the piece you're on never counts)", [
+  gps.countsOf(gpsSplit([9, 10, 11, 12, 13, 14, 15], 7)), gps.countsOf(gpsSplit([8, 9, 10, 11, 12, 13, 14, 15], 7)).lanesDone,
+  gps.countsOf(gpsSplit([8, 9, 10, 11, 12, 13, 14, 15], 15)).lanesDone], [
+  { lanes: 10, lanesDone: 2, rounds: 1, roundsDone: 1, on: { kind: "lane", n: 7 } }, 3, 2]);
 
 const gpsS = (/** @type {any} */ cab, /** @type {any} */ topic, onFoot = false) => {
   const s = createStore();
@@ -4046,6 +4056,27 @@ check("gps time left: – after one lane; then the rate from the lanes done (a s
   gpsTimes.minutesLeft(gpsTc([9, 10, ...gpsRing], 7, 6)), (gpsTimes.feed(undefined, 10), gpsTimes.feed(gpsTc([9, 10, ...gpsRing], 7), 10),
     gpsTimes.minutesLeft(gpsTc([9, 10, ...gpsRing], 7)))], [undefined, 2, Math.round(((gpsLeftM * gpsRate) / 60) * 100) / 100,
   Math.round(((gpsLeftM * gpsRate) / 60) * 100) / 100, undefined, undefined]);
+
+// the live check's turns (2026-11-23): the game's lane under you flickers for
+// a second across the round and the lanes beside you; at 10 km/h (2.78 m/s)
+const gpsF = { t: 0 };
+const gpsFt = gps.createGpsTimes({ now: () => gpsF.t });
+const gpsFc = (/** @type {number[]} */ done, /** @type {number} */ cur) => ({ ...gpsCourse, key: 9, done, current: { i: cur, left: true } });
+const gpsFat = (/** @type {number} */ s, /** @type {number[]} */ done, /** @type {number} */ cur) => { gpsF.t = s * 1000; gpsFt.feed(gpsFc(done, cur), 10); };
+const gpsFr = [7, ...gpsRing]; // lane 7 done before this session
+gpsFat(0, gpsFr, 10); gpsFat(60, gpsFr, 10);
+gpsFat(60, [10, ...gpsFr], 9);                                      // lane 10: 60 s
+gpsFat(120, [10, ...gpsFr], 9);
+gpsFat(121, [9, 10, ...gpsFr], 13);                                 // lane 9: 61 s, the turn starts
+gpsFat(122, [9, 10, ...gpsFr], 10); gpsFat(122.5, [9, 10, ...gpsFr], 7); // brushes a lane timed, and one done before
+gpsFat(123, [9, 10, ...gpsFr], 13); gpsFat(140, [9, 10, ...gpsFr], 8);
+gpsFat(200, [8, 9, 10, ...gpsFr], 8); gpsFat(200, [8, 9, 10, ...gpsFr], 6); // lane 8: 60 s, its 19 s turn in
+const gpsFrate = (60 + 61 + 79) / (gpsLenOf(10) + gpsLenOf(9) + gpsLenOf(8));
+const gpsFleft = [1, 2, 3, 4, 5, 6].reduce((a, i) => a + gpsLenOf(i), 0);
+check("gps time left, a turn's flicker: a lane brushed for a second never counts, done or timed; each lane once; "
+  + "the turn's seconds, whatever lanes it crosses, go to the lane after it", [gpsFt.lanesTimed(),
+  Math.round((gpsFt.minutesLeft(gpsFc([8, 9, 10, ...gpsFr], 6)) ?? 0) * 100) / 100],
+  [3, Math.round(((gpsFleft * gpsFrate) / 60) * 100) / 100]);
 
 // --- GPS screen: the screen (specs/0021, widgets/gpsScreen.js) ---------------------
 

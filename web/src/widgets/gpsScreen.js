@@ -353,7 +353,7 @@ export function gpsScreen(store, opts = {}) {
       name.textContent = here ? `Field ${here.id}` : "No field";
       line.textContent = parts.join(" · ");
       lanesStat.set(counts ? String(counts.lanesDone) : "–", counts ? `of ${counts.lanes}` : "");
-      onStat.set(counts?.on ? String(counts.on.n) : "–", "", counts?.on?.kind === "round" ? "On round" : "On lane");
+      onStat.set(counts?.on ? String(counts.on.n) : "–", "", counts?.on?.kind === "round" ? "On headland" : "On lane");
       roundsStat.set(counts && counts.rounds ? String(counts.roundsDone) : "–", counts && counts.rounds ? `of ${counts.rounds}` : "");
       timeStat.set(minutes === undefined ? "–" : `≈ ${Math.max(1, Math.round(minutes))}`, minutes === undefined ? "" : "min");
       mapBox.setAttribute("aria-label", counts

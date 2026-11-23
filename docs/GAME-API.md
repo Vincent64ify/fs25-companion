@@ -23,7 +23,8 @@ Contents:
 - [The Implement screen's readings](#the-implement-screens-readings-mods-080-to-082-2026-10-24-and-25)
 - [Contracts](#contracts-mod-0191-live-checked-2026-11-15-and-16)
 - [Steering Assist](#steering-assist-mod-0210-live-checked-2026-11-19): the
-  mode, the course, the steering key and its press
+  mode, the course, the steering key and its press, and
+  [the course's lanes](#the-course-mod-0220-live-checked-2026-11-23)
 - [Not verified yet](#not-verified-yet)
 
 ---
@@ -717,6 +718,42 @@ hooklift truck. Then live-checked with mod 0.21.0 on the Versatile Nemesis
   (AIAutomaticSteering.lua:532-544), and the dialog greys out Steering
   Assist while it stays so (a weight hitched).
 
+### The course (mod 0.22.0, live-checked 2026-11-23)
+
+From [specs/0021](../specs/0021-gps-screen.md): spike 0.0.16 and 0.0.17's
+dumps on Solek field 7 (`mod/tests/fixtures/spike0021/`), then the mod
+live on field 7 (one headland, a contract) and field 6 (three headlands,
+a notch). Plain fields only: the class `SteeringFieldCourse` isn't in the
+SDK's archive.
+
+- **The course:** `spec_aiAutomaticSteering.steeringFieldCourse`
+  (`lastActiveSteeringFieldCourse` the same table once you've steered on
+  it). It goes when a contract ends and the field is no longer yours to
+  work; a new course is a new table.
+- **The segments:** `course.fieldCourse.segments[i]` (`course.segments`
+  the same table): `segmentId` = i, `positions` `{x, z}` pairs (2 to 4
+  points, world metres), `isHeadlandSegment`, `headlandIndex` on headland
+  pieces, `offsetLineIndex` on lanes, `lineGroupIndex`, `length`. Lanes
+  first, then the rounds (field 6: 27 lane pieces, then rounds of 11, 11
+  and 10 pieces). A lane crossing a notch is cut in two segments with one
+  `offsetLineIndex` (field 6's lanes 11 to 18), each flagged on its own.
+- **Done:** `course.segmentStates[i]`, one boolean a segment, are the
+  save's `workedLines indices`; a save and reload puts the same ones back.
+  The game sets a segment's flag a few seconds after you start it (worked
+  or not), and a lane skipped by hand stays false.
+- **The lane under you:** `currentSegmentIndex`, `currentSegmentIsLeft`,
+  `currentSegment` follow the look-ahead point, steering or not, and off
+  the field too (the nearest lane). In a turn they flicker for a second
+  across the round and the lanes beside you (field 7: 7, round, 8, 7,
+  round, 5). `currentSegment` nil (no lane) only for half a second near a
+  field's edge (four times in an hour).
+- **The rest:** `course.fieldCourseSettings.implementWidth` (the lanes'
+  spacing, AIAutomaticSteering.lua:470 reads it there too),
+  `fieldCourse.courseField.boundaryPositions` (the outline,
+  `course.rootBoundaryLine` the same table), and
+  `spec_aiAutomaticSteering.lastIsOnField`: false off the field, true on
+  a field you may work.
+
 ## Not verified yet
 
 Read by the mod behind `mod/src/Api.lua`'s guards, but not recorded above
@@ -725,25 +762,6 @@ weeks without anyone writing it down; they stay here until a live check
 says so.
 
 - **macOS:** nothing here has been seen on a Mac.
-- **The Steering Assist course** ([specs/0021](../specs/0021-gps-screen.md),
-  mod 0.22.0): read live by spike 0.0.16 and 0.0.17's `csCourse` on Solek
-  field 7 (2026-11-23, one headland; the dumps in
-  `mod/tests/fixtures/spike0021/`), not yet by the mod in a live check.
-  `steeringFieldCourse.fieldCourse.segments[i]` (`course.segments` the
-  same table): `segmentId` = i, `positions` `{x, z}` pairs, 2 to 4 points,
-  `isHeadlandSegment`, `headlandIndex` on headland pieces,
-  `offsetLineIndex` on lanes, `lineGroupIndex`, `length`; lanes 1 to 10,
-  then the round as 11 to 14. `course.segmentStates[i]`, one boolean a
-  segment, are the save's `workedLines indices`: the same numbers, put
-  back on reload; a lane skipped by hand stays false, and a lane can be
-  true as you start it. `currentSegmentIndex`, `currentSegmentIsLeft` and
-  `currentSegment` (nil: no lane) follow the lane under the look-ahead
-  point, steering or not, so they lead the rig through a turn.
-  `course.fieldCourseSettings.implementWidth` (AIAutomaticSteering.lua:470
-  reads it there too), `fieldCourse.courseField.boundaryPositions` (the
-  outline, `course.rootBoundaryLine` the same table), and
-  `spec_aiAutomaticSteering.lastIsOnField`. The class
-  `SteeringFieldCourse` isn't in the SDK's archive: plain fields only.
 - **Env:** the weather (`getWeatherTypeAtTime`, the temperatures) and each
   farm's money (`g_farmManager`).
 - **Player:** `player.nickname`.

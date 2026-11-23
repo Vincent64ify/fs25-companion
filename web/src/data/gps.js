@@ -5,13 +5,17 @@
 // - Done is the game's flag, never "behind you" (lanes are skipped by
 //   hand), and the segment you're on never counts, whatever its flag says:
 //   the game may set it as you start (Vincent, 2026-11-23).
-// - A round is done once every piece of it is.
+// - A lane or a round is done once every piece of it is (the game cuts a
+//   lane crossing a notch in two pieces with one number: field 6).
 // - The lane you're on fills up to the rig, measured along it from the end
 //   the rig drives from, while the rig is within a lane's width of it.
 // - Time left is one rate, seconds a metre, from the lanes you finished:
-//   only lanes the game marks done as you leave them, only time the rig
-//   moves; the turn counts with the lane it leads to (the game moves to the
-//   next lane as you reach the end). "–" until two lanes are done.
+//   only lanes the game marks done as you leave them, each once, and only
+//   once you drove half of it (the lane under you flickers across the round
+//   and its neighbours in a turn: live check, 2026-11-23); only time the
+//   rig moves; every second since the last lane timed, the turn included,
+//   counts with the next (the game moves to the next lane as you reach the
+//   end). "–" until two lanes are done.
 
 import { cabOf, controlledVehicle } from "./selectors.js";
 
@@ -68,14 +72,14 @@ export function stateOf(c, done, s) {
  */
 export function countsOf(c) {
   const done = new Set(c.done || []);
-  let lanes = 0, lanesDone = 0;
+  /** @type {Map<number, boolean>} lane → every piece done (the game cuts a lane crossing a notch in pieces with one number) */
+  const lanes = new Map();
   /** @type {Map<number, boolean>} round → every piece done */
   const rounds = new Map();
   for (const s of c.segments) {
     const state = stateOf(c, done, s);
     if (typeof s.lane === "number") {
-      lanes++;
-      if (state === "done") lanesDone++;
+      lanes.set(s.lane, (lanes.get(s.lane) ?? true) && state === "done");
     } else if (typeof s.round === "number") {
       rounds.set(s.round, (rounds.get(s.round) ?? true) && state === "done");
     }
@@ -83,7 +87,7 @@ export function countsOf(c) {
   const cur = c.current ? c.segments.find((s) => s.i === c.current?.i) : undefined;
   const on = cur && typeof cur.lane === "number" ? { kind: /** @type {const} */ ("lane"), n: cur.lane }
     : cur && typeof cur.round === "number" ? { kind: /** @type {const} */ ("round"), n: cur.round } : undefined;
-  return { lanes, lanesDone, rounds: rounds.size, roundsDone: [...rounds.values()].filter(Boolean).length, on };
+  return { lanes: lanes.size, lanesDone: [...lanes.values()].filter(Boolean).length, rounds: rounds.size, roundsDone: [...rounds.values()].filter(Boolean).length, on };
 }
 
 /**
@@ -166,11 +170,16 @@ function reversed(pts) {
 export function createGpsTimes({ now = () => performance.now() } = {}) {
   /** the course timed, by key */
   let key = /** @type {number|undefined} */ (undefined);
-  /** the segment you're on, and the moving seconds spent on it */
+  /** the segment you're on */
   let on = /** @type {number|undefined} */ (undefined);
-  let onSeconds = 0;
   let last = /** @type {number|undefined} */ (undefined);
-  let moving = false;
+  let lastKmh = 0;
+  /** moving seconds since the last lane timed, and per segment the seconds and metres driven on it since */
+  let pending = 0;
+  /** @type {Map<number, {s: number, m: number}>} */
+  let driven = new Map();
+  /** the lanes timed on this course */
+  let timed = new Set();
   /** lanes finished: seconds and metres, summed */
   let lanes = 0, seconds = 0, metres = 0;
 
@@ -181,9 +190,16 @@ export function createGpsTimes({ now = () => performance.now() } = {}) {
    */
   function feed(c, speedKmh) {
     const t = now();
-    if (last !== undefined && moving && on !== undefined) onSeconds += (t - last) / 1000;
+    if (last !== undefined && lastKmh > MOVING_KMH && on !== undefined && t > last) {
+      const dt = (t - last) / 1000;
+      pending += dt;
+      const d = driven.get(on) || { s: 0, m: 0 };
+      d.s += dt;
+      d.m += (lastKmh / 3.6) * dt;
+      driven.set(on, d);
+    }
     last = t;
-    moving = typeof speedKmh === "number" && speedKmh > MOVING_KMH;
+    lastKmh = typeof speedKmh === "number" ? speedKmh : 0;
     if (!c) {
       // the course went: the next one starts again, whatever its key
       key = undefined;
@@ -192,21 +208,30 @@ export function createGpsTimes({ now = () => performance.now() } = {}) {
     if (c.key !== key) {
       key = c.key;
       on = c.current?.i;
-      onSeconds = 0;
+      pending = 0;
+      driven = new Map();
+      timed = new Set();
       lanes = seconds = metres = 0;
       return;
     }
     const next = c.current?.i;
     if (next === on) return;
-    // left `on`: a lane the game marks done counts, with its turn in
+    // left `on`: a lane the game marks done, not timed yet, half of it driven
     const left = c.segments.find((s) => s.i === on);
-    if (left && typeof left.lane === "number" && (c.done || []).includes(left.i) && onSeconds > 0) {
-      lanes++;
-      seconds += onSeconds;
-      metres += lengthOf(left.pts);
+    const d = on === undefined ? undefined : driven.get(on);
+    if (left && typeof left.lane === "number" && !timed.has(left.i) && (c.done || []).includes(left.i) && d) {
+      const len = lengthOf(left.pts);
+      if (len > 0 && d.m >= len / 2) {
+        timed.add(left.i);
+        lanes++;
+        // the first lane: only its own seconds (before it you may have driven to the field)
+        seconds += lanes === 1 ? d.s : pending;
+        metres += len;
+        pending = 0;
+        driven = new Map();
+      }
     }
     on = next;
-    onSeconds = 0;
   }
 
   /**

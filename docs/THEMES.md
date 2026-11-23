@@ -319,7 +319,7 @@ control column (you drive with it; steering on and off is Drive's)
 Companion: GPS"). The tab sits between Vehicle and Contracts, its icon
 `area` for now. Over the field a card like the Harvester's header: the
 field's badge and name, its area, the running contract on it and the
-working width; then Lanes done, On lane (On round on a headland piece),
+working width; then Lanes done, On lane (On headland on a headland piece),
 Rounds done, a hairline and Time left, 32 px numbers (26 on the mini).
 Under it the field's card: the field in `--gps-field` with its edge, the
 trail (`--trail-work`) under the lanes, done lanes and the round solid
