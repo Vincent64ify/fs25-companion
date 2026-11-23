@@ -59,7 +59,7 @@ behaviour, in Behaviour too: the spec always says what the code does now.
 | [0018](0018-contracts.md) | Contracts, read-only: on offer and yours, net, time, per hour, the extra crop, lease vehicles, on the map | live-checked (0.20.4: a harvest offer's litres; the freezes were the spike's; 0.20.5: no bale factor) | 0.20.5 |
 | [0019](0019-contract-actions.md) | Contracts: accept, cancel and hand in from the detail | live-checked | 0.20.0 |
 | [0020](0020-steering-assist-state.md) | Steering Assist (GPS, 1 of 3): its state, and the Drive button that follows the mode | live-checked (Precision Farming on and off; the Arocs truck won't take Steering Assist) | 0.21.0 |
-| [0021](0021-gps-screen.md) | GPS screen (GPS, 2 of 3): the field, its lanes and the progress | live-checked (time left: each lane once; split lanes count by number; no PF check); revision 2 built (the lanes as strips), its iPad check next | 0.22.0 |
+| [0021](0021-gps-screen.md) | GPS screen (GPS, 2 of 3): the field, its lanes and the progress | live-checked (time left: each lane once; split lanes count by number; no PF check); revision 2 live-checked (the lanes as strips) | 0.22.0 |
 | [0022](0022-steering-assist-settings.md) | Steering Assist settings (GPS, 3 of 3): the game's AI Settings dialog on the dashboard | draft | — |
 
 ## Before the specs

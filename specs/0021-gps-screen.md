@@ -1,6 +1,6 @@
 # 0021: GPS screen: the field, its lanes and the progress
 
-Status: revision 2 built (the lanes as strips); its live check next
+Status: live-checked (revision 2 too)
 Mod: 0.22.0 · Started: 2026-11-17 · Design: the canvas [FS25 Companion: GPS](https://claude.ai/artifact/45ruF2v1hH49JJi4HyRTeM) (private, on claude.ai; at 1158 × 676 and 1180 × 820, day and night; approved by Vincent, 2026-11-19; revision 2's "Refined lanes" row approved 2026-11-23); the brainstorm's brief, `concepts_brief.md`, is in git history (commit b0cffeb)
 
 ## Goal
@@ -323,10 +323,10 @@ Live check (Solek, mod 0.22.0):
   replayed through the fix; field 6 over five lanes).
 
 Live check, revision 2 (no mod change: 0.22.0):
-- [ ] On the iPad, day and night, a field being worked: the rounds' corners
+- [x] On the iPad, day and night, a field being worked: the rounds' corners
   square, lanes flush against the headland, no halo beside or past the
   lanes; a lane started and left (to do) shows its trail inside it.
-- [ ] Smooth on the iPad as before: a lane going done, the rig moving.
+- [x] Smooth on the iPad as before: a lane going done, the rig moving.
 
 ## Decisions
 
@@ -488,3 +488,6 @@ Live check, revision 2 (no mod change: 0.22.0):
   recorded session replayed in the pane at 1180×820 day and 1158×676
   night: corners square, lanes flush, no halo. PLAN.md's "Tidy GPS lanes"
   removed (this replaces it).
+- 2026-11-23: revision 2 live-checked on the iPad by Vincent, day and
+  night: the corners square, the lanes flush, no halo, smooth as before
+  ("everything working fine").
