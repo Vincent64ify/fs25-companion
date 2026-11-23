@@ -37,7 +37,29 @@ function VehicleState.steering(vehicle)
         state = "ready"
     end
     local key = VehicleState.liveKey(vehicle, VehicleState.STEERING_KEY)
-    return { mode = mode, state = state, canSteer = key ~= nil and key.active == true }
+    local out = { mode = mode, state = state, canSteer = key ~= nil and key.active == true,
+        onField = Api.steeringOnField(vehicle) }
+    -- specs/0021: the steering_course topic's key while there is a course
+    local course = Api.steeringCourse(vehicle)
+    if course ~= nil then
+        out.courseKey = VehicleState.courseKey(course)
+    end
+    return out
+end
+
+-- specs/0021: a number for each course table the game builds, so the web
+-- redraws a course only when it is a new one; kept while the table lives
+local courseKeys = setmetatable({}, { __mode = "k" })
+local lastCourseKey = 0
+
+function VehicleState.courseKey(course)
+    local key = courseKeys[course]
+    if key == nil then
+        lastCourseKey = lastCourseKey + 1
+        key = lastCourseKey
+        courseKeys[course] = key
+    end
+    return key
 end
 
 -- whether the game steers now; nil without the part

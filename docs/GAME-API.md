@@ -725,6 +725,25 @@ weeks without anyone writing it down; they stay here until a live check
 says so.
 
 - **macOS:** nothing here has been seen on a Mac.
+- **The Steering Assist course** ([specs/0021](../specs/0021-gps-screen.md),
+  mod 0.22.0): read live by spike 0.0.16 and 0.0.17's `csCourse` on Solek
+  field 7 (2026-11-23, one headland; the dumps in
+  `mod/tests/fixtures/spike0021/`), not yet by the mod in a live check.
+  `steeringFieldCourse.fieldCourse.segments[i]` (`course.segments` the
+  same table): `segmentId` = i, `positions` `{x, z}` pairs, 2 to 4 points,
+  `isHeadlandSegment`, `headlandIndex` on headland pieces,
+  `offsetLineIndex` on lanes, `lineGroupIndex`, `length`; lanes 1 to 10,
+  then the round as 11 to 14. `course.segmentStates[i]`, one boolean a
+  segment, are the save's `workedLines indices`: the same numbers, put
+  back on reload; a lane skipped by hand stays false, and a lane can be
+  true as you start it. `currentSegmentIndex`, `currentSegmentIsLeft` and
+  `currentSegment` (nil: no lane) follow the lane under the look-ahead
+  point, steering or not, so they lead the rig through a turn.
+  `course.fieldCourseSettings.implementWidth` (AIAutomaticSteering.lua:470
+  reads it there too), `fieldCourse.courseField.boundaryPositions` (the
+  outline, `course.rootBoundaryLine` the same table), and
+  `spec_aiAutomaticSteering.lastIsOnField`. The class
+  `SteeringFieldCourse` isn't in the SDK's archive: plain fields only.
 - **Env:** the weather (`getWeatherTypeAtTime`, the temperatures) and each
   farm's money (`g_farmManager`).
 - **Player:** `player.nickname`.

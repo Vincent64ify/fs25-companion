@@ -13,7 +13,7 @@
 Companion = Companion or {}
 
 -- hello's modVersion: always modDesc.xml's <version> (mod/tests/test_version.py)
-Companion.VERSION = "0.21.0"
+Companion.VERSION = "0.22.0"
 Companion.DIR_NAME = "FS25_Companion"
 Companion.STREAM_FILE = "stream.ndjson"
 Companion.COMMAND_DIR = "cmd/"
@@ -110,6 +110,7 @@ function Companion:loadMap(name)
     scheduler:add(collectors.Fields)
     scheduler:add(collectors.Cab)
     scheduler:add(collectors.Contracts)
+    scheduler:add(collectors.SteeringCourse)
 
     local profile = profileDir()
     local sessionId = newSessionId()

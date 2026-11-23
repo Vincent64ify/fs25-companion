@@ -311,6 +311,25 @@ their keys are seen in game.
 - **Narrow screens:** one column, the panel 240 tall after the Header
   card.
 
+### GPS
+
+The field the game's Steering Assist built lanes on, big, beside the
+control column (you drive with it; steering on and off is Drive's)
+([spec 0021](../specs/0021-gps-screen.md), after the canvas "FS25
+Companion: GPS"). The tab sits between Vehicle and Contracts, its icon
+`area` for now. Over the field a card like the Harvester's header: the
+field's badge and name, its area, the running contract on it and the
+working width; then Lanes done, On lane (On round on a headland piece),
+Rounds done, a hairline and Time left, 32 px numbers (26 on the mini).
+Under it the field's card: the field in `--gps-field` with its edge, the
+trail (`--trail-work`) under the lanes, done lanes and the round solid
+`--gps-done` a pixel apart, the lane you're on `--gps-current` filling
+`--gps-done` up to the rig, the ones to do dashed `--gps-todo` (closer
+than 4 px: full width, shaded); a legend pill bottom-left; the rig an
+arrow. No lanes: the reason in a glass card in the middle, the course kept
+and dimmed off the field. No readout. Compact: the field 420 tall over the
+dock.
+
 ### Contracts
 
 The whole main area, no control column and no readout
@@ -501,6 +520,9 @@ yellow ([specs/0013](../specs/0013-vehicle-screen-calm.md)).
 | Live dot | `#4ADE80` | `#4ADE80` |
 | Backdrop behind a panel | `rgba(4,17,42,0.45)` | `rgba(0,0,0,0.55)` |
 | Map overlays (scale, labels) | white glass `rgba(255,255,255,0.85)` | dark glass `rgba(7,11,19,0.82)` |
+| GPS: the field, its edge (`--gps-field`, `--gps-edge`) | `#F4F7FC`, `#0C2D6B` | `#161E2F`, `#97A3B9` |
+| GPS: done, this lane, to do (`--gps-done`, `--gps-current`, `--gps-todo`) | `#2F8A5C` (3.6:1 on the field), `#0C4DB8`, `#8F9BB0` | `#2F9468` (3.9:1), `#C9D4E8` (the ring's light grey: no yellow), `#5D6B86` |
+| GPS: the rig's arrow (`--gps-rig`, its edge) | `#0D1B33`, `#FFFFFF` | `#E8EDF5`, `#070B13` |
 
 - Map colours (hotspots, fields, crops, markers) are the same in both
   palettes and every theme.

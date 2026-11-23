@@ -5046,6 +5046,7 @@ test("whole mod streams every topic", function()
     load("src/collectors/Fields.lua")
     load("src/collectors/Cab.lua")
     load("src/collectors/Contracts.lua")
+    load("src/collectors/SteeringCourse.lua")
     load("src/Companion.lua")
     local mod = getListener()
     assert(mod ~= nil, "registered as a mod event listener")
@@ -5167,6 +5168,7 @@ test("whole mod: a contract command's answer comes with the contracts topic, the
     load("src/collectors/Hello.lua")
     load("src/collectors/Cab.lua")
     load("src/collectors/Contracts.lua")
+    load("src/collectors/SteeringCourse.lua")
     load("src/Companion.lua")
     local mod = getListener()
     local stream = TMP_DIR .. "/FS25_Companion/stream.ndjson"
@@ -5249,6 +5251,7 @@ test("acks survive a rotation", function()
     load("src/collectors/Hello.lua")
     load("src/collectors/Cab.lua")
     load("src/collectors/Contracts.lua")
+    load("src/collectors/SteeringCourse.lua")
     load("src/Companion.lua")
     local mod = getListener()
     local stream = TMP_DIR .. "/FS25_Companion/stream.ndjson"
@@ -5563,6 +5566,180 @@ test("commands: ai.set refused in Steering Assist mode, as today in AI worker mo
     eq(ack.ok, true, tostring(ack.reason))
     eq(ack.via, "TOGGLE_AI")
     eq(pressed("TOGGLE_AI"), 1, "AI worker mode: TOGGLE_AI as today")
+    steeringOff()
+end)
+
+-- specs/0021: the GPS screen's course ----------------------------------------
+-- from spike 0.0.16 and 0.0.17's dumps (mod/tests/fixtures/spike0021/: Solek
+-- field 7, one headland; fresh, nothing done; reload, the round and lanes 10
+-- and 9 done; skip1, lane 8 skipped by hand and lane 7 done). The dump holds
+-- the segment you're on's points once, under currentSegment.positions.
+
+local COURSE = MOD_ROOT .. "tests/fixtures/spike0021/"
+
+-- {x, z} pairs as the game keeps them
+local function xzList(items)
+    local out = {}
+    for k, xz in ipairs(items) do
+        out[k] = { xz[1], xz[2] }
+    end
+    return out
+end
+
+-- the course table as the game holds it, rebuilt from a csCourse dump
+local function courseFromDump(name)
+    local dump = SpikeRigs.decode(SpikeRigs.readFile(COURSE .. name .. ".json")).course
+    local c = dump.courses.steeringFieldCourse
+    local current = c.lists["currentSegment.positions"].items
+    local segments = {}
+    for i, it in ipairs(c.lists["fieldCourse.segments"].items) do
+        local pos = type(it.positions) == "table" and it.positions or current
+        segments[i] = { segmentId = it.segmentId, index = it.index, isHeadlandSegment = it.isHeadlandSegment,
+            isIslandSegment = it.isIslandSegment, headlandIndex = it.headlandIndex,
+            offsetLineIndex = it.offsetLineIndex, lineGroupIndex = it.lineGroupIndex, length = it.length,
+            positions = xzList(pos) }
+    end
+    -- 0.0.16 showed six of the flags: the rest were false on a fresh course
+    local states, sample = {}, c.shape.fields.segmentStates.sample
+    for i = 1, #segments do
+        states[i] = sample[i] == true
+    end
+    local boundary = xzList(c.lists["fieldCourse.courseField.fieldRootBoundary.boundaryLine"].items)
+    local settings = { implementWidth = 6, numHeadlands = 1 }
+    local course = {
+        currentSegmentIndex = c.plain.currentSegmentIndex, currentSegmentIsLeft = c.plain.currentSegmentIsLeft,
+        segmentStates = states, segmentStatesDirty = false, segments = segments, fieldCourseSettings = settings,
+        rootBoundaryLine = boundary,
+        fieldCourse = { segments = segments, fieldCourseSettings = settings, numHeadlands = 1,
+            courseField = { boundaryPositions = boundary, fieldCourseSettings = settings } },
+    }
+    course.currentSegment = segments[course.currentSegmentIndex]
+    return course
+end
+
+-- the steering rig of spec 0020's dumps with this course on the field
+local function courseVehicle(name)
+    local vehicle = steeringVehicle("steering")
+    vehicle.spec_aiAutomaticSteering.steeringFieldCourse = courseFromDump(name)
+    vehicle.spec_aiAutomaticSteering.lastIsOnField = true
+    return vehicle
+end
+
+local function list(t)
+    return table.concat(t or {}, " ")
+end
+
+test("steering course: the dump's course as the topic, sent once per course and on a change (specs/0021)", function()
+    load("src/collectors/SteeringCourse.lua")
+    load("src/collectors/Cab.lua")
+    local SC = Companion.Collectors.SteeringCourse
+    eq(SC.topic, "steering_course")
+    eq(SC.resend, true, "resent after a rotation")
+    SC.reset()
+    local vehicle = courseVehicle("skip1")
+    local data = SC.collect({})
+    eq(data ~= nil, true, "sent")
+    eq(data.width, 6, "the course's implementWidth")
+    eq(#data.boundary, 18, "nine points, flat")
+    eq(data.boundary[1], -564.2, "0.1 m")
+    eq(#data.segments, 14, "every segment")
+    local lane1, round = data.segments[1], data.segments[11]
+    eq(lane1.i, 1)
+    eq(lane1.lane, 1, "a lane's number")
+    eq(lane1.round, nil)
+    eq(#lane1.pts, 6, "three points, flat")
+    eq(lane1.pts[1], -793.0)
+    eq(lane1.pts[6], -606.0)
+    eq(round.i, 11)
+    eq(round.round, 1, "a headland piece's round")
+    eq(round.lane, nil)
+    eq(#data.segments[7].pts, 6, "the segment you're on keeps its points")
+    eq(list(data.done), "7 9 10 11 12 13 14", "the flags set, ascending")
+    eq(data.current.i, 7)
+    eq(data.current.left, true)
+    eq(type(data.key), "number")
+    -- the cab names the same key, and the game's onField
+    Companion.Collectors.Cab.reset()
+    local cab = Companion.Collectors.Cab.collect({})
+    eq(cab.steering.courseKey, data.key, "cab.steering.courseKey")
+    eq(cab.steering.onField, true, "cab.steering.onField")
+    -- nothing changed: nothing sent
+    eq(SC.collect({}), nil, "unchanged")
+    -- a lane goes done: sent again, same key
+    local course = vehicle.spec_aiAutomaticSteering.steeringFieldCourse
+    course.segmentStates[8] = true
+    local again = SC.collect({})
+    eq(list(again.done), "7 8 9 10 11 12 13 14", "a flag set")
+    eq(again.key, data.key, "the same course")
+    -- the lane under you changes: sent again
+    course.currentSegmentIndex, course.currentSegmentIsLeft, course.currentSegment = 6, false, course.segments[6]
+    local moved = SC.collect({})
+    eq(moved.current.i, 6)
+    eq(moved.current.left, false)
+    -- no lane under you: current left out
+    course.currentSegment = nil
+    local none = SC.collect({})
+    eq(none ~= nil and none.current, nil, "no currentSegment: no current")
+    -- a new course table: a new key
+    vehicle.spec_aiAutomaticSteering.steeringFieldCourse = courseFromDump("fresh")
+    local fresh = SC.collect({})
+    eq(fresh.key ~= data.key, true, "a new key")
+    eq(list(fresh.done), "", "nothing done on the fresh course")
+    eq(fresh.current.i, 11, "on the round")
+    steeringOff()
+end)
+
+test("steering course: nothing without a course, on foot, or for a course the mod can't read whole (specs/0021)", function()
+    load("src/collectors/SteeringCourse.lua")
+    local SC = Companion.Collectors.SteeringCourse
+    SC.reset()
+    local vehicle = courseVehicle("reload")
+    local first = SC.collect({})
+    eq(list(first.done), "9 10 11 12 13 14", "the reload's done lanes")
+    -- the course goes: nothing; it comes back: sent again, its key kept
+    local course = vehicle.spec_aiAutomaticSteering.steeringFieldCourse
+    vehicle.spec_aiAutomaticSteering.steeringFieldCourse = nil
+    eq(SC.collect({}), nil, "no course")
+    vehicle.spec_aiAutomaticSteering.steeringFieldCourse = course
+    local back = SC.collect({})
+    eq(back ~= nil, true, "sent again")
+    eq(back.key, first.key, "the same table, the same key")
+    -- a segment without its points: nothing, not half a course
+    SC.reset()
+    course.segments[3].positions = nil
+    eq(SC.collect({}), nil, "a segment without points")
+    course.segments[3].positions = {}
+    eq(SC.collect({}), nil, "a segment with no points")
+    -- whole again (the game finished it): read again and sent
+    course.segments[3].positions = { { -794.4, -642.7 }, { -581.5, -595.6 } }
+    eq(SC.collect({}) ~= nil, true, "read again once whole")
+    -- no Steering Assist part, then on foot
+    vehicle.spec_aiAutomaticSteering = nil
+    eq(SC.collect({}), nil, "no part")
+    g_localPlayer = { getCurrentVehicle = function() return nil end }
+    eq(SC.collect({}), nil, "on foot")
+    steeringOff()
+end)
+
+test("steering course: 100 lanes of three points stay under 12 KB (specs/0021)", function()
+    load("src/collectors/SteeringCourse.lua")
+    local SC = Companion.Collectors.SteeringCourse
+    SC.reset()
+    local vehicle = courseVehicle("fresh")
+    local course = vehicle.spec_aiAutomaticSteering.steeringFieldCourse
+    local segments, states = {}, {}
+    for i = 1, 100 do
+        local z = -1654.55 + i * 6
+        segments[i] = { segmentId = i, isHeadlandSegment = false, offsetLineIndex = i, lineGroupIndex = 1,
+            positions = { { -1793.04, z }, { -1785.11, z + 1.2 }, { -1573.06, z + 47.4 } } }
+        states[i] = i % 2 == 0
+    end
+    course.segments, course.fieldCourse.segments, course.segmentStates = segments, segments, states
+    course.currentSegmentIndex, course.currentSegment = 51, segments[51]
+    local data = SC.collect({})
+    local size = #Companion.Json.encode(data)
+    eq(#data.segments, 100)
+    eq(size < 12000, true, "size " .. size)
     steeringOff()
 end)
 

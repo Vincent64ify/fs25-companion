@@ -128,6 +128,34 @@
  * @property {"worker"|"steeringAssist"} mode
  * @property {"off"|"ready"|"steering"} state
  * @property {boolean} canSteer
+ * @property {boolean} [onField] the game's own "on a field the farm may
+ *   work" (specs/0021, mod 0.22.0)
+ * @property {number} [courseKey] the steering_course topic's key while the
+ *   game has a course for this vehicle (specs/0021)
+ */
+
+/**
+ * One segment of a Steering Assist course: a straight lane (its number) or
+ * a headland round's piece (its round), its polyline in world metres.
+ * @typedef {Object} CourseSegment
+ * @property {number} i the game's index, the one `done` and `current` name
+ * @property {number} [lane]
+ * @property {number} [round]
+ * @property {number[]} pts [x1, z1, x2, z2, ...]
+ */
+
+/**
+ * The steering_course topic (specs/0021, mod 0.22.0): the course the game's
+ * Steering Assist built for the controlled vehicle's field. Sent once per
+ * course and when `done` or `current` change; drawn only while `key` is
+ * the cab's steering.courseKey.
+ * @typedef {Object} SteeringCourse
+ * @property {number} key
+ * @property {number} [width] the working width, the lanes' spacing (m)
+ * @property {number[]} boundary the field's outline, [x1, z1, ...]
+ * @property {CourseSegment[]} segments in the game's order
+ * @property {number[]} done the indices the game marks done
+ * @property {{i: number, left: boolean}} [current] the segment under you
  */
 
 /**

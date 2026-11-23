@@ -33,11 +33,13 @@ import { areaText, unitsOf } from "../data/units.js";
 import { contextOf, contractsOf, fieldRow, onField } from "../data/contracts.js";
 import { icon } from "../ui/icons.js";
 import { h } from "../ui/dom.js";
+import { createTrailCanvas, fitView, TRAIL_FALLBACK } from "../ui/trailCanvas.js";
+
+export { fitView };
 
 /** @typedef {import("../types.js").FieldOutline} FieldOutline */
 /** @typedef {import("../types.js").FieldState} FieldState */
-/** @typedef {[number, number, number, number]} View x, z, width, height in world metres */
-/** @typedef {{k: number, x0: number, z0: number}} Fit pixels a metre, and where x = 0 and z = 0 land */
+/** @typedef {import("../ui/trailCanvas.js").View} View */
 /** @typedef {(el: Element, cb: (width: number, height: number) => void) => void} WatchSize */
 
 const SVG = "http://www.w3.org/2000/svg";
@@ -49,8 +51,6 @@ const MIN_MARGIN_M = 25;
 const HIDDEN_FROM = 3;
 // the rig's boom, in screen pixels behind the dot
 const BOOM_BEHIND_PX = 13;
-// the trail's colours when the theme has none (the day's)
-const TRAIL_FALLBACK = { work: "#B4D6C8", mow: "#E8E1BF" };
 
 /** @param {string} tag @param {Record<string, string|number>} [attrs] */
 function svg(tag, attrs = {}) {
@@ -75,16 +75,6 @@ export function fieldView(points) {
   return [x0 - mx, z0 - mz, w + 2 * mx, hgt + 2 * mz];
 }
 
-/**
- * A view fitted to a box, centred ("xMidYMid meet", as the outline's SVG):
- * a world point lands at (x0 + x·k, z0 + z·k) pixels.
- * @param {View} view @param {number} width @param {number} height
- * @returns {Fit}
- */
-export function fitView(view, width, height) {
-  const k = Math.min(width / view[2], height / view[3]);
-  return { k, x0: (width - view[2] * k) / 2 - view[0] * k, z0: (height - view[3] * k) / 2 - view[1] * k };
-}
 
 /** The box's size as it changes (a ResizeObserver): 0 × 0 while the page is hidden. @type {WatchSize} */
 const observeSize = (el, cb) => new ResizeObserver((entries) => {
@@ -131,7 +121,6 @@ export function fieldPanel(store, opts = {}) {
   const canvas = document.createElement("canvas");
   canvas.className = "field-trail";
   canvas.setAttribute("aria-hidden", "true");
-  const ctx = /** @type {CanvasRenderingContext2D} */ (canvas.getContext("2d"));
   const outlineEl = svg("polygon", { class: "field-outline", "vector-effect": "non-scaling-stroke", hidden: "" });
   const map = svg("svg", { class: "field-svg", preserveAspectRatio: "xMidYMid meet", "aria-hidden": "true" });
   map.append(outlineEl);
@@ -182,107 +171,14 @@ export function fieldPanel(store, opts = {}) {
   let lastCover = "";
   let lastContracts = "";
   let boomKey = "";
-  /** what the canvas holds: a field at a size and palette, by these tools, at this version */
-  const painted = { field: /** @type {number|undefined} */ (undefined), w: 0, h: 0, dpr: 0, palette: "", version: -1,
-    seam: 0, tools: /** @type {Set<number>} */ (new Set()) };
-  /** how many points of each run are on the canvas */
-  /** @type {WeakMap<object, number>} */
-  const drawnPts = new WeakMap();
-  let clipped = false;
 
   /** The trail's colour for a kind, from the theme. @param {"work"|"mow"} kind */
   const trailColour = (kind) => getComputedStyle(root).getPropertyValue(`--trail-${kind}`).trim() || TRAIL_FALLBACK[kind];
+  const trail = createTrailCanvas(canvas, coverage, trailColour);
 
-  /**
-   * One stroke along a run's points from..n-1 (world metres; the canvas's
-   * transform makes them pixels).
-   * @param {number[]} pts @param {number} from @param {number} n @param {number} width @param {string} colour
-   */
-  function stroke(pts, from, n, width, colour) {
-    if (n - from < 2) return;
-    ctx.beginPath();
-    ctx.moveTo(pts[2 * from], pts[2 * from + 1]);
-    for (let i = from + 1; i < n; i++) ctx.lineTo(pts[2 * i], pts[2 * i + 1]);
-    ctx.strokeStyle = colour;
-    ctx.lineWidth = width;
-    ctx.stroke();
-  }
+  /** The trail: the shown field's, clipped to its outline (ui/trailCanvas.js). */
+  const paintTrail = () => trail.paint({ fieldId: shown?.id, view, clip: shown?.points, w: boxW, h: boxH });
 
-  /** The trail: all of it when the field, size or palette changed or a tool's trail went; else each run's newest stretch. */
-  function paintTrail() {
-    const fieldId = shown?.id;
-    const dpr = window.devicePixelRatio || 1;
-    const palette = document.documentElement.dataset.palette || "";
-    if (fieldId === undefined || !view) {
-      if (painted.field !== undefined) {
-        // out of the field's fit and clip first, or the clear lands in world
-        // metres near the map's origin and misses the trail
-        if (clipped) ctx.restore();
-        clipped = false;
-        ctx.setTransform(1, 0, 0, 1, 0, 0);
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-      }
-      painted.field = undefined;
-      return;
-    }
-    const version = coverage.version(fieldId);
-    const full = painted.field !== fieldId || painted.w !== boxW || painted.h !== boxH || painted.dpr !== dpr
-      || painted.palette !== palette;
-    if (!full && version === painted.version) return;
-    const list = coverage.trails(fieldId);
-    const ids = new Set(list.map((t) => t.tool));
-    if (full || [...painted.tools].some((id) => !ids.has(id))) {
-      const width = Math.round(boxW * dpr), height = Math.round(boxH * dpr);
-      // a new size clears the canvas and its clip
-      if (canvas.width !== width) canvas.width = width;
-      if (canvas.height !== height) canvas.height = height;
-      if (clipped) ctx.restore();
-      ctx.setTransform(1, 0, 0, 1, 0, 0);
-      ctx.clearRect(0, 0, width, height);
-      ctx.save();
-      clipped = true;
-      const fit = fitView(view, boxW, boxH);
-      ctx.setTransform(dpr * fit.k, 0, 0, dpr * fit.k, dpr * fit.x0, dpr * fit.z0);
-      // the trail ends at the field's edge
-      const p = /** @type {FieldOutline} */ (shown).points;
-      ctx.beginPath();
-      ctx.moveTo(p[0], p[1]);
-      for (let i = 2; i + 1 < p.length; i += 2) ctx.lineTo(p[i], p[i + 1]);
-      ctx.closePath();
-      ctx.clip();
-      ctx.lineCap = "butt";
-      ctx.lineJoin = "round";
-      // a pixel wider (in metres), so passes side by side leave no seam
-      Object.assign(painted, { field: fieldId, w: boxW, h: boxH, dpr, palette, seam: 1 / fit.k });
-      const colours = { work: trailColour("work"), mow: trailColour("mow") };
-      for (const t of list) {
-        for (const run of t.runs) {
-          const n = run.pts.length / 2;
-          stroke(run.pts, 0, n, run.w + painted.seam, colours[t.kind]);
-          drawnPts.set(run, n);
-        }
-      }
-    } else {
-      const colours = { work: "", mow: "" };
-      for (const t of list) {
-        for (const run of t.runs) {
-          const n = run.pts.length / 2;
-          const done = drawnPts.get(run) ?? 0;
-          if (n <= done) {
-            // the cap merged its points: what's painted stays
-            if (n < done) drawnPts.set(run, n);
-            continue;
-          }
-          colours[t.kind] ||= trailColour(t.kind);
-          // from two points back, so the bend joins up
-          stroke(run.pts, Math.max(0, done - 2), n, run.w + painted.seam, colours[t.kind]);
-          drawnPts.set(run, n);
-        }
-      }
-    }
-    painted.version = version;
-    painted.tools = ids;
-  }
 
   /** The rig at its place, heading up the screen; a sprayer's boom behind it at its width. */
   function placeRig() {

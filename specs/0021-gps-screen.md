@@ -1,7 +1,7 @@
 # 0021: GPS screen: the field, its lanes and the progress
 
-Status: approved
-Mod: 0.22.0 (planned) · Started: 2026-11-17 · Design: the canvas [FS25 Companion: GPS](https://claude.ai/artifact/45ruF2v1hH49JJi4HyRTeM) (private, on claude.ai; at 1158 × 676 and 1180 × 820, day and night; approved by Vincent, 2026-11-19); the brainstorm's brief, `concepts_brief.md`, is in git history (commit b0cffeb)
+Status: built
+Mod: 0.22.0 · Started: 2026-11-17 · Design: the canvas [FS25 Companion: GPS](https://claude.ai/artifact/45ruF2v1hH49JJi4HyRTeM) (private, on claude.ai; at 1158 × 676 and 1180 × 820, day and night; approved by Vincent, 2026-11-19); the brainstorm's brief, `concepts_brief.md`, is in git history (commit b0cffeb)
 
 ## Goal
 
@@ -45,7 +45,10 @@ To be drawn on a canvas first; this is what it holds.
   (Vincent, 2026-11-23: the game may mark a lane as you start it). A lane
   started and left after a few metres counts as the game says; the trail
   under it shows what was worked. Headland rounds count too (Vincent,
-  2026-11-17).
+  2026-11-17): a round is done once every piece of it is, and the piece
+  you're on never counts, as with a lane. On a headland piece "On lane"
+  reads "On round" and the round's number (build, 2026-11-23, for
+  Vincent's OK).
 - **The worked part:** the Vehicle page's trail (spec 0013) under the lanes,
   so what you worked while ignoring the lanes still shows (Vincent,
   2026-11-19). It is that trail as it is today, kept in each browser.
@@ -55,7 +58,15 @@ To be drawn on a canvas first; this is what it holds.
   rounds left at your time per metre, less how far along the lane you're
   on you are. So it follows skipping, your speed and your turns (Vincent,
   2026-11-19), and doesn't drop a lane as you start one (2026-11-23). "–"
-  until two lanes are done.
+  until two lanes are done. Built as one rate (build, 2026-11-23, for
+  Vincent's OK): the seconds you spent on each lane, its turn in included
+  (the game moves to the next lane as you reach the end, so the turn
+  counts with the lane it leads to), over its metres; only lanes the game
+  marks done as you leave them, and only time the rig moves (over
+  0.5 km/h, as the trail), so a skipped lane or a pause doesn't count.
+  What's left is the metres of the lanes and pieces not done, less how
+  far along the one you're on you are, at that rate. Kept per course in
+  the page, so a new course starts again.
 - **A contract's field:** the same screen; the field line names your
   running contract on it ("Field 58 · Contract: Cultivating"), from the
   `contracts` topic (spec 0018: its `fieldId` and `title`) (Vincent,
@@ -66,7 +77,12 @@ To be drawn on a canvas first; this is what it holds.
   - building ("Building the lanes…");
   - no lane under you ("No lane here").
 
-  On the field, the outline shows while the lanes are building.
+  On the field, the outline shows while the lanes are building. On foot
+  "Get into a vehicle", and on a vehicle without Steering Assist "No
+  Steering Assist on this vehicle" (build, 2026-11-23, for Vincent's OK).
+- **The lane you're on fills** up to the rig: the rig's place on the lane
+  by its length, from the end it drives from (its heading against the
+  lane), while it is within a lane's width of it; else not at all.
 - **The game's last course** for this rig is drawn when you come back to a
   field you already worked with the same settings (the game keeps it).
 - **Day and Night:** `--gps-done`, `--gps-current`, `--gps-todo` (and the
@@ -75,9 +91,13 @@ To be drawn on a canvas first; this is what it holds.
   palettes; nothing yellow at night (this lane takes the select ring's
   light grey).
 - **Fast on the iPad:** the field is drawn on a `<canvas>`, never an
-  element per lane: the course once per `key`, then only the lanes whose
-  state changed; the trail as on the Vehicle page (its newest stretch);
-  the rig one element moved by a CSS transform. The Vehicle page's field
+  element per lane: the course once per `key` (and per size and palette),
+  then only the lanes whose state changed, and the round's pieces over
+  their ends; the trail as on the Vehicle page (its newest stretch, the
+  same painter: `web/src/ui/trailCanvas.js`); the rig one element moved by
+  a CSS transform, the lane you're on filled by one SVG line, so a
+  vehicles message repaints no lane; nothing painted while the page is
+  hidden. The Vehicle page's field
   panel was slow on iPad Safari for doing otherwise (spec 0013).
 - **Sizes:** works on any tablet down to 1158×676; the compact class keeps
   the field on top and the control column under it.
@@ -86,19 +106,37 @@ To be drawn on a canvas first; this is what it holds.
 
 Topics gain fields (Protocol v1); `v` doesn't change.
 
-- **Mod → companion,** a new topic `steering_course` (resend on, sent once
-  per course and again when a lane's state changes):
-  - `key`: changes with each new course, so the web redraws only then;
+- **Mod → companion,** a new topic `steering_course` for the controlled
+  vehicle's course (resend on; read every 500 ms, sent once per course and
+  again when `done` or `current` changes; nothing without a course):
+
+  ```json
+  {"key": 3, "width": 6, "boundary": [-564.2, -609.2, -578.2, -592.2],
+   "segments": [{"i": 1, "lane": 1, "pts": [-793.0, -654.6, -785.1, -653.4, -573.0, -606.0]},
+                {"i": 11, "round": 1, "pts": [-567.0, -610.8, -580.7, -594.0]}],
+   "done": [7, 9, 10, 11, 12, 13, 14],
+   "current": {"i": 9, "left": true}}
+  ```
+
+  - `key`: a new number for each new course table, so the web redraws only then;
+  - `width`: the course's working width in metres (its settings' `implementWidth`), the lanes' spacing;
   - `boundary`: the field's outline, world metres, a flat array like
-    `field_outlines`;
-  - `headlands` and `lanes`: polylines in world metres, flat arrays, each
-    with its segment indices;
-  - `done`: the indices done (the save calls them `workedLines`);
-  - `current`: the segment you're on, and its side.
-- **`cab.steering`** (spec 0020) gains `courseKey` so the web knows the
-  topic matches, and `onField` (boolean): the game's own "on a field the
-  farm may work" for this vehicle, for the "Drive onto a field you may
-  work" words (moved here from 0020, its first reader).
+    `field_outlines`, 0.1 m;
+  - `segments`: every segment in the game's order, `i` its index, `lane`
+    (a lane's number) or `round` (a headland piece's round), `pts` its
+    polyline, flat, 0.1 m (one list where the draft had `headlands` and
+    `lanes`: build, 2026-11-23, for Vincent's OK);
+  - `done`: the indices whose flag is set, ascending (the save calls them `workedLines`);
+  - `current`: the segment under you and its side; absent with none (the
+    game's `currentSegment` nil: "No lane here").
+
+  A course the mod can't read whole (a segment without its points) sends
+  nothing. About 30 bytes a point: 100 lanes of three points, 10 KB.
+- **`cab.steering`** (spec 0020) gains `courseKey` (the topic's `key`,
+  while there is a course) so the web knows the topic matches, and
+  `onField` (boolean): the game's own "on a field the farm may work" for
+  this vehicle, for the "Drive onto a field you may work" words (moved
+  here from 0020, its first reader).
 - **Web** (`web/src/types.js`): `SteeringCourse`; a new screen in
   `web/src/widgets/` and its tab.
 
@@ -124,7 +162,8 @@ None. Steering on and off is spec 0020's; the settings are spec 0022's.
    segment's plain fields; drive one headland round and one lane, then a
    lane skipped by hand, and record which indices go done; the size of a course as JSON and the time
    to encode it. Done 2026-11-23 (the Log).
-2. **The canvas** at both sizes, day and night, approved before code.
+2. **The canvas** at both sizes, day and night, approved before code
+   (2026-11-19; field 7's real course and the lane fill, 2026-11-23).
 3. `mod/src/Api.lua` reads; `mod/src/collectors/SteeringCourse.lua` (one
    collector, one topic); `mod/modDesc.xml` 0.22.0.
 4. `web/src/types.js`, the GPS screen and its tab, the colours in
@@ -136,22 +175,46 @@ None. Steering on and off is spec 0020's; the settings are spec 0022's.
 
 ## Acceptance
 
-Automated (to be filled in once the spike shows the course):
-- [ ] `mod/tests/run.lua`: `steering_course` from a faked course: the
-  boundary, rounds and lanes, the done indices; sent once per course and on
-  a state change; absent without a course.
-- [ ] `web/test.html`: the screen draws a fixture course with its counts;
-  each "no lanes" reason shows its words; a new `key` redraws the whole
-  course, a changed `done` repaints only the lanes that changed (counted),
-  and a rig update repaints no lane.
-- [ ] `web/test.html`: time left reads "–" until two lanes are done, then
-  follows the lane and turn times fed in (skipping lanes included); a
-  running contract on the field names it in the field line.
-- [ ] A course fixture from the spike's dump (Precision Farming on and off).
-- [ ] Replay in the browser pane at 1158×676 and 1180×820, day and night.
+Automated:
+- [x] Course fixtures from the spike's dumps: `mod/tests/fixtures/spike0021/`
+  (fresh, reload, skip1) and `web/fixtures/steering_course.json` (the
+  topic from skip1). Precision Farming doesn't touch the course (its
+  settings hold no Precision Farming field); its on and off are the live
+  check's.
+- [x] `mod/tests/run.lua`: `steering_course` from the dumps' courses: the
+  boundary, the ten lanes and four round pieces with their numbers and
+  points, `width`, `done` (none, `9..14`, `7 9..14`) and `current`; the
+  segment you're on read from `currentSegment`'s points; sent once per
+  course, again when `done` or `current` changes, not otherwise; a new
+  course table gets a new `key`; nothing without a course, on foot, or
+  for a course with a segment without points; `cab.steering` carries
+  `courseKey` and `onField`; 100 lanes of three points stay under 12 KB.
+- [x] `web/test.html`, the counts (`web/src/data/gps.js`): from the
+  fixture, lanes done 2 of 10 on lane 7 (lane 7's flag set: it's the one
+  you're on), rounds 1 of 1; on a round piece "On round 1" and the round
+  not done; the fill from the rig's place and heading, 0 off the lane.
+- [x] `web/test.html`, time left: "–" until two lanes are done; then the
+  rate from the lane times fed in, a skipped lane and a stop left out,
+  less the part of the lane you're on done; a new course starts again.
+- [x] `web/test.html`, the screen: the fixture's course drawn with its
+  counts and the field line naming a running contract on the field; each
+  "no lanes" reason shows its words (on foot, no part, AI worker mode, off
+  the field, building with the field's outline, no lane); a topic whose
+  `key` isn't the cab's `courseKey` isn't drawn; a new `key` redraws the
+  whole course, a changed `done` repaints only the lanes that changed
+  (counted); a rig update repaints no lane (the fill is its own element);
+  nothing painted while the page is hidden (0 × 0).
+- [x] `web/test.html`: the theme has the GPS tab with the control column.
+- [x] Replay in the browser pane at 1158×676 and 1180×820, day and night,
+  the fixture's course fed in.
 
 Live check (Solek, mod 0.22.0):
 - [ ] The dashboard's lanes match the ones the game draws.
+- [ ] Two headlands, and a field with an island: the rounds count and the
+  pieces draw (the spike saw one round, no island, `lineGroupIndex` 1 only).
+- [ ] Building the lanes: the words and the outline (the spike never caught it).
+- [ ] Field 7: the field line (its area, the contract), the trail under
+  the lanes, and the lanes at the top and bottom edges against the round.
 - [ ] One round, then lanes: the counts step once per round and per lane.
 - [ ] Save and reload: the done lanes come back.
 - [ ] Off the field, building, no lane: the words.
@@ -234,3 +297,28 @@ Live check (Solek, mod 0.22.0):
   game's flag decides; no threshold of ours (the game's course, never our
   own). The time left takes off how far along it you are. Behaviour
   updated; approved by Vincent.
+- 2026-11-23: built (mod 0.22.0). Mod: Api.lua's course reads (plain
+  fields), `collectors/SteeringCourse.lua` (500 ms, the geometry once per
+  course table, sent on a new course or a change in `done` or `current`),
+  `cab.steering` `courseKey` and `onField`; three spike dumps as the
+  tests' fixtures. Web: `data/gps.js` (counts, the fill, the time left,
+  the words), `widgets/gpsScreen.js` and the GPS tab between Vehicle and
+  Contracts, the `--gps-*` colours in `theme.css`; the field panel's
+  trail painter moved to `ui/trailCanvas.js` unchanged, shared. Build
+  choices for Vincent's OK, each in Behaviour or the Data contract: one
+  `segments` list (lane or round on each) where the draft had `headlands`
+  and `lanes`, and `width`; "On round" on a headland piece; the words on
+  foot and without the part; the time left as one rate, a lane's turn in
+  counted with it. The field line finds the field from the middle of the
+  course's middle lane: the live game's field 7 outline (the mod's stream,
+  2026-11-23) is the course's boundary point for point; the replay's older
+  Solek has a smaller field 7 (0.43 ha), which the screen still finds
+  through another lane. Every layer of the field's box shares one
+  measured box (one fit); a course gone while the page is hidden makes
+  the next one paint whole, so a key the mod gives again after a restart
+  doesn't keep old lanes, and the times start again; the mod reads a
+  course again until it is whole. pytest 152 passed (golden unchanged),
+  test.html 413 all green, the replay with field 7's course fed in at
+  1180×820 and 1158×676, day and night (lane 7 and lane 1 at the edge),
+  and the tab bar with four tabs at 1158. Live check next; the design
+  system isn't refreshed for the `--gps-*` tokens yet.

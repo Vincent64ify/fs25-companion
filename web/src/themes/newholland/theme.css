@@ -98,6 +98,15 @@
      --ok at 30 % and #C9B24A at 35 % over the card */
   --trail-work: #B4D6C8;
   --trail-mow: #E8E1BF;
+  /* the GPS screen (specs/0021, from its canvas): done 3.6:1 on the field,
+     lighter than this lane and darker than the trail */
+  --gps-field: #F4F7FC;
+  --gps-edge: #0C2D6B;
+  --gps-done: #2F8A5C;
+  --gps-current: #0C4DB8;
+  --gps-todo: #8F9BB0;
+  --gps-rig: #0D1B33;
+  --gps-rig-edge: #FFFFFF;
   --warn: #A15800;
   --warn-bg: rgba(229, 138, 0, 0.14);
   --alarm: #C42B2B;
@@ -185,6 +194,15 @@
   --ok-bg: rgba(66, 211, 146, 0.14);
   --trail-work: #20514A;
   --trail-mow: #524F35;
+  /* done 3.9:1 on the field, brighter than the trail; this lane takes the
+     select ring's light grey: no yellow at night */
+  --gps-field: #161E2F;
+  --gps-edge: #97A3B9;
+  --gps-done: #2F9468;
+  --gps-current: #C9D4E8;
+  --gps-todo: #5D6B86;
+  --gps-rig: #E8EDF5;
+  --gps-rig-edge: #070B13;
   --warn: #FFB648;
   --warn-bg: rgba(255, 182, 72, 0.14);
   --alarm: #FF7070;
@@ -1974,9 +1992,11 @@ button.day-clock[aria-expanded="true"] .day-clock-when { color: inherit; opacity
    label still wraps to two lines (specs/0013 revision 8) ---------------------- */
 
 @media (max-height: 799px) and (min-width: 900px) and (orientation: landscape) {
-  .screen:is([data-screen="map"], [data-screen="vehicle"], [data-screen="loader"], [data-screen="harvester"]) {
+  .screen:is([data-screen="map"], [data-screen="vehicle"], [data-screen="loader"], [data-screen="harvester"], [data-screen="gps"]) {
     grid-template-columns: minmax(0, 1fr) 232px;
   }
+  .gps-head { padding: 8px 16px; gap: 18px; }
+  .gps-num { font-size: 26px; }
   .control-grid { grid-auto-rows: 68px; }
   .tool-buttons { grid-template-columns: repeat(auto-fill, 72px); grid-auto-rows: 68px; gap: 6px; }
   /* the field panel 260 wide, so seven buttons fit a card's row (the
@@ -2094,6 +2114,130 @@ button.day-clock[aria-expanded="true"] .day-clock-when { color: inherit; opacity
 .round-trip { display: flex; justify-content: space-between; align-items: baseline; font-size: 15px; }
 .round-trip-value { font-size: 20px; font-variant-numeric: tabular-nums; }
 .round-trip-detail { font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
+
+/* --- GPS screen: the field, its lanes and the progress (specs/0021) ---------- */
+
+/* the field's card and its header, then the control column */
+.screen[data-screen="gps"] {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 268px;
+  gap: 12px;
+  padding: 12px;
+}
+.gps-screen { display: flex; flex-direction: column; gap: 12px; min-width: 0; min-height: 0; }
+.gps-head {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  padding: 12px 20px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: var(--card);
+}
+.gps-badge {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  min-width: 40px;
+  height: 40px;
+  padding: 0 8px;
+  border-radius: 10px;
+  background: var(--badge);
+  color: var(--badge-ink);
+  font-size: 16px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.gps-name { display: flex; flex: 1; flex-direction: column; gap: 2px; min-width: 0; }
+.gps-name b { font-size: 18px; font-weight: 700; }
+.gps-name span { overflow: hidden; font-size: 13px; color: var(--muted); text-overflow: ellipsis; white-space: nowrap; }
+.gps-stat { display: flex; flex-direction: column; gap: 2px; }
+.gps-label { font-size: 12px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); white-space: nowrap; }
+.gps-value { white-space: nowrap; }
+.gps-num { font-size: 32px; font-weight: 700; line-height: 1.05; font-variant-numeric: tabular-nums; }
+.gps-value small { margin-left: 4px; font-size: 16px; font-weight: 500; color: var(--muted); }
+.gps-stat[data-quiet="true"] .gps-num { color: var(--muted); font-weight: 600; }
+.gps-sep { align-self: stretch; width: 1px; background: var(--border); }
+.gps-map {
+  position: relative;
+  flex: 1 1 0;
+  min-height: 0;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: var(--card);
+}
+/* one box 12 px in, measured: every layer fills it, so all share one fit */
+.gps-box { position: absolute; inset: 12px; }
+.gps-ground, .gps-trail, .gps-course, .gps-over {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+.gps-field { fill: var(--gps-field); }
+.gps-map[data-empty="true"] .gps-ground { visibility: hidden; }
+.gps-course[data-dim="true"] { opacity: 0.4; }
+.gps-edge { fill: none; stroke: var(--gps-edge); stroke-width: 2px; stroke-linejoin: round; vector-effect: non-scaling-stroke; }
+/* the lane you're on, worked so far: green up to the rig, inside the lane's own colour */
+.gps-fill { fill: none; stroke: var(--gps-done); stroke-linecap: butt; stroke-linejoin: round; }
+.gps-rig { position: absolute; top: 0; left: 0; width: 0; height: 0; pointer-events: none; will-change: transform; }
+.gps-rig[hidden] { display: none; }
+.gps-rig-svg { position: absolute; top: 0; left: 0; overflow: visible; }
+.gps-arrow { fill: var(--gps-rig); stroke: var(--gps-rig-edge); stroke-width: 2px; stroke-linejoin: round; }
+.gps-legend {
+  position: absolute;
+  left: 16px;
+  bottom: 14px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 6px 12px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--glass);
+  color: var(--glass-text);
+  font-size: 13px;
+}
+.gps-legend[hidden], .gps-key[hidden] { display: none; }
+.gps-key { display: inline-flex; align-items: center; gap: 6px; }
+.gps-key i { display: inline-block; width: 18px; height: 10px; border-radius: 2px; }
+.gps-key i.done { background: var(--gps-done); }
+.gps-key i.current { background: linear-gradient(90deg, var(--gps-done) 45%, var(--gps-current) 45%);
+  box-shadow: 0 0 0 1px var(--gps-rig-edge), 0 0 0 2px var(--gps-current); }
+.gps-key i.todo { height: 0; border-top: 2px dashed var(--gps-todo); border-radius: 0; }
+.gps-key i.trail { background: var(--trail-work); }
+/* no lanes: the reason, in the game's words, over the field */
+.gps-words {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  box-sizing: border-box;
+  max-width: calc(100% - 32px);
+  padding: 16px 28px;
+  transform: translate(-50%, -50%);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: var(--glass);
+  box-shadow: var(--lift);
+  color: var(--glass-text);
+  font-size: 22px;
+  font-weight: 600;
+  text-align: center;
+}
+.gps-words[hidden] { display: none; }
+
+@media (max-width: 899px), (orientation: portrait) {
+  /* the field on top, the control dock under it */
+  .screen[data-screen="gps"] { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto; align-content: start; overflow-y: auto; }
+  .screen[data-screen="gps"] :is(.slot, .control-column) { min-height: auto; }
+  .gps-map { flex: none; height: 420px; }
+  .gps-head { flex-wrap: wrap; gap: 12px 20px; }
+  .gps-sep { display: none; }
+}
 
 /* --- Contracts (specs/0018): the page, the tab's count, the field panels'
    row, the map's pins (widgets/contractsScreen.js, map/layers/contractsLayer.js).

@@ -110,6 +110,13 @@ export default {
       ],
     },
     {
+      // GPS (specs/0021): the field the game's Steering Assist built lanes
+      // on, big, with the counts and the time left; then the column, since
+      // you drive with it (steering on and off is Drive's)
+      id: "gps", label: "GPS", icon: "area",
+      slots: [{ widget: "gpsScreen" }, { controls: true }],
+    },
+    {
       // Contracts (specs/0018): the list and the detail take the whole
       // width. No control column: choosing a contract isn't done while
       // driving. The tab counts the contracts you're doing.

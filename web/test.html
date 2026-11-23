@@ -1916,7 +1916,8 @@ check("theme: the Vehicle screen's slots and its column", [
   [[true, false, false, true, true, true, false], [true, true, true, false, false, false, false],
     // no Hitch group: Attach is Drive's sixth button (specs/0016)
     ["Lights", "Drive"], ["Cruise −", "Cruise", "Cruise +", "Engine", "AI worker", "Attach"], ["Lights", "Drive"],
-    4, ["Vehicle:tractor", "Loader:loader", "Harvester:harvester"], ["map", "vehicle", "contracts"]]);
+    // a column on Map, Vehicle, Loader, Harvester and GPS (specs/0021)
+    5, ["Vehicle:tractor", "Loader:loader", "Harvester:harvester"], ["map", "vehicle", "gps", "contracts"]]);
 
 // the Vehicle page's card: Loads (the rig's tanks and weight) even with a
 // loader; Loader picked by hand with no loader shows the same
@@ -2472,7 +2473,7 @@ check("tools: tabs: Map and Vehicle; a saved Implement page opens Vehicle; Attac
   [...appV.querySelectorAll(".tab")].map((t) => t.dataset.screen), savedScreen("implement"), savedScreen("map"),
   savedScreen(undefined), toolsPage(rigFix.mowers.vehicles, rigFix.mowers.cab).attachEl.dataset.state,
   toolsPage(rigFix.attach.vehicles, rigFix.attach.cab).attachEl.dataset.state],
-  [["map", "vehicle", "contracts"], "vehicle", "map", undefined, "unavailable", "off"]);
+  [["map", "vehicle", "gps", "contracts"], "vehicle", "map", undefined, "unavailable", "off"]);
 
 // layout: every fixture and one to six working things at 1180 × 820, day
 // and night: no scrolling, nothing overflows, nothing lies over anything
@@ -3860,7 +3861,7 @@ check('contracts: the tab counts your running contracts ("Contracts · 2"), warn
   ["Contracts", "Contracts · 2", "2", "warn"], ["Contracts", "Contracts · 1", "1", undefined]]);
 check("contracts: the Contracts page has no control column; the others keep theirs",
   [...ctApp.querySelectorAll(".screen")].map((s) => `${s.dataset.screen}:${s.querySelectorAll(".control-column").length}`),
-  ["map:1", "vehicle:1", "loader:1", "harvester:1", "contracts:0"]);
+  ["map:1", "vehicle:1", "loader:1", "harvester:1", "gps:1", "contracts:0"]);
 ctUiS.set("goto", { screen: "contracts", contract: "c-plow-58" });
 const wentTo = ctApp.dataset.screen;
 ctUiS.set("goto", { screen: "nowhere" });
@@ -3968,6 +3969,174 @@ check("contracts map: Show on the map opens that contract's pin; an unknown one 
   [...document.querySelectorAll(".leaflet-popup .ct-popup > b")].map((e) => e.textContent)], [["Harvest · Barley"], ["Harvest · Barley"]]);
 map.closePopup();
 map.removeLayer(ctLayer.leafletLayer);
+
+// --- GPS screen: the numbers (specs/0021, data/gps.js) ---------------------------
+
+const gps = await import("./src/data/gps.js");
+// Solek field 7 from spike 0.0.17's skip1 dump: the round and lanes 10 and 9
+// done, lane 8 skipped by hand, on lane 7 (its flag already set)
+const gpsCourse = await (await fetch("fixtures/steering_course.json")).json();
+const gpsWith = (/** @type {any} */ patch) => ({ ...gpsCourse, ...patch });
+check("gps counts: lanes done from the game's flags, not the lane you're on (its flag set); the round done", gps.countsOf(gpsCourse),
+  { lanes: 10, lanesDone: 2, rounds: 1, roundsDone: 1, on: { kind: "lane", n: 7 } });
+check("gps counts: on a round piece the round isn't done and reads On round; the lane left counts by its flag",
+  gps.countsOf(gpsWith({ current: { i: 12, left: false } })),
+  { lanes: 10, lanesDone: 3, rounds: 1, roundsDone: 0, on: { kind: "round", n: 1 } });
+check("gps counts: no lane under you", gps.countsOf(gpsWith({ current: undefined })).on, undefined);
+
+const gpsS = (/** @type {any} */ cab, /** @type {any} */ topic, onFoot = false) => {
+  const s = createStore();
+  s.set("vehicles", onFoot ? { vehicles: [] } : { controlledId: 7, vehicles: [{ id: 7, name: "Mach 4R", x: -693.9, z: -596.15, heading: 102.6, speed: 10 }] });
+  s.set("cab", onFoot ? { inVehicle: false } : { inVehicle: true, vehicleId: 7, ...cab });
+  if (topic) s.set("steering_course", topic);
+  return s;
+};
+const gpsSa = (/** @type {any} */ more = {}) => ({ steering: { mode: "steeringAssist", state: "ready", canSteer: true, onField: true, courseKey: 1, ...more } });
+check("gps course: drawn only while its key is the cab's courseKey", [
+  gps.courseOf(gpsS(gpsSa(), gpsCourse))?.key, gps.courseOf(gpsS(gpsSa({ courseKey: 2 }), gpsCourse)),
+  gps.courseOf(gpsS(gpsSa({ courseKey: undefined }), gpsCourse))], [1, undefined, undefined]);
+const gpsWords = (/** @type {any} */ s) => { const g = gps.gpsState(s); return [g.words, !!g.course, g.dim, g.building]; };
+check("gps words: on foot, no part, AI worker mode, building, off the field, kept off the field, no lane, steering", [
+  gpsWords(gpsS({}, gpsCourse, true)),
+  gpsWords(gpsS({}, gpsCourse)),
+  gpsWords(gpsS(gpsSa({ mode: "worker" }), gpsCourse)),
+  gpsWords(gpsS(gpsSa({ courseKey: undefined }), undefined)),
+  gpsWords(gpsS(gpsSa({ courseKey: undefined, onField: false }), undefined)),
+  gpsWords(gpsS(gpsSa({ onField: false }), gpsCourse)),
+  gpsWords(gpsS(gpsSa(), gpsWith({ current: undefined }))),
+  gpsWords(gpsS(gpsSa(), gpsCourse))], [
+  ["Get into a vehicle", false, false, false],
+  ["No Steering Assist on this vehicle", false, false, false],
+  ["Steering Assist is off for this tractor", false, false, false],
+  ["Building the lanes…", false, false, true],
+  ["Drive onto a field you may work", false, false, false],
+  ["Drive onto a field you may work", true, true, false],
+  ["No lane here", true, false, false],
+  ["", true, false, false]]);
+
+// lane 7 runs east-north-east (heading about 102.6°); the rig halfway down its long piece
+const gpsFillAt = (/** @type {number} */ x, /** @type {number} */ z, /** @type {number} */ heading) => gps.fillOf(gpsCourse, { x, z, heading });
+const gpsEast = gpsFillAt(-693.9, -596.15, 102.6), gpsWest = gpsFillAt(-693.9, -596.15, 282.6),
+  gpsOff = gpsFillAt(-693.9, -576, 102.6);
+check("gps fill: halfway along lane 7 from the end the rig drives from; the other way from the other end; 0 off the lane", [
+  Math.round(gpsEast?.t * 100) / 100, gpsEast?.pts.slice(0, 2), Math.round(gpsWest?.t * 100) / 100, gpsWest?.pts.slice(0, 2),
+  Math.round(gpsEast?.pts.at(-2)), gpsOff], [0.51, [-797.3, -618.9], 0.49, [-594.8, -574], -694, { t: 0, pts: [] }]);
+
+// time left: lane 10 in 60 s; lane 9 in 120 s with a 60 s stop left out; lane 8 skipped
+const gpsT = { t: 0 };
+const gpsTimes = gps.createGpsTimes({ now: () => gpsT.t });
+const gpsTc = (/** @type {number[]} */ done, /** @type {number|undefined} */ cur, key = 5) =>
+  ({ ...gpsCourse, key, done, current: cur === undefined ? undefined : { i: cur, left: true } });
+const gpsRing = [11, 12, 13, 14];
+gpsTimes.feed(gpsTc(gpsRing, 10), 10);
+gpsT.t = 60000; gpsTimes.feed(gpsTc(gpsRing, 10), 10);
+gpsTimes.feed(gpsTc([10, ...gpsRing], 9), 10);
+const gpsAfterOne = gpsTimes.minutesLeft(gpsTc([10, ...gpsRing], 9));
+gpsT.t = 90000; gpsTimes.feed(gpsTc([10, ...gpsRing], 9), 0);
+gpsT.t = 150000; gpsTimes.feed(gpsTc([10, ...gpsRing], 9), 10);
+gpsT.t = 240000; gpsTimes.feed(gpsTc([9, 10, ...gpsRing], 8), 10);
+gpsT.t = 300000; gpsTimes.feed(gpsTc([9, 10, ...gpsRing], 7), 10);
+const gpsLenOf = (/** @type {number} */ i) => gps.lengthOf(gpsCourse.segments.find((/** @type {any} */ s) => s.i === i).pts);
+const gpsRate = 180 / (gpsLenOf(10) + gpsLenOf(9));
+const gpsLeftM = [1, 2, 3, 4, 5, 6, 8].reduce((a, i) => a + gpsLenOf(i), 0) + gpsLenOf(7) * 0.5;
+const gpsMinutes = gpsTimes.minutesLeft(gpsTc([9, 10, ...gpsRing], 7), 0.5);
+check("gps time left: – after one lane; then the rate from the lanes done (a stop and the skipped lane left out), "
+  + "less half the lane you're on; a new course starts again, and so does one that went and came back with its key", [gpsAfterOne, gpsTimes.lanesTimed(),
+  Math.round((gpsMinutes ?? 0) * 100) / 100, Math.round(((gpsLeftM * gpsRate) / 60) * 100) / 100,
+  gpsTimes.minutesLeft(gpsTc([9, 10, ...gpsRing], 7, 6)), (gpsTimes.feed(undefined, 10), gpsTimes.feed(gpsTc([9, 10, ...gpsRing], 7), 10),
+    gpsTimes.minutesLeft(gpsTc([9, 10, ...gpsRing], 7)))], [undefined, 2, Math.round(((gpsLeftM * gpsRate) / 60) * 100) / 100,
+  Math.round(((gpsLeftM * gpsRate) / 60) * 100) / 100, undefined, undefined]);
+
+// --- GPS screen: the screen (specs/0021, widgets/gpsScreen.js) ---------------------
+
+const gsw = await import("./src/widgets/gpsScreen.js");
+const gsS = createStore();
+gsS.set("hello", { farmId: 1 });
+gsS.set("field_outlines", { fields: [{ id: 7, points: gpsCourse.boundary }] });
+gsS.set("fields", { fields: [{ id: 7, farmlandId: 7, areaHa: 1.62 }] });
+gsS.set("contracts", { items: [{ id: "c7", type: "cultivate", title: "Cultivating", status: "running", mine: true, fieldId: 7 }] });
+const gsRigAt = (/** @type {number} */ x, /** @type {number} */ z, heading = 102.6) =>
+  gsS.set("vehicles", { controlledId: 7, vehicles: [{ id: 7, name: "Mach 4R", x, z, heading, speed: 10 }] });
+gsRigAt(-693.9, -596.15);
+gsS.set("cab", { inVehicle: true, vehicleId: 7, ...gpsSa() });
+gsS.set("steering_course", gpsCourse);
+/** @type {{full: number, lanes: number, pieces: number}} */
+const gsStats = { full: 0, lanes: 0, pieces: 0 };
+let gsSetSize = (/** @type {number} */ _w, /** @type {number} */ _h) => {};
+const gsScreen = gsw.gpsScreen(gsS, { watchSize: (_el, cb) => { gsSetSize = cb; }, stats: gsStats,
+  coverage: { trails: () => [], percent: () => undefined, version: () => 0 } });
+const gsText = (/** @type {string} */ sel) => [...gsScreen.querySelectorAll(sel)].map((e) => e.textContent);
+const gsHidden = (/** @type {string} */ sel) => /** @type {HTMLElement} */ (gsScreen.querySelector(sel)).hidden;
+check("gps screen: the field, its contract and the counts over it; nothing painted while the page is hidden (0 × 0)", [
+  gsText(".gps-badge"), gsText(".gps-name > b"), gsText(".gps-name > span"), gsText(".gps-label"), gsText(".gps-value"),
+  gsStats.full, gsHidden(".gps-words"), gsHidden(".gps-legend")], [
+  ["7"], ["Field 7"], ["1.62 ha · Contract: Cultivating · 6.0 m"], ["Lanes done", "On lane", "Rounds done", "Time left"],
+  ["2of 10", "7", "1of 1", "–"], 0, true, false]);
+gsSetSize(800, 400);
+const gsCanvas = /** @type {HTMLCanvasElement} */ (gsScreen.querySelector(".gps-course"));
+const gsFill = /** @type {SVGPolylineElement} */ (gsScreen.querySelector(".gps-fill"));
+const gsRig = /** @type {HTMLElement} */ (gsScreen.querySelector(".gps-rig"));
+const gsFillBefore = gsFill.getAttribute("points");
+check("gps screen: shown, the course painted whole once at the box's size; the rig placed; lane 7 filled from its west end",
+  [gsStats.full, gsCanvas.width === Math.round(800 * (window.devicePixelRatio || 1)), gsRig.hidden,
+    /^translate\(/.test(gsRig.style.transform), gsFillBefore?.split(" ")[0]], [1, true, false, true, "-797.3,-618.9"]);
+// a rig update: the rig and the fill move, no lane is repainted
+const gsMo = new MutationObserver(() => {});
+gsMo.observe(gsScreen, { subtree: true, childList: true });
+gsRigAt(-650, -586.4);
+check("gps screen: a rig update moves the rig and the fill, repaints no lane and adds no element",
+  [{ ...gsStats }, gsFill.getAttribute("points") !== gsFillBefore, gsMo.takeRecords().flatMap((r) => [...r.addedNodes]).length],
+  [{ full: 1, lanes: 0, pieces: 0 }, true, 0]);
+// lane 8 goes done: that lane, and the round over its ends
+gsS.set("steering_course", { ...gpsCourse, done: [7, 8, 9, 10, 11, 12, 13, 14] });
+const gsAfterDone = { ...gsStats };
+// on to lane 6: lane 7 leaves (done), lane 6 is the one you're on
+gsS.set("steering_course", { ...gpsCourse, done: [7, 8, 9, 10, 11, 12, 13, 14], current: { i: 6, left: false } });
+check("gps screen: a lane goes done: only it repainted (and the round's 4 pieces over its ends); moving on repaints the two lanes",
+  [gsAfterDone, { ...gsStats }, gsText(".gps-value")], [{ full: 1, lanes: 1, pieces: 4 }, { full: 1, lanes: 3, pieces: 8 },
+  ["4of 10", "6", "1of 1", "–"]]);
+// a topic that isn't the cab's course: not drawn; the cab's new key with it: drawn whole again
+gsS.set("steering_course", { ...gpsCourse, key: 2 });
+const gsStale = [gsText(".gps-words"), gsHidden(".gps-legend"), gsText(".gps-value")[0]];
+gsS.set("cab", { inVehicle: true, vehicleId: 7, ...gpsSa({ courseKey: 2 }) });
+check("gps screen: a topic whose key isn't the cab's isn't drawn (the field's outline, building); a new course is painted whole",
+  [gsStale, gsStats.full, gsHidden(".gps-words")],
+  [[["Building the lanes…"], true, "–"], 2, true]);
+// the course goes while the page is hidden and comes back with the same key
+// (the mod counts from 1 again after a restart): painted whole once shown
+gsSetSize(0, 0);
+gsS.set("cab", { inVehicle: true, vehicleId: 7, ...gpsSa({ courseKey: undefined }) });
+gsS.set("cab", { inVehicle: true, vehicleId: 7, ...gpsSa({ courseKey: 2 }) });
+const gsHiddenFull = gsStats.full;
+gsSetSize(800, 400);
+check("gps screen: a course gone while hidden and its key given again is painted whole once shown, not before",
+  [gsHiddenFull, gsStats.full], [2, 3]);
+// the words for each reason
+const gsWordsFor = (/** @type {any} */ cab, /** @type {any} */ topic = gpsCourse) => {
+  gsS.set("steering_course", topic);
+  gsS.set("cab", cab);
+  return [gsText(".gps-words")[0], gsHidden(".gps-words"), gsHidden(".gps-legend"), gsCanvas.dataset.dim];
+};
+check("gps screen: each no-lanes reason in the game's words; off the field the course stays, dimmed", [
+  gsWordsFor({ inVehicle: false }),
+  gsWordsFor({ inVehicle: true, vehicleId: 7 }),
+  gsWordsFor({ inVehicle: true, vehicleId: 7, ...gpsSa({ mode: "worker" }) }),
+  gsWordsFor({ inVehicle: true, vehicleId: 7, ...gpsSa({ courseKey: undefined, onField: false }) }),
+  gsWordsFor({ inVehicle: true, vehicleId: 7, ...gpsSa({ onField: false }) }),
+  gsWordsFor({ inVehicle: true, vehicleId: 7, ...gpsSa() }, { ...gpsCourse, current: undefined })], [
+  ["Get into a vehicle", false, true, "false"],
+  ["No Steering Assist on this vehicle", false, true, "false"],
+  ["Steering Assist is off for this tractor", false, true, "false"],
+  ["Drive onto a field you may work", false, true, "false"],
+  ["Drive onto a field you may work", false, true, "true"],
+  ["No lane here", false, true, "false"]]);
+
+// the theme: a GPS tab with the control column, between Vehicle and Contracts
+const { default: nhTheme } = await import("./src/themes/newholland/theme.js");
+const nhGps = nhTheme.screens?.find((s) => s.id === "gps");
+check("gps tab: in the theme beside Vehicle and Contracts, the screen and the control column",
+  [nhTheme.screens?.filter((s) => !s.tab && !s.when).map((s) => s.id), nhGps?.slots], [["map", "vehicle", "gps", "contracts"],
+  [{ widget: "gpsScreen" }, { controls: true }]]);
 
 // --- icons (ui/icons.js) --------------------------------------------------------
 

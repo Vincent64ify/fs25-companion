@@ -192,6 +192,80 @@ function Api.automaticSteering(vehicle)
     return type(spec) == "table" and spec or nil
 end
 
+-- specs/0021: the Steering Assist course, plain fields only (its class,
+-- SteeringFieldCourse, is not in the SDK's archive; spike 0.0.16 and 0.0.17
+-- read these on Solek, mod/tests/fixtures/spike0021/). Unverified until
+-- spec 0021's live check.
+
+-- the course the game built for this vehicle's field, or nil
+function Api.steeringCourse(vehicle)
+    local spec = Api.automaticSteering(vehicle)
+    local course = spec ~= nil and spec.steeringFieldCourse or nil
+    return type(course) == "table" and course or nil
+end
+
+-- the game's own "on a field the farm may work" (lastIsOnField, updated
+-- only in Steering Assist mode for the local player's vehicle,
+-- AIAutomaticSteering.lua:440-441); nil without the part
+function Api.steeringOnField(vehicle)
+    local spec = Api.automaticSteering(vehicle)
+    if spec == nil then
+        return nil
+    end
+    return spec.lastIsOnField == true
+end
+
+-- the course's segments in the game's order: fieldCourse.segments (the
+-- course's own segments is the same table)
+function Api.courseSegments(course)
+    local inner = type(course.fieldCourse) == "table" and course.fieldCourse or nil
+    local segments = inner ~= nil and inner.segments or course.segments
+    return type(segments) == "table" and segments or nil
+end
+
+-- one boolean per segment, the save's workedLines
+function Api.courseStates(course)
+    return type(course.segmentStates) == "table" and course.segmentStates or nil
+end
+
+-- the field's outline, {x, z} pairs: courseField.boundaryPositions (the
+-- course's rootBoundaryLine is the same table)
+function Api.courseBoundary(course)
+    local inner = type(course.fieldCourse) == "table" and course.fieldCourse or nil
+    local field = inner ~= nil and type(inner.courseField) == "table" and inner.courseField or nil
+    local boundary = field ~= nil and field.boundaryPositions or course.rootBoundaryLine
+    return type(boundary) == "table" and boundary or nil
+end
+
+-- the working width the course was built for (AIAutomaticSteering.lua:470
+-- reads it there too)
+function Api.courseWidth(course)
+    local settings = course.fieldCourseSettings
+    local width = type(settings) == "table" and settings.implementWidth or nil
+    return type(width) == "number" and width or nil
+end
+
+-- the segment under you: its index and side, or nil with none (the game's
+-- own test for "no lane": currentSegment nil, AIAutomaticSteering.lua:787)
+function Api.courseCurrent(course)
+    if course.currentSegment == nil or type(course.currentSegmentIndex) ~= "number" then
+        return nil
+    end
+    return course.currentSegmentIndex, course.currentSegmentIsLeft == true
+end
+
+-- a segment's lane number (offsetLineIndex) or headland round
+-- (headlandIndex), and its polyline as {x, z} pairs
+function Api.segmentParts(segment)
+    local headland = segment.isHeadlandSegment == true
+    return {
+        id = segment.segmentId,
+        lane = not headland and segment.offsetLineIndex or nil,
+        round = headland and segment.headlandIndex or nil,
+        positions = segment.positions,
+    }
+end
+
 -- "offer", "preparing", "running" or "finished"; nil for a dismissed one
 -- and when the game's MissionStatus isn't there
 function Api.missionStatus(mission)
