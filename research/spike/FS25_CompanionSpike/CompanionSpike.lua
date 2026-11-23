@@ -23,7 +23,7 @@
 CompanionSpike = {}
 local CS = CompanionSpike
 
-local SPIKE_VERSION = "0.0.15"
+local SPIKE_VERSION = "0.0.17"
 local MOD_DIR = g_currentModDirectory or ""
 
 local LIMITS = {
@@ -2665,6 +2665,312 @@ function CompanionSpike:consoleMaxCut(arg)
 end
 
 ---------------------------------------------------------------------------
+-- The Steering Assist course (spike 0.0.16, spec 0021)
+---------------------------------------------------------------------------
+
+-- csCourse NAME writes course-NAME.json. SteeringFieldCourse is not in the
+-- SDK's archive, and the save keeps only the field's boundary, the course
+-- settings and workedLines (AIAutomaticSteering.lua:64-65, Vincent's Solek
+-- save), so the lanes are found by shape: every key with its type and
+-- class, and every list of tables with each item's plain fields. Raw reads
+-- only (pairs, rawget): no method is called and no __index runs (getters
+-- are not reads: spike 0.0.10's freeze).
+local COURSE_LIMITS = {
+    shapeDepth = 4,     -- levels the shape walks
+    shapeKeys = 80,     -- keys shown per table in the shape
+    shapeNodes = 3000,  -- tables the shape describes in all
+    sample = 2000,      -- values shown of a list of plain values (segmentStates: all of them)
+    listDepth = 3,      -- levels searched for lists of tables
+    items = 3000,       -- items dumped per list
+    plainDepth = 3,     -- levels dumped inside each item
+    nodes = 400000,     -- values dumped in all, then truncated
+}
+
+-- the array part 1..n, read raw (a hole never reaches __index)
+local function rawLen(t)
+    local n = 0
+    while rawget(t, n + 1) ~= nil do
+        n = n + 1
+    end
+    return n
+end
+
+local function looksLikeVehicle(t)
+    if rawget(t, "rootNode") ~= nil and rawget(t, "typeName") ~= nil then
+        return true
+    end
+    for k in pairs(t) do
+        if type(k) == "string" and k:sub(1, 5) == "spec_" then
+            return true
+        end
+    end
+    return false
+end
+
+local function scalarOf(v)
+    local tv = type(v)
+    if tv == "number" or tv == "boolean" then
+        return v
+    elseif tv == "string" then
+        return #v > LIMITS.str and (v:sub(1, LIMITS.str) .. "...") or v
+    end
+    return nil
+end
+
+local function clockSec()
+    return nowSec() or (os ~= nil and os.clock ~= nil and os.clock()) or nil
+end
+
+local function childPath(path, k)
+    if type(k) == "number" then
+        return path .. "[" .. tostring(k) .. "]"
+    end
+    return path == "" and tostring(k) or (path .. "." .. tostring(k))
+end
+
+-- every key, its type and class, down to shapeDepth; a table seen before
+-- is a ref to where it was first seen
+local function shapeOf(t, depth, seen, path, budget)
+    budget.n = budget.n + 1
+    seen[t] = seen[t] or path
+    local out = { class = classNameOf(t), n = rawLen(t), keys = 0 }
+    if looksLikeVehicle(t) then
+        out.vehicle, out.id = true, scalarOf(rawget(t, "id"))
+        return out
+    end
+    if out.class ~= nil then
+        out.methods = methodsOf(t)
+    end
+    local keys = {}
+    for k in pairs(t) do
+        out.keys = out.keys + 1
+        if type(k) ~= "number" or k > out.n then
+            keys[#keys + 1] = k
+        end
+    end
+    table.sort(keys, keyLess)
+    out.fields = {}
+    for i, k in ipairs(keys) do
+        if i > COURSE_LIMITS.shapeKeys then
+            out.moreKeys = #keys - COURSE_LIMITS.shapeKeys
+            break
+        end
+        local v, name = rawget(t, k), tostring(k)
+        local tv = type(v)
+        if tv == "table" then
+            if seen[v] ~= nil then
+                out.fields[name] = { ref = seen[v] }
+            elseif depth <= 0 or budget.n >= COURSE_LIMITS.shapeNodes then
+                out.fields[name] = { class = classNameOf(v), n = rawLen(v), keys = countKeys(v) }
+            else
+                out.fields[name] = shapeOf(v, depth - 1, seen, childPath(path, k), budget)
+            end
+        elseif tv == "function" then
+            out.fields[name] = "<function>"
+        else
+            local s = scalarOf(v)
+            if s == nil then
+                out.fields[name] = "<" .. tv .. ">"
+            else
+                out.fields[name] = s
+            end
+        end
+    end
+    if out.n > 0 then
+        local first = rawget(t, 1)
+        out.itemType = type(first)
+        if type(first) == "table" then
+            out.itemClass = classNameOf(first)
+            if seen[first] == nil and depth > 0 and budget.n < COURSE_LIMITS.shapeNodes then
+                out.first = shapeOf(first, depth - 1, seen, path .. "[1]", budget)
+            end
+        else
+            out.sample = {}
+            for i = 1, math.min(out.n, COURSE_LIMITS.sample) do
+                out.sample[i] = scalarOf(rawget(t, i))
+            end
+        end
+    end
+    return out
+end
+
+-- every table holding a list of tables (the segments, whatever they're
+-- called), down to listDepth; a list's items aren't searched further
+local function findLists(t, depth, path, seen, found)
+    seen[t] = true
+    for k, v in pairs(t) do
+        if type(v) == "table" and not seen[v] and not looksLikeVehicle(v) then
+            local p = childPath(path, k)
+            local n = rawLen(v)
+            if n > 0 and type(rawget(v, 1)) == "table" then
+                seen[v] = true
+                found[#found + 1] = { path = p, t = v, n = n }
+            elseif depth > 0 then
+                findLists(v, depth - 1, p, seen, found)
+            end
+        end
+    end
+    return found
+end
+
+local plainOf
+
+-- a table's fields: plain values as they are, tables down to `depth`,
+-- tables already placed as refs, vehicles by id, functions left out
+local function plainBody(t, depth, refs, budget, path)
+    local out = {}
+    for k, v in pairs(t) do
+        if type(v) ~= "function" then
+            if budget.n >= COURSE_LIMITS.nodes then
+                budget.truncated = true
+                break
+            end
+            budget.n = budget.n + 1
+            out[type(k) == "number" and k or tostring(k)] = plainOf(v, depth - 1, refs, budget, childPath(path, k))
+        end
+    end
+    return out
+end
+
+plainOf = function(v, depth, refs, budget, path)
+    local tv = type(v)
+    if tv ~= "table" then
+        local s = scalarOf(v)
+        if s == nil then
+            return "<" .. tv .. ">"
+        end
+        return s
+    end
+    if refs[v] ~= nil then
+        return "<ref " .. refs[v] .. ">"
+    end
+    if looksLikeVehicle(v) then
+        return "<vehicle " .. tostring(rawget(v, "id")) .. ">"
+    end
+    if depth < 0 then
+        return "<table " .. tostring(classNameOf(v) or countKeys(v)) .. ">"
+    end
+    refs[v] = path
+    return plainBody(v, depth, refs, budget, path)
+end
+
+local function courseDump(c)
+    local out = { class = classNameOf(c), methods = methodsOf(c), plain = {}, lists = {} }
+    for k, v in pairs(c) do
+        local s = scalarOf(v)
+        if s ~= nil and type(k) == "string" then
+            out.plain[k] = s
+        end
+    end
+    out.shape = shapeOf(c, COURSE_LIMITS.shapeDepth, {}, "course", { n = 0 })
+    local found = findLists(c, COURSE_LIMITS.listDepth, "", { [c] = true }, {})
+    table.sort(found, function(a, b) return a.path < b.path end)
+    -- every list and item gets its place first, so links between items are refs
+    local refs = { [c] = "course" }
+    for _, l in ipairs(found) do
+        refs[l.t] = l.path
+        for i = 1, l.n do
+            local item = rawget(l.t, i)
+            if type(item) == "table" and refs[item] == nil then
+                refs[item] = l.path .. "[" .. i .. "]"
+            end
+        end
+    end
+    local budget = { n = 0 }
+    for _, l in ipairs(found) do
+        local first = rawget(l.t, 1)
+        local list = { n = l.n, class = classNameOf(first), methods = methodsOf(first), items = {} }
+        for i = 1, math.min(l.n, COURSE_LIMITS.items) do
+            local item = rawget(l.t, i)
+            if type(item) == "table" then
+                list.items[i] = plainBody(item, COURSE_LIMITS.plainDepth, refs, budget, l.path .. "[" .. i .. "]")
+            else
+                list.items[i] = plainOf(item, 0, refs, budget, "")
+            end
+        end
+        list.moreItems = l.n > COURSE_LIMITS.items and (l.n - COURSE_LIMITS.items) or nil
+        out.lists[l.path] = list
+    end
+    out.truncated = budget.truncated
+    out.values = budget.n
+    -- what the lists weigh as JSON, and how long encoding them takes here
+    local t0 = clockSec()
+    local ok, text = pcall(Json.encode, out.lists)
+    local t1 = clockSec()
+    out.encode = { bytes = ok and #text or nil, seconds = (t0 ~= nil and t1 ~= nil) and (t1 - t0) or nil,
+        clock = getTimeSec ~= nil and "getTimeSec" or "os.clock", error = not ok and tostring(text) or nil }
+    return out
+end
+
+local function probeCourse(v)
+    local root = firstOf(v, "getRootVehicle") or v
+    local holder = nil
+    for _, m in ipairs(rigMembers(root)) do
+        if type(rawget(m.o, "spec_aiAutomaticSteering")) == "table" then
+            holder = m.o
+            break
+        end
+    end
+    if holder == nil then
+        return { found = false, vehicle = objectLabel(root) }
+    end
+    local spec = rawget(holder, "spec_aiAutomaticSteering")
+    local out = { found = true, vehicle = objectLabel(holder), courses = {},
+        vehiclePosition = nodePosition(rawget(holder, "rootNode")),
+        steering = {
+            steeringEnabled = rawget(spec, "steeringEnabled"),
+            lastIsOnField = rawget(spec, "lastIsOnField"),
+            fieldCourseDetectionInProgress = rawget(spec, "fieldCourseDetectionInProgress"),
+            steeringLockedMovingDirection = rawget(spec, "steeringLockedMovingDirection"),
+        } }
+    local sel = rawget(holder, "spec_aiModeSelection")
+    out.steering.currentMode = type(sel) == "table" and scalarOf(rawget(sel, "currentMode")) or nil
+    local cur, last = rawget(spec, "steeringFieldCourse"), rawget(spec, "lastActiveSteeringFieldCourse")
+    if cur ~= nil or last ~= nil then
+        out.sameAsLastActive = cur == last
+    end
+    if type(cur) == "table" then
+        out.courses.steeringFieldCourse = courseDump(cur)
+    end
+    if type(last) == "table" and last ~= cur then
+        out.courses.lastActiveSteeringFieldCourse = courseDump(last)
+    end
+    return out
+end
+
+function CompanionSpike:consoleCourse(name)
+    local v = getControlledVehicle()
+    if v == nil then
+        return "get in a vehicle first"
+    end
+    local ok, res = pcall(probeCourse, v)
+    if not ok then
+        return "course probe failed: " .. tostring(res)
+    end
+    local file = name ~= nil and name ~= "" and ("course-" .. tostring(name):gsub("[^%w_-]", "") .. ".json")
+        or "course.json"
+    local written = CS._writeJson(file, { course = res })
+    ctx.status = written and ("course written to " .. file) or "course: write FAILED"
+    if not res.found then
+        return ctx.status .. ": no Steering Assist part in this rig"
+    end
+    local c = res.courses.steeringFieldCourse
+    if c == nil then
+        return ctx.status .. ": no course now" .. (res.courses.lastActiveSteeringFieldCourse ~= nil and " (a last active one)" or "")
+    end
+    local biggest = nil
+    for path, l in pairs(c.lists) do
+        if biggest == nil or l.n > biggest.n then
+            biggest = { path = path, n = l.n }
+        end
+    end
+    return string.format("%s: %s segment(s) in %s; on %s (%s); %s bytes in %s s%s", ctx.status,
+        biggest and tostring(biggest.n) or "0", biggest and biggest.path or "-", tostring(c.plain.currentSegmentIndex),
+        c.plain.currentSegmentIsLeft and "left" or "right", tostring(c.encode.bytes), tostring(c.encode.seconds),
+        c.truncated and ", TRUNCATED" or "")
+end
+
+---------------------------------------------------------------------------
 -- Mod event listener
 ---------------------------------------------------------------------------
 
@@ -2701,6 +3007,8 @@ function CompanionSpike:loadMap(name)
         addConsoleCommand("csMaxCut", "Call getMaxCutLiters() once on harvest offer N and record its completion state "
             .. "before and after to maxcut-ID.json (a changed one: don't take it, quit without saving)",
             "consoleMaxCut", CompanionSpike)
+        addConsoleCommand("csCourse", "Write the Steering Assist course, read only, to course.json (csCourse NAME: course-NAME.json)",
+            "consoleCourse", CompanionSpike)
     end
 end
 
@@ -2716,6 +3024,7 @@ function CompanionSpike:deleteMap()
         removeConsoleCommand("csTrace")
         removeConsoleCommand("csPress")
         removeConsoleCommand("csCombo")
+        removeConsoleCommand("csCourse")
         for _, name in ipairs(MISSION_COMMANDS) do
             removeConsoleCommand(name)
         end
@@ -3016,6 +3325,7 @@ CS._partsOf, CS._probeParts, CS._rateTarget, CS._rateState, CS._rateFrame = part
     rateFrame
 CS._traceWrap, CS._traceUnwrap, CS._traceFrame, CS._newTrace = traceWrap, traceUnwrap, traceFrame, newTrace
 CS._probeMissions, CS._pickMission = probeMissions, pickMission
+CS._probeCourse, CS._courseLimits, CS._writeJson = probeCourse, COURSE_LIMITS, writeJson
 
 if addModEventListener ~= nil then
     addModEventListener(CompanionSpike)

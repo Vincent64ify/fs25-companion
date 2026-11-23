@@ -211,6 +211,37 @@ fields, `currentMode` and its name among `AIModeSelection.MODE`'s keys,
 3. Send back the `parts-*.json` files from
    `modSettings/FS25_CompanionSpike/`.
 
+## Steering Assist: the course's lanes (spike 0.0.17, spec 0021)
+
+[Spec 0021](../../specs/0021-gps-screen.md) draws the game's own course.
+Its class, `SteeringFieldCourse`, is not in the SDK's archive, and the save
+keeps only the field's boundary, the settings and `workedLines`, so the
+segments' names are unknown. `csCourse NAME` writes `course-NAME.json`:
+the Steering Assist part's state, the rig's position, and for
+`steeringFieldCourse` (and `lastActiveSteeringFieldCourse` when it is
+another table) its class, method names, plain fields, a shape (every key,
+its type and class, four levels down) and every list of tables found
+three levels down with each item's plain fields (links between items are
+refs), with the lists' size as JSON and the time to encode them. Reads
+only: `pairs` and `rawget`, no method calls. 0.0.17 shows every value of
+a list of plain values (0.0.16 showed six), so all of `segmentStates`,
+the done flags.
+
+1. Install the zip beside FS25 Companion 0.21.0, on Solek, the tractor and
+   cultivator, Steering Assist mode, headlands 1 or more.
+2. Each its own file, nothing to copy between:
+   - `fresh`: on the field, the course built, nothing worked yet;
+   - `midround`: halfway round the first headland, steering;
+   - `round1`: the first round done, on the first lane;
+   - `midlane`: halfway down that lane;
+   - `lane1`: that lane done, through the turn, on the next;
+   - `skip1`: a lane skipped by hand (the dialog has no setting for it):
+     past the next lane, onto the one after, that lane worked, stopped
+     at its end.
+3. Save the game once at the end (the save holds `workedLines`).
+4. Send back the `course-*.json` files from
+   `modSettings/FS25_CompanionSpike/`, and say which savegame slot.
+
 ## Contracts: is getMaxCutLiters safe on an offer? (spike 0.0.14, spec 0018)
 
 `csMaxCut N` calls `getMaxCutLiters()` once on harvest offer N (its

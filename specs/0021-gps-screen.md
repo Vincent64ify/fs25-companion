@@ -27,8 +27,9 @@ To be drawn on a canvas first; this is what it holds.
   headland rounds and the lanes in world metres, filling the screen.
   - Done lanes and rounds are solid green ("worked", like the trail but
     darker), a hairline of the field between them so they can be counted;
-    the lane you're on is the on blue with an outline; the ones to do are
-    faint dashed lines. A small legend sits in the field's corner
+    the lane you're on is the on blue with an outline, filled green up to
+    where you are along it (measured from its points and your position,
+    no rule of ours); the ones to do are faint dashed lines. A small legend sits in the field's corner
     (Vincent, 2026-11-19: done must read clearly against the lines).
   - The rig's position and heading, live.
   - With lanes closer than about 1 px on screen, they are shaded by state
@@ -36,18 +37,25 @@ To be drawn on a canvas first; this is what it holds.
 - **The counts,** over the field: lanes done ("Lanes done 10 of 40"), the
   lane you're on beside it ("On lane 21"), and the headland rounds done
   ("Rounds done 0 of 2"). Done lanes aren't all behind you: many players
-  (and farmers) skip a lane and work the next for a smoother turn (the
-  game's Skip Lines), so done is counted from the lanes the game marks,
-  never from the lane you're on (Vincent, 2026-11-19). Headland rounds
-  count too (Vincent, 2026-11-17).
+  (and farmers) skip a lane by hand and work the next for a smoother turn
+  (the dialog has no such setting), so done is counted from the lanes the game marks,
+  never from the lane you're on (Vincent, 2026-11-19). The lane you're on
+  never counts as done, whatever the game's flag says: once you leave it,
+  the game's flag decides, solid green and counted, or back to dashed
+  (Vincent, 2026-11-23: the game may mark a lane as you start it). A lane
+  started and left after a few metres counts as the game says; the trail
+  under it shows what was worked. Headland rounds count too (Vincent,
+  2026-11-17).
 - **The worked part:** the Vehicle page's trail (spec 0013) under the lanes,
   so what you worked while ignoring the lanes still shows (Vincent,
   2026-11-19). It is that trail as it is today, kept in each browser.
 - **Time left:** "≈ 18 min left", in real time (work runs at real-time
   rates at any game speed), from your own times on this field in this
   session: the lanes left times your time per lane and per turn, plus the
-  rounds left at your time per metre. So it follows skipping, your speed
-  and your turns (Vincent, 2026-11-19). "–" until two lanes are done.
+  rounds left at your time per metre, less how far along the lane you're
+  on you are. So it follows skipping, your speed and your turns (Vincent,
+  2026-11-19), and doesn't drop a lane as you start one (2026-11-23). "–"
+  until two lanes are done.
 - **A contract's field:** the same screen; the field line names your
   running contract on it ("Field 58 · Contract: Cultivating"), from the
   `contracts` topic (spec 0018: its `fieldId` and `title`) (Vincent,
@@ -94,16 +102,17 @@ Topics gain fields (Protocol v1); `v` doesn't change.
 - **Web** (`web/src/types.js`): `SteeringCourse`; a new screen in
   `web/src/widgets/` and its tab.
 
-Game API names, all **unverified**:
+Game API names, read live by spike 0.0.16 and 0.0.17 on Solek field 7
+(2026-11-23, `course-*.json`); verified once the live check passes:
 
 | Name | Where from | State |
 |---|---|---|
-| `spec_aiAutomaticSteering.steeringFieldCourse`, `.lastActiveSteeringFieldCourse` | AIAutomaticSteering.lua:133-134; both are in the save | unverified |
-| the course's segments, which are headland and which lanes, and their geometry | `SteeringFieldCourse` is not in the archive; the AI worker's `FieldCourse` has `.segments` (AIDriveStrategyFieldCourse.lua:203) | **unknown: the spike** |
-| `currentSegmentIndex`, `currentSegmentIsLeft`, `currentSegment` | AIAutomaticSteering.lua:357, 689-690 | unverified |
+| `spec_aiAutomaticSteering.steeringFieldCourse`, `.lastActiveSteeringFieldCourse` | AIAutomaticSteering.lua:133-134; both are in the save; the same table once you've steered on it | seen: the spike |
+| the segments: `course.fieldCourse.segments[i]` (`course.segments` is the same table), each with `segmentId` (= `i`), `positions` (`{x, z}` pairs, world metres, 2 to 4 points), `isHeadlandSegment`, `headlandIndex` (the round, headland only), `offsetLineIndex` (the lane's number, lanes only), `lineGroupIndex`, `length` | field 7, one headland: lanes 1 to 10, then the round as segments 11 to 14; 5 KB as JSON, encoded in 0.2 ms | seen: the spike |
+| `currentSegmentIndex`, `currentSegmentIsLeft`, `currentSegment` (the segment's own table) | AIAutomaticSteering.lua:357, 689-690; the index follows the lane under you, steering or not | seen: the spike |
 | `spec_aiAutomaticSteering.lastIsOnField` (`onField`) | AIAutomaticSteering.lua:129-141; the game updates it only for the local player's vehicle in Steering Assist mode (:440-441), so it may be stale outside it | unverified |
-| the lanes done: the save's `workedLines indices` (segment indices: one round and one lane gave five); in memory, the field name is unknown | Vincent's Solek save, 2026-11-17 | **unknown: the spike** |
-| the field's outline: the save's `field boundary positions` (x z pairs, world metres) | Vincent's Solek save | unverified |
+| the lanes done: `course.segmentStates[i]`, one boolean per segment; the save's `workedLines indices` are the same indices, and a reload puts them back | the round and lanes 10 and 9 done gave `9 10 11 12 13 14` in the save and in memory after reloading; lane 8 skipped by hand and lane 7 worked gave `7 9 10 ...` | seen: the spike |
+| the field's outline: `course.fieldCourse.courseField.boundaryPositions` (`{x, z}` pairs, world metres; `course.rootBoundaryLine` is the same table); in the save, `field boundary positions` | field 7: 9 points | seen: the spike |
 
 ## Commands
 
@@ -113,8 +122,8 @@ None. Steering on and off is spec 0020's; the settings are spec 0022's.
 
 1. **Spike (read only):** a shallow dump of `steeringFieldCourse` and one
    segment's plain fields; drive one headland round and one lane, then a
-   lane with Skip Lines at 1, and record which indices go done; the size of a course as JSON and the time
-   to encode it.
+   lane skipped by hand, and record which indices go done; the size of a course as JSON and the time
+   to encode it. Done 2026-11-23 (the Log).
 2. **The canvas** at both sizes, day and night, approved before code.
 3. `mod/src/Api.lua` reads; `mod/src/collectors/SteeringCourse.lua` (one
    collector, one topic); `mod/modDesc.xml` 0.22.0.
@@ -165,6 +174,8 @@ Live check (Solek, mod 0.22.0):
 3. ~~Time left~~: your own lane and turn times on this field (Behaviour).
 4. ~~A GPS layer on the Map~~: not in this spec; PLAN.md keeps it.
 5. ~~Contract fields~~: the same screen, the contract named (Behaviour).
+6. ~~When a lane goes done~~: once you've left it, as the game marks it;
+   the lane you're on fills as you go (Behaviour).
 
 ## Log
 
@@ -199,3 +210,27 @@ Live check (Solek, mod 0.22.0):
 - 2026-11-19: approved by Vincent. Next: the build, starting with the spike
   (Plan, step 1); a dump that disagrees with the Data contract sends it
   back for approval.
+- 2026-11-22: spike 0.0.16 written for the Plan's step 1: `csCourse NAME`
+  dumps the course by shape, raw reads only (the save keeps no segments,
+  and 0.0.15's course dump showed only its plain fields). Six runs and a
+  save in `research/spike/README.md`; waiting for Vincent's files.
+- 2026-11-23: five dumps of spike 0.0.16 on field 7 (a cultivating
+  contract, one headland): 14 segments in `fieldCourse.segments` (each
+  with `positions`, `isHeadlandSegment`, `headlandIndex`, `lineGroupIndex`,
+  `offsetLineIndex`, `segmentId`), the current one in `currentSegment`,
+  and the done flags in `course.segmentStates`, one boolean per segment.
+  The shape showed only its first 6 values, so spike 0.0.17 shows them
+  all. "Skip Lines" is not in the AI Settings dialog (Vincent's
+  screenshot); the course settings' `skipNumLines` is the game's own and
+  not used here; Behaviour and the Plan now say skipping by hand.
+- 2026-11-23: spike 0.0.17, three more dumps and the save (slot 13): the
+  done flags are `segmentStates`, the save's `workedLines` are the same
+  indices and come back on reload, and a lane skipped by hand stays not
+  done while the one after goes done (the Data contract table). Lane 9
+  was done in the save Vincent made at its start, so a lane may go done
+  when you start it, not when you finish it: open question 6.
+- 2026-11-23: Vincent answered question 6: the lane you're on never
+  counts; it fills green up to where you are, and once you leave it the
+  game's flag decides; no threshold of ours (the game's course, never our
+  own). The time left takes off how far along it you are. Behaviour
+  updated; approved by Vincent.
