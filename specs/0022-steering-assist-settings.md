@@ -34,9 +34,10 @@ Vincent changes all of them, field by field and tool by tool.
     1 m steps (Vincent, 2026-11-23), and one tap back to Auto.
   - **Headlands:** how many rounds around the field before the straight
     lanes; "Auto · 1" or a count, −/+.
-  - **Work direction:** the lanes' angle in degrees; "Auto" or a set
-    angle; −/+ in 1° and in 5° steps (Vincent, 2026-11-23), and one tap
-    back to Auto.
+  - **Work direction:** the lanes' angle in degrees; "Auto" (the game
+    picks the angle for the field) or a set angle, one of the game's
+    dialog's choices, 0° to 175°; −/+ in 5° steps (Vincent, 2026-11-24,
+    after spike 0.0.19), and one tap back to Auto.
   - **Side offset:** for tools not centred on the lane (a plough, a
     trailed potato harvester); "Auto · 0 m" (the dialog's "0.0 M (AUTO)")
     or metres to one side, "0.5 m left" (the game's −) or "0.5 m right"
@@ -146,9 +147,41 @@ and what the spikes read in memory:
 | Cruise deactivation | `cruiseControl` | not in `fieldCourseSettings`: `g_gameSettings.steeringAssistCruiseControl`, true = Automatic, every vehicle; the vehicle's own copy (`spec_vehicleSettings`) follows it (spike 0.0.18) | — |
 | Mode | `currentMode` (`STEERING_ASSIST`, `WORKER`) | `spec_aiModeSelection.currentMode`, 1 or 2: **verified** (`AIModeSelection.MODE`, GAME-API.md) | — |
 
-No Auto flag is saved: Auto may be "the value equals the tool's default"
-(inferred); the dialog shows "(AUTO)" on width and headlands, "AUTOMATIC"
-on direction, "0.0 M (AUTO)" on the offset at 0. The AI worker dialog's own rows
+No Auto flag is saved or kept, and Auto means two things:
+- **Width, headlands, offset:** Auto is the value equal to the default
+  the game takes from the tool (`FieldCourseSettings.generate`), the same
+  on every field (spike 0.0.19: back at 5.0 m from 5.1 m the dialog said
+  "(Auto)" again, the entry's value 50 against its default 50).
+- **Direction:** Auto is a choice of its own, −57 (−1 rad in the course
+  settings, any negative after a reload), and the game's course builder
+  picks the angle for each field: on Auto the lanes ran at 30° on field
+  119 and 77° on field 7, angles that aren't among the dialog's 5° choices
+  (the lanes measured in the dumps; a set 45° measured 45°). How it picks
+  is in the builder, which isn't in the archive (likely the field's
+  longest side, inferred). The dialog shows "(AUTO)"
+on width and headlands, "AUTOMATIC" on direction, "0.0 M (AUTO)" on the
+offset at 0.
+
+What the dialog holds (spike 0.0.19, `userSettings.settings`, one list per
+mode, `[1]` the AI worker and `[2]` Steering Assist, an entry per row, each
+with `value`, and where it has one `defaultValue`, `min`, `max`, `step`,
+and `setting` with the row's `identifier`, `title` and texts):
+
+| Row (Steering Assist) | `identifier` | `value` | Range and step | Auto |
+|---|---|---|---|---|
+| Working Width | `implementWidth` | tenths of a metre (50) | 5 to 600 (0.5 to 60 m), step 1 (0.1 m) | `value == defaultValue` (the tool's) |
+| Number of Headlands | `numHeadlands` | a count | 1 to 4 (the worker's 2 to 4), step 1 | `value == defaultValue` |
+| Work Direction | `workDirection` | whole degrees | 37 choices: −57 (Automatic), then 0° to 175° in 5° steps | −57: the builder picks the angle per field |
+| Side Offset | `sideOffset` | metres | −5 to 5, step 0.1 | `value == defaultValue` (0) |
+| Show Lines | `showLines` | boolean (`loadedValue` from the save) | | |
+| Cruise Control Deactivation | `cruiseControl` | boolean, false Manual, true Automatic | | |
+
+The AI worker's list has its own width, headlands and direction, then
+`workHeadlands`, `headlandFirst` and `skipNumLines`. `fieldCourseSettings`
+holds **the selected mode's** values, applied by the dialog's OK (the
+worker's 90° became 1.5708 rad in AI worker mode, Steering Assist's Auto
+−0.99484 back in its mode); the save keeps both lists (`settings` ›
+`worker` and `steering_assist`) and reloads them. The AI worker dialog's own rows
 (Work the Headlands, Start with, Skip Lines) are `workHeadlands`,
 `headlandsFirst` and `skipNumLines` (its screenshot against the dumps);
 not set here. The AI worker
@@ -159,11 +192,11 @@ Game API names, all **unverified** unless marked:
 
 | Name | Where from | State |
 |---|---|---|
-| `spec_aiModeSelection.fieldCourseSettings` and its plain fields (above) | spike 0.0.15's `csParts` (`mod/tests/fixtures/spike0020/`) | seen: the spike; which mode's settings it is: **unknown** |
-| `setAIModeSelection(aiMode)`: sends its own event | AIModeSelection.lua:294-314 | unverified |
-| `getIsAutomaticSteeringAllowed()`: whether a tool allows steering (the dialog's guard; the game puts the mode back to AI worker otherwise) | AIAutomaticSteering.lua:629-645 | unverified |
+| `spec_aiModeSelection.fieldCourseSettings` and its plain fields (above) | spike 0.0.15's `csParts` (`mod/tests/fixtures/spike0020/`); spikes 0.0.18–19 | seen: the selected mode's (spike 0.0.19) |
+| `setAIModeSelection(aiMode)`: sends its own event | AIModeSelection.lua:294-314 | seen (spike 0.0.19): the mode changes on the frame; to AI worker the course goes, to Steering Assist the game builds a new one (187 ms); it does **not** apply the new mode's choices onto `fieldCourseSettings` (the worker's 90° stayed Steering Assist's Auto) |
+| `getIsAutomaticSteeringAllowed()`: whether a tool allows steering (the dialog's guard; the game puts the mode back to AI worker otherwise); each tool's `getImplementAllowAutomaticSteering()` returns a constant or reads its work areas' types | AIAutomaticSteering.lua:629-645; AIImplement.lua:761, WorkArea.lua:693, Combine.lua:1886, TreePlanter.lua:958 | seen (spike 0.0.19): true with the LEMKEN (the cultivator's own true), false in the Arocs 4133 |
 | `aiModeSettingsChanged(aiMode, fieldCourseSettings)`: the dialog's own OK, on a clone of the game's settings; it stores the clone, sends `AIModeSelectionSettingsEvent`, calls `setAIModeSelection(aiMode)` and raises `onAIModeSettingsChanged`, and doesn't touch `userSettings` (the dialog changes those itself) | AIModeSelection.lua:249, 324-333 | unverified |
-| `spec_aiModeSelection.userSettings` (class `AIUserSettings`: `new(fieldCourseSettings)`, `reinitialize(fieldCourseSettings, bool)`, `apply(fieldCourseSettings, mode)`, `saveToXML`, `loadFromXML`): what the player chose, per mode (the save's `settings`), applied onto `fieldCourseSettings`; nil after any attach or detach until H is held or a save loads (`onStateChange`), which may be why spike 0.0.15 didn't see it | AIModeSelection.lua:100-127, 155-180, 205-210, 224-249, 337-350; the class itself is not in the archive | fields **unknown: the spike** |
+| `spec_aiModeSelection.userSettings` (class `AIUserSettings`: `new(fieldCourseSettings)`, `reinitialize(fieldCourseSettings, bool)`, `apply(fieldCourseSettings, mode)`, `saveToXML`, `loadFromXML`): what the player chose, per mode (the save's `settings`), applied onto `fieldCourseSettings`; nil after any attach or detach until H is held or a save loads (`onStateChange`), which may be why spike 0.0.15 didn't see it | AIModeSelection.lua:100-127, 155-180, 205-210, 224-249, 337-350; the class itself is not in the archive (nor any global named AI…Setting…, spike 0.0.19) | fields seen (spike 0.0.19, the table above); its methods **unverified** |
 | `FieldCourseSettings.generate(rootVehicle)`: the tool's own settings, the Auto values; the game calls it when there are none | AIModeSelection.lua:231-233, 367 | never called by the mod |
 | `AISettingsDialog.show(userSettings, fieldCourseSettings:clone(), vehicle, mode, fieldX, fieldZ, callback)`: the dialog gets the game's own `userSettings` (not a copy) and a clone of the course settings; its Reset is in the dialog's code | AIModeSelection.lua:249; the dialog is not in the archive | unverified |
 | `g_fieldCourseManager:generateFieldCourseAtWorldPos(x, z, fieldCourseSettings, callback)`: the game's course builder; the course comes back later to `callback(_, course)`, nil if none; Steering Assist then wraps it (`SteeringFieldCourse.new(course)`) and sets it on the vehicle, which the preview never does. It builds one at a time per vehicle (`fieldCourseDetectionInProgress`, a pending one queued) | AIAutomaticSteering.lua:738-776; AIDriveStrategyFieldCourse.lua (the AI worker, the same call); the manager is not in the archive | **unknown: the spike** (that it leaves the vehicle alone, how long it takes, two at once) |
@@ -304,8 +337,10 @@ Live check (Solek, mod 0.23.0):
   the vehicle; dropped if the spike shows the builder isn't safe.
 - **The mode is here,** with the dialog's other settings (moved from
   spec 0020).
-- **Steps** (Vincent, 2026-11-23): width ±0.1 m and ±1 m, direction ±1°
-  and ±5°. No number pad, no "along my heading" button.
+- **Steps** (Vincent, 2026-11-23): width ±0.1 m and ±1 m. Direction ±5°
+  only, the game's own choices (Vincent, 2026-11-24: its dialog has no
+  other angles; was ±1° and ±5°). No number pad, no "along my heading"
+  button.
 - **Per vehicle** (Vincent, 2026-11-23): the dialog's course settings
   and mode belong to the vehicle; a command changes the controlled
   vehicle's only. **Show lines and Cruise are game-wide** (Vincent,
@@ -323,11 +358,12 @@ Live check (Solek, mod 0.23.0):
 1. The AI worker's own settings (Work the Headlands, Start with, Skip
    Lines, and its width, headlands and direction): not here; PLAN.md's AI
    worker item.
-2. **Where the two modes' settings are kept apart:** the game's code has
-   one `fieldCourseSettings` per vehicle, and `userSettings:apply(...,
-   mode)` writes the selected mode's choices onto it, so the settings
-   in `fieldCourseSettings` are likely the selected mode's (inferred), and
-   `userSettings` holds both. The spike reads `userSettings`' fields.
+2. ~~**Where the two modes' settings are kept apart:**~~ answered
+   2026-11-24 (spike 0.0.19): `userSettings` keeps both lists;
+   `fieldCourseSettings` is the selected mode's. A mode set with
+   `setAIModeSelection` alone keeps the old mode's values there, so the
+   dashboard's mode change must apply the new mode's choices as the
+   dialog's OK does (a spike call: `userSettings:apply`).
 3. ~~**Show lines' key:**~~ answered 2026-11-24 (spike 0.0.18): the dialog
    changes the game's setting, every vehicle; so does the key. The save
    still writes it per vehicle; the game reads the game's. Game-wide
@@ -335,14 +371,13 @@ Live check (Solek, mod 0.23.0):
 4. **AI worker rows on this panel later?** With the worker's own spec,
    the panel may show the selected mode's rows (Vincent: only the
    selected mode's settings are set).
-5. **Auto after a reload:** the course on field 7 read -0.99484 rad, which
-   is exactly -57°, where Auto in memory is -1 rad. If that course was on
-   Auto, the save's -57 comes back as a set angle of -57°: does the game's
-   dialog still say Automatic, and what does the panel show? The spike's
-   reload dump answers it.
-6. **How the dialog builds its preview,** and how long the game takes:
-   the spike times a build on fields 6 and 7. If it takes seconds, the
-   preview waits longer after the last tap.
+5. ~~**Auto after a reload:**~~ answered 2026-11-24: the dialog says
+   Automatic; `userSettings` holds −57 (Auto), `fieldCourseSettings`
+   −0.99484 rad. The panel reads Auto from `userSettings`.
+6. ~~**How the dialog builds its preview:**~~ answered 2026-11-24 (spike
+   0.0.18): 150 to 340 ms a build here.
+7. ~~**The direction's steps:**~~ answered 2026-11-24 (Vincent): 5° only,
+   as the game's dialog (0° to 175° and Automatic).
 
 ## Log
 
@@ -502,3 +537,21 @@ Live check (Solek, mod 0.23.0):
   `getImplementAllowAutomaticSteering` (plain reads in the game's
   scripts). `csMode` calls `setAIModeSelection`, the session's new call,
   and records 3 s of changes. The steps are in `research/spike/README.md`.
+- 2026-11-24: spike 0.0.19 run on Solek, field 119 (the Fendt 728 and the
+  LEMKEN), and the Arocs 4133; dumps in `mod/tests/fixtures/spike0022/`.
+  `userSettings` holds the dialog's rows, one list per mode, an entry per
+  row with its value, default, range and texts (the Data contract's new
+  table). Auto is the value equal to the tool's default: no flag; the direction's
+  Auto is −57, the builder's own angle per field (30° on field 119, 77° on
+  field 7), and its other choices are 0° to 175° in 5° steps (open
+  question 7). `fieldCourseSettings` is the selected mode's, applied by
+  the dialog's OK (open question 2). `getIsAutomaticSteeringAllowed`:
+  true with the cultivator, false in the Arocs. `setAIModeSelection`
+  switched both ways (the course gone, then rebuilt in 187 ms) but left
+  the old mode's values in `fieldCourseSettings`: the mode command must
+  also apply the new mode's choices. Save and reload kept both modes'
+  choices and the mode.
+- 2026-11-24: Vincent: the direction in the game's 5° steps only (open
+  question 7); Behaviour and Decisions updated. Auto told apart in the Data
+  contract: the tool's value for width, headlands and offset, the game's
+  own angle per field for the direction.
