@@ -45,6 +45,9 @@ Vincent changes all of them, field by field and tool by tool.
   - **Show lines:** On or Off.
   - **Cruise control:** Manual or Automatic, the game's words for its
     "Cruise Control Deactivation" (off at the lane end).
+  - Show lines and Cruise are the game's own settings, the same for every
+    vehicle (spike 0.0.18; Vincent, 2026-11-24: game-wide, as the game
+    does).
 - **While Set up is open there is no Drive column** (Vincent, 2026-11-24):
   close it to steer; setting up happens standing still.
 - **The preview's look:** the lanes tinted in this lane's colour with a
@@ -78,10 +81,11 @@ Vincent changes all of them, field by field and tool by tool.
   `onField`). In AI worker mode only the Mode row is live; the others fade
   with "Switch to Steering Assist" (open question 4: the worker's own
   rows later).
-- **Per vehicle:** the dialog's settings belong to the vehicle you're in
-  (Vincent, 2026-11-23: changed on one tractor on one field, the other
-  tractor on another field kept its own); the panel shows the controlled
-  vehicle's.
+- **Per vehicle:** the course rows (width, headlands, direction,
+  offset) and the mode belong to the vehicle you're in (Vincent,
+  2026-11-23: changed on one tractor on one field, the other tractor on
+  another field kept its own); the panel shows the controlled vehicle's.
+  Show lines and Cruise are game-wide (above).
 - **Only on a field the farm may work** (Vincent, 2026-11-17): its own, a
   contract field it took, or in multiplayer another farm's field that
   allows it. Elsewhere the course rows are faded, with "Drive onto a field
@@ -108,9 +112,12 @@ Topics gain fields (Protocol v1); `v` doesn't change.
   `canAssist`):
   - `settings`: `width` {`m`, `auto`}, `headlands` {`count`, `auto`},
     `direction` {`deg`, `auto`}, `offset` {`m`, `auto`} (− left, + right),
-    `showLines`, `cruiseOff`; absent until
-    the game has settings for this vehicle; read from plain fields, never
-    filled in by calling the game's width getter or course builder;
+    `showLines`, `cruiseOff` (Automatic: cruise off at the lane end);
+    absent until the game has settings for this vehicle; read from plain
+    fields, never filled in by calling the game's width getter or course
+    builder. `showLines` and `cruiseOff` are the game's
+    (`g_gameSettings`' `steeringAssistLines` and
+    `steeringAssistCruiseControl`), the same in every vehicle's message;
   - `canAssist` (boolean): whether a tool here allows Steering Assist, for
     the Mode row's fade, once the spike shows `getIsAutomaticSteeringAllowed`
     is safe to call (else from the fields it reads).
@@ -135,8 +142,8 @@ and what the spikes read in memory:
 | Headlands | `numHeadlands`, a count | `numHeadlands` (3) | `numHeadlands` (1, field 7) |
 | Work direction | `workDirection`, whole degrees (135); -57 saved for Auto | `workDirection`, radians; **-1 = Auto** | `workDirection`, radians: -0.99484 on field 7, before and after a reload (open question 5) |
 | Side offset | `sideOffset`, metres, signed (-0.5); − is left of the way you drive, + right (Vincent, live) | `sideOffset` (0); also `sideOffsetHeadlandAlternate`, `variableSideOffset` | `sideOffset` |
-| Show lines | `showLines`, per vehicle | not in `fieldCourseSettings` | — |
-| Cruise deactivation | `cruiseControl` | not in `fieldCourseSettings` | — |
+| Show lines | `showLines`, per vehicle | not in `fieldCourseSettings`: `g_gameSettings.steeringAssistLines`, every vehicle (spike 0.0.18: the dialog changed it) | — |
+| Cruise deactivation | `cruiseControl` | not in `fieldCourseSettings`: `g_gameSettings.steeringAssistCruiseControl`, true = Automatic, every vehicle; the vehicle's own copy (`spec_vehicleSettings`) follows it (spike 0.0.18) | — |
 | Mode | `currentMode` (`STEERING_ASSIST`, `WORKER`) | `spec_aiModeSelection.currentMode`, 1 or 2: **verified** (`AIModeSelection.MODE`, GAME-API.md) | — |
 
 No Auto flag is saved: Auto may be "the value equals the tool's default"
@@ -161,8 +168,8 @@ Game API names, all **unverified** unless marked:
 | `AISettingsDialog.show(userSettings, fieldCourseSettings:clone(), vehicle, mode, fieldX, fieldZ, callback)`: the dialog gets the game's own `userSettings` (not a copy) and a clone of the course settings; its Reset is in the dialog's code | AIModeSelection.lua:249; the dialog is not in the archive | unverified |
 | `g_fieldCourseManager:generateFieldCourseAtWorldPos(x, z, fieldCourseSettings, callback)`: the game's course builder; the course comes back later to `callback(_, course)`, nil if none; Steering Assist then wraps it (`SteeringFieldCourse.new(course)`) and sets it on the vehicle, which the preview never does. It builds one at a time per vehicle (`fieldCourseDetectionInProgress`, a pending one queued) | AIAutomaticSteering.lua:738-776; AIDriveStrategyFieldCourse.lua (the AI worker, the same call); the manager is not in the archive | **unknown: the spike** (that it leaves the vehicle alone, how long it takes, two at once) |
 | the dialog's own preview (the map beside its settings) | not in the archive; likely the same builder | unverified |
-| `GameSettings.SETTING.STEERING_ASSIST_LINES` (every vehicle) and the key `TOGGLE_AI_STEERING_LINES` (seen: active, `displayIsVisible` false, spike 0.0.15) | AIAutomaticSteering.lua:895, 922-925 | unverified |
-| `GameSettings.SETTING.STEERING_ASSIST_CRUISE_CONTROL` (a vehicle setting) and its setter | AIAutomaticSteering.lua:407; the setter is not in the archive | **unknown: the spike** |
+| `GameSettings.SETTING.STEERING_ASSIST_LINES` = `"steeringAssistLines"`, a game setting for every vehicle, read raw from `g_gameSettings`; the key `TOGGLE_AI_STEERING_LINES` flips it with `g_gameSettings:setValue(…, not value, true)` (seen: active, `displayIsVisible` false, spike 0.0.15) | AIAutomaticSteering.lua:895, 922-925; spike 0.0.18 | read: seen (spike 0.0.18); the key: unverified |
+| `GameSettings.SETTING.STEERING_ASSIST_CRUISE_CONTROL` = `"steeringAssistCruiseControl"`, a game setting (true = Automatic) that each vehicle copies when you get in and when it changes (`registerVehicleSetting`); set with `g_gameSettings:setValue`, as the lines key does | AIAutomaticSteering.lua:157, 407; VehicleSettings.lua:96-170; spike 0.0.18 | read: seen (spike 0.0.18); `setValue` for cruise: unverified |
 
 Never called: `setAIModeFieldCourseSettings` (the receiving end of the
 game's network event), a settings object the mod builds itself,
@@ -193,10 +200,11 @@ the change back. It is host only until checked on a multiplayer client.
   `mod/src/Commands.lua`, `companion/server.py` and
   `companion/commands.py`.
 - **`steering.lines.set`** and **`steering.cruiseOff.set`**, value 0 or 1,
-  for the controlled vehicle only: show lines the way the dialog sets it
-  (per vehicle), and through `TOGGLE_AI_STEERING_LINES` only if the spike
-  shows the key changes this vehicle alone; cruise through the vehicle
-  setting's setter.
+  game-wide (the game's settings, every vehicle): show lines through the
+  game's own key, `TOGGLE_AI_STEERING_LINES`, pressed only when the
+  setting differs; cruise through `g_gameSettings:setValue`, the way the
+  lines key sets its own (the game has no key for cruise). Ok when
+  `g_gameSettings` reads the value back.
 - **`steering.settings.preview`**, with the panel's values in the same
   `settings` attribute: in Steering Assist mode, on a field the farm may
   work, steering off. A clone of the game's course settings, changed, to
@@ -298,9 +306,11 @@ Live check (Solek, mod 0.23.0):
   spec 0020).
 - **Steps** (Vincent, 2026-11-23): width ±0.1 m and ±1 m, direction ±1°
   and ±5°. No number pad, no "along my heading" button.
-- **Per vehicle** (Vincent, 2026-11-23): the dialog's settings, show lines
-  included, belong to the vehicle; a command changes the controlled
-  vehicle's only.
+- **Per vehicle** (Vincent, 2026-11-23): the dialog's course settings
+  and mode belong to the vehicle; a command changes the controlled
+  vehicle's only. **Show lines and Cruise are game-wide** (Vincent,
+  2026-11-24, after spike 0.0.18 showed the dialog changes the game's
+  settings): the panel sets them as the game does, for every vehicle.
 - **The offset's side** (Vincent, tested 2026-11-23): − is left, + is
   right.
 - **Only the selected mode's settings** (Vincent, 2026-11-23): in AI
@@ -318,9 +328,10 @@ Live check (Solek, mod 0.23.0):
    mode)` writes the selected mode's choices onto it, so the settings
    in `fieldCourseSettings` are likely the selected mode's (inferred), and
    `userSettings` holds both. The spike reads `userSettings`' fields.
-3. **Show lines' key:** the save keeps it per vehicle, the game's code
-   reads a `GameSettings` setting (every vehicle); the spike shows which
-   one the dialog and the key change.
+3. ~~**Show lines' key:**~~ answered 2026-11-24 (spike 0.0.18): the dialog
+   changes the game's setting, every vehicle; so does the key. The save
+   still writes it per vehicle; the game reads the game's. Game-wide
+   (Vincent).
 4. **AI worker rows on this panel later?** With the worker's own spec,
    the panel may show the selected mode's rows (Vincent: only the
    selected mode's settings are set).
@@ -433,3 +444,53 @@ Live check (Solek, mod 0.23.0):
   (VehicleSettings.lua:96-170). Offline tests:
   `mod/tests/test_spike_preview.py`. The steps are in
   `research/spike/README.md`; waiting for Vincent's files.
+- 2026-11-24: spike 0.0.18 run on Solek, field 119: the Fendt 728 Vario
+  with the LEMKEN Smaragd 9/500K (5 m) and a front weight. The dumps are
+  in `mod/tests/fixtures/spike0022/`.
+  **The preview is safe** (Plan step 1's first bullet). The builder always
+  answers on a later frame, never in the call: 150 to 170 ms for one
+  build. Two at once are queued (`pendingFieldCourseGenerators`) and
+  answered in turn (152 and 339 ms). One sent while the game built its
+  own course, after OK in the dialog, came 312 ms later; the game's own
+  course was built and Steering worked. One sent while steering left
+  steering on, on the same segment. In every run the vehicle's course,
+  `lastActiveSteeringFieldCourse`, settings and flags stayed the same
+  tables and values, and the builder kept no copy. The unchanged clone
+  gave the game's own course point for point (42 segments). The 45° clone
+  gave exactly the course the game built when Vincent set 45° in its
+  dialog (55 segments). A built course is about 13 KB as JSON and carries
+  its settings (`courseField.fieldCourseSettings`).
+  **The settings:**
+  - Each dialog row is a plain field of
+    `spec_aiModeSelection.fieldCourseSettings`: width in metres, headlands
+    a count, direction in radians, offset in metres.
+  - Reset brought back exactly the Auto values.
+  - In AI worker mode the Steering Assist course goes, and the settings
+    read the same (both modes were on Auto).
+  - **Show lines and Cruise are game-wide:** the dialog changed
+    `g_gameSettings`' `steeringAssistLines` and
+    `steeringAssistCruiseControl`, and the vehicle's cruise setting
+    followed. This disagrees with Behaviour's "per vehicle" and the
+    Decisions, so it goes to Vincent before the build.
+  - `userSettings.settings` holds one list per mode, six entries each,
+    and is there after a save loads. The dump stopped one level above
+    the entries, so the next spike goes deeper.
+  **Question 5, answered:**
+  - A set 135° came back after a reload as 135°.
+  - Auto is saved as −57 (the save's degrees) and comes back as
+    −0.99484 rad, yet the dialog shows Automatic. So "Auto" is likely any
+    negative direction (inferred), not −1 exactly.
+  - Width and headlands on Auto are saved as plain values (50 tenths, 2),
+    so how the dialog tells Auto from a set 5.0 m is in `userSettings`:
+    the next spike.
+
+  **Question 6, answered:** builds take 150 to 340 ms here, so half a
+  second after the last tap is enough. The field 6 run was skipped.
+- 2026-11-24: Vincent: Show lines and Cruise game-wide, as the game does.
+  Behaviour, the Data contract (read from `g_gameSettings`), Commands (the
+  lines key, cruise through `g_gameSettings:setValue`), Decisions and
+  open question 3 updated. Still the spec as approved otherwise. Next
+  spike (0.0.19, a game restart): `userSettings.settings` deeper (how the
+  dialog tells Auto from a set value, open question 2), then the Plan's
+  calls one per session: `getIsAutomaticSteeringAllowed`,
+  `setAIModeSelection`, cruise's `setValue`, `aiModeSettingsChanged`.
