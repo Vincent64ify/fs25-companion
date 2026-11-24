@@ -23,7 +23,7 @@
 CompanionSpike = {}
 local CS = CompanionSpike
 
-local SPIKE_VERSION = "0.0.17"
+local SPIKE_VERSION = "0.0.18"
 local MOD_DIR = g_currentModDirectory or ""
 
 local LIMITS = {
@@ -2971,6 +2971,585 @@ function CompanionSpike:consoleCourse(name)
 end
 
 ---------------------------------------------------------------------------
+-- csPreview and csSettings (spike 0.0.18, spec 0022)
+---------------------------------------------------------------------------
+-- csPreview NAME [DEG|auto] [two] [wait] [steering] asks the game's course
+-- builder, g_fieldCourseManager:generateFieldCourseAtWorldPos, for a course
+-- built with a clone of the vehicle's course settings, and never gives it
+-- to the vehicle (AIAutomaticSteering.lua:738-776 builds the same way, then
+-- sets it with SteeringFieldCourse.new, which the spike never calls). The
+-- builder is the one new call. Two more are the game's own, made where it
+-- makes them: fieldCourseSettings:clone() (every time H opens the dialog,
+-- AIModeSelection.lua:247) and roundToTerrainDetailPixel (every frame in
+-- Steering Assist mode, AIAutomaticSteering.lua:443). The call is made from
+-- update, a frame after the console; the callback only stores what it got;
+-- everything is read and written on later frames. The game's own flags
+-- (fieldCourseDetectionInProgress, forceFieldCourseUpdate) are never written.
+--
+--   DEG       the clone's workDirection in degrees (auto: -1, the game's
+--             Auto); none: the clone unchanged, the control run
+--   two       a second build in the same frame at DEG + 30
+--   wait      armed: fires on the frame the game starts its own build
+--             (fieldCourseDetectionInProgress), e.g. after OK in the dialog
+--   steering  allowed while steering (refused otherwise)
+local PREVIEW = {
+    settleMs = 3000,    -- read again this long after the last answer
+    timeoutMs = 30000,  -- write anyway if a build never answers
+    armMs = 120000,     -- wait: give up if the game never builds
+    secondDeg = 30,     -- two: the second build's direction, DEG + this
+}
+
+local function steeringHolder(v)
+    local root = firstOf(v, "getRootVehicle") or v
+    for _, m in ipairs(rigMembers(root)) do
+        if type(rawget(m.o, "spec_aiAutomaticSteering")) == "table" then
+            return m.o
+        end
+    end
+    return nil
+end
+
+-- a table's top level: plain values as they are, tables by class and size
+local function shallowOf(t)
+    if type(t) ~= "table" then
+        return nil
+    end
+    local out = {}
+    for k, v in pairs(t) do
+        local tv = type(v)
+        if tv == "table" then
+            out[tostring(k)] = { class = classNameOf(v), n = rawLen(v), keys = countKeys(v) }
+        elseif tv ~= "function" then
+            out[tostring(k)] = scalarOf(v) or ("<" .. tv .. ">")
+        end
+    end
+    return out
+end
+
+local function valuesOf(t)
+    if type(t) ~= "table" then
+        return nil
+    end
+    local out = {}
+    for i = 1, rawLen(t) do
+        out[i] = scalarOf(rawget(t, i))
+    end
+    return out
+end
+
+-- the keys of t's table fields whose table isn't the one first read (or
+-- that came or went); plain values show in shallowOf
+local function tablesChanged(t, first)
+    if type(t) ~= "table" or type(first) ~= "table" then
+        return nil
+    end
+    local out = {}
+    for k, v in pairs(t) do
+        if type(v) == "table" and not rawequal(v, first[k]) then
+            out[#out + 1] = tostring(k)
+        end
+    end
+    for k in pairs(first) do
+        if type(rawget(t, k)) ~= "table" then
+            out[#out + 1] = tostring(k)
+        end
+    end
+    table.sort(out)
+    return out
+end
+
+local function tableFields(t)
+    local out = {}
+    if type(t) == "table" then
+        for k, v in pairs(t) do
+            if type(v) == "table" then
+                out[k] = v
+            end
+        end
+    end
+    return out
+end
+
+-- where a table sits among t's fields, and one level into them
+local function placesOf(target, t, label)
+    local out = {}
+    if type(t) ~= "table" then
+        return out
+    end
+    for k, v in pairs(t) do
+        if rawequal(v, target) then
+            out[#out + 1] = label .. "." .. tostring(k)
+        elseif type(v) == "table" then
+            for k2, v2 in pairs(v) do
+                if rawequal(v2, target) then
+                    out[#out + 1] = label .. "." .. tostring(k) .. "." .. tostring(k2)
+                end
+            end
+        end
+    end
+    return out
+end
+
+local function steeringModeValue()
+    local modes = type(AIModeSelection) == "table" and rawget(AIModeSelection, "MODE") or nil
+    return type(modes) == "table" and rawget(modes, "STEERING_ASSIST") or nil
+end
+
+-- the game's own course, its flags, its settings and the manager, read raw;
+-- the course and settings tables compared by identity with the first read
+local function previewSnapshot(run)
+    local aut, sel = run.aut, run.sel
+    local course = rawget(aut, "steeringFieldCourse")
+    local last = rawget(aut, "lastActiveSteeringFieldCourse")
+    local settings = rawget(sel, "fieldCourseSettings")
+    local s = {
+        at = g_time,
+        flags = {
+            steeringEnabled = rawget(aut, "steeringEnabled"),
+            lastIsOnField = rawget(aut, "lastIsOnField"),
+            fieldCourseDetectionInProgress = rawget(aut, "fieldCourseDetectionInProgress"),
+            pendingData = rawget(aut, "fieldCourseDetectionPendingData") ~= nil,
+            forceFieldCourseUpdate = rawget(aut, "forceFieldCourseUpdate"),
+            resetCourseTimer = scalarOf(rawget(aut, "resetCourseTimer")),
+        },
+        currentMode = scalarOf(rawget(sel, "currentMode")),
+        course = {
+            present = course ~= nil,
+            same = rawequal(course, run.course0),
+            lastPresent = last ~= nil,
+            lastSame = rawequal(last, run.last0),
+        },
+        settings = plainFieldsOf(settings),
+        sameSettings = rawequal(settings, run.settings0),
+        manager = shallowOf(g_fieldCourseManager),
+        managerTablesChanged = tablesChanged(g_fieldCourseManager, run.mgr0),
+        steeringTablesChanged = tablesChanged(aut, run.aut0),
+    }
+    if type(course) == "table" then
+        s.course.currentSegmentIndex = scalarOf(rawget(course, "currentSegmentIndex"))
+        s.course.segmentStates = valuesOf(rawget(course, "segmentStates"))
+    end
+    return s
+end
+
+-- the segments list of a raw course or of a SteeringFieldCourse around one
+local function segmentsOf(c)
+    if type(c) ~= "table" then
+        return nil
+    end
+    local inner = rawget(c, "fieldCourse")
+    local segs = type(inner) == "table" and rawget(inner, "segments") or rawget(c, "segments")
+    return type(segs) == "table" and segs or nil
+end
+
+-- segment by segment, how far apart two courses' points are
+local function compareCourses(a, b)
+    local sa, sb = segmentsOf(a), segmentsOf(b)
+    local out = { segments = sa and rawLen(sa) or nil, ownSegments = sb and rawLen(sb) or nil }
+    if sa == nil or sb == nil then
+        return out
+    end
+    out.samePoints, out.maxApart = 0, 0
+    for i = 1, math.min(rawLen(sa), rawLen(sb)) do
+        local pa, pb = rawget(rawget(sa, i), "positions"), rawget(rawget(sb, i), "positions")
+        if type(pa) == "table" and type(pb) == "table" and rawLen(pa) == rawLen(pb) then
+            local apart = 0
+            for j = 1, rawLen(pa) do
+                local p, q = rawget(pa, j), rawget(pb, j)
+                if type(p) == "table" and type(q) == "table" and type(rawget(p, 1)) == "number"
+                    and type(rawget(q, 1)) == "number" then
+                    apart = math.max(apart, math.abs(rawget(p, 1) - rawget(q, 1)), math.abs(rawget(p, 2) - rawget(q, 2)))
+                end
+            end
+            if apart < 0.01 then
+                out.samePoints = out.samePoints + 1
+            end
+            out.maxApart = math.max(out.maxApart, apart)
+        end
+    end
+    return out
+end
+
+-- where the game asks for its course: the vehicle's front, else its back
+-- plus a metre, on a terrain detail pixel (AIAutomaticSteering.lua:442-450)
+local function previewPosition(holder, mgr)
+    local node, size = rawget(holder, "rootNode"), rawget(holder, "size")
+    local len = type(size) == "table" and rawget(size, "length") or 0
+    local off = type(size) == "table" and rawget(size, "lengthOffset") or 0
+    local x, _, z = localToWorld(node, 0, 0, len * 0.5 + off)
+    x, z = mgr:roundToTerrainDetailPixel(x, z)
+    local mission = g_currentMission
+    local detail = type(mission) == "table" and rawget(mission, "terrainDetailId") or nil
+    local where = "front"
+    if detail ~= nil and getDensityAtWorldPos ~= nil and getDensityAtWorldPos(detail, x, 0, z) == 0 then
+        x, _, z = localToWorld(node, 0, 0, -len * 0.5 + off + 1)
+        x, z = mgr:roundToTerrainDetailPixel(x, z)
+        where = "back"
+    end
+    return x, z, where, len, off
+end
+
+local function parsePreviewArgs(...)
+    local args = { flags = {} }
+    for i = 1, select("#", ...) do
+        local s = tostring(select(i, ...) or ""):lower()
+        if s == "two" or s == "wait" or s == "steering" then
+            args.flags[s] = true
+        elseif s == "auto" then
+            args.auto = true
+        elseif tonumber(s) ~= nil then
+            args.deg = tonumber(s)
+        end
+    end
+    return args
+end
+
+-- refused before anything is called: nil and why
+local function previewStart(v, name, a, b, c, d)
+    if ctx.preview ~= nil then
+        return nil, "a preview is still running"
+    end
+    local args = parsePreviewArgs(a, b, c, d)
+    if args.flags.two and args.deg == nil then
+        return nil, "two needs a direction: csPreview NAME DEG two"
+    end
+    local mgr = g_fieldCourseManager
+    if type(mgr) ~= "table" or type(mgr.generateFieldCourseAtWorldPos) ~= "function"
+        or type(mgr.roundToTerrainDetailPixel) ~= "function" then
+        return nil, "the game has no g_fieldCourseManager:generateFieldCourseAtWorldPos"
+    end
+    if g_server == nil then
+        return nil, "not the server: host only"
+    end
+    local holder = steeringHolder(v)
+    if holder == nil then
+        return nil, "no Steering Assist part in this rig"
+    end
+    local aut, sel = rawget(holder, "spec_aiAutomaticSteering"), rawget(holder, "spec_aiModeSelection")
+    if type(sel) ~= "table" then
+        return nil, "no AI mode part on " .. tostring(objectLabel(holder))
+    end
+    local mode = steeringModeValue()
+    if mode == nil or rawget(sel, "currentMode") ~= mode then
+        return nil, "not in Steering Assist mode"
+    end
+    if rawget(aut, "lastIsOnField") ~= true then
+        return nil, "not on a field you may work"
+    end
+    if not args.flags.wait and (rawget(aut, "fieldCourseDetectionInProgress") == true
+        or rawget(aut, "fieldCourseDetectionPendingData") ~= nil) then
+        return nil, "the game is building its own course: wait for it"
+    end
+    local steering = rawget(aut, "steeringEnabled") == true
+    if steering and not args.flags.steering then
+        return nil, "steering is on (csPreview NAME DEG steering for that run)"
+    end
+    if args.flags.steering and not steering then
+        return nil, "steering is off: turn it on for the steering run"
+    end
+    local settings = rawget(sel, "fieldCourseSettings")
+    if type(settings) ~= "table" or type(settings.clone) ~= "function" then
+        return nil, "no course settings yet: hold H once"
+    end
+    if (args.deg ~= nil or args.auto) and type(rawget(settings, "workDirection")) ~= "number" then
+        return nil, "the settings have no workDirection"
+    end
+    local run = {
+        name = name, args = args, holder = holder, aut = aut, sel = sel, mgr = mgr,
+        course0 = rawget(aut, "steeringFieldCourse"), last0 = rawget(aut, "lastActiveSteeringFieldCourse"),
+        settings0 = settings, armedAt = g_time, frames = 0, builds = {}, answers = {}, snapshots = {},
+        mgr0 = tableFields(mgr), aut0 = tableFields(aut),
+    }
+    run.snapshots.armed = previewSnapshot(run)
+    ctx.preview = run
+    return run
+end
+
+local function previewFire(run)
+    run.firedAt, run.firedFrame = g_time, run.frames
+    run.snapshots.before = previewSnapshot(run)
+    local x, z, where, len, off = previewPosition(run.holder, run.mgr)
+    run.position = { x = x, z = z, where = where, length = len, lengthOffset = off }
+    local count = run.args.flags.two and 2 or 1
+    for i = 1, count do
+        local clone = run.settings0:clone()
+        local b = { build = i, clone = clone, sameAsGame = rawequal(clone, run.settings0) }
+        if run.args.auto then
+            b.workDirection = -1
+        elseif run.args.deg ~= nil then
+            b.deg = run.args.deg + (i - 1) * PREVIEW.secondDeg
+            b.workDirection = math.rad(b.deg)
+        end
+        if b.workDirection ~= nil then
+            clone.workDirection = b.workDirection
+        end
+        b.cloneBefore = plainFieldsOf(clone)
+        run.builds[i] = b
+        local callback = function(_, course)
+            run.answers[#run.answers + 1] = { build = i, course = course, at = g_time, frame = run.frames,
+                sync = run.calling == i, isNil = course == nil }
+        end
+        run.calling = i
+        local t0 = clockSec()
+        local ok, err = pcall(run.mgr.generateFieldCourseAtWorldPos, run.mgr, x, z, clone, callback)
+        local t1 = clockSec()
+        run.calling = nil
+        b.callSeconds = (t0 ~= nil and t1 ~= nil) and (t1 - t0) or nil
+        b.error = not ok and tostring(err) or nil
+    end
+end
+
+-- per build: when it answered, how often, and what came back
+local function previewResult(run, why)
+    local out = {
+        name = run.name, why = why, args = { deg = run.args.deg, auto = run.args.auto, flags = run.args.flags },
+        vehicle = objectLabel(run.holder), position = run.position, armedAt = run.armedAt, firedAt = run.firedAt,
+        frames = run.frames, snapshots = run.snapshots, builds = {}, answers = {}, gameBuilding = run.gameBuilding,
+    }
+    for i, b in ipairs(run.builds) do
+        out.builds[i] = { build = b.build, deg = b.deg, workDirection = b.workDirection, sameAsGame = b.sameAsGame,
+            cloneBefore = b.cloneBefore, cloneAfter = plainFieldsOf(b.clone), callSeconds = b.callSeconds,
+            error = b.error, answers = 0 }
+    end
+    local own = rawget(run.aut, "steeringFieldCourse")
+    for i, a in ipairs(run.answers) do
+        local b = out.builds[a.build]
+        if b ~= nil then
+            b.answers = b.answers + 1
+        end
+        local ans = { build = a.build, at = a.at, frame = a.frame, sync = a.sync, isNil = a.isNil,
+            ms = run.firedAt ~= nil and (a.at - run.firedAt) or nil }
+        if type(a.course) == "table" then
+            ans.sameAsOwn = rawequal(a.course, own)
+            ans.sameAsOwnInner = type(own) == "table" and rawequal(a.course, rawget(own, "fieldCourse")) or false
+            ans.compare = compareCourses(a.course, own)
+            -- kept anywhere it shouldn't be: the builder, the steering parts
+            ans.heldBy = placesOf(a.course, run.mgr, "manager")
+            for _, p in ipairs(placesOf(a.course, run.aut, "automaticSteering")) do
+                ans.heldBy[#ans.heldBy + 1] = p
+            end
+            for _, p in ipairs(placesOf(a.course, run.sel, "modeSelection")) do
+                ans.heldBy[#ans.heldBy + 1] = p
+            end
+            local ok, dump = pcall(courseDump, a.course)
+            ans.course = ok and dump or { error = tostring(dump) }
+        elseif a.course ~= nil then
+            ans.courseType = type(a.course)
+        end
+        out.answers[i] = ans
+    end
+    return out
+end
+
+local function previewFinish(run, why, err)
+    ctx.preview = nil
+    local ok, out = pcall(previewResult, run, why)
+    if not ok then
+        out = { name = run.name, why = why, error = "result failed: " .. tostring(out) }
+    end
+    out.error = out.error or err
+    local file = "preview-" .. (tostring(run.name or ""):gsub("[^%w_-]", "")) .. ".json"
+    if file == "preview-.json" then
+        file = "preview.json"
+    end
+    local written = CS._writeJson(file, { preview = out })
+    local answered = 0
+    for _, b in ipairs(out.builds or {}) do
+        if b.answers > 0 then
+            answered = answered + 1
+        end
+    end
+    ctx.status = string.format("preview %s: %s, %d of %d build(s) answered%s", written and ("written to " .. file)
+        or "write FAILED", tostring(why), answered, #(out.builds or {}), err and (", ERROR " .. tostring(err)) or "")
+    log("csPreview: %s", ctx.status)
+end
+
+local function previewFrame(run)
+    run.frames = run.frames + 1
+    if run.firedAt == nil then
+        if run.args.flags.wait then
+            -- after OK the game drops its course (onAIModeSettingsChanged), then
+            -- builds a new one on a later frame
+            local aut = run.aut
+            local course = rawget(aut, "steeringFieldCourse")
+            if rawget(aut, "fieldCourseDetectionInProgress") == true then
+                run.gameBuilding = true
+                previewFire(run)
+            elseif course == nil and run.snapshots.dropped == nil then
+                run.snapshots.dropped = previewSnapshot(run)
+            elseif course ~= nil and not rawequal(course, run.course0) then
+                -- the game built its course without a frame in between
+                run.snapshots.gameBuiltFirst = previewSnapshot(run)
+                run.gameBuilding = false
+                previewFire(run)
+            elseif g_time - run.armedAt > PREVIEW.armMs then
+                return "the game never built a course"
+            end
+        else
+            previewFire(run)
+        end
+        return nil
+    end
+    local n = #run.answers
+    if n > 0 and run.snapshots.answered == nil then
+        run.snapshots.answered = previewSnapshot(run)
+    end
+    if n ~= run.seenAnswers then
+        run.seenAnswers, run.lastAnswerAt = n, g_time
+    end
+    local all = true
+    for i = 1, #run.builds do
+        local got = run.builds[i].error ~= nil
+        for _, a in ipairs(run.answers) do
+            got = got or a.build == i
+        end
+        all = all and got
+    end
+    if all and g_time - run.lastAnswerAt >= PREVIEW.settleMs then
+        run.snapshots.after = previewSnapshot(run)
+        return n > 0 and "answered" or "every build failed"
+    end
+    if g_time - run.firedAt > PREVIEW.timeoutMs then
+        run.snapshots.after = previewSnapshot(run)
+        return "timed out"
+    end
+    return nil
+end
+
+local function previewUpdate()
+    local run = ctx.preview
+    if run == nil then
+        return
+    end
+    local ok, why = pcall(previewFrame, run)
+    if not ok then
+        previewFinish(run, "failed", tostring(why))
+    elseif why ~= nil then
+        previewFinish(run, why, nil)
+    end
+end
+
+-- what the spike made of the words, said back so a misparse shows at once
+local function previewWords(args)
+    local dir = args.auto and "direction Auto" or args.deg ~= nil and ("direction " .. tostring(args.deg) .. " deg")
+        or "settings unchanged"
+    if args.flags.two then
+        dir = dir .. ", two at once"
+    end
+    if args.flags.wait then
+        dir = dir .. ", waits for the game's build"
+    end
+    if args.flags.steering then
+        dir = dir .. ", while steering"
+    end
+    return dir
+end
+
+function CompanionSpike:consolePreview(name, a, b, c, d)
+    local v = getControlledVehicle()
+    if v == nil then
+        return "get in a vehicle first"
+    end
+    local ok, run, why = pcall(previewStart, v, name, a, b, c, d)
+    if not ok then
+        return "preview refused: " .. tostring(run)
+    end
+    if run == nil then
+        return "preview refused: " .. tostring(why)
+    end
+    ctx.status = (run.args.flags.wait and "preview armed: hold H, change a setting, OK"
+        or "preview: building on the next frame") .. " (" .. previewWords(run.args) .. ")"
+    return ctx.status
+end
+
+-- csSettings NAME writes settings-NAME.json: both Steering Assist parts
+-- three levels down (0.0.15 went one), the course tables left out (csCourse
+-- has them), the vehicle's own settings (cruise at the lane end,
+-- VehicleSettings.lua:151) and the game settings the steering reads
+-- (AIAutomaticSteering.lua:407, 923). Raw reads only.
+local SETTINGS_DEPTH = 3
+local GAME_SETTING_NAMES = { "STEERING_ASSIST_LINES", "STEERING_ASSIST_CRUISE_CONTROL" }
+
+local function probeSettings(v)
+    local holder = steeringHolder(v)
+    if holder == nil then
+        return { found = false, vehicle = objectLabel(firstOf(v, "getRootVehicle") or v) }
+    end
+    local aut, sel = rawget(holder, "spec_aiAutomaticSteering"), rawget(holder, "spec_aiModeSelection")
+    local refs = {}
+    for _, k in ipairs({ "steeringFieldCourse", "lastActiveSteeringFieldCourse" }) do
+        local c = rawget(aut, k)
+        if type(c) == "table" then
+            refs[c] = "course " .. k
+        end
+    end
+    local budget = { n = 0 }
+    local out = { found = true, vehicle = objectLabel(holder), modes = {} }
+    local modes = type(AIModeSelection) == "table" and rawget(AIModeSelection, "MODE") or nil
+    if type(modes) == "table" then
+        for k, m in pairs(modes) do
+            out.modes[tostring(k)] = scalarOf(m)
+        end
+    end
+    if type(sel) == "table" then
+        refs[sel] = "modeSelection"
+        out.modeSelection = plainBody(sel, SETTINGS_DEPTH, refs, budget, "modeSelection")
+        out.modeSelectionClasses = {}
+        for k, t in pairs(sel) do
+            if type(t) == "table" then
+                out.modeSelectionClasses[tostring(k)] = { class = classNameOf(t), methods = methodsOf(t) }
+            end
+        end
+    end
+    refs[aut] = "automaticSteering"
+    out.automaticSteering = plainBody(aut, SETTINGS_DEPTH, refs, budget, "automaticSteering")
+    local vs = rawget(holder, "spec_vehicleSettings")
+    if type(vs) == "table" and type(rawget(vs, "settings")) == "table" then
+        out.vehicleSettings = {}
+        local list = rawget(vs, "settings")
+        for i = 1, rawLen(list) do
+            out.vehicleSettings[i] = plainFieldsOf(rawget(list, i))
+        end
+    end
+    out.gameSettings = {}
+    local ids = type(GameSettings) == "table" and rawget(GameSettings, "SETTING") or nil
+    for _, name in ipairs(GAME_SETTING_NAMES) do
+        local id = type(ids) == "table" and rawget(ids, name) or nil
+        local g = { id = scalarOf(id) }
+        if id ~= nil and type(g_gameSettings) == "table" then
+            g.raw = scalarOf(rawget(g_gameSettings, id))
+            for k, t in pairs(g_gameSettings) do
+                if type(t) == "table" and rawget(t, id) ~= nil then
+                    g["in " .. tostring(k)] = plainOf(rawget(t, id), 1, {}, { n = 0 }, "")
+                end
+            end
+        end
+        out.gameSettings[name] = g
+    end
+    out.values, out.truncated = budget.n, budget.truncated
+    return out
+end
+
+function CompanionSpike:consoleSettings(name)
+    local v = getControlledVehicle()
+    if v == nil then
+        return "get in a vehicle first"
+    end
+    local ok, res = pcall(probeSettings, v)
+    if not ok then
+        return "settings probe failed: " .. tostring(res)
+    end
+    local file = name ~= nil and name ~= "" and ("settings-" .. tostring(name):gsub("[^%w_-]", "") .. ".json")
+        or "settings.json"
+    local written = CS._writeJson(file, { settings = res })
+    ctx.status = written and ("settings written to " .. file) or "settings: write FAILED"
+    if not res.found then
+        return ctx.status .. ": no Steering Assist part in this rig"
+    end
+    return ctx.status
+end
+
+---------------------------------------------------------------------------
 -- Mod event listener
 ---------------------------------------------------------------------------
 
@@ -3009,6 +3588,12 @@ function CompanionSpike:loadMap(name)
             "consoleMaxCut", CompanionSpike)
         addConsoleCommand("csCourse", "Write the Steering Assist course, read only, to course.json (csCourse NAME: course-NAME.json)",
             "consoleCourse", CompanionSpike)
+        addConsoleCommand("csPreview", "Ask the game's course builder for a preview course, never given to the vehicle: "
+            .. "csPreview NAME [DEG|auto] [two] [wait] [steering] (preview-NAME.json)",
+            "consolePreview", CompanionSpike)
+        addConsoleCommand("csSettings", "Write both Steering Assist parts three levels down, read only, to settings.json "
+            .. "(csSettings NAME: settings-NAME.json)",
+            "consoleSettings", CompanionSpike)
     end
 end
 
@@ -3229,6 +3814,7 @@ function CompanionSpike:update(dt)
         end
     end
     missionUpdate()
+    previewUpdate()
     if ctx.pressNext ~= nil then
         local name = ctx.pressNext
         ctx.pressNext = nil
@@ -3300,14 +3886,16 @@ function CompanionSpike:draw()
     if renderText == nil then
         return
     end
-    local lines = { "[CompanionSpike] " .. ctx.status }
-    if ctx.lastPose ~= nil then
-        lines[#lines + 1] = fmtPose("vehicle", ctx.lastPose.vehicle)
-        lines[#lines + 1] = fmtPose("player", ctx.lastPose.player)
-        lines[#lines + 1] = string.format("stream lines: %d", ctx.seq)
+    -- 0.0.18: no standing overlay (Vincent: in the way while testing); a
+    -- command's status shows for 5 s, the automatic load and report never
+    local status = ctx.status
+    if status ~= ctx.shownStatus then
+        ctx.shownStatus = status
+        local auto = status:sub(1, 10) == "map loaded" or status:sub(1, 6) == "report"
+        ctx.flashUntil = not auto and (g_time or 0) + 5000 or nil
     end
-    for i, text in ipairs(lines) do
-        renderText(0.01, 0.62 - i * 0.018, 0.013, text)
+    if ctx.flashUntil ~= nil and (g_time or 0) < ctx.flashUntil then
+        renderText(0.01, 0.6, 0.013, "[CompanionSpike] " .. status)
     end
 end
 
@@ -3326,6 +3914,8 @@ CS._partsOf, CS._probeParts, CS._rateTarget, CS._rateState, CS._rateFrame = part
 CS._traceWrap, CS._traceUnwrap, CS._traceFrame, CS._newTrace = traceWrap, traceUnwrap, traceFrame, newTrace
 CS._probeMissions, CS._pickMission = probeMissions, pickMission
 CS._probeCourse, CS._courseLimits, CS._writeJson = probeCourse, COURSE_LIMITS, writeJson
+CS._probeSettings, CS._preview = probeSettings, PREVIEW
+CS._previewUpdate = previewUpdate
 
 if addModEventListener ~= nil then
     addModEventListener(CompanionSpike)

@@ -12,8 +12,9 @@ guesses. It changes nothing in the game.
    `~/Library/Application Support/FarmingSimulator2025/mods/`.
 2. Enable it in the savegame's mod list and load the savegame. A map with
    fields, sell points and a few owned vehicles is best.
-3. After about 5 s a status line appears on screen and `report.json` is
-   written.
+3. After about 5 s `report.json` is written. Since 0.0.18 nothing stays
+   on screen: a console command's result shows for 5 s, and in the
+   console.
 4. For the heading check, get into a vehicle and drive due north, then due
    east, on the in-game PDA. The on-screen `hdg` should read about 0 and then
    about 90. Do the same on foot. Write down what you see.
@@ -241,6 +242,80 @@ the done flags.
 3. Save the game once at the end (the save holds `workedLines`).
 4. Send back the `course-*.json` files from
    `modSettings/FS25_CompanionSpike/`, and say which savegame slot.
+
+## Steering Assist: the preview and the settings (spike 0.0.18, spec 0022)
+
+[Spec 0022](../../specs/0022-steering-assist-settings.md) shows the course
+the game would build with the panel's settings before Apply. The game
+builds its course with `g_fieldCourseManager:generateFieldCourseAtWorldPos`
+and only then sets it on the vehicle (AIAutomaticSteering.lua:738-776), so
+the spike asks the same builder for a course and never sets it. That
+builder is the one new call. The spike also calls two functions the game
+already calls itself: `fieldCourseSettings:clone()` (every time H opens the
+dialog) and `roundToTerrainDetailPixel` (every frame in Steering Assist
+mode). Two console commands:
+
+- `csPreview NAME [DEG|auto] [two] [wait] [steering]` writes
+  `preview-NAME.json`. On the next frame it clones the vehicle's course
+  settings, sets the clone's direction to DEG degrees (`auto`: the game's
+  Auto; none: the clone unchanged), and asks the builder for a course at
+  the place the game asks (the vehicle's front). It records when the
+  answer comes and how often, the course it got (dumped like `csCourse`,
+  and compared point by point with the vehicle's own), and, before, at the
+  answer and 3 s after, the vehicle's own course, its flags, its settings
+  and the builder's fields. Those must stay unchanged. It writes after
+  30 s even if nothing answers. `two` asks for a second course in the same
+  frame at DEG + 30°. `wait` asks on the frame the game starts building
+  its own course, after OK in the game's dialog. `steering` is the run
+  while steering; without it, the spike refuses while steering is on. It
+  also refuses outside Steering Assist mode, off a field you may work, and
+  while the game is building.
+- `csSettings NAME` writes `settings-NAME.json`, reads only: both Steering
+  Assist parts three levels down (0.0.15 went one), where `userSettings`
+  keeps each mode's choices, the vehicle's own settings (cruise at the
+  lane end) and the game settings for Show lines and cruise.
+
+1. Install the zip beside FS25 Companion 0.22.0, on Solek, the tractor and
+   cultivator, Steering Assist mode, on field 7, the course showing, not
+   steering. Hold H once and leave the dialog with Back (after a hitch the
+   game keeps no `userSettings` until then).
+2. The settings, each its own file:
+   - `csSettings auto`: everything on Auto;
+   - set width 6.6 m, headlands 2, direction 135°, offset −0.4 m, lines
+     Off, cruise Manual in the dialog, OK: `csSettings set`;
+   - Reset in the dialog, OK: `csSettings reset`;
+   - AI worker mode in the dialog: `csSettings worker`; then back to
+     Steering Assist.
+3. The preview, each its own file. After each, check that the game's lanes
+   didn't move and that Steering still activates:
+   - `csPreview control`: the clone unchanged. Its course should be the
+     game's own, point for point;
+   - `csPreview dir 45`. Then set 45° in the game's dialog, OK, and once
+     the lanes show, `csCourse dir45` (the game's own course, to compare
+     with the preview's). Then back to Auto;
+   - `csPreview two 45 two`: two at once;
+   - `csPreview during 20 wait`, then close the console, hold H, change
+     the direction to 30°, OK. Wait for "preview … written" on screen,
+     then check the game built its own course: the lanes show and Steering
+     activates. This one matters most: if the game's own build is lost,
+     the vehicle never gets a course again (quit without saving). Then
+     back to Auto;
+   - steering on (Activate lane): `csPreview steer 60 steering`. Steering
+     must stay on and the lanes stay put;
+   - on field 6: `csPreview field6 45` (how long a bigger field takes).
+4. Two reloads, so a set direction and Auto each come back once:
+   - set the direction to 135° in the dialog, OK, drive a lane with
+     steering, save, quit to the menu and load the save again. Hold H:
+     write down what the dialog shows for the direction, then Back.
+     `csSettings reload135` and `csCourse reload135`;
+   - set the direction to Auto, OK, save, reload. Hold H: write down what
+     the dialog shows for the direction (Automatic, or an angle?), then
+     Back. `csSettings reloadauto` and `csCourse reloadauto`.
+5. If anything looks wrong at any point (lanes gone, Steering won't
+   activate, the game stutters), quit without saving and say which step.
+6. Send back the `preview-*.json`, `settings-*.json` and `course-*.json`
+   files from `modSettings/FS25_CompanionSpike/`, and `log.txt` if
+   something failed.
 
 ## Contracts: is getMaxCutLiters safe on an offer? (spike 0.0.14, spec 0018)
 

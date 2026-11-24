@@ -415,3 +415,21 @@ Live check (Solek, mod 0.23.0):
 - 2026-11-24: approved by Vincent. Next: the build, starting with the
   preview spike (Plan, step 1); a dump that disagrees with the Data
   contract sends it back for approval.
+- 2026-11-24: spike 0.0.18 written for the Plan's step 1, the preview
+  and the deep dump in one session (the dump only reads). `csPreview`
+  asks `generateFieldCourseAtWorldPos` for a course with a clone of the
+  vehicle's settings, from `update`. Its callback only stores what it got.
+  The spike never calls `SteeringFieldCourse.new` and never writes the
+  game's flags. It reads the vehicle's course, flags and settings and the
+  builder's fields before, at the answer and after. The runs: the clone
+  unchanged (it must match the game's own course point for point), a
+  changed direction, two at once, one during the game's own build, one
+  while steering, and field 6 for the time. `csSettings` dumps both parts
+  three levels down, the vehicle's settings and the game settings for
+  lines and cruise. Also read in the game's scripts: Show lines' key
+  flips a game setting (`g_gameSettings`, every vehicle,
+  AIAutomaticSteering.lua:922-925), and cruise at the lane end reads a
+  vehicle setting that copies the game setting when you get in
+  (VehicleSettings.lua:96-170). Offline tests:
+  `mod/tests/test_spike_preview.py`. The steps are in
+  `research/spike/README.md`; waiting for Vincent's files.
