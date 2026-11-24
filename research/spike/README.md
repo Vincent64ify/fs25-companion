@@ -317,6 +317,53 @@ mode). Two console commands:
    files from `modSettings/FS25_CompanionSpike/`, and `log.txt` if
    something failed.
 
+## Steering Assist: Auto, the allowed check and the mode (spike 0.0.19, spec 0022)
+
+0.0.18 showed the preview is safe and that `userSettings` keeps each
+mode's choices, but stopped one level above them. 0.0.19:
+
+- `csSettings NAME` now dumps `userSettings` (and `loadedUserSettings`,
+  if a save's are still waiting) whole, with each table's class and
+  methods. It also lists the game's AI settings classes (`AIUserSettings`
+  and the like): their constants and method names, none of them called.
+  The question: how the dialog tells "5.0 m (Auto)" from a set 5.0 m,
+  and where the AI worker's own choices go.
+- `csAllowed NAME` calls `getIsAutomaticSteeringAllowed()` (the game's own
+  guard before Steering Assist mode) and each tool's
+  `getImplementAllowAutomaticSteering()`. Both are plain reads in the
+  game's scripts. Writes `allowed-NAME.json`.
+- `csMode NAME worker|steering` switches the mode on the next frame with
+  `setAIModeSelection`, the session's new call. It goes to Steering Assist
+  only when the allowed check says yes. For 3 s it records every change in
+  the mode, the course, the flags and the settings: `mode-NAME.json`.
+
+1. Install the zip beside FS25 Companion 0.22.0, restart the game, load
+   the save. The Fendt 728 with the LEMKEN on field 119, Steering Assist
+   mode, the lanes showing, steering off.
+2. Auto against a set value, each its own file:
+   - `csSettings load`, before holding H;
+   - hold H. Working Width shows 5.0 m (Auto): press + then −, and write
+     down whether it now says 5.0 m without "(Auto)". OK. `csSettings five`;
+   - hold H, Reset, OK: `csSettings auto`.
+3. The AI worker's own choices:
+   - hold H, AI Worker mode, Work Direction 90°, OK (don't start the
+     worker): `csSettings worker90`;
+   - hold H, Steering Assist mode. Write down what Work Direction shows,
+     then OK: `csSettings back`.
+4. `csAllowed fendt`.
+5. The mode, from the console:
+   - `csMode toworker worker`. The HUD should say AI worker and the lanes
+     go;
+   - `csMode tosteering steering`. The lanes should come back and
+     Steering activate. Hold H: write down what the dialog shows, then
+     Back.
+6. A vehicle no tool steers with (a truck, or a loader):
+   `csAllowed truck`, then `csMode truck steering` (should be refused).
+7. Back in the Fendt: save, reload, hold H (write down what it shows),
+   Back. `csSettings reload`.
+8. Send back the `settings-*`, `allowed-*` and `mode-*` files (I read them
+   from the folder during the session).
+
 ## Contracts: is getMaxCutLiters safe on an offer? (spike 0.0.14, spec 0018)
 
 `csMaxCut N` calls `getMaxCutLiters()` once on harvest offer N (its

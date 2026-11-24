@@ -23,7 +23,7 @@
 CompanionSpike = {}
 local CS = CompanionSpike
 
-local SPIKE_VERSION = "0.0.18"
+local SPIKE_VERSION = "0.0.19"
 local MOD_DIR = g_currentModDirectory or ""
 
 local LIMITS = {
@@ -3468,6 +3468,37 @@ end
 -- VehicleSettings.lua:151) and the game settings the steering reads
 -- (AIAutomaticSteering.lua:407, 923). Raw reads only.
 local SETTINGS_DEPTH = 3
+-- 0.0.19: userSettings whole (0.0.18 stopped above its entries); the class
+-- isn't in the SDK's archive, so each table's class and method names too
+local USER_SETTINGS_DEPTH = 7
+
+local function classesOf(t, depth, path, out, seen)
+    seen[t] = true
+    local methods = methodsOf(t)
+    if #methods > 0 or classNameOf(t) ~= nil then
+        out[path] = { class = classNameOf(t), methods = methods }
+    end
+    if depth > 0 then
+        for k, v in pairs(t) do
+            if type(v) == "table" and not seen[v] and not looksLikeVehicle(v) then
+                classesOf(v, depth - 1, childPath(path, k), out, seen)
+            end
+        end
+    end
+    return out
+end
+
+-- the game's AI settings classes by name (AIUserSettings and the like):
+-- their constants and method names, nothing called
+local function aiSettingClasses()
+    local out = {}
+    for k, v in pairs(_G) do
+        if type(k) == "string" and type(v) == "table" and k:sub(1, 2) == "AI" and k:find("Setting") then
+            out[k] = { methods = functionNamesOf(v), plain = plainFieldsOf(v) }
+        end
+    end
+    return out
+end
 local GAME_SETTING_NAMES = { "STEERING_ASSIST_LINES", "STEERING_ASSIST_CRUISE_CONTROL" }
 
 local function probeSettings(v)
@@ -3494,6 +3525,16 @@ local function probeSettings(v)
     if type(sel) == "table" then
         refs[sel] = "modeSelection"
         out.modeSelection = plainBody(sel, SETTINGS_DEPTH, refs, budget, "modeSelection")
+        for _, k in ipairs({ "userSettings", "loadedUserSettings" }) do
+            local us = rawget(sel, k)
+            if type(us) == "table" then
+                local ub = { n = 0 }
+                out[k] = plainOf(us, USER_SETTINGS_DEPTH, {}, ub, k)
+                out[k .. "Values"], out[k .. "Truncated"] = ub.n, ub.truncated
+                out[k .. "Classes"] = classesOf(us, USER_SETTINGS_DEPTH, k, {}, {})
+            end
+        end
+        out.aiSettingClasses = aiSettingClasses()
         out.modeSelectionClasses = {}
         for k, t in pairs(sel) do
             if type(t) == "table" then
@@ -3550,6 +3591,203 @@ function CompanionSpike:consoleSettings(name)
 end
 
 ---------------------------------------------------------------------------
+-- csAllowed and csMode (spike 0.0.19, spec 0022)
+---------------------------------------------------------------------------
+-- csAllowed NAME calls getIsAutomaticSteeringAllowed() on the vehicle with
+-- Steering Assist, and getImplementAllowAutomaticSteering() on each rig
+-- member that has it (AIAutomaticSteering.lua:629-645; AIImplement.lua:761,
+-- WorkArea.lua:693, Combine.lua:1886, TreePlanter.lua:958: each returns a
+-- constant or reads the work areas' types). Writes allowed-NAME.json.
+--
+-- csMode NAME worker|steering calls setAIModeSelection(mode) on the next
+-- frame (AIModeSelection.lua:294-314: sets currentMode, raises
+-- onAIModeChanged, sends AISetModeEvent), Steering Assist only when
+-- csAllowed's call says yes, as spec 0022's command. Records the mode, the
+-- course, the flags and the settings every frame for 3 s: mode-NAME.json.
+local MODE_MS = 3000
+
+local function allowedProbe(v)
+    local holder = steeringHolder(v)
+    local root = firstOf(v, "getRootVehicle") or v
+    local out = { vehicle = objectLabel(root), members = {} }
+    if holder == nil then
+        out.found = false
+        return out
+    end
+    out.found, out.holder = true, objectLabel(holder)
+    if type(holder.getIsAutomaticSteeringAllowed) == "function" then
+        local ok, res = pcall(holder.getIsAutomaticSteeringAllowed, holder)
+        if ok then
+            out.allowed = res
+        else
+            out.error = tostring(res)
+        end
+    else
+        out.noFunction = true
+    end
+    for _, m in ipairs(rigMembers(root)) do
+        local o = m.o
+        local e = { label = objectLabel(o) }
+        if type(o.getImplementAllowAutomaticSteering) == "function" then
+            local ok, res = pcall(o.getImplementAllowAutomaticSteering, o)
+            if ok then
+                e.allows = res
+            else
+                e.error = tostring(res)
+            end
+        end
+        out.members[#out.members + 1] = e
+    end
+    return out
+end
+
+function CompanionSpike:consoleAllowed(name)
+    local v = getControlledVehicle()
+    if v == nil then
+        return "get in a vehicle first"
+    end
+    local ok, res = pcall(allowedProbe, v)
+    if not ok then
+        return "allowed probe failed: " .. tostring(res)
+    end
+    local file = name ~= nil and name ~= "" and ("allowed-" .. tostring(name):gsub("[^%w_-]", "") .. ".json")
+        or "allowed.json"
+    local written = CS._writeJson(file, { allowed = res })
+    ctx.status = (written and ("allowed written to " .. file) or "allowed: write FAILED")
+        .. (res.found and (": " .. tostring(res.allowed)) or ": no Steering Assist part")
+    return ctx.status
+end
+
+-- what csMode watches, flat, so each frame's changes are a short list
+local function modeState(run)
+    local aut, sel = run.aut, run.sel
+    local course = rawget(aut, "steeringFieldCourse")
+    local settings = rawget(sel, "fieldCourseSettings")
+    return {
+        currentMode = scalarOf(rawget(sel, "currentMode")),
+        course = course == nil and "none" or (rawequal(course, run.course0) and "same" or "new"),
+        steeringEnabled = rawget(aut, "steeringEnabled"),
+        lastIsOnField = rawget(aut, "lastIsOnField"),
+        fieldCourseDetectionInProgress = rawget(aut, "fieldCourseDetectionInProgress"),
+        forceFieldCourseUpdate = rawget(aut, "forceFieldCourseUpdate"),
+        settings = settings == nil and "none" or (rawequal(settings, run.settings0) and "same" or "new"),
+        userSettings = rawequal(rawget(sel, "userSettings"), run.user0) and "same" or "new",
+        workDirection = type(settings) == "table" and scalarOf(rawget(settings, "workDirection")) or nil,
+        implementWidth = type(settings) == "table" and scalarOf(rawget(settings, "implementWidth")) or nil,
+        numHeadlands = type(settings) == "table" and scalarOf(rawget(settings, "numHeadlands")) or nil,
+    }
+end
+
+local function modeStart(v, name, which)
+    if ctx.modeRun ~= nil then
+        return nil, "a mode change is still running"
+    end
+    local modes = type(AIModeSelection) == "table" and rawget(AIModeSelection, "MODE") or nil
+    local key = ({ worker = "WORKER", steering = "STEERING_ASSIST" })[tostring(which or ""):lower()]
+    if key == nil then
+        return nil, "csMode NAME worker or csMode NAME steering"
+    end
+    local target = type(modes) == "table" and rawget(modes, key) or nil
+    if target == nil then
+        return nil, "the game has no AIModeSelection.MODE." .. key
+    end
+    if g_server == nil then
+        return nil, "not the server: host only"
+    end
+    local holder = steeringHolder(v)
+    if holder == nil then
+        return nil, "no Steering Assist part in this rig"
+    end
+    local aut, sel = rawget(holder, "spec_aiAutomaticSteering"), rawget(holder, "spec_aiModeSelection")
+    if type(sel) ~= "table" or type(holder.setAIModeSelection) ~= "function" then
+        return nil, "no AI mode part on " .. tostring(objectLabel(holder))
+    end
+    if rawget(sel, "currentMode") == target then
+        return nil, "already in that mode"
+    end
+    local run = { name = name, key = key, target = target, holder = holder, aut = aut, sel = sel,
+        course0 = rawget(aut, "steeringFieldCourse"), last0 = rawget(aut, "lastActiveSteeringFieldCourse"),
+        settings0 = rawget(sel, "fieldCourseSettings"), user0 = rawget(sel, "userSettings"),
+        mgr0 = tableFields(g_fieldCourseManager), aut0 = tableFields(aut), snapshots = {}, changes = {} }
+    if key == "STEERING_ASSIST" then
+        local probe = allowedProbe(v)
+        run.allowed = probe
+        if probe.allowed ~= true then
+            return nil, "no tool here allows steering (getIsAutomaticSteeringAllowed: " .. tostring(probe.allowed) .. ")"
+        end
+    end
+    run.snapshots.armed = previewSnapshot(run)
+    ctx.modeRun = run
+    return run
+end
+
+local function modeFrame(run)
+    if run.calledAt == nil then
+        run.snapshots.before = previewSnapshot(run)
+        run.last = modeState(run)
+        run.calledAt = g_time
+        local ok, err = pcall(run.holder.setAIModeSelection, run.holder, run.target)
+        run.error = not ok and tostring(err) or nil
+        run.snapshots.called = previewSnapshot(run)
+    end
+    local now = modeState(run)
+    for k, v in pairs(now) do
+        if v ~= run.last[k] then
+            run.changes[#run.changes + 1] = { ms = g_time - run.calledAt, key = k, from = run.last[k], to = v }
+        end
+    end
+    run.last = now
+    return g_time - run.calledAt >= MODE_MS
+end
+
+local function modeFinish(run, err)
+    ctx.modeRun = nil
+    run.snapshots.after = previewSnapshot(run)
+    local out = { name = run.name, mode = run.key, target = run.target, allowed = run.allowed,
+        vehicle = objectLabel(run.holder), calledAt = run.calledAt, error = run.error or err,
+        snapshots = run.snapshots, changes = run.changes, final = run.last }
+    local file = "mode-" .. (tostring(run.name or ""):gsub("[^%w_-]", "")) .. ".json"
+    local written = CS._writeJson(file, { mode = out })
+    ctx.status = string.format("mode %s: %s, now %s%s", written and ("written to " .. file) or "write FAILED",
+        run.key, tostring(run.last and run.last.currentMode), out.error and (", ERROR " .. tostring(out.error)) or "")
+    log("csMode: %s", ctx.status)
+end
+
+local function modeUpdate()
+    local run = ctx.modeRun
+    if run == nil then
+        return
+    end
+    local ok, done = pcall(modeFrame, run)
+    if not ok then
+        pcall(modeFinish, run, tostring(done))
+        ctx.modeRun = nil
+    elseif done then
+        local fok, ferr = pcall(modeFinish, run, nil)
+        if not fok then
+            ctx.modeRun = nil
+            log("csMode finish failed: %s", tostring(ferr))
+        end
+    end
+end
+
+function CompanionSpike:consoleMode(name, which)
+    local v = getControlledVehicle()
+    if v == nil then
+        return "get in a vehicle first"
+    end
+    local ok, run, why = pcall(modeStart, v, name, which)
+    if not ok then
+        return "mode refused: " .. tostring(run)
+    end
+    if run == nil then
+        return "mode refused: " .. tostring(why)
+    end
+    ctx.status = "mode: switching to " .. run.key .. " on the next frame"
+    return ctx.status
+end
+
+---------------------------------------------------------------------------
 -- Mod event listener
 ---------------------------------------------------------------------------
 
@@ -3594,6 +3832,10 @@ function CompanionSpike:loadMap(name)
         addConsoleCommand("csSettings", "Write both Steering Assist parts three levels down, read only, to settings.json "
             .. "(csSettings NAME: settings-NAME.json)",
             "consoleSettings", CompanionSpike)
+        addConsoleCommand("csAllowed", "Call getIsAutomaticSteeringAllowed and each tool's getImplementAllowAutomaticSteering "
+            .. "(csAllowed NAME: allowed-NAME.json)", "consoleAllowed", CompanionSpike)
+        addConsoleCommand("csMode", "Switch the AI mode with setAIModeSelection and record 3 s: csMode NAME worker|steering "
+            .. "(mode-NAME.json)", "consoleMode", CompanionSpike)
     end
 end
 
@@ -3815,6 +4057,7 @@ function CompanionSpike:update(dt)
     end
     missionUpdate()
     previewUpdate()
+    modeUpdate()
     if ctx.pressNext ~= nil then
         local name = ctx.pressNext
         ctx.pressNext = nil
@@ -3916,6 +4159,7 @@ CS._probeMissions, CS._pickMission = probeMissions, pickMission
 CS._probeCourse, CS._courseLimits, CS._writeJson = probeCourse, COURSE_LIMITS, writeJson
 CS._probeSettings, CS._preview = probeSettings, PREVIEW
 CS._previewUpdate = previewUpdate
+CS._modeUpdate, CS._allowedProbe = modeUpdate, allowedProbe
 
 if addModEventListener ~= nil then
     addModEventListener(CompanionSpike)

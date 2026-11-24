@@ -342,3 +342,100 @@ def test_settings_dump_goes_deeper_and_leaves_the_course_out(lua):
     assert gs["STEERING_ASSIST_LINES"] == {"id": "steeringAssistLines", "raw": True}
     assert gs["STEERING_ASSIST_CRUISE_CONTROL"]["in values"] is False
     assert calls(lua) == []
+
+
+# spike 0.0.19: csSettings goes into userSettings whole; csAllowed calls the
+# game's steering guard; csMode switches the mode with setAIModeSelection
+
+MODE_STUB = r"""
+allowed = true
+AIUserSettings = { new = function() end, apply = function() end, VERSION = 2 }
+function tractor:getIsAutomaticSteeringAllowed() calls[#calls + 1] = "allowed"; return allowed end
+function tractor:getImplementAllowAutomaticSteering() calls[#calls + 1] = "implementAllows"; return false end
+function tractor:setAIModeSelection(mode)
+    calls[#calls + 1] = "setAIModeSelection " .. tostring(mode)
+    sel.currentMode = mode
+    if mode == 1 then aut.steeringFieldCourse = nil else aut.forceFieldCourseUpdate = true end
+end
+"""
+
+
+@pytest.fixture
+def mlua(lua):
+    lua.execute(MODE_STUB)
+    return lua
+
+
+def mode_frames(lua, n, ms=100):
+    for _ in range(n):
+        lua.execute(f"g_time = g_time + {ms}; CompanionSpike._modeUpdate()")
+
+
+def test_settings_dump_has_user_settings_whole(mlua):
+    mlua.eval('CompanionSpike:consoleSettings("deep")')
+    out = plain(mlua.eval('written["settings-deep.json"]'))["settings"]
+    assert out["userSettings"]["modes"][1]["deep"]["deeper"]["x"] == 1
+    assert "loadedUserSettings" not in out
+    assert out["aiSettingClasses"]["AIUserSettings"]["methods"] == ["apply", "new"]
+    assert out["aiSettingClasses"]["AIUserSettings"]["plain"] == {"VERSION": 2}
+    assert calls(mlua) == []
+
+
+def test_allowed_calls_the_guard_and_each_tool(mlua):
+    msg = mlua.eval('CompanionSpike:consoleAllowed("fendt")')
+    assert "allowed-fendt.json" in msg and msg.endswith(": true")
+    out = plain(mlua.eval('written["allowed-fendt.json"]'))["allowed"]
+    assert out["allowed"] is True and out["members"][0]["allows"] is False
+    assert calls(mlua) == ["allowed", "implementAllows"]
+
+
+def test_allowed_false_is_kept(mlua):
+    mlua.execute("allowed = false")
+    assert mlua.eval('CompanionSpike:consoleAllowed("truck")').endswith(": false")
+    assert plain(mlua.eval('written["allowed-truck.json"]'))["allowed"]["allowed"] is False
+
+
+def test_mode_to_worker_on_the_next_frame_and_recorded(mlua):
+    msg = mlua.eval('CompanionSpike:consoleMode("w", "worker")')
+    assert "next frame" in msg and calls(mlua) == []
+    mode_frames(mlua, 40)
+    out = plain(mlua.eval('written["mode-w.json"]'))["mode"]
+    assert calls(mlua) == ["setAIModeSelection 1"]
+    assert out["final"]["currentMode"] == 1 and out["final"]["course"] == "none"
+    keys = {c["key"]: c for c in out["changes"]}
+    assert keys["currentMode"]["from"] == 2 and keys["currentMode"]["to"] == 1
+    assert keys["course"]["to"] == "none"
+    assert out["snapshots"]["before"]["currentMode"] == 2
+    assert mlua.eval("CompanionSpike._ctx.modeRun") is None
+
+
+def test_mode_to_steering_checks_the_guard_first(mlua):
+    mlua.execute("sel.currentMode = 1")
+    mlua.eval('CompanionSpike:consoleMode("s", "steering")')
+    mode_frames(mlua, 40)
+    out = plain(mlua.eval('written["mode-s.json"]'))["mode"]
+    assert calls(mlua) == ["allowed", "implementAllows", "setAIModeSelection 2"]
+    assert out["allowed"]["allowed"] is True
+    assert {c["key"] for c in out["changes"]} >= {"currentMode", "forceFieldCourseUpdate"}
+
+
+@pytest.mark.parametrize("setup, which, words", [
+    ("sel.currentMode = 1; allowed = false", "steering", "no tool here allows steering"),
+    ("", "steering", "already in that mode"),
+    ("", "sideways", "worker or csMode NAME steering"),
+    ("g_server = nil", "worker", "host only"),
+])
+def test_mode_refusals_switch_nothing(mlua, setup, which, words):
+    mlua.execute(setup)
+    msg = mlua.eval(f'CompanionSpike:consoleMode("x", "{which}")')
+    assert "refused" in msg and words in msg
+    mode_frames(mlua, 5)
+    assert not any(c.startswith("setAIModeSelection") for c in calls(mlua))
+
+
+def test_mode_switch_that_throws_still_writes(mlua):
+    mlua.execute("function tractor:setAIModeSelection() error('inside the game') end")
+    mlua.eval('CompanionSpike:consoleMode("t", "worker")')
+    mode_frames(mlua, 40)
+    out = plain(mlua.eval('written["mode-t.json"]'))["mode"]
+    assert "inside the game" in out["error"]

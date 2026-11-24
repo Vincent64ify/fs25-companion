@@ -494,3 +494,11 @@ Live check (Solek, mod 0.23.0):
   dialog tells Auto from a set value, open question 2), then the Plan's
   calls one per session: `getIsAutomaticSteeringAllowed`,
   `setAIModeSelection`, cruise's `setValue`, `aiModeSettingsChanged`.
+- 2026-11-24: spike 0.0.19 written for the next session (Plan step 1's
+  second and third bullets). `csSettings` dumps `userSettings` whole, with
+  each table's class and methods, and the game's AI settings classes by
+  name. Nothing in them is called. `csAllowed` calls
+  `getIsAutomaticSteeringAllowed` and each tool's
+  `getImplementAllowAutomaticSteering` (plain reads in the game's
+  scripts). `csMode` calls `setAIModeSelection`, the session's new call,
+  and records 3 s of changes. The steps are in `research/spike/README.md`.
