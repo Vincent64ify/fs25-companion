@@ -23,7 +23,7 @@
 CompanionSpike = {}
 local CS = CompanionSpike
 
-local SPIKE_VERSION = "0.0.19"
+local SPIKE_VERSION = "0.0.20"
 local MOD_DIR = g_currentModDirectory or ""
 
 local LIMITS = {
@@ -3788,6 +3788,469 @@ function CompanionSpike:consoleMode(name, which)
 end
 
 ---------------------------------------------------------------------------
+-- csApply, csCruise and csLines (spike 0.0.20, spec 0022)
+---------------------------------------------------------------------------
+-- in a function of its own: the main chunk is at Lua's 200 locals
+(function()
+-- The dialog's OK, the way the game's code shows it: the save writes
+-- userSettings (AIModeSelection.lua:120-126), the selected mode's entries
+-- are applied onto the course settings (userSettings:apply, lines 205-210,
+-- 337-350), and aiModeSettingsChanged(mode, settings) stores them, sends
+-- the event and sets the mode (lines 324-333). AIUserSettings isn't in the
+-- archive; its entries were read by spike 0.0.19 (value, defaultValue,
+-- setting.identifier).
+--
+--   csApply NAME dry                 userSettings:apply onto two clones (this
+--                                    mode's and the other's); nothing written,
+--                                    nothing handed on
+--   csApply NAME width 6.6           an entry's value set (width and offset
+--   csApply NAME headlands 3         in metres, direction 0-175 in 5° or auto,
+--   csApply NAME direction 45|auto   auto: the entry's default), applied onto
+--   csApply NAME offset -0.4|auto    a clone, then aiModeSettingsChanged
+--   csApply NAME reset               the four course rows to Auto, then the same
+--   csApply NAME mode worker|steering the other mode's choices onto a clone,
+--                                    then aiModeSettingsChanged with that mode
+--   csCruise NAME on|off             g_gameSettings:setValue, as the lines key
+--                                    sets its own (AIAutomaticSteering.lua:923)
+--   csLines NAME                     the game's TOGGLE_AI_STEERING_LINES key
+-- Each records 5 s of changes: apply-NAME.json, cruise-NAME.json,
+-- lines-NAME.json.
+local WATCH_MS = 5000
+local COURSE_ROWS = { width = "implementWidth", headlands = "numHeadlands", direction = "workDirection",
+    offset = "sideOffset" }
+-- the direction's choices are its setting's textMapping: the first is
+-- Automatic (-57.2958, -1 rad; the save rounds it to -57), then 0 to 175
+local function directionChoices(entry)
+    local s = rawget(entry, "setting")
+    local m = type(s) == "table" and rawget(s, "textMapping") or nil
+    return type(m) == "table" and m or nil
+end
+
+local function userLists(sel)
+    local us = rawget(sel, "userSettings")
+    local lists = type(us) == "table" and rawget(us, "settings") or nil
+    return us, type(lists) == "table" and lists or nil
+end
+
+local function entryFor(list, identifier)
+    if type(list) ~= "table" then
+        return nil
+    end
+    for i = 1, rawLen(list) do
+        local e = rawget(list, i)
+        local s = type(e) == "table" and rawget(e, "setting") or nil
+        if type(s) == "table" and rawget(s, "identifier") == identifier then
+            return e
+        end
+    end
+    return nil
+end
+
+-- every entry of every mode: identifier = value (and default)
+local function entryValues(sel)
+    local _, lists = userLists(sel)
+    if lists == nil then
+        return nil
+    end
+    local out = {}
+    for m = 1, rawLen(lists) do
+        local list, row = rawget(lists, m), {}
+        for i = 1, rawLen(list) do
+            local e = rawget(list, i)
+            local s = type(e) == "table" and rawget(e, "setting") or nil
+            local id = type(s) == "table" and rawget(s, "identifier") or tostring(i)
+            row[tostring(id)] = { value = scalarOf(rawget(e, "value")), default = scalarOf(rawget(e, "defaultValue")),
+                loaded = scalarOf(rawget(e, "loadedValue")) }
+        end
+        out[m] = row
+    end
+    return out
+end
+
+local function gameSettingValue(name)
+    local ids = type(GameSettings) == "table" and rawget(GameSettings, "SETTING") or nil
+    local id = type(ids) == "table" and rawget(ids, name) or nil
+    if id == nil or type(g_gameSettings) ~= "table" then
+        return id, nil
+    end
+    -- not `a and b or nil`: an Off setting is false
+    return id, rawget(g_gameSettings, id)
+end
+
+local function vehicleSettingState(holder, gameSettingId)
+    local vs = rawget(holder, "spec_vehicleSettings")
+    local list = type(vs) == "table" and rawget(vs, "settings") or nil
+    if type(list) ~= "table" then
+        return nil
+    end
+    for i = 1, rawLen(list) do
+        local s = rawget(list, i)
+        if type(s) == "table" and rawget(s, "gameSettingId") == gameSettingId then
+            return rawget(s, "state")
+        end
+    end
+    return nil
+end
+
+-- what a watch records each frame: the mode state, the dialog's Steering
+-- Assist entries, and the two game settings
+local function watchState(run)
+    local st = modeState(run)
+    local settings = rawget(run.sel, "fieldCourseSettings")
+    if run.clone ~= nil and rawequal(settings, run.clone) then
+        st.settings = "clone"
+    end
+    st.sideOffset = type(settings) == "table" and scalarOf(rawget(settings, "sideOffset")) or nil
+    local _, lines = gameSettingValue("STEERING_ASSIST_LINES")
+    local cid, cruise = gameSettingValue("STEERING_ASSIST_CRUISE_CONTROL")
+    st.gameLines, st.gameCruise = lines, cruise
+    if cid ~= nil then
+        st.vehicleCruise = vehicleSettingState(run.holder, cid)
+    end
+    local values = entryValues(run.sel)
+    local sa = values ~= nil and values[run.saMode or 2] or nil
+    if sa ~= nil then
+        for id, v in pairs(sa) do
+            st["entry." .. id] = v.value
+        end
+    end
+    return st
+end
+
+local function watchBase(v, name)
+    local holder = steeringHolder(v)
+    if holder == nil then
+        return nil, "no Steering Assist part in this rig"
+    end
+    local aut, sel = rawget(holder, "spec_aiAutomaticSteering"), rawget(holder, "spec_aiModeSelection")
+    if type(sel) ~= "table" then
+        return nil, "no AI mode part on " .. tostring(objectLabel(holder))
+    end
+    if g_server == nil then
+        return nil, "not the server: host only"
+    end
+    local modes = type(AIModeSelection) == "table" and rawget(AIModeSelection, "MODE") or nil
+    return { name = name, holder = holder, aut = aut, sel = sel,
+        workerMode = type(modes) == "table" and rawget(modes, "WORKER") or nil,
+        saMode = type(modes) == "table" and rawget(modes, "STEERING_ASSIST") or nil,
+        course0 = rawget(aut, "steeringFieldCourse"), last0 = rawget(aut, "lastActiveSteeringFieldCourse"),
+        settings0 = rawget(sel, "fieldCourseSettings"), user0 = rawget(sel, "userSettings"),
+        mgr0 = tableFields(g_fieldCourseManager), aut0 = tableFields(aut), snapshots = {}, changes = {} }
+end
+
+-- the value an entry gets, in the entry's own units; nil and why if refused
+local function entryValueFor(row, word, entry)
+    local s = tostring(word or ""):lower()
+    if s == "auto" then
+        if row == "direction" then
+            local choices = directionChoices(entry)
+            if choices == nil or type(rawget(choices, 1)) ~= "number" then
+                return nil, "no textMapping on the direction's setting"
+            end
+            return rawget(choices, 1)
+        end
+        local d = rawget(entry, "defaultValue")
+        if d == nil then
+            return nil, "this row has no default"
+        end
+        return d
+    end
+    local n = tonumber(s)
+    if n == nil then
+        return nil, "a number or auto"
+    end
+    local value
+    if row == "width" then
+        value = math.floor(n * 10 + 0.5)
+    elseif row == "headlands" then
+        value = math.floor(n + 0.5)
+    elseif row == "direction" then
+        local choices, found = directionChoices(entry), false
+        for i = 2, choices ~= nil and rawLen(choices) or 0 do
+            found = found or rawget(choices, i) == n
+        end
+        if not found then
+            return nil, "not one of the dialog's directions (0 to 175 in 5s, or auto)"
+        end
+        value = n
+    else
+        value = math.floor(n * 10 + 0.5) / 10
+    end
+    local lo, hi = rawget(entry, "min"), rawget(entry, "max")
+    if (type(lo) == "number" and value < lo) or (type(hi) == "number" and value > hi) then
+        return nil, string.format("out of the dialog's range (%s to %s)", tostring(lo), tostring(hi))
+    end
+    return value
+end
+
+local function applyStart(v, name, what, a, b)
+    if ctx.watchRun ~= nil then
+        return nil, "a recording is still running"
+    end
+    local run, why = watchBase(v, name)
+    if run == nil then
+        return nil, why
+    end
+    run.kind, run.file = "apply", "apply"
+    local us, lists = userLists(run.sel)
+    if us == nil or lists == nil then
+        return nil, "no userSettings: hold H once"
+    end
+    local settings = run.settings0
+    if type(settings) ~= "table" or type(settings.clone) ~= "function" then
+        return nil, "no course settings with clone(): hold H once"
+    end
+    if type(us.apply) ~= "function" then
+        return nil, "userSettings has no apply (class " .. tostring(classNameOf(us)) .. ")"
+    end
+    if type(run.holder.aiModeSettingsChanged) ~= "function" then
+        return nil, "the vehicle has no aiModeSettingsChanged"
+    end
+    local cur = rawget(run.sel, "currentMode")
+    what = tostring(what or ""):lower()
+    run.what, run.words = what, { a, b }
+    if what == "dry" then
+        run.dry = true
+        return run
+    end
+    if what == "mode" then
+        local key = ({ worker = "workerMode", steering = "saMode" })[tostring(a or ""):lower()]
+        if key == nil or run[key] == nil then
+            return nil, "csApply NAME mode worker|steering"
+        end
+        run.targetMode = run[key]
+        if run.targetMode == cur then
+            return nil, "already in that mode"
+        end
+        if key == "saMode" then
+            run.allowed = allowedProbe(v)
+            if run.allowed.allowed ~= true then
+                return nil, "no tool here allows steering"
+            end
+        end
+        return run
+    end
+    -- a course row or reset: Steering Assist mode, on a field you may work, steering off
+    if cur ~= run.saMode then
+        return nil, "not in Steering Assist mode"
+    end
+    if rawget(run.aut, "lastIsOnField") ~= true then
+        return nil, "not on a field you may work"
+    end
+    if rawget(run.aut, "steeringEnabled") == true then
+        return nil, "steering is on"
+    end
+    if rawget(run.aut, "fieldCourseDetectionInProgress") == true then
+        return nil, "the game is building its course: wait"
+    end
+    local list = rawget(lists, cur)
+    run.targetMode, run.sets = cur, {}
+    local rows = {}
+    if what == "reset" then
+        rows = { { "width", "auto" }, { "headlands", "auto" }, { "direction", "auto" }, { "offset", "auto" } }
+    elseif COURSE_ROWS[what] ~= nil then
+        rows = { { what, a } }
+    else
+        return nil, "csApply NAME dry | width|headlands|direction|offset VALUE|auto | reset | mode worker|steering"
+    end
+    for _, r in ipairs(rows) do
+        local entry = entryFor(list, COURSE_ROWS[r[1]])
+        if entry == nil then
+            return nil, "no " .. COURSE_ROWS[r[1]] .. " entry in this mode's userSettings"
+        end
+        local value, err = entryValueFor(r[1], r[2], entry)
+        if value == nil then
+            return nil, r[1] .. ": " .. tostring(err)
+        end
+        run.sets[#run.sets + 1] = { row = r[1], identifier = COURSE_ROWS[r[1]], entry = entry, value = value }
+    end
+    return run
+end
+
+-- the call, on the first frame: dry, or entries set, applied, committed
+local function applyAct(run)
+    local us = rawget(run.sel, "userSettings")
+    local settings = run.settings0
+    run.gameSettings = plainFieldsOf(settings)
+    if run.dry then
+        run.dryResults = {}
+        for _, m in ipairs({ run.saMode, run.workerMode }) do
+            local clone = settings:clone()
+            local ok, err = pcall(us.apply, us, clone, m)
+            run.dryResults[#run.dryResults + 1] = { mode = m, ok = ok, error = not ok and tostring(err) or nil,
+                clone = plainFieldsOf(clone), sameTableAsGame = rawequal(clone, settings) }
+        end
+        return
+    end
+    for _, s in ipairs(run.sets or {}) do
+        s.old = rawget(s.entry, "value")
+        s.entry.value = s.value
+    end
+    local clone = settings:clone()
+    run.clone = clone
+    local ok, err = pcall(us.apply, us, clone, run.targetMode)
+    run.applied = { ok = ok, error = not ok and tostring(err) or nil, clone = plainFieldsOf(clone) }
+    if not ok then
+        for _, s in ipairs(run.sets or {}) do
+            s.entry.value = s.old
+        end
+        run.restored = true
+        return
+    end
+    local cok, cerr = pcall(run.holder.aiModeSettingsChanged, run.holder, run.targetMode, clone)
+    run.committed = { ok = cok, error = not cok and tostring(cerr) or nil }
+end
+
+local function cruiseAct(run)
+    local id = run.gameSettingId
+    local ok, err = pcall(g_gameSettings.setValue, g_gameSettings, id, run.target, true)
+    run.called = { ok = ok, error = not ok and tostring(err) or nil }
+end
+
+local function linesAct(run)
+    local ok, called = pcall(pressLikeTheMod, "TOGGLE_AI_STEERING_LINES")
+    run.called = { ok = ok, handlers = ok and called or nil, error = not ok and tostring(called) or nil }
+end
+
+local function watchFrame(run)
+    if run.calledAt == nil then
+        run.snapshots.before = previewSnapshot(run)
+        run.entriesBefore = entryValues(run.sel)
+        run.last = watchState(run)
+        run.calledAt = g_time
+        run.act(run)
+        run.snapshots.called = previewSnapshot(run)
+    end
+    local now = watchState(run)
+    for k, val in pairs(now) do
+        if val ~= run.last[k] then
+            run.changes[#run.changes + 1] = { ms = g_time - run.calledAt, key = k, from = run.last[k], to = val }
+        end
+    end
+    for k, val in pairs(run.last) do
+        if now[k] == nil then
+            run.changes[#run.changes + 1] = { ms = g_time - run.calledAt, key = k, from = val, to = "<nil>" }
+        end
+    end
+    run.last = now
+    return run.dry or g_time - run.calledAt >= WATCH_MS
+end
+
+local function watchFinish(run, err)
+    ctx.watchRun = nil
+    run.snapshots.after = previewSnapshot(run)
+    local sets = {}
+    for i, s in ipairs(run.sets or {}) do
+        sets[i] = { row = s.row, identifier = s.identifier, old = scalarOf(s.old), value = s.value }
+    end
+    local out = { name = run.name, kind = run.kind, what = run.what, words = run.words, target = run.target,
+        targetMode = run.targetMode, vehicle = objectLabel(run.holder), calledAt = run.calledAt, error = err,
+        sets = sets, gameSettings = run.gameSettings, dryResults = run.dryResults, applied = run.applied,
+        committed = run.committed, restored = run.restored, called = run.called, allowed = run.allowed,
+        entriesBefore = run.entriesBefore, entriesAfter = entryValues(run.sel),
+        settingsAfter = plainFieldsOf(rawget(run.sel, "fieldCourseSettings")),
+        snapshots = run.snapshots, changes = run.changes, final = run.last }
+    local file = run.file .. "-" .. (tostring(run.name or ""):gsub("[^%w_-]", "")) .. ".json"
+    local written = CS._writeJson(file, { [run.kind] = out })
+    local failed = err or (run.applied and run.applied.error) or (run.committed and run.committed.error)
+        or (run.called and run.called.error)
+    ctx.status = string.format("%s %s%s", run.kind, written and ("written to " .. file) or "write FAILED",
+        failed and (", ERROR " .. tostring(failed)) or "")
+    log("cs%s: %s", run.kind, ctx.status)
+end
+
+local function watchUpdate()
+    local run = ctx.watchRun
+    if run == nil then
+        return
+    end
+    local ok, done = pcall(watchFrame, run)
+    if not ok or done then
+        local fok, ferr = pcall(watchFinish, run, not ok and tostring(done) or nil)
+        if not fok then
+            ctx.watchRun = nil
+            log("watch finish failed: %s", tostring(ferr))
+        end
+    end
+end
+
+local function watchRefused(why)
+    return "refused: " .. tostring(why)
+end
+
+function CompanionSpike:consoleApply(name, what, a, b)
+    local v = getControlledVehicle()
+    if v == nil then
+        return "get in a vehicle first"
+    end
+    local ok, run, why = pcall(applyStart, v, name, what, a, b)
+    if not ok then
+        return watchRefused(run)
+    end
+    if run == nil then
+        return watchRefused(why)
+    end
+    run.act = applyAct
+    ctx.watchRun = run
+    local words = run.dry and "dry run, nothing written" or (run.what == "mode" and ("mode " .. tostring(a)))
+        or (run.what == "reset" and "the four course rows to Auto")
+        or string.format("%s to %s", run.what, tostring(run.sets[1].value))
+    ctx.status = "apply on the next frame (" .. words .. ")"
+    return ctx.status
+end
+
+function CompanionSpike:consoleCruise(name, word)
+    local v = getControlledVehicle()
+    if v == nil then
+        return "get in a vehicle first"
+    end
+    if ctx.watchRun ~= nil then
+        return watchRefused("a recording is still running")
+    end
+    local target = ({ on = true, off = false })[tostring(word or ""):lower()]
+    if target == nil then
+        return watchRefused("csCruise NAME on|off (on: Automatic, off at the lane end)")
+    end
+    local run, why = watchBase(v, name)
+    if run == nil then
+        return watchRefused(why)
+    end
+    local id, value = gameSettingValue("STEERING_ASSIST_CRUISE_CONTROL")
+    if id == nil or type(g_gameSettings) ~= "table" or type(g_gameSettings.setValue) ~= "function" then
+        return watchRefused("the game has no g_gameSettings:setValue or STEERING_ASSIST_CRUISE_CONTROL")
+    end
+    if value == target then
+        return watchRefused("already " .. tostring(word))
+    end
+    run.kind, run.file, run.target, run.gameSettingId, run.act = "cruise", "cruise", target, id, cruiseAct
+    ctx.watchRun = run
+    ctx.status = "cruise on the next frame (to " .. (target and "Automatic" or "Manual") .. ")"
+    return ctx.status
+end
+
+function CompanionSpike:consoleLines(name)
+    local v = getControlledVehicle()
+    if v == nil then
+        return "get in a vehicle first"
+    end
+    if ctx.watchRun ~= nil then
+        return watchRefused("a recording is still running")
+    end
+    local run, why = watchBase(v, name)
+    if run == nil then
+        return watchRefused(why)
+    end
+    local _, value = gameSettingValue("STEERING_ASSIST_LINES")
+    run.kind, run.file, run.target, run.act = "lines", "lines", not value, linesAct
+    ctx.watchRun = run
+    ctx.status = "lines key on the next frame (to " .. (value and "Off" or "On") .. ")"
+    return ctx.status
+end
+
+CS._watchUpdate = watchUpdate
+end)()
+
+---------------------------------------------------------------------------
 -- Mod event listener
 ---------------------------------------------------------------------------
 
@@ -3836,6 +4299,12 @@ function CompanionSpike:loadMap(name)
             .. "(csAllowed NAME: allowed-NAME.json)", "consoleAllowed", CompanionSpike)
         addConsoleCommand("csMode", "Switch the AI mode with setAIModeSelection and record 3 s: csMode NAME worker|steering "
             .. "(mode-NAME.json)", "consoleMode", CompanionSpike)
+        addConsoleCommand("csApply", "The dialog's OK: csApply NAME dry | width|headlands|direction|offset VALUE|auto | reset "
+            .. "| mode worker|steering (apply-NAME.json)", "consoleApply", CompanionSpike)
+        addConsoleCommand("csCruise", "Set the game's Steering Assist cruise setting: csCruise NAME on|off (cruise-NAME.json)",
+            "consoleCruise", CompanionSpike)
+        addConsoleCommand("csLines", "Press the game's Show lines key and record it: csLines NAME (lines-NAME.json)",
+            "consoleLines", CompanionSpike)
     end
 end
 
@@ -4058,6 +4527,7 @@ function CompanionSpike:update(dt)
     missionUpdate()
     previewUpdate()
     modeUpdate()
+    CS._watchUpdate()
     if ctx.pressNext ~= nil then
         local name = ctx.pressNext
         ctx.pressNext = nil

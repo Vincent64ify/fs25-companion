@@ -152,8 +152,9 @@ No Auto flag is saved or kept, and Auto means two things:
   the game takes from the tool (`FieldCourseSettings.generate`), the same
   on every field (spike 0.0.19: back at 5.0 m from 5.1 m the dialog said
   "(Auto)" again, the entry's value 50 against its default 50).
-- **Direction:** Auto is a choice of its own, −57 (−1 rad in the course
-  settings, any negative after a reload), and the game's course builder
+- **Direction:** Auto is a choice of its own, the first of the dialog's
+  choices: −57.2958° (−1 rad in the course settings); the save rounds it
+  to −57, which comes back as −0.99484 rad, and the game's course builder
   picks the angle for each field: on Auto the lanes ran at 30° on field
   119 and 77° on field 7, angles that aren't among the dialog's 5° choices
   (the lanes measured in the dumps; a set 45° measured 45°). How it picks
@@ -171,7 +172,7 @@ and `setting` with the row's `identifier`, `title` and texts):
 |---|---|---|---|---|
 | Working Width | `implementWidth` | tenths of a metre (50) | 5 to 600 (0.5 to 60 m), step 1 (0.1 m) | `value == defaultValue` (the tool's) |
 | Number of Headlands | `numHeadlands` | a count | 1 to 4 (the worker's 2 to 4), step 1 | `value == defaultValue` |
-| Work Direction | `workDirection` | whole degrees | 37 choices: −57 (Automatic), then 0° to 175° in 5° steps | −57: the builder picks the angle per field |
+| Work Direction | `workDirection` | degrees, from `setting.textMapping` | 37 choices: −57.2958 (Automatic, −1 rad; −57 once saved), then 0° to 175° in 5° steps | the first choice: the builder picks the angle per field |
 | Side Offset | `sideOffset` | metres | −5 to 5, step 0.1 | `value == defaultValue` (0) |
 | Show Lines | `showLines` | boolean (`loadedValue` from the save) | | |
 | Cruise Control Deactivation | `cruiseControl` | boolean, false Manual, true Automatic | | |
@@ -555,3 +556,11 @@ Live check (Solek, mod 0.23.0):
   question 7); Behaviour and Decisions updated. Auto told apart in the Data
   contract: the tool's value for width, headlands and offset, the game's
   own angle per field for the direction.
+- 2026-11-24: spike 0.0.20 written (the Plan's last single-player bullets).
+  The game saves `userSettings` (`saveToXML`, AIModeSelection.lua:120-126),
+  so Apply has to change the dialog's own entries. `csApply` sets them,
+  applies the mode's entries onto a clone (`userSettings:apply`) and
+  commits with `aiModeSettingsChanged`. It also does Reset and the mode
+  with the new mode's own choices, and has a dry run that only applies.
+  `csCruise` uses `g_gameSettings:setValue`; `csLines` presses the game's
+  key. Three game sessions, one new call each.

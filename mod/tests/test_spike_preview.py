@@ -439,3 +439,181 @@ def test_mode_switch_that_throws_still_writes(mlua):
     mode_frames(mlua, 40)
     out = plain(mlua.eval('written["mode-t.json"]'))["mode"]
     assert "inside the game" in out["error"]
+
+
+# spike 0.0.20: the dialog's OK (csApply), cruise (csCruise), the lines key
+# (csLines); userSettings as spike 0.0.19 read it
+
+APPLY_STUB = r"""
+local function entry(id, value, default, lo, hi)
+    return { value = value, defaultValue = default, min = lo, max = hi, setting = { identifier = id } }
+end
+-- the direction's choices as the game has them: Automatic, then 0 to 175 in 5s
+local mapping = { -57.295779513082 }
+for d = 0, 175, 5 do mapping[#mapping + 1] = d end
+local function direction(v)
+    local e = entry("workDirection", v)
+    e.setting.textMapping = mapping
+    return e
+end
+workerList = { entry("implementWidth", 50, 50, 5, 600), entry("numHeadlands", 2, 2, 2, 4),
+    direction(90), entry("workHeadlands", true) }
+saList = { entry("implementWidth", 66, 50, 5, 600), entry("numHeadlands", 3, 2, 1, 4),
+    direction(135), entry("sideOffset", -0.4, 0, -5, 5), entry("showLines", true),
+    entry("cruiseControl", true) }
+local US = {}
+US.__index = US
+function US:apply(s, mode)
+    calls[#calls + 1] = "apply " .. tostring(mode)
+    for _, e in ipairs(self.settings[mode]) do
+        local id, v = e.setting.identifier, e.value
+        if id == "implementWidth" then s.implementWidth = v / 10
+        elseif id == "workDirection" then s.workDirection = math.rad(v)
+        elseif id == "numHeadlands" or id == "sideOffset" then s[id] = v end
+    end
+end
+sel.userSettings = setmetatable({ settings = { workerList, saList } }, US)
+function tractor:aiModeSettingsChanged(mode, s)
+    calls[#calls + 1] = "aiModeSettingsChanged " .. tostring(mode)
+    sel.fieldCourseSettings = s
+    sel.currentMode = mode
+    aut.steeringFieldCourse = nil
+end
+function g_gameSettings:setValue(id, v, save)
+    calls[#calls + 1] = "setValue " .. id .. " " .. tostring(v) .. " " .. tostring(save)
+    self[id] = v
+end
+g_gameSettings.steeringAssistCruiseControl = true
+linesEvent = { isActive = true, targetObject = tractor, callback = function()
+    calls[#calls + 1] = "lines key"
+    g_gameSettings.steeringAssistLines = not g_gameSettings.steeringAssistLines
+end }
+g_inputBinding = { nameActions = { TOGGLE_AI_STEERING_LINES = "L" }, actionEvents = { L = { linesEvent } } }
+"""
+
+
+@pytest.fixture
+def alua(mlua):
+    mlua.execute(APPLY_STUB)
+    return mlua
+
+
+def watch_frames(lua, n, ms=100):
+    for _ in range(n):
+        lua.execute(f"g_time = g_time + {ms}; CompanionSpike._watchUpdate()")
+
+
+def apply(lua, *words):
+    quoted = ", ".join(f'"{w}"' for w in words)
+    return lua.eval(f"CompanionSpike:consoleApply({quoted})")
+
+
+def written_as(lua, file, kind):
+    out = lua.eval(f'written["{file}"]')
+    return plain(out)[kind] if out is not None else None
+
+
+def test_dry_writes_nothing_and_hands_nothing_on(alua):
+    msg = apply(alua, "dry", "dry")
+    assert "dry run" in msg and calls(alua) == []
+    watch_frames(alua, 1)
+    out = written_as(alua, "apply-dry.json", "apply")
+    assert calls(alua) == ["clone", "apply 2", "clone", "apply 1"]
+    sa, worker = out["dryResults"]
+    assert sa["ok"] and sa["clone"]["implementWidth"] == 6.6 and sa["clone"]["numHeadlands"] == 3
+    assert worker["clone"]["workDirection"] == pytest.approx(1.5707963)
+    assert alua.eval("sel.fieldCourseSettings == settings and settings.workDirection == -1")
+    assert out["entriesAfter"] == out["entriesBefore"]
+
+
+def test_a_row_sets_its_entry_applies_and_commits(alua):
+    assert "direction to 45" in apply(alua, "d45", "direction", "45")
+    watch_frames(alua, 60)
+    out = written_as(alua, "apply-d45.json", "apply")
+    assert calls(alua) == ["clone", "apply 2", "aiModeSettingsChanged 2"]
+    assert out["sets"] == [{"row": "direction", "identifier": "workDirection", "old": 135, "value": 45}]
+    assert out["entriesAfter"][1]["workDirection"]["value"] == 45
+    assert out["applied"]["clone"]["workDirection"] == pytest.approx(0.785398, abs=1e-5)
+    assert out["committed"]["ok"] is True
+    assert out["final"]["settings"] == "clone" and out["final"]["course"] == "none"
+
+
+def test_units_auto_and_reset(alua):
+    apply(alua, "w", "width", "6.1")
+    watch_frames(alua, 60)
+    assert written_as(alua, "apply-w.json", "apply")["sets"][0]["value"] == 61
+    apply(alua, "o", "offset", "auto")
+    watch_frames(alua, 60)
+    assert written_as(alua, "apply-o.json", "apply")["sets"][0]["value"] == 0
+    apply(alua, "r", "reset")
+    watch_frames(alua, 60)
+    sets = {s["row"]: s["value"] for s in written_as(alua, "apply-r.json", "apply")["sets"]}
+    # Auto direction is the first choice, -1 rad in degrees, as the dialog's Reset
+    assert sets == {"width": 50, "headlands": 2, "direction": pytest.approx(-57.2957795), "offset": 0}
+
+
+def test_mode_applies_the_other_modes_choices(alua):
+    apply(alua, "tw", "mode", "worker")
+    watch_frames(alua, 60)
+    out = written_as(alua, "apply-tw.json", "apply")
+    assert calls(alua) == ["clone", "apply 1", "aiModeSettingsChanged 1"]
+    assert out["applied"]["clone"]["workDirection"] == pytest.approx(1.5707963)
+    assert out["final"]["currentMode"] == 1
+
+
+def test_a_failed_apply_puts_the_entries_back_and_commits_nothing(alua):
+    alua.execute("getmetatable(sel.userSettings).apply = function() calls[#calls + 1] = 'apply'; error('inside apply') end")
+    apply(alua, "f", "headlands", "4")
+    watch_frames(alua, 60)
+    out = written_as(alua, "apply-f.json", "apply")
+    assert "inside apply" in out["applied"]["error"] and out["restored"] is True
+    assert not any(c.startswith("aiModeSettingsChanged") for c in calls(alua))
+    assert alua.eval("saList[2].value") == 3
+
+
+@pytest.mark.parametrize("setup, words, refusal", [
+    ("", ("x", "direction", "47"), "0 to 175 in 5s"),
+    ("", ("x", "direction", "180"), "0 to 175 in 5s"),
+    ("getmetatable(sel.userSettings).apply = nil", ("x", "width", "6"), "userSettings has no apply"),
+    ("tractor.aiModeSettingsChanged = nil", ("x", "width", "6"), "no aiModeSettingsChanged"),
+    ("", ("x", "headlands", "9"), "out of the dialog's range"),
+    ("", ("x", "sideways", "1"), "csApply NAME dry"),
+    ("sel.currentMode = 1", ("x", "width", "6"), "not in Steering Assist mode"),
+    ("aut.lastIsOnField = false", ("x", "width", "6"), "not on a field"),
+    ("aut.steeringEnabled = true", ("x", "width", "6"), "steering is on"),
+    ("aut.fieldCourseDetectionInProgress = true", ("x", "width", "6"), "building its course"),
+    ("sel.userSettings = nil", ("x", "width", "6"), "hold H once"),
+    ("", ("x", "mode", "steering"), "already in that mode"),
+    ("sel.currentMode = 1; allowed = false", ("x", "mode", "steering"), "no tool here allows steering"),
+])
+def test_apply_refusals_touch_nothing(alua, setup, words, refusal):
+    alua.execute(setup)
+    msg = apply(alua, *words)
+    assert msg.startswith("refused") and refusal in msg
+    watch_frames(alua, 5)
+    assert not any(c.startswith(("apply", "aiModeSettingsChanged", "clone")) for c in calls(alua))
+    assert alua.eval("saList[1].value") == 66
+
+
+def test_cruise_sets_the_game_setting(alua):
+    assert "to Manual" in alua.eval('CompanionSpike:consoleCruise("m", "off")')
+    watch_frames(alua, 60)
+    out = written_as(alua, "cruise-m.json", "cruise")
+    assert calls(alua) == ["setValue steeringAssistCruiseControl false true"]
+    assert any(c["key"] == "gameCruise" and c["to"] is False for c in out["changes"])
+    assert "already" in alua.eval('CompanionSpike:consoleCruise("m2", "off")')
+
+
+def test_lines_presses_the_game_key(alua):
+    assert "to Off" in alua.eval('CompanionSpike:consoleLines("off")')
+    watch_frames(alua, 60)
+    out = written_as(alua, "lines-off.json", "lines")
+    assert calls(alua) == ["lines key"] and out["called"]["handlers"] == 1
+    assert any(c["key"] == "gameLines" and c["to"] is False for c in out["changes"])
+
+
+def test_auto_direction_applies_as_minus_one_radian(alua):
+    apply(alua, "a", "direction", "auto")
+    watch_frames(alua, 60)
+    out = written_as(alua, "apply-a.json", "apply")
+    assert out["applied"]["clone"]["workDirection"] == pytest.approx(-1)

@@ -364,6 +364,46 @@ mode's choices, but stopped one level above them. 0.0.19:
 8. Send back the `settings-*`, `allowed-*` and `mode-*` files (I read them
    from the folder during the session).
 
+## Steering Assist: Apply, cruise and the lines key (spike 0.0.20, spec 0022)
+
+The dialog's OK, done from the console the way the game's code does it.
+The save writes `userSettings`, so each row's entry is changed. The
+selected mode's entries are applied onto a copy of the course settings
+(`userSettings:apply`), and `aiModeSettingsChanged` stores the copy, tells
+the game and sets the mode. Each command records 5 s of changes.
+
+- `csApply NAME dry`: applies both modes' entries onto two copies.
+  Nothing is written and nothing is handed to the game. The new call:
+  `userSettings:apply`.
+- `csApply NAME width 6.6`, `headlands 3`, `direction 45`, `offset -0.4`
+  (or `auto` for any of them), `reset`, or `mode worker|steering`: sets
+  the entry, applies it onto a copy, then `aiModeSettingsChanged`. The new
+  call: `aiModeSettingsChanged`.
+- `csCruise NAME on|off`: the game's cruise setting (on: Automatic) with
+  `g_gameSettings:setValue`, the way the lines key sets its own.
+- `csLines NAME`: presses the game's own Show lines key.
+
+Three game sessions, one new call each. Between them: save, quit to the
+menu, load the save again. In the Fendt with the LEMKEN on field 119,
+Steering Assist mode, steering off. The save is copied aside before
+session 2, the first run that changes what the game saves. On "ERROR" or
+anything odd, quit without saving and say which step.
+
+1. `csApply dry dry`. Then save, reload.
+2. `csApply d45 direction 45` alone first. Hold H, note what the dialog
+   shows, and leave it with **Back** (OK would commit through the dialog
+   and hide a wrong entry). `csSettings d45` and `csCourse d45`: the course
+   should be `fixtures/spike0022/course-dir45.json` point for point. Save,
+   reload, hold H (Back), `csSettings d45reload`. Then, each checked the
+   same way (hold H, Back): `csApply auto direction auto`, `csApply w66
+   width 6.6`, `csApply reset reset`, `csApply tw mode worker`, `csApply
+   ts mode steering`. Save, reload.
+3. `csCruise man off`; hold H, note, Back; `csApply drycruise dry` (does
+   applying put the entry's cruise back?). `csLines off`; the same with
+   `csApply drylines dry`. Save, reload, `csSettings session3`. Then
+   `csCruise aut on` and `csLines on`: the two are game settings the game
+   keeps outside the save, so end with both on.
+
 ## Contracts: is getMaxCutLiters safe on an offer? (spike 0.0.14, spec 0018)
 
 `csMaxCut N` calls `getMaxCutLiters()` once on harvest offer N (its
