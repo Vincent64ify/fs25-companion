@@ -48,6 +48,10 @@ function VehicleState.steering(vehicle)
     -- Assist (the Mode row's fade)
     out.settings = VehicleState.steeringSettings(vehicle)
     out.canAssist = Api.canAssist(vehicle)
+    -- revision 2: the game's dialog without OK, and Show lines and Cruise
+    -- whether or not the vehicle has settings
+    out.dialog = VehicleState.steeringDialog(vehicle)
+    out.showLines, out.cruiseOff = VehicleState.steeringGameSettings()
     return out
 end
 
@@ -76,24 +80,45 @@ local function isAuto(e, tolerance)
     return v ~= nil and d ~= nil and math.abs(v - d) <= (tolerance or 0)
 end
 
-local function fromEntries(list)
-    local width = Api.entryOf(list, "implementWidth")
-    local heads = Api.entryOf(list, "numHeadlands")
-    local dir = Api.entryOf(list, "workDirection")
-    local off = Api.entryOf(list, "sideOffset")
-    if width == nil or num(width.value) == nil or heads == nil or num(heads.value) == nil
-        or dir == nil or num(dir.value) == nil or off == nil or num(off.value) == nil then
+-- revision 2: a course row's entry, or the same entry with the value the
+-- lanes were built with
+local COURSE_IDS = { "implementWidth", "numHeadlands", "workDirection", "sideOffset" }
+
+local function valued(e, values, id)
+    if e == nil or values == nil or values[id] == nil then
+        return e
+    end
+    return { value = values[id], defaultValue = e.defaultValue, min = e.min, max = e.max }
+end
+
+local function width(e)
+    return { m = metres(e.value), auto = isAuto(e), min = metres(num(e.min)), max = metres(num(e.max)) }
+end
+
+local function headlands(e)
+    return { count = e.value, auto = isAuto(e), min = num(e.min), max = num(e.max) }
+end
+
+local function direction(e)
+    return { deg = e.value >= 0 and e.value or nil, auto = e.value < 0 }
+end
+
+local function offset(e)
+    return { m = math.floor(e.value * 10 + 0.5) / 10, auto = isAuto(e, OFFSET_SAME), min = num(e.min), max = num(e.max) }
+end
+
+-- the rows from the entries; `values` (identifier -> value) in place of
+-- the entries' own where given
+local function fromEntries(list, values)
+    local w = valued(Api.entryOf(list, "implementWidth"), values, "implementWidth")
+    local h = valued(Api.entryOf(list, "numHeadlands"), values, "numHeadlands")
+    local d = valued(Api.entryOf(list, "workDirection"), values, "workDirection")
+    local o = valued(Api.entryOf(list, "sideOffset"), values, "sideOffset")
+    if w == nil or num(w.value) == nil or h == nil or num(h.value) == nil
+        or d == nil or num(d.value) == nil or o == nil or num(o.value) == nil then
         return nil
     end
-    local deg = dir.value
-    return {
-        made = true,
-        width = { m = metres(width.value), auto = isAuto(width), min = metres(num(width.min)), max = metres(num(width.max)) },
-        headlands = { count = heads.value, auto = isAuto(heads), min = num(heads.min), max = num(heads.max) },
-        direction = { deg = deg >= 0 and deg or nil, auto = deg < 0 },
-        offset = { m = math.floor(off.value * 10 + 0.5) / 10, auto = isAuto(off, OFFSET_SAME), min = num(off.min),
-            max = num(off.max) },
-    }
+    return { made = true, width = width(w), headlands = headlands(h), direction = direction(d), offset = offset(o) }
 end
 
 -- the course's own settings, after a hitch: what the game built it with
@@ -111,24 +136,103 @@ local function fromCourse(course)
     }
 end
 
+-- Revision 2 (live check 2026-11-25): the game's dialog writes its entries
+-- as each row is stepped and Back keeps them; only OK builds a course. So
+-- the mod keeps, per course table, the entries as they were when it first
+-- saw that course: what the lanes are. After the mod's own commit the
+-- entries are what's coming, until the game's next course.
+local lanesOf = setmetatable({}, { __mode = "k" })
+local committing = setmetatable({}, { __mode = "k" })
+
+local function entryValues(list)
+    local out = {}
+    for _, id in ipairs(COURSE_IDS) do
+        local e = Api.entryOf(list, id)
+        if e == nil or num(e.value) == nil then
+            return nil
+        end
+        out[id] = e.value
+    end
+    return out
+end
+
+-- identifier -> the value the lanes were built with, or nil (no course,
+-- no entries)
+function VehicleState.lanesEntries(vehicle)
+    local course = Api.steeringCourse(vehicle)
+    local now = entryValues(Api.userEntries(vehicle, "steeringAssist"))
+    if course == nil or now == nil then
+        return nil
+    end
+    if committing[vehicle] ~= nil then
+        if committing[vehicle] == course then
+            return now
+        end
+        committing[vehicle] = nil
+    end
+    local lanes = lanesOf[course]
+    if lanes == nil then
+        lanes = now
+        lanesOf[course] = lanes
+    end
+    return lanes
+end
+
+-- the mod committed the entries (Apply, Reset, the mode): they're the
+-- lanes' from now on, until the game builds its next course
+function VehicleState.steeringCommitted(vehicle)
+    committing[vehicle] = Api.steeringCourse(vehicle) or false
+end
+
 -- {width = {m, auto, min, max}, headlands = {count, auto, min, max},
 -- direction = {deg, auto}, offset = {m, auto, min, max}, showLines,
--- cruiseOff, made}, or nil when the game has none for this vehicle
+-- cruiseOff, made}, or nil when the game has none for this vehicle: what
+-- the lanes are built with (revision 2)
 function VehicleState.steeringSettings(vehicle)
-    local out = fromEntries(Api.userEntries(vehicle, "steeringAssist"))
+    local list = Api.userEntries(vehicle, "steeringAssist")
+    local out = fromEntries(list, VehicleState.lanesEntries(vehicle))
         or fromCourse(Api.steeringCourse(vehicle))
     if out == nil then
         return nil
     end
+    local lines, cruise = VehicleState.steeringGameSettings()
+    out.showLines, out.cruiseOff = lines, cruise
+    return out
+end
+
+-- the rows the game's dialog holds without OK, in the settings' shape, only
+-- those that differ from the lanes'; nil when none (revision 2)
+function VehicleState.steeringDialog(vehicle)
+    local lanes = VehicleState.lanesEntries(vehicle)
+    local list = Api.userEntries(vehicle, "steeringAssist")
+    local now = entryValues(list)
+    if lanes == nil or now == nil then
+        return nil
+    end
+    local out, any = {}, false
+    local rows = { implementWidth = { "width", width }, numHeadlands = { "headlands", headlands },
+        workDirection = { "direction", direction }, sideOffset = { "offset", offset } }
+    for _, id in ipairs(COURSE_IDS) do
+        if math.abs(now[id] - lanes[id]) > 1e-6 then
+            local row = rows[id]
+            out[row[1]] = row[2](Api.entryOf(list, id))
+            any = true
+        end
+    end
+    return any and out or nil
+end
+
+-- Show lines and Cruise: game settings, every vehicle's (spike 0.0.18)
+function VehicleState.steeringGameSettings()
     local _, lines = Api.gameSetting("lines")
     local _, cruise = Api.gameSetting("cruise")
-    if type(lines) == "boolean" then
-        out.showLines = lines
+    if type(lines) ~= "boolean" then
+        lines = nil
     end
-    if type(cruise) == "boolean" then
-        out.cruiseOff = cruise
+    if type(cruise) ~= "boolean" then
+        cruise = nil
     end
-    return out
+    return lines, cruise
 end
 
 -- specs/0021: a number for each course table the game builds, so the web

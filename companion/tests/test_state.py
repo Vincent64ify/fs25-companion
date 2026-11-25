@@ -20,6 +20,17 @@ def test_latest_wins_per_topic():
     assert snap["player"]["data"]["x"] == 2
 
 
+def test_cab_steering_dialog_and_game_settings_pass_through():
+    """specs/0022 revision 2: cab.steering's `dialog` and its top
+    `showLines` and `cruiseOff` reach viewers as the mod wrote them."""
+    s = StateStore()
+    s.apply(hello("a"))
+    steering = {"mode": "worker", "showLines": False, "cruiseOff": True,
+                "dialog": {"width": {"m": 6, "auto": False}}}
+    s.apply(env("cab", {"inVehicle": True, "steering": steering}, seq=2))
+    assert s.snapshot()["cab"]["data"]["steering"] == steering
+
+
 def test_snapshot_is_a_copy():
     s = StateStore()
     s.apply(hello("a"))

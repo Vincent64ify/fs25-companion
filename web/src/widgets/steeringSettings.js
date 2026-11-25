@@ -26,7 +26,7 @@ import { h } from "../ui/dom.js";
 import { icon } from "../ui/icons.js";
 import {
   applyAttr, changesOf, COURSE_ROWS, courseChanged, draftOf, dropPreview, locksOf, PREVIEW_DELAY_MS, previewAttr, reset, rowText,
-  sameRow, setSetup, setupOf, step, toAuto, wasText,
+  sameRow, setSetup, setupOf, step, toAuto, wasText, dialogText, miscOf,
 } from "../data/steeringSettings.js";
 import { courseOf } from "../data/gps.js";
 
@@ -375,14 +375,18 @@ export function steeringSettings(store, opts = {}) {
       const locked = COURSE_ROWS.includes(/** @type {CourseRow} */ (row)) ? locks.lanes : locks.misc;
       const changed = !!d && !!g && changes.includes(row);
       const isOpen = openRow === row && !locked;
-      text(r.value, d ? rowText(d, row) : "–");
+      // revision 2: Show lines and Cruise are the game's even before a vehicle has settings
+      const misc = row === "lines" || row === "cruise" ? miscOf(s) : undefined;
+      text(r.value, d ? rowText(d, row) : misc ? rowText(/** @type {any} */ (misc), row) : "–");
       r.autoTag.hidden = !(d && (row === "width" || row === "headlands" || row === "offset") && d[row].auto
         && rowText(d, row) !== "Auto");
+      // revision 2: a row the game's dialog holds without OK says so
+      const inDialog = !changed && !misc ? dialogText(s.dialog, /** @type {CourseRow} */ (row)) : "";
       const sub = changed ? (applying ? "Applying…" : wasText(/** @type {Draft} */ (g), row))
-        : row === "cruise" ? "Off at the lane end" : "";
+        : inDialog || (row === "cruise" ? "Off at the lane end" : "");
       text(r.sub, sub);
       r.sub.hidden = !sub;
-      attr(r.sub, "data-tone", changed ? (applying ? "pending" : "changed") : undefined);
+      attr(r.sub, "data-tone", changed ? (applying ? "pending" : "changed") : inDialog ? "dialog" : undefined);
       attr(r.el, "data-open", isOpen);
       attr(r.el, "data-changed", changed);
       attr(r.el, "data-state", changed && applying ? "pending" : undefined);

@@ -135,10 +135,18 @@
  * @property {number} [courseKey] the steering_course topic's key while the
  *   game has a course for this vehicle (specs/0021)
  * @property {SteeringSettings} [settings] the game's AI Settings dialog's
- *   Steering Assist rows (specs/0022, mod 0.23.0); absent while the game
- *   has none for this vehicle
+ *   Steering Assist rows (specs/0022, mod 0.23.0), as the lanes are built
+ *   (revision 2, mod 0.23.1); absent while the game has none for this
+ *   vehicle
  * @property {boolean} [canAssist] whether a tool here allows Steering
  *   Assist (the game's own guard; specs/0022)
+ * @property {Partial<SteeringSettings>} [dialog] the rows the game's dialog
+ *   holds without OK (changed there, left with Back), only those that
+ *   differ from `settings`, the lanes' (specs/0022 revision 2, mod 0.23.1)
+ * @property {boolean} [showLines] the game's Show lines, every vehicle's,
+ *   sent also without settings (revision 2)
+ * @property {boolean} [cruiseOff] the game's Cruise Control Deactivation,
+ *   likewise
  */
 
 /**

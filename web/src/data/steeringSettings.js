@@ -191,6 +191,41 @@ export function wasText(game, row) {
   return `was ${auto ? "Auto · " : ""}${text}`;
 }
 
+/**
+ * Revision 2: a row the game's dialog holds without OK (cab.steering.dialog,
+ * only the rows that differ from the lanes'), "Dialog: 6.0 m"
+ * (short: the row's value and AUTO tag share the line); "" for a row it
+ * doesn't hold.
+ * @param {Partial<SteeringSettings>|undefined} dialog @param {CourseRow} row
+ */
+export function dialogText(dialog, row) {
+  const r = dialog?.[row];
+  if (!r) return "";
+  /** @type {any} */
+  const one = {
+    width: { m: undefined, auto: true }, headlands: { count: undefined, auto: true },
+    direction: { deg: undefined, auto: true }, offset: { m: 0, auto: true },
+  };
+  if (row === "width") one.width = { m: /** @type {any} */ (r).m, auto: r.auto };
+  else if (row === "headlands") one.headlands = { count: /** @type {any} */ (r).count, auto: r.auto };
+  else if (row === "direction") one.direction = { deg: r.auto ? undefined : /** @type {any} */ (r).deg, auto: r.auto };
+  else one.offset = { m: /** @type {any} */ (r).m ?? 0, auto: r.auto };
+  const text = rowText(one, row);
+  const auto = (row === "width" || row === "headlands") && r.auto && text !== "Auto";
+  return `Dialog: ${auto ? "Auto · " : ""}${text}`;
+}
+
+/**
+ * Show lines and Cruise as the game holds them: from the settings, else
+ * from cab.steering's top (revision 2: the game's, every vehicle's, sent
+ * also before a vehicle has settings).
+ * @param {import("../types.js").CabSteering|undefined} s
+ * @returns {{lines: boolean|undefined, cruise: boolean|undefined}}
+ */
+export function miscOf(s) {
+  return { lines: s?.settings?.showLines ?? s?.showLines, cruise: s?.settings?.cruiseOff ?? s?.cruiseOff };
+}
+
 // what's locked, and why ---------------------------------------------------------
 
 /**

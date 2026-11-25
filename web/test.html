@@ -4330,6 +4330,16 @@ check("steering settings: what's faded and why (AI worker mode, no tool, off the
   [st.locksOf(stCab({ onField: false })).lanes, st.locksOf(stCab({ onField: false })).misc, st.locksOf(stCab({ onField: false })).why],
   st.locksOf(stCab({ state: "steering" })).why], [{ lanes: false, misc: false, why: "", whySmall: "" }, "Switch to Steering Assist",
   "No tool here allows Steering Assist", [true, false, "Drive onto a field you may work"], "Steering is on"]);
+const stDialog = { width: { m: 6, auto: false }, headlands: { count: 3, auto: false }, direction: { deg: 35, auto: false },
+  offset: { m: -2, auto: false } };
+check("steering settings (revision 2): a row left in the game's dialog with Back says so; none, nothing", [
+  st.COURSE_ROWS.map((r) => st.dialogText(stDialog, r)), st.dialogText({ direction: { auto: true } }, "direction"),
+  st.dialogText({ width: { m: 6, auto: true } }, "width"), st.dialogText(undefined, "width"), st.dialogText({}, "offset")],
+  [["Dialog: 6.0 m", "Dialog: 3 rounds", "Dialog: 35°",
+    "Dialog: 2.0 m left"], "Dialog: Auto", "Dialog: Auto · 6.0 m", "", ""]);
+check("steering settings (revision 2): Show lines and Cruise from the settings, else from the top (the game's, every vehicle's)", [
+  st.miscOf({ settings: { ...stGame, showLines: false }, showLines: true }), st.miscOf({ showLines: false, cruiseOff: true }),
+  st.miscOf(undefined)], [{ lines: false, cruise: true }, { lines: false, cruise: true }, { lines: undefined, cruise: undefined }]);
 
 // --- Steering Assist settings: the column (specs/0022, widgets/steeringSettings.js) ----------
 
@@ -4448,6 +4458,20 @@ check("settings column: no tool allows steering: Steering Assist faded in the Mo
 stSteering({ state: "steering" });
 check("settings column: while steering, the course rows faded; Show lines and Cruise still set", [
   stRow("width").dataset.locked, stRow("cruise").dataset.locked, stQ(".st-why").firstChild?.textContent], ["true", undefined, "Steering is on"]);
+st.setSetup(stStore, { draft: undefined, phase: "idle" });
+stSteering({ dialog: { width: { m: 6, auto: false } } });
+check("settings column (revision 2): a row left in the game's dialog: the lanes' value, the dialog's on its sub-line; nothing to apply", [
+  stValues()[1], stRow("width").querySelector(".st-name span")?.textContent,
+  stRow("width").querySelector(".st-name span")?.getAttribute("data-tone"), stRow("width").dataset.changed,
+  stQ(".st-apply").textContent], ["5.0 m", "Dialog: 6.0 m", "dialog", undefined, "No changes"]);
+stTap(/** @type {HTMLElement} */ (stRow("width").querySelector(".st-head")));
+stStep("width", "+0.1");
+check("settings column (revision 2): changed on the panel, what it was wins the sub-line", [
+  stRow("width").querySelector(".st-name span")?.textContent, stQ(".st-apply").textContent], ["was Auto · 5.0 m", "Apply 1 change"]);
+st.setSetup(stStore, { draft: undefined });
+stSteering({ mode: "worker", showLines: false, cruiseOff: true }, null);
+check("settings column (revision 2): no settings yet: Show lines and Cruise show the game's, the course rows –", stValues().slice(1),
+  ["–", "–", "–", "–", "Off", "Automatic"]);
 st.setSetup(stStore, { open: false });
 stHost.remove();
 

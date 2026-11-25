@@ -1,7 +1,7 @@
 # 0022: Steering Assist settings from the dashboard
 
-Status: live-checked
-Mod: 0.23.0 · Started: 2026-11-17 · Design: the "Steering Assist settings" row on the GPS canvas, approved 2026-11-24 (version 30) (`FS25 Companion: GPS`, https://claude.ai/artifact/45ruF2v1hH49JJi4HyRTeM, board `Settings`), drawn 2026-11-23, redrawn 2026-11-24; the brainstorm's brief, `concepts_brief.md`, is in git history (commit b0cffeb)
+Status: live-checked; revision 2 built (the dialog left with Back), its live check open
+Mod: 0.23.1 (revision 2; 0.23.0 before) · Started: 2026-11-17 · Design: the "Steering Assist settings" row on the GPS canvas, approved 2026-11-24 (version 30) (`FS25 Companion: GPS`, https://claude.ai/artifact/45ruF2v1hH49JJi4HyRTeM, board `Settings`), drawn 2026-11-23, redrawn 2026-11-24; the brainstorm's brief, `concepts_brief.md`, is in git history (commit b0cffeb)
 
 ## Goal
 
@@ -14,6 +14,85 @@ Assist selected the dialog has seven (Vincent's screenshot, 2026-11-23):
 the mode, Working Width, Number of Headlands, Work Direction, Side Offset,
 Show Lines, and Cruise Control Deactivation, then Reset, Back and OK.
 Vincent changes all of them, field by field and tool by tool.
+
+## Revision 2: the game's dialog left with Back
+
+Drafted 2026-11-25 after the live check (open questions 9 and 10);
+Vincent approved choice A the same day, built the same day (mod 0.23.1
+and the web); Behaviour and the Data contract below say the same. No new
+design board: it reuses the row's sub-line ("was Auto · 5.0 m").
+
+**Why.** The game's dialog writes each row into its entries
+(`userSettings`) as you step it, and Back keeps them; only OK builds a
+course. The mod reads the entries, so after a Back:
+- the panel shows the dialog's values as the game's while the lanes are
+  still the old ones (live check: width 6.0 m on a 5 m course);
+- an Apply sends only the rows the draft changed, and the mod applies the
+  whole entry list, so **a value left in the dialog is committed with an
+  unrelated Apply** (headlands 3 left behind, then Apply a width: the
+  course gets 3 headlands too). Not seen live, but it follows from
+  `applyAttr` and `userSettings:apply`.
+- (question 10) in AI worker mode or before a vehicle has settings, Show
+  lines and Cruise show "–", though they're the game's, every vehicle's.
+
+**Choice A (approved): the lanes' settings, and the dialog's beside them.**
+- The mod keeps, per vehicle, the entries as they were when the game
+  built the course it has (taken when it first sees a new course table,
+  `courseKey`). `cab.steering.settings` sends those: what the lanes are.
+- When the entries now differ, `cab.steering.dialog` (new, the same
+  shape, only the rows that differ) says what the game's dialog holds
+  without OK.
+- The panel shows the lanes' values. A row the dialog changed says so on
+  its sub-line in the warn colour: "Dialog: 6.0 m" (built shorter than
+  drafted, "6.0 m in the game's dialog, not applied", which didn't fit
+  beside the value and its AUTO tag at 1180 wide). No other change:
+  tapping it is the normal −/+.
+- **Apply** puts every course row's entry back to the lanes' value first,
+  then sets the draft's rows, applies and commits. A dialog leftover is
+  never committed by the dashboard; the dialog then shows what the
+  dashboard applied. Reset the same, all four to Auto. After the mod's
+  own commit (Apply, Reset, the mode) the entries count as the lanes'
+  until the game's next course table, so its own change is no leftover.
+- The preview builds from the lanes' settings with the draft over them
+  (it already builds on a clone of the course's settings: unchanged).
+- Limit: if the mod first sees a vehicle after a Back, it takes the
+  leftovers as the lanes' settings (the mod can't read what built the
+  course for Auto's direction: −57 in the entry, the field's own angle in
+  radians in the course). Loading a save or getting in is the usual first
+  sight, and a dialog OK puts it right. A course the game kept and takes
+  back keeps the settings it was first seen with.
+
+**Choice B (not chosen): compare with the course directly.** The mod reads
+`fieldCourseSettings` (metres, headlands, radians, offset) and calls a row
+changed in the dialog where it differs from the entry. No memory kept,
+right even on first sight, but Auto's direction can't be compared (the
+field's angle in radians against −57), so a direction left on Auto or set
+to the field's own angle is missed.
+
+**Not chosen: the mod puts the entries back by itself** after a Back. It
+would change what the game's own dialog shows without a press on the
+dashboard (the mod acts only on commands).
+
+**Question 10 (either choice):** `cab.steering` gains `showLines` and
+`cruiseOff` at its top, sent whenever the game has the settings
+(`g_gameSettings`, every vehicle); `settings` keeps them too (Protocol
+v1). The two rows show the game's value; in AI worker mode they still
+fade, as now.
+
+**Tests** (the automated ones are in Acceptance, ticked).
+- `mod/tests/run.lua`: the lanes' settings kept per course table; a
+  changed entry with the same course gives `dialog` with that row only;
+  a new course table takes the entries again; Apply puts the leftovers
+  back before the draft's rows (headlands 3 left, width applied: the
+  committed clone has the lanes' headlands); Reset the same;
+  `showLines` and `cruiseOff` without `settings`.
+- `companion/tests`: `dialog` and the two top fields passed through.
+- `web/test.html`: the sub-line on a dialog-changed row, the draft and
+  Apply against the lanes' values; Show lines and Cruise from the top
+  fields.
+- Live: change a row in the game's dialog and Back; the panel shows the
+  lanes' value with the dialog's note; Apply another row; the dialog and
+  the lanes have only the dashboard's change. A dialog OK clears the note.
 
 ## Behaviour
 
@@ -105,12 +184,16 @@ Vincent changes all of them, field by field and tool by tool.
   needed (Vincent, 2026-11-24): the mod makes the settings the way holding
   H does, whenever a command needs them, and the Mode row brings Steering
   Assist back.
-- **Changed in the game's dialog and left with Back** (live check,
-  2026-11-25): the dialog writes each row into its entries as you step
-  it, and Back doesn't undo that; only OK builds a course. The panel
-  reads the entries, so it then shows the dialog's unconfirmed values as
-  the game's, with no changes to Apply, while the course is still the old
-  one. Open question 9.
+- **Changed in the game's dialog and left with Back** (revision 2): the
+  dialog writes each row into its entries as you step it, and Back
+  doesn't undo that; only OK builds a course. The panel shows the lanes'
+  settings (the entries as they were when the game built this course),
+  and a row the dialog holds otherwise says "Dialog: 6.0 m" under its
+  name in the warn colour. Apply and Reset put such rows back to the
+  lanes' values before the panel's changes, so the dashboard never
+  commits a leftover.
+- **Show lines and Cruise** show the game's value even before a vehicle
+  has settings (revision 2); in AI worker mode they fade with the rest.
 - **These are Steering Assist's own settings:** the save keeps the AI
   worker's apart (`settings` › `worker` and `steering_assist`). In memory
   both modes showed the same values (spike 0.0.15), so where the game
@@ -139,6 +222,13 @@ Topics gain fields (Protocol v1); `v` doesn't change.
   - `canAssist` (boolean): whether a tool here allows Steering Assist, for
     the Mode row's fade: `getIsAutomaticSteeringAllowed`, plain reads in
     the game's scripts (spike 0.0.19).
+  - Revision 2 (mod 0.23.1): `settings`' course rows are the lanes': the
+    entries as they were when the mod first saw this course table (after
+    its own commit, the entries until the next course). `dialog`, the
+    same shape with only the course rows the entries hold otherwise
+    (changed in the game's dialog, left with Back); absent when none.
+    `showLines` and `cruiseOff` also at `cab.steering`'s top, sent with or
+    without `settings`.
 - **Mod → companion, a new topic `steering_preview`** (latest wins, like
   `steering_course`): `key` (a number per preview), `for` (the command's
   settings attribute as it was sent, so the web compares the string it
@@ -394,6 +484,22 @@ Automated:
   course when the settings return; a preview key and a course key with
   the same number each paint whole.
 - [x] Replay in the browser pane at 1158×676 and 1180×820, day and night.
+- [x] Revision 2, `mod/tests/run.lua`: the lanes' settings kept per
+  course table; a dialog change left with Back gives `dialog` with only
+  those rows; a new course takes the entries; Show lines and Cruise at
+  the top without settings; Apply puts a leftover back before the
+  draft's rows (committed with the lanes' headlands), the mod's own
+  commit is no leftover, a kept course taken back keeps its own; refused,
+  everything as it was.
+- [x] Revision 2, `companion/tests`: `dialog` and the two top fields
+  passed through.
+- [x] Revision 2, `web/test.html`: "Dialog: …" for each row, Auto, none;
+  the lanes' value on the row with the note, nothing to apply; a panel
+  change's "was …" wins the sub-line; Show lines and Cruise from the top
+  without settings.
+- [x] Revision 2, the replay with a fed-in `dialog` on all four rows at
+  1180×820 day and 1158×676 night: the notes fit, the column doesn't
+  scroll.
 
 Live check (Solek, mod 0.23.0):
 - [x] Each setting set from the dashboard: the game's dialog shows the
@@ -421,6 +527,17 @@ Live check (Solek, mod 0.23.0):
 - [x] The mode while steering, and while the AI worker drives (refused).
 - ~~Precision Farming on and off.~~ Not needed (Vincent, 2026-11-25):
   PF changes nothing for the GPS, settled in earlier sessions.
+
+Live check, revision 2 (mod 0.23.1):
+- [ ] Step a row in the game's dialog (width) and press Back: the panel
+  shows the lanes' value with "Dialog: …" under the row.
+- [ ] Then Apply another row (headlands) from the dashboard: the lanes
+  and the dialog have only the dashboard's change; the width is the
+  lanes' again.
+- [ ] A row stepped in the dialog and confirmed with OK: the note goes,
+  the panel shows the new value.
+- [ ] In AI worker mode (the Valtra after a detach), Show lines and
+  Cruise show the game's values, faded.
 
 ## Decisions
 
@@ -486,11 +603,13 @@ Live check (Solek, mod 0.23.0):
    twice: width 6.0, and headlands 3 with 35°, after Back; the course
    kept its key). To fix: show what the course is built with
    (`fieldCourseSettings`) where it differs from the entries, or
-   compare against it for Apply. A revision for Vincent to choose.
+   compare against it for Apply. Answered by revision 2 (built
+   2026-11-25, choice A).
 10. **Show lines and Cruise without settings:** in AI worker mode or
     before a vehicle has settings, the two game-wide rows show "–", as the
     four course rows do (`settings` is absent). They're the game's,
-    every vehicle's, so they could show the game's value. Small, with 9.
+    every vehicle's, so they could show the game's value. Answered by
+    revision 2.
 
 ## Log
 
@@ -779,3 +898,16 @@ Live check (Solek, mod 0.23.0):
     them; the panel showed them as the game's (step 2's 6.0 m: no Apply
     was sent, the course stayed). Open questions 9 and 10. Precision
     Farming: not needed for the GPS (Vincent).
+- 2026-11-25: revision 2 drafted (open questions 9 and 10): the lanes'
+  settings with the dialog's beside them, Apply putting dialog leftovers
+  back first, Show lines and Cruise at `cab.steering`'s top. Choices A
+  and B for Vincent.
+- 2026-11-25: Vincent approved choice A; revision 2 built (mod 0.23.1).
+  The mod keeps the entries per course table (`lanesEntries`), sends
+  `dialog` and the top `showLines`/`cruiseOff`; Apply puts leftovers back
+  first and marks its own commit. The web shows "Dialog: 6.0 m" in the
+  warn colour (the drafted "… in the game's dialog, not applied" was cut
+  off beside the value at 1180 wide). Checked: pytest 226 (golden
+  unchanged; run.lua 2 new), test.html 462 all green (5 new), the replay
+  with a fed-in `dialog` at 1180×820 day and 1158×676 night. Live check
+  open.

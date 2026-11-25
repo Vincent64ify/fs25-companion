@@ -207,6 +207,20 @@ local function applyJob(vehicle, _, settings)
     if rows == nil then
         return answer(why)
     end
+    -- revision 2: rows left in the game's dialog with Back go back to the
+    -- lanes' values first, so only the panel's changes are committed
+    local back = {}
+    local lanes = VehicleState.lanesEntries(vehicle)
+    if lanes ~= nil then
+        local list = Api.userEntries(vehicle, SA)
+        for _, id in pairs(ENTRY) do
+            local e = Api.entryOf(list, id)
+            if e ~= nil and lanes[id] ~= nil and e.value ~= lanes[id] then
+                back[#back + 1] = { entry = e, old = e.value }
+                e.value = lanes[id]
+            end
+        end
+    end
     for _, r in ipairs(rows) do
         r.old = r.entry.value
         r.entry.value = r.value
@@ -216,8 +230,12 @@ local function applyJob(vehicle, _, settings)
         for _, r in ipairs(rows) do
             r.entry.value = r.old
         end
+        for _, b in ipairs(back) do
+            b.entry.value = b.old
+        end
         return answer(refused)
     end
+    VehicleState.steeringCommitted(vehicle)
     return checkedJob(function()
         local spec = Api.modeSelection(vehicle)
         local s = spec ~= nil and spec.fieldCourseSettings or nil
@@ -269,6 +287,7 @@ local function modeJob(vehicle, value)
     if not done then
         return answer(refused)
     end
+    VehicleState.steeringCommitted(vehicle)
     return checkedJob(function() return Api.aiMode(vehicle) == name end, "aiModeSettingsChanged")
 end
 

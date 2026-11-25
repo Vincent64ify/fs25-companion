@@ -6008,6 +6008,89 @@ test("cab: steering settings after a hitch from the course's settings, all Auto;
     steering22Off()
 end)
 
+test("cab: the lanes' settings kept per course; the game's dialog left with Back is `dialog`; a new course takes the entries (specs/0022 revision 2)", function()
+    local VS = Companion.VehicleState
+    local v = steering22("settings-load")
+    local list = v.spec_aiModeSelection.userSettings.settings[2]
+    local st = VS.steering(v)
+    eq(st.settings.width.m, 5)
+    eq(st.dialog, nil, "nothing changed in the dialog")
+    -- the game's dialog: width to 6.0 and headlands to 3, then Back
+    list[1].value = 60
+    list[2].value = 3
+    st = VS.steering(v)
+    eq(st.settings.width.m, 5, "the lanes' width")
+    eq(st.settings.width.auto, true)
+    eq(st.settings.headlands.count, 2, "the lanes' headlands")
+    eq(st.settings.width.max, 60, "the dialog's range kept")
+    eq(st.dialog.width.m, 6, "the dialog's width")
+    eq(st.dialog.width.auto, false)
+    eq(st.dialog.headlands.count, 3)
+    eq(st.dialog.direction, nil, "only the rows that differ")
+    eq(st.dialog.offset, nil)
+    -- the dialog's OK: the game builds a new course with them
+    v.spec_aiAutomaticSteering.steeringFieldCourse = { fieldCourseSettings = { implementWidth = 6 } }
+    st = VS.steering(v)
+    eq(st.settings.width.m, 6, "the new course's")
+    eq(st.settings.headlands.count, 3)
+    eq(st.dialog, nil)
+    -- Show lines and Cruise at the top, also without settings
+    eq(st.showLines, true)
+    eq(st.cruiseOff, true)
+    v.spec_aiModeSelection.userSettings = nil
+    v.spec_aiAutomaticSteering.steeringFieldCourse = nil
+    g_gameSettings.steeringAssistLines = false
+    st = VS.steering(v)
+    eq(st.settings, nil, "no settings")
+    eq(st.showLines, false, "the game's, every vehicle's")
+    eq(st.cruiseOff, true)
+    steering22Off()
+end)
+
+test("commands: Apply puts the dialog's leftovers back before the draft's rows; the mod's own commit is no leftover (specs/0022 revision 2)", function()
+    if TMP_DIR == nil then
+        return
+    end
+    local VS = Companion.VehicleState
+    local v = steering22()
+    local run = steering22Commands("leftover")
+    local sel = v.spec_aiModeSelection
+    local list = sel.userSettings.settings[2]
+    local old = v.spec_aiAutomaticSteering.steeringFieldCourse
+    VS.steering(v) -- the mod sees the course: the lanes' settings kept
+    list[2].value = 3 -- headlands left in the game's dialog with Back
+    local ack = run("steering.settings.apply", nil, "width=7.0")
+    eq(ack.ok, true, tostring(ack.reason))
+    eq(list[1].value, 70, "the draft's width")
+    eq(list[2].value, 2, "the dialog's leftover put back")
+    eq(sel.fieldCourseSettings.numHeadlands, 2, "committed with the lanes' headlands")
+    -- the game drops the course on the commit (live: courseKey "-"), then
+    -- builds the new one: the entries until then, then the new course's
+    local st = VS.steering(v)
+    eq(st.settings.width.m, 7, "the mod's own Apply")
+    eq(st.dialog, nil, "not a dialog leftover")
+    local new = { fieldCourseSettings = { implementWidth = 7 } }
+    v.spec_aiAutomaticSteering.steeringFieldCourse = new
+    st = VS.steering(v)
+    eq(st.settings.width.m, 7, "the new course's")
+    eq(st.dialog, nil)
+    -- the game takes back a course it kept: that course's own settings
+    v.spec_aiAutomaticSteering.steeringFieldCourse = old
+    st = VS.steering(v)
+    eq(st.settings.width.m, 5, "the kept course's")
+    eq(st.dialog.width.m, 7, "the entries differ from those lanes")
+    v.spec_aiAutomaticSteering.steeringFieldCourse = new
+    -- refused: the leftover is back as it was too
+    VS.steering(v)
+    list[2].value = 3
+    game22.commitFails = true
+    ack = run("steering.settings.apply", nil, "width=6.0")
+    eq(ack.ok, false)
+    eq(list[1].value, 70, "the width back")
+    eq(list[2].value, 3, "the leftover as the dialog left it")
+    steering22Off()
+end)
+
 test("commands: steering.settings.apply sets the entries, applies them onto a clone and commits (specs/0022)", function()
     if TMP_DIR == nil then
         return
