@@ -334,6 +334,22 @@ swatches; the rig an arrow. No lanes: the reason in a glass card in the middle, 
 and dimmed off the field. No readout. Compact: the field 420 tall over the
 dock.
 
+Set up, top right on the field card (a 44-tall button like the column's),
+opens Steering Assist's settings in the Drive column's place, 268 wide
+([spec 0022](../specs/0022-steering-assist-settings.md), the GPS canvas's
+"Steering Assist settings" row): Set up and the vehicle over a list of
+rows (Mode; the reason the rows below are faded, in a glass card; Working
+width, Headlands, Work direction, Side offset; a gap; Show lines, Cruise
+control), each a button with its value on the right and a small "Auto"
+tag; a tap opens its steps under it in a `--line` well, as the game speed
+panel's; a changed row's value ringed in `--select` with "was …" under its
+name. Reset and Apply (`--accent`, "Apply 2 changes", "Applying…",
+"Failed") at the foot. 44-tall rows on a short screen. The field stays as
+it is; while a change waits, a glass tag top left ("Preview · not
+applied") and the game's preview: every lane and round a strip in
+`--gps-current` at 30 % with a centre line, the counts quiet; "Building
+the preview…" over the course dimmed.
+
 ### Contracts
 
 The whole main area, no control column and no readout

@@ -3,7 +3,8 @@
 // it wants, {"type":"command","id":"<unique>","action":"beacon.set",
 // "value":1} (and "tool", a rig id, for one tool's: specs/0008; "side",
 // left or right, for tool.width: specs/0011; no key: specs/0012;
-// "contract", a contract's id, for its accept, cancel, hand in: specs/0019) over the
+// "contract", a contract's id, for its accept, cancel, hand in: specs/0019;
+// "settings", the Steering Assist settings' rows: specs/0022) over the
 // viewer's WebSocket, and the companion answers with
 // {"type":"command_ack","id","ok","reason"} once the mod ran it, with
 // "already": true when the game was in that state and nothing ran. The new
@@ -57,19 +58,21 @@ export function createCommander(transmit, opts = {}) {
      * @param {number} [tool] the rig id of the tool it acts on ("tool.lower")
      * @param {"left"|"right"} [side] tool.width's side (specs/0011)
      * @param {string} [contract] the contract's id ("contract.accept", specs/0019)
+     * @param {string} [settings] the Steering Assist rows, "width=6.6;direction=auto" (specs/0022)
      * @returns {Promise<CommandResult>}
      */
-    send(action, value, tool, side, contract) {
+    send(action, value, tool, side, contract, settings) {
       const id = `${prefix}-${++seq}`;
       return new Promise((resolve) => {
         const timer = setTimeout(() => settle(id, { ok: false, reason: "no answer" }), timeoutMs);
         pending.set(id, { resolve, timer, sent: now() });
-        /** @type {{type: string, id: string, action: string, value?: number, tool?: number, side?: string, contract?: string}} */
+        /** @type {{type: string, id: string, action: string, value?: number, tool?: number, side?: string, contract?: string, settings?: string}} */
         const msg = { type: "command", id, action };
         if (value !== undefined) msg.value = value;
         if (tool !== undefined) msg.tool = tool;
         if (side !== undefined) msg.side = side;
         if (contract !== undefined) msg.contract = contract;
+        if (settings !== undefined) msg.settings = settings;
         if (!transmit(msg)) {
           settle(id, { ok: false, reason: "not connected" });
         }

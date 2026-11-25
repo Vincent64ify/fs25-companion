@@ -10,8 +10,9 @@ doesn't know. Breaking changes bump ``v``. A command is checked for its
 shape only: its actions and values are the mod's list (Commands.lua,
 specs/0007); a tool's id, where it names one, is a rig id (specs/0008),
 tool.width's side is left or right (specs/0011), no command carries
-a key (specs/0012: the card's buttons are a fixed list), and a contract
-command's contract is a short id (specs/0019).
+a key (specs/0012: the card's buttons are a fixed list), a contract
+command's contract is a short id (specs/0019), and the Steering Assist
+settings' rows are a short "name=value;..." list (specs/0022).
 """
 
 import math
@@ -24,6 +25,10 @@ TOPIC_RE = re.compile(r"^[a-z][a-z0-9_]{0,31}$")
 ACTION_RE = re.compile(r"^[a-zA-Z.]{1,40}$")
 # a contract's id (specs/0019): the game's is "mission" and 32 hex digits
 CONTRACT_RE = re.compile(r"^[A-Za-z0-9_-]{1,64}$")
+# the Steering Assist settings' rows (specs/0022): "width=6.6;direction=auto",
+# each a number or auto; what each row takes is the mod's check
+_ROW = r"(?:width|headlands|direction|offset)=(?:auto|-?\d{1,3}(?:\.\d{1,2})?)"
+SETTINGS_RE = re.compile(rf"^{_ROW}(?:;{_ROW}){{0,3}}$")
 ENVELOPE_KEYS = {"v", "seq", "t", "topic", "data"}
 
 # topics that are events: relayed, never kept in the state store
@@ -76,12 +81,13 @@ SIDES = {"left", "right"}
 
 
 def command_refusal(action: Any, value: Any, tool: Any = None, side: Any = None,
-                    key: Any = None, contract: Any = None) -> Optional[str]:
+                    key: Any = None, contract: Any = None, settings: Any = None) -> Optional[str]:
     """Why a viewer's command is refused before it reaches the mod, or None:
     the action must be a short dotted name, the value a number or absent,
     the tool a whole number from 0 or absent, the side left, right or
-    absent, a key absent (specs/0012: implement.key went), and the contract
-    a short id or absent (specs/0019)."""
+    absent, a key absent (specs/0012: implement.key went), the contract
+    a short id or absent (specs/0019), and the settings the course rows or
+    absent (specs/0022)."""
     if not isinstance(action, str) or not ACTION_RE.match(action):
         return "action not allowed"
     if value is not None and not _number(value):
@@ -93,5 +99,7 @@ def command_refusal(action: Any, value: Any, tool: Any = None, side: Any = None,
     if key is not None:
         return "value not allowed"
     if contract is not None and not (isinstance(contract, str) and CONTRACT_RE.match(contract)):
+        return "value not allowed"
+    if settings is not None and not (isinstance(settings, str) and SETTINGS_RE.match(settings)):
         return "value not allowed"
     return None

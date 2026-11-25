@@ -12,6 +12,7 @@ import { combineCard, harvestBand, headerCard } from "./harvesterScreen.js";
 import { fullscreen } from "./screen.js";
 import { contractsScreen } from "./contractsScreen.js";
 import { gpsScreen } from "./gpsScreen.js";
+import { steeringSettings } from "./steeringSettings.js";
 
 /** @type {Record<string, import("./widget.js").CreateWidget>} */
 export const WIDGETS = {
@@ -34,6 +35,7 @@ export const WIDGETS = {
   fullscreen,
   contractsScreen,
   gpsScreen,
+  steeringSettings,
 };
 
 /**

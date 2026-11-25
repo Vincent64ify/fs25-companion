@@ -60,7 +60,7 @@ behaviour, in Behaviour too: the spec always says what the code does now.
 | [0019](0019-contract-actions.md) | Contracts: accept, cancel and hand in from the detail | live-checked | 0.20.0 |
 | [0020](0020-steering-assist-state.md) | Steering Assist (GPS, 1 of 3): its state, and the Drive button that follows the mode | live-checked (Precision Farming on and off; the Arocs truck won't take Steering Assist) | 0.21.0 |
 | [0021](0021-gps-screen.md) | GPS screen (GPS, 2 of 3): the field, its lanes and the progress | live-checked (time left: each lane once; split lanes count by number; no PF check); revision 2 live-checked (the lanes as strips) | 0.22.0 |
-| [0022](0022-steering-assist-settings.md) | Steering Assist settings (GPS, 3 of 3): the game's AI Settings dialog on the dashboard, with the game's course preview | approved | — |
+| [0022](0022-steering-assist-settings.md) | Steering Assist settings (GPS, 3 of 3): the game's AI Settings dialog on the dashboard, with the game's course preview | built (live check open) | 0.23.0 |
 
 ## Before the specs
 

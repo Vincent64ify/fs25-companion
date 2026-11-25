@@ -26,9 +26,11 @@ const commander = createCommander((msg) => {
  * @param {number} [tool]
  * @param {"left"|"right"} [side] tool.width's (specs/0011)
  * @param {string} [contract] a contract's id ("contract.accept", specs/0019)
+ * @param {string} [settings] the Steering Assist rows ("steering.settings.apply", specs/0022)
  * @returns {Promise<import("./commands.js").CommandResult>}
  */
-export const sendCommand = (action, value, tool, side, contract) => commander.send(action, value, tool, side, contract);
+export const sendCommand = (action, value, tool, side, contract, settings) =>
+  commander.send(action, value, tool, side, contract, settings);
 
 /** the last commands' round trips, tap to the mod's answer (Settings) */
 export const roundTrips = () => commander.roundTrips();

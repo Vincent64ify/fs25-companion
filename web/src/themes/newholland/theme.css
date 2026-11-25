@@ -2180,7 +2180,7 @@ button.day-clock[aria-expanded="true"] .day-clock-when { color: inherit; opacity
 }
 .gps-field { fill: var(--gps-field); }
 .gps-map[data-empty="true"] .gps-ground { visibility: hidden; }
-.gps-course[data-dim="true"] { opacity: 0.4; }
+.gps-course[data-dim="true"], .gps-course[data-dim="true"] ~ .gps-over { opacity: 0.4; }
 .gps-edge { fill: none; stroke: var(--gps-edge); stroke-width: 2px; stroke-linejoin: round; vector-effect: non-scaling-stroke; }
 /* the lane you're on, worked so far: green up to the rig, square cut there, masked by the rounds */
 .gps-fill { fill: none; stroke: var(--gps-done); stroke-linecap: butt; stroke-linejoin: miter; }
@@ -2231,6 +2231,140 @@ button.day-clock[aria-expanded="true"] .day-clock-when { color: inherit; opacity
   text-align: center;
 }
 .gps-words[hidden] { display: none; }
+
+/* --- Steering Assist settings (specs/0022): Set up on the field card turns
+   the Drive column into the settings column; the field keeps its place and
+   shows the game's preview of the course. As the GPS canvas's "Steering
+   Assist settings" row (approved 2026-11-24): the rows are the column's
+   buttons, the open one shows its steps in a --line well like the game
+   speed panel's. Nothing new in colour. */
+
+/* Set up / Close: top right on the field card, as the legend sits bottom left */
+.st-open { position: absolute; top: 14px; right: 14px; z-index: 2; display: inline-flex; align-items: center; gap: 8px; height: 44px;
+  padding: 0 16px 0 12px; box-sizing: border-box; border: 1px solid var(--border); border-radius: 12px;
+  background: var(--btn); color: var(--text); font: 600 15px/1 var(--font);
+  box-shadow: var(--lift); cursor: pointer; white-space: nowrap; touch-action: manipulation; }
+.st-open svg { width: 20px; height: 20px; }
+.st-open[aria-expanded="true"] { border-color: var(--on-border); background: var(--chip-on-bg); color: var(--on-text); box-shadow: none; }
+
+/* whose course the field shows: top left on the field card */
+.st-tag { position: absolute; top: 14px; left: 14px; z-index: 2; display: flex; flex-direction: column; gap: 2px; padding: 8px 14px;
+  border: 1px solid var(--border); border-radius: 12px; background: var(--glass); color: var(--glass-text); box-shadow: var(--lift); max-width: 46%; }
+.st-tag b { font-size: 14px; font-weight: 700; white-space: nowrap; }
+.st-tag span { font-size: 12px; color: var(--muted); }
+.st-tag[data-kind="preview"] { border-color: var(--on-border); }
+.st-tag[data-kind="preview"] b { color: var(--on-text); }
+:root[data-palette="night"] .st-tag[data-kind="preview"] b { color: var(--text); }
+.st-tag span[data-tone="warn"] { color: var(--warn); font-weight: 600; }
+/* the counts go quiet while a preview shows */
+.gps-head[data-quiet="true"] .gps-num { color: var(--muted); font-weight: 600; }
+.gps-key i.preview { background: color-mix(in srgb, var(--gps-current) 30%, var(--gps-field)); box-shadow: inset 0 -1px 0 var(--gps-current); }
+
+/* the settings column: the Drive column's width, the whole height */
+.st-col { display: flex; flex-direction: column; gap: 8px; min-width: 0; min-height: 0; height: 100%; color: var(--text); }
+/* the column's slot keeps to the grid's track: a long vehicle name ellipsises */
+.screen[data-screen="gps"] > .slot:has(> .st-col) { min-width: 0; min-height: 0; }
+.st-col-label { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin: 2px 2px 0;
+  font-size: 12px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); white-space: nowrap; }
+.st-col-label span { min-width: 0; letter-spacing: 0; text-transform: none; font-weight: 500; overflow: hidden; text-overflow: ellipsis; }
+.st-list { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 6px; overflow-y: auto;
+  /* room for the buttons' shadows */
+  margin: -6px; padding: 6px; }
+.st-gap { height: 4px; flex: none; }
+
+/* one setting: a row you tap to open; open, its steps under it */
+.st-item { display: flex; flex-direction: column; flex: none; border: 1px solid var(--border); border-radius: 14px;
+  background: var(--btn); box-shadow: var(--lift); }
+.st-item[data-open="true"] { border-color: var(--on-border); box-shadow: none; background: var(--card-solid); }
+:root[data-palette="night"] .st-item[data-open="true"] { background: var(--select-bg); }
+.st-item[data-locked="true"] { opacity: 0.4; box-shadow: none; }
+.st-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; min-height: 50px; padding: 6px 12px 6px 14px;
+  box-sizing: border-box; border: 0; background: transparent; color: inherit; font: inherit; text-align: left; cursor: pointer; touch-action: manipulation; }
+.st-head[aria-disabled="true"] { cursor: default; }
+.st-name { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.st-name b { font-size: 14px; font-weight: 600; line-height: 1.15; white-space: nowrap; }
+.st-name span { font-size: 11px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.st-name span[data-tone="changed"] { color: var(--sel-ink); font-weight: 600; }
+.st-name span[data-tone="pending"] { color: var(--on-text); font-weight: 600; animation: st-blink 1.2s var(--ease) infinite alternate; }
+:root[data-palette="night"] .st-name span[data-tone="pending"] { color: var(--text); }
+@keyframes st-blink { from { opacity: 0.55; } to { opacity: 1; } }
+.st-v { flex: none; display: inline-flex; align-items: center; gap: 6px; padding: 5px 8px; border-radius: 9px; font-variant-numeric: tabular-nums; }
+.st-v b { font-size: 15px; font-weight: 700; white-space: nowrap; }
+.st-v i { font-style: normal; font-size: 10px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted);
+  padding: 2px 5px; border-radius: 5px; background: var(--line); }
+/* changed, not applied yet: the value ringed, as the speed panel's step you picked */
+.st-item[data-changed="true"] .st-v { color: var(--sel-ink); box-shadow: inset 0 0 0 2px var(--select); }
+.st-item[data-state="pending"] .st-v { animation: st-wait 1.2s var(--ease) infinite alternate; }
+@keyframes st-wait {
+  from { box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--on-border) 30%, transparent); }
+  to { box-shadow: inset 0 0 0 2px var(--on-border); }
+}
+
+/* the steps: one well, the finer steps inside, Auto at the end, lit while on Auto */
+.st-body { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 4px; margin: 0 6px 6px; padding: 4px;
+  border-radius: 12px; background: var(--line); }
+.st-step, .st-seg { display: inline-flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; min-width: 0; height: 44px; padding: 0 2px;
+  box-sizing: border-box; border: 0; border-radius: 10px; background: transparent; color: var(--text); font: 700 15px/1 var(--font);
+  font-variant-numeric: tabular-nums; white-space: nowrap; cursor: pointer; touch-action: manipulation;
+  transition: background 160ms var(--ease), box-shadow 160ms var(--ease), transform 90ms var(--ease); }
+.st-step:active, .st-seg:active { transform: scale(0.95); }
+.st-step[data-fine="true"] { font-weight: 600; font-size: 13px; color: var(--muted); }
+.st-step svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.st-step[data-auto] { font-size: 13px; font-weight: 600; }
+.st-step[aria-pressed="true"] { background: var(--card-solid); color: var(--sel-ink); font-weight: 700; cursor: default;
+  box-shadow: inset 0 0 0 2px var(--select), 0 1px 2px rgba(12, 45, 107, 0.15); }
+:root[data-palette="night"] .st-step[aria-pressed="true"] { background: var(--sel-tint); box-shadow: inset 0 0 0 2px var(--select); }
+.st-seg { height: 52px; font-size: 13px; font-weight: 600; }
+.st-seg svg { width: 20px; height: 20px; }
+.st-seg[aria-checked="true"] { background: var(--card-solid); color: var(--sel-ink); font-weight: 700;
+  box-shadow: inset 0 0 0 2px var(--select), 0 1px 2px rgba(12, 45, 107, 0.15), 0 4px 10px rgba(12, 45, 107, 0.12); }
+:root[data-palette="night"] .st-seg[aria-checked="true"] { background: var(--sel-tint); box-shadow: inset 0 0 0 2px var(--select); }
+.st-seg[aria-disabled="true"] { opacity: 0.45; cursor: default; }
+.st-seg[data-state="pending"] { animation: st-wait 1.2s var(--ease) infinite alternate; }
+/* Failed on the segment tapped (failures on the button, spec 0013 revision 6) */
+.st-seg[data-error] { box-shadow: inset 0 0 0 2px var(--alarm); color: var(--alarm); }
+.st-body[data-text="true"] .st-seg { height: 44px; font-size: 14px; }
+
+/* the lane rows the game won't take now: why, above them */
+.st-why { flex: none; padding: 8px 12px; border: 1px solid var(--border); border-radius: 12px; background: var(--glass); color: var(--glass-text);
+  font-size: 13px; font-weight: 700; line-height: 1.3; }
+.st-why small { display: block; font-size: 12px; font-weight: 500; color: var(--muted); }
+
+/* Reset and Apply, at the foot of the column */
+.st-foot { flex: none; display: flex; gap: 8px; }
+.st-reset { flex: none; display: inline-flex; align-items: center; justify-content: center; gap: 6px; height: 52px; padding: 0 12px; box-sizing: border-box;
+  border: 1px solid var(--border); border-radius: 14px; background: var(--btn); color: var(--text);
+  font: 600 14px/1 var(--font); box-shadow: var(--lift); cursor: pointer; touch-action: manipulation; }
+.st-reset svg { width: 18px; height: 18px; }
+.st-reset[aria-disabled="true"] { opacity: 0.45; cursor: default; box-shadow: none; }
+.st-apply { flex: 1; min-width: 0; height: 52px; padding: 0 10px; box-sizing: border-box; border: 0; border-radius: 14px;
+  background: var(--accent); color: var(--on-accent); font: 700 15px/1 var(--font); font-variant-numeric: tabular-nums; white-space: nowrap;
+  box-shadow: 0 2px 4px rgba(12, 45, 107, 0.18), 0 8px 18px rgba(12, 45, 107, 0.2); cursor: pointer; touch-action: manipulation;
+  transition: transform 90ms var(--ease); }
+.st-apply:active { transform: scale(0.97); }
+.st-apply[aria-disabled="true"] { background: var(--line); color: var(--muted); box-shadow: none; cursor: default; }
+.st-apply[data-state="pending"] { background: var(--line); color: var(--text); animation: st-wait 1.2s var(--ease) infinite alternate; box-shadow: none; }
+.st-apply[data-state="error"] { background: var(--card-solid); color: var(--alarm); box-shadow: inset 0 0 0 2px var(--alarm); }
+
+.st-head:focus-visible, .st-step:focus-visible, .st-seg:focus-visible, .st-apply:focus-visible, .st-reset:focus-visible, .st-open:focus-visible {
+  outline: 3px solid var(--select); outline-offset: 2px; }
+
+/* the iPad mini (1158 × 676): 44 px rows, the steps still 44 tall */
+@media (max-height: 799px) and (min-width: 900px) and (orientation: landscape) {
+  .st-head { min-height: 44px; padding: 4px 10px 4px 12px; }
+  .st-list { gap: 4px; }
+  .st-col { gap: 6px; }
+  .st-reset, .st-apply { height: 48px; }
+  .st-seg { height: 48px; }
+  .st-body[data-text="true"] .st-seg { height: 44px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .st-step, .st-seg, .st-apply { transition: none; }
+  .st-step:active, .st-seg:active, .st-apply:active { transform: none; }
+  .st-item[data-state="pending"] .st-v, .st-seg[data-state="pending"], .st-apply[data-state="pending"] { animation: none; box-shadow: inset 0 0 0 2px var(--on-border); }
+  .st-name span[data-tone="pending"] { animation: none; }
+}
 
 @media (max-width: 899px), (orientation: portrait) {
   /* the field on top, the control dock under it */

@@ -36,10 +36,11 @@ class Writer:
         self.got = []
         self.answer = None
 
-    def submit(self, ref, action, value=None, tool=None, side=None, *, contract=None):
+    def submit(self, ref, action, value=None, tool=None, side=None, *, contract=None, settings=None):
         got = (ref, action, value) if tool is None else (ref, action, value, tool)
         got = got if side is None else (*got, side)
-        self.got.append(got if contract is None else (*got, {"contract": contract}))
+        got = got if contract is None else (*got, {"contract": contract})
+        self.got.append(got if settings is None else (*got, {"settings": settings}))
         if self.answer is not None:
             self.hub.put_ack(ack_envelope(ref, self.answer))
 
@@ -368,3 +369,33 @@ def test_dashboard_files_are_served_and_revalidated(setup):
     assert client.get("/src/main.js", headers={"If-None-Match": r.headers["etag"]}).status_code == 304
     # no pairing, no relay
     assert client.get("/api/info").status_code == 404
+
+
+def test_steering_settings_pass_through(setup):
+    """specs/0022: a Steering Assist settings command goes to the writer
+    with its settings attribute unchanged; a malformed one is refused at once."""
+    client, hub, _ = setup
+    viewer = connect(client)
+    hub.writer.answer = "no game (replay)"
+    command(viewer, "s1", action="steering.settings.preview", settings="width=6.6;headlands=2;direction=45;offset=0")
+    assert recv(viewer)["id"] == "s1"
+    assert [g[1:] for g in hub.writer.got] == [
+        ("steering.settings.preview", None, {"settings": "width=6.6;headlands=2;direction=45;offset=0"})]
+    for bad in ("", "sideways=1", "width=6.6;", 3, {}):
+        command(viewer, "s-bad", action="steering.settings.apply", settings=bad)
+        assert recv(viewer) == {"type": "command_ack", "id": "s-bad", "ok": False, "reason": "value not allowed"}
+    assert len(hub.writer.got) == 1
+
+
+def test_the_steering_preview_is_kept_as_the_latest(setup):
+    """specs/0022: steering_preview is a topic like any other: a late viewer
+    gets the latest."""
+    client, hub, publish = setup
+    first = {"key": 1, "for": "direction=45", "state": "building"}
+    ready = {"key": 1, "for": "direction=45", "state": "ready", "width": 5, "boundary": [0, 0, 10, 0, 10, 10],
+             "segments": [{"i": 1, "lane": 1, "pts": [1, 0, 1, 10]}]}
+    publish(hello())
+    publish(env("steering_preview", first, seq=2))
+    publish(env("steering_preview", ready, seq=3))
+    with client.websocket_connect("/ws") as late:
+        assert recv(late)["topics"]["steering_preview"]["data"] == ready

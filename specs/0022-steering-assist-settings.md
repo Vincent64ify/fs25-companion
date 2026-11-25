@@ -1,7 +1,7 @@
 # 0022: Steering Assist settings from the dashboard
 
-Status: approved
-Mod: 0.23.0 (planned) · Started: 2026-11-17 · Design: the "Steering Assist settings" row on the GPS canvas, approved 2026-11-24 (version 30) (`FS25 Companion: GPS`, https://claude.ai/artifact/45ruF2v1hH49JJi4HyRTeM, board `Settings`), drawn 2026-11-23, redrawn 2026-11-24; the brainstorm's brief, `concepts_brief.md`, is in git history (commit b0cffeb)
+Status: built
+Mod: 0.23.0 · Started: 2026-11-17 · Design: the "Steering Assist settings" row on the GPS canvas, approved 2026-11-24 (version 30) (`FS25 Companion: GPS`, https://claude.ai/artifact/45ruF2v1hH49JJi4HyRTeM, board `Settings`), drawn 2026-11-23, redrawn 2026-11-24; the brainstorm's brief, `concepts_brief.md`, is in git history (commit b0cffeb)
 
 ## Goal
 
@@ -37,7 +37,9 @@ Vincent changes all of them, field by field and tool by tool.
   - **Work direction:** the lanes' angle in degrees; "Auto" (the game
     picks the angle for the field) or a set angle, one of the game's
     dialog's choices, 0° to 175°; −/+ in 5° steps (Vincent, 2026-11-24,
-    after spike 0.0.19), and one tap back to Auto.
+    after spike 0.0.19), and one tap back to Auto. Leaving Auto, the steps
+    start from the angle the game's lanes run at (to the nearest 5°), and
+    175° steps on to 0° (a lane has no way round).
   - **Side offset:** for tools not centred on the lane (a plough, a
     trailed potato harvester); "Auto · 0 m" (the dialog's "0.0 M (AUTO)")
     or metres to one side, "0.5 m left" (the game's −) or "0.5 m right"
@@ -97,7 +99,12 @@ Vincent changes all of them, field by field and tool by tool.
   note says "Changing starts a new course" (the game keeps the old one and
   takes it back if the settings return).
 - **After hitching,** the game puts the settings back to Auto for the new
-  tool; the panel shows that. Set up after hitching.
+  tool; the panel shows that. It drops the dialog's settings until H is
+  held, and on a detach that leaves no tool that allows steering it
+  switches to AI worker mode (spike 0.0.21). No step in the game is
+  needed (Vincent, 2026-11-24): the mod makes the settings the way holding
+  H does, whenever a command needs them, and the Mode row brings Steering
+  Assist back.
 - **These are Steering Assist's own settings:** the save keeps the AI
   worker's apart (`settings` › `worker` and `steering_assist`). In memory
   both modes showed the same values (spike 0.0.15), so where the game
@@ -111,24 +118,35 @@ Topics gain fields (Protocol v1); `v` doesn't change.
 
 - **Mod → companion** (`cab.steering`, spec 0020, gains `settings` and
   `canAssist`):
-  - `settings`: `width` {`m`, `auto`}, `headlands` {`count`, `auto`},
-    `direction` {`deg`, `auto`}, `offset` {`m`, `auto`} (− left, + right),
-    `showLines`, `cruiseOff` (Automatic: cruise off at the lane end);
-    absent until the game has settings for this vehicle; read from plain
+  - `settings`: `width` {`m`, `auto`, `min`, `max`}, `headlands`
+    {`count`, `auto`, `min`, `max`}, `direction` {`deg`, `auto`} (no `deg`
+    on Auto), `offset` {`m`, `auto`, `min`, `max`} (− left, + right),
+    `showLines`, `cruiseOff` (Automatic: cruise off at the lane end), and
+    `made` (false after a hitch, before the mod made the dialog's settings:
+    then the course's own settings, all Auto); the ranges are the dialog's
+    (`min` and `max` of its entries); Steering Assist's rows in either
+    mode; absent until the game has settings for this vehicle; read from plain
     fields, never filled in by calling the game's width getter or course
     builder. `showLines` and `cruiseOff` are the game's
     (`g_gameSettings`' `steeringAssistLines` and
     `steeringAssistCruiseControl`), the same in every vehicle's message;
   - `canAssist` (boolean): whether a tool here allows Steering Assist, for
-    the Mode row's fade, once the spike shows `getIsAutomaticSteeringAllowed`
-    is safe to call (else from the fields it reads).
+    the Mode row's fade: `getIsAutomaticSteeringAllowed`, plain reads in
+    the game's scripts (spike 0.0.19).
 - **Mod → companion, a new topic `steering_preview`** (latest wins, like
-  `steering_course`): `key` (a number per preview), `for` (the settings it
-  was built with, as `cab.steering.settings`), `state` (`building`,
-  `ready`, `none`), and when ready the course in `steering_course`'s shape
-  (`segments`, `width`; spec 0021), so the GPS screen's drawing takes it as
-  is. Sent only for the controlled vehicle; cleared when the panel closes
-  or the settings are applied. About the size of a course (5 to 10 KB).
+  `steering_course`): `key` (a number per preview), `for` (the command's
+  settings attribute as it was sent, so the web compares the string it
+  built), `state` (`building`, `ready`, `none`, or `failed`: no answer in
+  15 s, or another vehicle), and when ready the course in
+  `steering_course`'s shape (`segments`, `width`, `boundary`; spec 0021),
+  so the GPS screen's drawing takes it as is. Sent only for the controlled
+  vehicle. The web shows it only while the panel's draft is the one it
+  was built for, so a closed panel or an Apply leaves it unused. About the
+  size of a course (13 KB on field 119).
+- **Dashboard → companion → mod:** the commands' `settings` attribute is a
+  string the web builds, `"width=6.6;headlands=auto;direction=45;offset=-0.4"`,
+  the course rows in that order, each a number or `auto`; the companion
+  checks its shape only, the mod each row against the dialog's entry.
 - **Web** (`web/src/types.js`): `CabSteering.settings` and `canAssist`,
   `SteeringPreview`; the panel in `web/src/widgets/` beside `gpsScreen.js`,
   the preview drawn by the GPS screen's own field drawing. `mode` stays
@@ -198,17 +216,23 @@ Game API names, all **unverified** unless marked:
 | `getIsAutomaticSteeringAllowed()`: whether a tool allows steering (the dialog's guard; the game puts the mode back to AI worker otherwise); each tool's `getImplementAllowAutomaticSteering()` returns a constant or reads its work areas' types | AIAutomaticSteering.lua:629-645; AIImplement.lua:761, WorkArea.lua:693, Combine.lua:1886, TreePlanter.lua:958 | seen (spike 0.0.19): true with the LEMKEN (the cultivator's own true), false in the Arocs 4133 |
 | `aiModeSettingsChanged(aiMode, fieldCourseSettings)`: the dialog's own OK, on a clone of the game's settings; it stores the clone, sends `AIModeSelectionSettingsEvent`, calls `setAIModeSelection(aiMode)` and raises `onAIModeSettingsChanged`, and doesn't touch `userSettings` (the dialog changes those itself) | AIModeSelection.lua:249, 324-333 | seen (spike 0.0.20): with a clone the mode's entries were applied onto, the game stores it, rebuilds the course (about 200 ms) and its dialog then shows the change; a 45° course identical to the dialog's own, point for point; kept through a save and reload |
 | `spec_aiModeSelection.userSettings` (class `AIUserSettings`: `new(fieldCourseSettings)`, `reinitialize(fieldCourseSettings, bool)`, `apply(fieldCourseSettings, mode)`, `saveToXML`, `loadFromXML`): what the player chose, per mode (the save's `settings`), applied onto `fieldCourseSettings`; nil after any attach or detach until H is held or a save loads (`onStateChange`), which may be why spike 0.0.15 didn't see it | AIModeSelection.lua:100-127, 155-180, 205-210, 224-249, 337-350; the class itself is not in the archive (nor any global named AI…Setting…, spike 0.0.19) | fields seen (spike 0.0.19, the table above); `apply(clone, mode)` seen (spike 0.0.20): writes that mode's entries onto the clone (Steering Assist's gave the game's own settings, the worker's its 90°), nothing else changed; the other methods **unverified** |
-| `FieldCourseSettings.generate(rootVehicle)`: the tool's own settings, the Auto values; the game calls it when there are none | AIModeSelection.lua:231-233, 367 | never called by the mod |
+| `FieldCourseSettings.generate(rootVehicle)`: the tool's own settings, the Auto values; the game calls it when there are none | AIModeSelection.lua:231-233, 367 | seen (spike 0.0.21): called by the mod only where holding H calls it, when the course settings are missing after a hitch; gave the LEMKEN's Auto values |
 | `AISettingsDialog.show(userSettings, fieldCourseSettings:clone(), vehicle, mode, fieldX, fieldZ, callback)`: the dialog gets the game's own `userSettings` (not a copy) and a clone of the course settings; its Reset is in the dialog's code | AIModeSelection.lua:249; the dialog is not in the archive | unverified |
 | `g_fieldCourseManager:generateFieldCourseAtWorldPos(x, z, fieldCourseSettings, callback)`: the game's course builder; the course comes back later to `callback(_, course)`, nil if none; Steering Assist then wraps it (`SteeringFieldCourse.new(course)`) and sets it on the vehicle, which the preview never does. It builds one at a time per vehicle (`fieldCourseDetectionInProgress`, a pending one queued) | AIAutomaticSteering.lua:738-776; AIDriveStrategyFieldCourse.lua (the AI worker, the same call); the manager is not in the archive | **unknown: the spike** (that it leaves the vehicle alone, how long it takes, two at once) |
 | the dialog's own preview (the map beside its settings) | not in the archive; likely the same builder | unverified |
 | `GameSettings.SETTING.STEERING_ASSIST_LINES` = `"steeringAssistLines"`, a game setting for every vehicle, read raw from `g_gameSettings`; the key `TOGGLE_AI_STEERING_LINES` flips it with `g_gameSettings:setValue(…, not value, true)` (seen: active, `displayIsVisible` false, spike 0.0.15) | AIAutomaticSteering.lua:895, 922-925; spike 0.0.18 | read: seen (spike 0.0.18); the key: seen (spike 0.0.20), flips the setting, and holding H puts the dialog's entry back (the lines return) |
 | `GameSettings.SETTING.STEERING_ASSIST_CRUISE_CONTROL` = `"steeringAssistCruiseControl"`, a game setting (true = Automatic) that each vehicle copies when you get in and when it changes (`registerVehicleSetting`); set with `g_gameSettings:setValue`, as the lines key does | AIAutomaticSteering.lua:157, 407; VehicleSettings.lua:96-170; spike 0.0.18 | read: seen (spike 0.0.18); `setValue`: seen (spike 0.0.20), the vehicle's copy follows, and holding H puts the dialog's entry back |
 
+`AIUserSettings.new(fieldCourseSettings)`: the dialog's settings made
+from the course settings, as holding H does (AIModeSelection.lua:242);
+seen (spike 0.0.21): both modes' entries on Auto, with nothing else
+changed.
+
 Never called: `setAIModeFieldCourseSettings` (the receiving end of the
-game's network event), a settings object the mod builds itself,
-`FieldCourseSettings.generate`, `getAttacherToolWorkingWidth`,
-`setAIAutomaticSteeringCourse` with a preview.
+game's network event), a settings object the mod builds by hand,
+`getAttacherToolWorkingWidth`, `setAIAutomaticSteeringCourse` with a
+preview. `FieldCourseSettings.generate` and `AIUserSettings.new` only as
+holding H calls them, when the settings are missing.
 
 ## Commands
 
@@ -256,8 +280,18 @@ the change back. It is host only until checked on a multiplayer client.
   `generateFieldCourseAtWorldPos` at the vehicle's position; one build at
   a time, the newest settings waiting behind it (as the game does), older
   ones dropped. Ok once the game has answered (a course or none), with the
-  result in `steering_preview`. It changes nothing the game keeps.
-- **`hello.commands.actions`** goes to 7.
+  result in `steering_preview`; 5 s at most. After a hitch it first makes
+  the settings as every command here does; else it changes nothing the
+  game keeps. The mode is refused while the AI worker drives.
+- **Settings missing** (after a hitch, until H is held): each command
+  that needs them (mode, apply, lines, cruise) first makes them as
+  holding H does (AIModeSelection.lua:231-243): `FieldCourseSettings.
+  generate(rootVehicle)` when the course settings are missing, then
+  `AIUserSettings.new` from them. The panel shows the rows from the
+  course settings the game builds its course with, Auto, until then
+  (spike 0.0.21).
+- **`hello.commands.actions`** goes to 6 (the draft said 7, for two
+  steps that shipped together).
 
 ## Plan
 
@@ -279,18 +313,34 @@ the change back. It is host only until checked on a multiplayer client.
    - `getIsAutomaticSteeringAllowed`, then `setAIModeSelection`;
    - the cruise setting's setter; show lines through the key;
    - `aiModeSettingsChanged` with one value changed (direction first);
-   - then a multiplayer client.
+   - then a multiplayer client (later: host only until then).
    A dump that disagrees with the Data contract sends the spec back for
-   approval.
+   approval. Done 2026-11-24 (spikes 0.0.18 to 0.0.21, the Log).
 2. **The panel on the GPS canvas** (done: approved 2026-11-24), at both sizes, day and night,
    approved before code.
-3. `mod/src/Api.lua` (the calls, guarded), `mod/src/state/Steering.lua`
-   (the settings, `canAssist`), `mod/src/Commands.lua`, the companion's
-   `settings` attribute, `mod/modDesc.xml` 0.23.0 and its description (the
-   mod now changes what the game saves).
-4. `web/src/types.js`, the panel, `theme.css`.
-5. `docs/ARCHITECTURE.md`: the second exception.
-6. **Risks:** a settings object written wrongly could fail later in the
+3. **Mod:** `mod/src/Api.lua` (every new call guarded: the clone, the
+   entries, `userSettings:apply`, `aiModeSettingsChanged`, the two calls
+   holding H makes, the builder, the game settings; the course readers
+   take the builder's raw course too), `mod/src/state/Steering.lua`
+   (`settings` with each row's range, `canAssist`),
+   `mod/src/SteeringCommands.lua` (its own file, loaded after
+   Commands.lua: the four actions and the preview's job and state),
+   `mod/src/collectors/SteeringPreview.lua` (the topic), `Commands.lua`'s
+   `settings` attribute, `mod/modDesc.xml` 0.23.0, its file list and its
+   description (the mod now changes what the game saves).
+4. **Companion:** the `settings` attribute, its shape checked in
+   `companion/protocol.py`, passed in `server.py`, written by
+   `commands.py`.
+5. **Web:** `web/src/types.js`; `data/steeringSettings.js` (the draft,
+   the steps, the words, what Apply sends, the preview's `for`);
+   `widgets/steeringSettings.js` (the column, in the GPS page's
+   slots, shown in the Drive column's place while open); the GPS screen's
+   Set up, tag and preview (painted on its own course canvas, keys apart
+   from the course's); `theme.css` (the canvas's `st-` rules).
+6. `docs/ARCHITECTURE.md`: the second exception.
+7. **Risks:** as below; and a preview callback that arrives after the
+   vehicle, map or session changed stores nothing.
+8. **Risks:** a settings object written wrongly could fail later in the
    game's own save or network code, outside our guards (the brainstorm's
    B2); that is why only the game's own clone and commit are used, one
    setting at a time, and each spike ends with a save and a reload. A
@@ -299,23 +349,45 @@ the change back. It is host only until checked on a multiplayer client.
 
 ## Acceptance
 
-Automated (to be filled in after the spikes):
-- [ ] `mod/tests/run.lua`: `cab.steering.settings` from the spike's dumps,
-  Auto and set; `steering.mode.set` refused without a tool that allows it;
-  `steering.settings.apply` refused in AI worker mode, off the field and
-  while steering; ok only on read-back.
-- [ ] `mod/tests/run.lua`: `steering.settings.preview` builds with a clone
-  and never sets the vehicle's course; newest wins; `steering_preview`
-  `building`, `ready`, `none`, cleared on Apply.
-- [ ] `companion/tests`: the `settings` attribute passes through;
-  `steering_preview` kept as the latest.
-- [ ] `web/test.html`: each row's Auto and set values, −/+, back to Auto,
-  Apply's pending, ok and "Failed"; Reset puts the four course rows to
-  Auto and leaves Show lines and Cruise; the faded rows and their words;
-  the preview drawn from a fixture, "Building the preview…", "No lanes
-  with these settings", back to the game's course when the settings
-  return.
-- [ ] Replay in the browser pane at 1158×676 and 1180×820, day and night.
+Automated:
+- [x] `mod/tests/run.lua`: `cab.steering.settings` from the spikes' dumps
+  (`mod/tests/fixtures/spike0022/`): Auto (the entry's value its default;
+  the direction negative, −57.2958 or −57 after a reload) and set values,
+  each row's range; from the course's settings, all Auto, while the
+  entries are missing after a hitch; `canAssist`.
+- [x] `mod/tests/run.lua`: `steering.settings.apply` sets the entries
+  (metres to tenths, the direction from its choices, auto to the
+  default), applies them onto a clone and commits with
+  `aiModeSettingsChanged`; ok on read-back; refused in AI worker mode, off
+  the field, while steering, with a direction not among the choices and
+  out of a row's range; Reset is the four rows to Auto.
+- [x] `mod/tests/run.lua`: `steering.mode.set` applies the new mode's own
+  choices and commits; already in that mode; refused without a tool that
+  allows it and while the AI worker drives.
+- [x] `mod/tests/run.lua`: `steering.lines.set` and
+  `steering.cruiseOff.set` write the entry and the game setting; already
+  only when both hold the value.
+- [x] `mod/tests/run.lua`: after a hitch (no settings), each command makes
+  them first as holding H does.
+- [x] `mod/tests/run.lua`: `steering.settings.preview` builds with a
+  clone at the vehicle's front, never sets the vehicle's course;
+  `steering_preview` `building`, then `ready` with the course in
+  `steering_course`'s shape or `none`, `for` the command's settings as
+  sent; a timeout fails; an answer after the vehicle changed is dropped.
+- [x] `mod/tests/test_version.py` (or run.lua): every file in `src/` is in
+  modDesc.xml's list.
+- [x] `companion/tests`: the `settings` attribute's shape checked, passed
+  through and written; `steering_preview` kept as the latest.
+- [x] `web/test.html`: each row's Auto and set values, −/+, the range's
+  ends, back to Auto; one row open at a time; Apply's count, pending, ok
+  and "Failed"; Reset puts the four course rows to Auto and leaves Show
+  lines and Cruise; Close drops the draft; the faded rows and their words;
+  the preview asked for half a second after the last change, one at a
+  time, the newest waiting; the preview drawn from a fixture, "Building
+  the preview…", "No lanes with these settings", back to the game's
+  course when the settings return; a preview key and a course key with
+  the same number each paint whole.
+- [x] Replay in the browser pane at 1158×676 and 1180×820, day and night.
 
 Live check (Solek, mod 0.23.0):
 - [ ] Each setting set from the dashboard: the game's dialog shows the
@@ -336,6 +408,11 @@ Live check (Solek, mod 0.23.0):
 - [ ] A tool that doesn't allow steering: the Mode row's Steering Assist
   faded.
 - [ ] With H's hold never used, and with the lines key unbound.
+- [ ] Straight after a hitch, without H: the panel's rows, a preview, an
+  Apply and the mode (spike 0.0.21's path).
+- [ ] Show lines and Cruise from the dashboard, then hold H: the dialog
+  shows them, and they stay after Back.
+- [ ] The mode while steering, and while the AI worker drives (refused).
 - [ ] Precision Farming on and off.
 
 ## Decisions
@@ -395,7 +472,8 @@ Live check (Solek, mod 0.23.0):
    (`AIUserSettings.new`, `FieldCourseSettings.generate`, both never
    called by the mod). Until then the panel has no rows to show or set.
    Vincent (2026-11-24): no in-game step for the GPS, so the mod makes them
-   the way holding H does; spike 0.0.21 (`csInit`) checks the two calls.
+   the way holding H does. Answered by spike 0.0.21: it works (Commands,
+   "Settings missing").
 
 ## Log
 
@@ -610,3 +688,54 @@ Live check (Solek, mod 0.23.0):
   `FieldCourseSettings.generate` for the rig, then `AIUserSettings.new`,
   without the dialog. Until the spike, the Data contract table's "never
   called" note still names `FieldCourseSettings.generate`.
+- 2026-11-24: spike 0.0.21 run on field 119, one game session; dumps in
+  `mod/tests/fixtures/spike0022/` (`init-init`, `settings-hitched`,
+  `settings-init`, `apply-ts-afterinit`, `settings-reload-afterinit`).
+  - Detaching the LEMKEN dropped the dialog's settings and also switched
+    the tractor to AI worker mode: with no tool left that allows
+    steering, the game does that itself (AIAutomaticSteering.lua:536-541).
+    Reattaching kept AI worker mode, with no lanes.
+  - Without H: `csInit` made the settings (`FieldCourseSettings.generate`,
+    then `AIUserSettings.new`; both modes' entries on Auto, the worker's
+    90° gone as holding H would), and `csApply mode steering` brought
+    Steering Assist and the lanes back.
+  - Direction 45° from the console showed in the dialog; Auto, a save and
+    a reload kept Steering Assist on Auto.
+
+  Open question 8 answered; Behaviour and Commands updated. The
+  single-player spikes are done (Plan step 1, a multiplayer client
+  later). The Commands now differ from the approved spec (the mode as the
+  dialog's OK, Apply's entries, lines and cruise writing the entry,
+  settings made after a hitch): Vincent's approval before the build.
+- 2026-11-24: built (mod 0.23.0), Plan steps 3 to 6.
+  - **Mod:** `Api.lua` (every new call guarded; the course readers take
+    the builder's raw course), `state/Steering.lua` (`settings` with the
+    dialog's ranges, `canAssist`), `SteeringCommands.lua` (its own file
+    after `Commands.lua`: the five actions, the preview's job with a 15 s
+    timeout, an answer after the vehicle changed stored nowhere),
+    `collectors/SteeringPreview.lua`, the `settings` attribute in
+    `Commands.lua`, `modDesc.xml`'s list and description. 11 new
+    `run.lua` tests on the spikes' dumps.
+  - **Companion:** the attribute's shape checked, passed and written.
+  - **Web:** `data/steeringSettings.js` (the draft, steps, words, what's
+    sent), `widgets/steeringSettings.js` (the column, in the GPS page's
+    slots after the control column, which it hides while open), the GPS
+    screen's Set up, tag and preview (on its own course canvas, the keys
+    kept apart as "c3" and "p3"; the preview's legend only while it
+    shows), the canvas's `st-` rules in `theme.css` on the app's tokens
+    (`--btn`, `--font`).
+  - **Checked:** pytest 224 passed (golden unchanged), test.html 455 all
+    green (33 new). The replay with field 7's course and settings fed in
+    at 1180×820 day and night (Set up, a width change, "Building the
+    preview…", a preview) and at 1158×676 day (seven rows, one open, no
+    scrolling) and night (AI worker mode, faded with the reason).
+  - **Fixed on the way:** the column's long vehicle name widened it past
+    its track (`min-width: 0`); the header looked the field up from the
+    preview's lanes (now the game's course's field); the lane fill now
+    dims with the course while the preview builds.
+  - **Build choices for Vincent,** each in Behaviour or the Data contract:
+    the direction leaves Auto from the lanes' own angle and 175° steps on
+    to 0°; "Preview failed" when the game doesn't answer; the draft stays
+    (faded) when the mode goes to AI worker, until Close; the mode refused
+    while the AI worker drives; `hello` actions 6; the settings attribute
+    a string the web builds.

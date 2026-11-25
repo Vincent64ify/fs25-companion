@@ -229,10 +229,11 @@ function Api.courseStates(course)
 end
 
 -- the field's outline, {x, z} pairs: courseField.boundaryPositions (the
--- course's rootBoundaryLine is the same table)
+-- course's rootBoundaryLine is the same table). specs/0022: the builder's
+-- raw course holds courseField itself (spike 0.0.18)
 function Api.courseBoundary(course)
-    local inner = type(course.fieldCourse) == "table" and course.fieldCourse or nil
-    local field = inner ~= nil and type(inner.courseField) == "table" and inner.courseField or nil
+    local inner = type(course.fieldCourse) == "table" and course.fieldCourse or course
+    local field = type(inner.courseField) == "table" and inner.courseField or nil
     local boundary = field ~= nil and field.boundaryPositions or course.rootBoundaryLine
     return type(boundary) == "table" and boundary or nil
 end
@@ -264,6 +265,236 @@ function Api.segmentParts(segment)
         round = headland and segment.headlandIndex or nil,
         positions = segment.positions,
     }
+end
+
+-- specs/0022: Steering Assist's settings ------------------------------------
+-- The game's AI Settings dialog, as spikes 0.0.18 to 0.0.21 saw it: the
+-- course settings (spec_aiModeSelection.fieldCourseSettings, the selected
+-- mode's), the dialog's own settings (userSettings, AIUserSettings, not in
+-- the SDK's archive: one list of entries per mode, settings[MODE], each
+-- with value, defaultValue, min, max and setting.identifier), what the
+-- dialog's OK calls (AIModeSelection.lua:249, 324-333) and holding H's two
+-- calls (231-243). Every call here is guarded: nil or false and why, never
+-- a raise.
+
+-- AIModeSelection.MODE's value for "worker" or "steeringAssist", or nil
+function Api.aiModeValue(name)
+    local modes = type(AIModeSelection) == "table" and AIModeSelection.MODE or nil
+    if type(modes) ~= "table" then
+        return nil
+    end
+    for key, n in pairs(AI_MODE) do
+        if n == name then
+            return modes[key]
+        end
+    end
+    return nil
+end
+
+function Api.modeSelection(vehicle)
+    local spec = type(vehicle) == "table" and vehicle.spec_aiModeSelection or nil
+    return type(spec) == "table" and spec or nil
+end
+
+-- a mode's entries (its rows in the dialog), or nil
+function Api.userEntries(vehicle, modeName)
+    local spec = Api.modeSelection(vehicle)
+    local us = spec ~= nil and spec.userSettings or nil
+    local lists = type(us) == "table" and us.settings or nil
+    local mode = Api.aiModeValue(modeName)
+    local list = type(lists) == "table" and mode ~= nil and lists[mode] or nil
+    return type(list) == "table" and list or nil
+end
+
+-- the entry with this identifier ("implementWidth", "showLines"), or nil
+function Api.entryOf(list, identifier)
+    if type(list) ~= "table" then
+        return nil
+    end
+    for _, e in ipairs(list) do
+        local s = type(e) == "table" and e.setting or nil
+        if type(s) == "table" and s.identifier == identifier then
+            return e
+        end
+    end
+    return nil
+end
+
+-- the direction's choices in degrees: Automatic (-57.2958, -1 rad) first,
+-- then 0 to 175 in 5s (setting.textMapping, spike 0.0.19)
+function Api.directionChoices(entry)
+    local s = type(entry) == "table" and entry.setting or nil
+    local m = type(s) == "table" and s.textMapping or nil
+    return type(m) == "table" and m or nil
+end
+
+-- the game settings Steering Assist reads, every vehicle's (spike 0.0.18):
+-- their id and value; nil without them
+local GAME_SETTINGS = { lines = "STEERING_ASSIST_LINES", cruise = "STEERING_ASSIST_CRUISE_CONTROL" }
+
+function Api.gameSetting(name)
+    local ids = type(GameSettings) == "table" and GameSettings.SETTING or nil
+    local id = type(ids) == "table" and ids[GAME_SETTINGS[name]] or nil
+    if id == nil or type(g_gameSettings) ~= "table" then
+        return id, nil
+    end
+    -- a plain field (not `a and b or nil`: Off is false)
+    return id, g_gameSettings[id]
+end
+
+-- set one, as the game's own lines key does (AIAutomaticSteering.lua:923)
+function Api.setGameSetting(name, value)
+    local id = Api.gameSetting(name)
+    if id == nil or type(g_gameSettings) ~= "table" or type(g_gameSettings.setValue) ~= "function" then
+        return false, "no such game setting"
+    end
+    local ok, err = pcall(g_gameSettings.setValue, g_gameSettings, id, value, true)
+    if not ok then
+        return false, tostring(err)
+    end
+    return true
+end
+
+-- whether a tool here allows Steering Assist (the game's own guard,
+-- AIAutomaticSteering.lua:629-645: getImplementAllowAutomaticSteering on
+-- the rig, plain reads); nil without it
+function Api.canAssist(vehicle)
+    local allowed = Api.tryCall(vehicle, "getIsAutomaticSteeringAllowed")
+    if type(allowed) ~= "boolean" then
+        return nil
+    end
+    return allowed
+end
+
+-- After a hitch the game keeps neither settings until H is held: make them
+-- as holding H does (FieldCourseSettings.generate for the rig, then
+-- AIUserSettings.new from them; spike 0.0.21). true, or false and why.
+function Api.ensureUserSettings(vehicle)
+    local spec = Api.modeSelection(vehicle)
+    if spec == nil then
+        return false, "no Steering Assist"
+    end
+    if spec.fieldCourseSettings == nil then
+        local root = Api.tryCall(vehicle, "getRootVehicle") or vehicle
+        local generate = type(FieldCourseSettings) == "table" and FieldCourseSettings.generate or nil
+        if type(generate) ~= "function" then
+            return false, "no settings"
+        end
+        local ok, settings = pcall(generate, root)
+        if not ok or type(settings) ~= "table" then
+            return false, "no settings"
+        end
+        spec.fieldCourseSettings = settings
+        if spec.userSettings ~= nil then
+            local us = spec.userSettings
+            if not pcall(us.reinitialize, us, settings, true) then
+                return false, "no settings"
+            end
+        end
+    end
+    if spec.userSettings == nil then
+        local new = type(AIUserSettings) == "table" and AIUserSettings.new or nil
+        if type(new) ~= "function" then
+            return false, "no settings"
+        end
+        local ok, us = pcall(new, spec.fieldCourseSettings)
+        if not ok or type(us) ~= "table" then
+            return false, "no settings"
+        end
+        spec.userSettings = us
+    end
+    return true
+end
+
+-- a copy of the course settings (the game's clone(), as its dialog takes)
+function Api.cloneCourseSettings(vehicle)
+    local spec = Api.modeSelection(vehicle)
+    local settings = spec ~= nil and spec.fieldCourseSettings or nil
+    if type(settings) ~= "table" then
+        return nil
+    end
+    local clone = Api.tryCall(settings, "clone")
+    return type(clone) == "table" and clone or nil
+end
+
+-- the dialog's OK: a clone with the mode's entries applied onto it
+-- (userSettings:apply), committed with aiModeSettingsChanged, which stores
+-- it, tells the game, sets the mode and has the course built again.
+-- true, or false and why
+function Api.commitUserSettings(vehicle, modeName)
+    local spec = Api.modeSelection(vehicle)
+    local us = spec ~= nil and spec.userSettings or nil
+    local mode = Api.aiModeValue(modeName)
+    if type(us) ~= "table" or mode == nil or type(vehicle.aiModeSettingsChanged) ~= "function" then
+        return false, "no settings"
+    end
+    local clone = Api.cloneCourseSettings(vehicle)
+    if clone == nil then
+        return false, "no settings"
+    end
+    if not pcall(us.apply, us, clone, mode) then
+        return false, "the game refused the settings"
+    end
+    if not pcall(vehicle.aiModeSettingsChanged, vehicle, mode, clone) then
+        return false, "the game refused the settings"
+    end
+    return true
+end
+
+-- the game's course builder (g_fieldCourseManager), or nil
+function Api.courseBuilder()
+    local m = g_fieldCourseManager
+    if type(m) ~= "table" or type(m.generateFieldCourseAtWorldPos) ~= "function" then
+        return nil
+    end
+    return m
+end
+
+-- a point on a terrain detail pixel, as the game rounds it
+local function onPixel(builder, x, z)
+    local rx, rz = Api.tryCallAll(builder, "roundToTerrainDetailPixel", x, z)
+    if type(rx) == "number" and type(rz) == "number" then
+        return rx, rz
+    end
+    return x, z
+end
+
+-- where the game asks for its course (AIAutomaticSteering.lua:442-450):
+-- the vehicle's front, else its back plus a metre; nil without the
+-- engine's functions
+function Api.coursePosition(vehicle, builder)
+    local node, size = vehicle.rootNode, vehicle.size
+    if node == nil or type(localToWorld) ~= "function" then
+        return nil
+    end
+    local len = type(size) == "table" and size.length or 0
+    local off = type(size) == "table" and size.lengthOffset or 0
+    local ok, x, _, z = pcall(localToWorld, node, 0, 0, len * 0.5 + off)
+    if not ok or type(x) ~= "number" or type(z) ~= "number" then
+        return nil
+    end
+    x, z = onPixel(builder, x, z)
+    local mission = g_currentMission
+    local detail = type(mission) == "table" and mission.terrainDetailId or nil
+    if detail ~= nil and type(getDensityAtWorldPos) == "function" then
+        local dok, density = pcall(getDensityAtWorldPos, detail, x, 0, z)
+        if dok and density == 0 then
+            local bx, bz
+            ok, bx, _, bz = pcall(localToWorld, node, 0, 0, -len * 0.5 + off + 1)
+            if ok and type(bx) == "number" and type(bz) == "number" then
+                x, z = onPixel(builder, bx, bz)
+            end
+        end
+    end
+    return x, z
+end
+
+-- ask it for a course with these settings; callback(course or nil) later
+-- (spike 0.0.18: 150 to 340 ms, one at a time, queued). true, or false
+function Api.buildCourse(builder, x, z, settings, callback)
+    return pcall(builder.generateFieldCourseAtWorldPos, builder, x, z, settings, function(_, course)
+        callback(course)
+    end) == true
 end
 
 -- "offer", "preparing", "running" or "finished"; nil for a dismissed one

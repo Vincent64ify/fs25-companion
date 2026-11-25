@@ -35,6 +35,7 @@ load("src/state/Tools.lua")
 load("src/state/Rig.lua")
 load("src/state/Steering.lua")
 load("src/Commands.lua")
+load("src/SteeringCommands.lua")
 
 local Json, Geo, Transport, Scheduler =
     Companion.Json, Companion.Geo, Companion.Transport, Companion.Scheduler
@@ -745,15 +746,16 @@ local function commandStubs(dir)
             }
         end,
     }
-    return function(id, session, action, ref, value, tool, side, key, contract)
+    return function(id, session, action, ref, value, tool, side, key, contract, settings)
         local f = assert(io.open(string.format("%s%d.xml", dir, id), "w"))
-        f:write(string.format('<command session="%s" id="%d" action="%s" ref="%s"%s%s%s%s%s/>',
+        f:write(string.format('<command session="%s" id="%d" action="%s" ref="%s"%s%s%s%s%s%s/>',
             session, id, action, ref or ("r" .. id),
             value ~= nil and string.format(' value="%.3f"', value) or "",
             tool ~= nil and string.format(' tool="%d"', tool) or "",
             side ~= nil and string.format(' side="%s"', side) or "",
             key ~= nil and string.format(' key="%s"', key) or "",
-            contract ~= nil and string.format(' contract="%s"', contract) or ""))
+            contract ~= nil and string.format(' contract="%s"', contract) or "",
+            settings ~= nil and string.format(' settings="%s"', settings) or ""))
         f:close()
     end
 end
@@ -991,7 +993,7 @@ test("commands: keyed by the dashboard's name, each checks its value (specs/0007
     local dir = TMP_DIR .. "/cmdvalue_"
     local write = commandStubs(dir)
     local commands = Companion.Commands.new(dir, "S9", function() end)
-    eq(commands:info().actions, 5, "hello says the files name the set actions (specs/0008), take contracts (specs/0019) and steering.set (specs/0020)")
+    eq(commands:info().actions, 6, "hello says the files name the set actions (specs/0008), take contracts (specs/0019), steering.set (specs/0020) and the Steering Assist settings (specs/0022)")
     local vehicle = c2Tractor()
     g_inputBinding = nil
     local n = 0
@@ -5047,6 +5049,7 @@ test("whole mod streams every topic", function()
     load("src/collectors/Cab.lua")
     load("src/collectors/Contracts.lua")
     load("src/collectors/SteeringCourse.lua")
+    load("src/collectors/SteeringPreview.lua")
     load("src/Companion.lua")
     local mod = getListener()
     assert(mod ~= nil, "registered as a mod event listener")
@@ -5090,9 +5093,10 @@ test("whole mod streams every topic", function()
     assert(ls[1]:find('"mapId":"FS25_Test.TestMap"', 1, true), ls[1])
     assert(ls[1]:find('"mapExtensionScaleFactor":0.5', 1, true), ls[1])
     assert(ls[1]:find('"gameDir":"C:/Games/FS25/"', 1, true), ls[1])
-    -- actions 5: the command file names the dashboard's set actions (specs/0008),
-    -- takes contract commands (specs/0019) and steering.set (specs/0020)
-    assert(ls[1]:find('"commands":{"actions":5,"dir":"' .. TMP_DIR .. '/FS25_Companion/cmd/","next":1}', 1, true),
+    -- actions 6: the command file names the dashboard's set actions (specs/0008),
+    -- takes contract commands (specs/0019), steering.set (specs/0020) and the
+    -- Steering Assist settings (specs/0022)
+    assert(ls[1]:find('"commands":{"actions":6,"dir":"'  .. TMP_DIR .. '/FS25_Companion/cmd/","next":1}', 1, true),
         ls[1])
     local text = table.concat(ls, "\n")
     -- on foot: heading from the facing direction (east)
@@ -5169,6 +5173,7 @@ test("whole mod: a contract command's answer comes with the contracts topic, the
     load("src/collectors/Cab.lua")
     load("src/collectors/Contracts.lua")
     load("src/collectors/SteeringCourse.lua")
+    load("src/collectors/SteeringPreview.lua")
     load("src/Companion.lua")
     local mod = getListener()
     local stream = TMP_DIR .. "/FS25_Companion/stream.ndjson"
@@ -5252,6 +5257,7 @@ test("acks survive a rotation", function()
     load("src/collectors/Cab.lua")
     load("src/collectors/Contracts.lua")
     load("src/collectors/SteeringCourse.lua")
+    load("src/collectors/SteeringPreview.lua")
     load("src/Companion.lua")
     local mod = getListener()
     local stream = TMP_DIR .. "/FS25_Companion/stream.ndjson"
@@ -5631,6 +5637,7 @@ end
 
 test("steering course: the dump's course as the topic, sent once per course and on a change (specs/0021)", function()
     load("src/collectors/SteeringCourse.lua")
+    load("src/collectors/SteeringPreview.lua")
     load("src/collectors/Cab.lua")
     local SC = Companion.Collectors.SteeringCourse
     eq(SC.topic, "steering_course")
@@ -5691,6 +5698,7 @@ end)
 
 test("steering course: nothing without a course, on foot, or for a course the mod can't read whole (specs/0021)", function()
     load("src/collectors/SteeringCourse.lua")
+    load("src/collectors/SteeringPreview.lua")
     local SC = Companion.Collectors.SteeringCourse
     SC.reset()
     local vehicle = courseVehicle("reload")
@@ -5723,6 +5731,7 @@ end)
 
 test("steering course: 100 lanes of three points stay under 12 KB (specs/0021)", function()
     load("src/collectors/SteeringCourse.lua")
+    load("src/collectors/SteeringPreview.lua")
     local SC = Companion.Collectors.SteeringCourse
     SC.reset()
     local vehicle = courseVehicle("fresh")
@@ -5741,6 +5750,546 @@ test("steering course: 100 lanes of three points stay under 12 KB (specs/0021)",
     eq(#data.segments, 100)
     eq(size < 12000, true, "size " .. size)
     steeringOff()
+end)
+
+-- Steering Assist settings (specs/0022) ----------------------------------------
+-- The dialog's settings as spikes 0.0.18 to 0.0.21 read them
+-- (mod/tests/fixtures/spike0022/): userSettings' entries per mode, the
+-- course settings, the game settings for Show lines and Cruise. The fake
+-- game below does what the spikes saw the game do: userSettings:apply
+-- writes a mode's entries onto a clone (tenths to metres, degrees to
+-- radians, Automatic -57.2958 to -1), aiModeSettingsChanged stores the clone
+-- and sets the mode and drops the course, holding H's two calls make the
+-- settings on Auto, the builder answers later.
+
+local S22 = MOD_ROOT .. "tests/fixtures/spike0022/"
+
+local function spike22(name)
+    return SpikeRigs.decode(SpikeRigs.readFile(S22 .. name .. ".json"))
+end
+
+local function copyTable(t)
+    if type(t) ~= "table" then
+        return t
+    end
+    local out = {}
+    for k, v in pairs(t) do
+        out[k] = copyTable(v)
+    end
+    return out
+end
+
+-- a course settings object as the game's: plain fields and clone()
+local Settings22 = {}
+Settings22.__index = Settings22
+function Settings22:clone()
+    local c = setmetatable({}, Settings22)
+    for k, v in pairs(self) do
+        c[k] = v
+    end
+    game22.calls[#game22.calls + 1] = "clone"
+    return c
+end
+
+-- the dialog's settings: its two lists of entries, and apply as the game's
+local UserSettings22 = {}
+UserSettings22.__index = UserSettings22
+function UserSettings22:apply(s, mode)
+    game22.calls[#game22.calls + 1] = "apply " .. tostring(mode)
+    if game22.applyFails then
+        error("apply failed")
+    end
+    for _, e in ipairs(self.settings[mode]) do
+        local id, v = e.setting.identifier, e.value
+        if id == "implementWidth" then
+            s.implementWidth = v / 10
+        elseif id == "workDirection" then
+            s.workDirection = v < 0 and -1 or math.rad(v)
+        elseif id == "numHeadlands" or id == "sideOffset" then
+            s[id] = v
+        end
+    end
+end
+
+-- the controlled tractor in Steering Assist mode on a field, the dialog's
+-- settings from a dump (`entries`: a settings-*.json), its course built
+function steering22(entries, more)
+    more = more or {}
+    game22 = { calls = {}, built = {} }
+    AIModeSelection = { MODE = { WORKER = 1, STEERING_ASSIST = 2 } }
+    GameSettings = { SETTING = { STEERING_ASSIST_LINES = "steeringAssistLines",
+        STEERING_ASSIST_CRUISE_CONTROL = "steeringAssistCruiseControl" } }
+    g_gameSettings = { steeringAssistLines = true, steeringAssistCruiseControl = true }
+    function g_gameSettings:setValue(id, v, save)
+        game22.calls[#game22.calls + 1] = "setValue " .. id .. " " .. tostring(v) .. " " .. tostring(save)
+        self[id] = v
+    end
+    local dump = spike22(entries or "settings-load").settings
+    local lists = copyTable(dump.userSettings.settings)
+    local settings = setmetatable(copyTable(dump.modeSelection.fieldCourseSettings), Settings22)
+    local course = { currentSegmentIndex = 2, fieldCourseSettings = { implementWidth = 5, numHeadlands = 2,
+        workDirection = -1, sideOffset = 0 } }
+    local vehicle = {
+        id = 3, rootNode = 7, size = { length = 4.9, lengthOffset = 0.16 },
+        spec_aiModeSelection = { currentMode = more.mode or 2, fieldCourseSettings = settings,
+            userSettings = setmetatable({ settings = lists }, UserSettings22) },
+        spec_aiAutomaticSteering = { steeringEnabled = more.steering == true, lastIsOnField = more.offField ~= true,
+            fieldCourseDetectionInProgress = false, steeringFieldCourse = course },
+        getIsAIActive = function() return more.aiActive == true end,
+        getAttachedImplements = function() return {} end,
+    }
+    function vehicle:getIsAutomaticSteeringAllowed()
+        game22.calls[#game22.calls + 1] = "allowed"
+        return more.canAssist ~= false
+    end
+    function vehicle:aiModeSettingsChanged(mode, s)
+        game22.calls[#game22.calls + 1] = "aiModeSettingsChanged " .. tostring(mode)
+        if game22.commitFails then
+            error("commit failed")
+        end
+        self.spec_aiModeSelection.fieldCourseSettings = s
+        self.spec_aiModeSelection.currentMode = mode
+        self.spec_aiAutomaticSteering.steeringFieldCourse = nil
+    end
+    function vehicle:getRootVehicle() return self end
+    -- holding H's two calls (AIModeSelection.lua:231-243)
+    FieldCourseSettings = { generate = function(root)
+        game22.calls[#game22.calls + 1] = "generate"
+        return setmetatable({ implementWidth = 5, numHeadlands = 2, workDirection = -1, sideOffset = 0 }, Settings22), {}
+    end }
+    AIUserSettings = { new = function(s)
+        game22.calls[#game22.calls + 1] = "AIUserSettings.new"
+        -- on Auto, as spike 0.0.21's csInit made them
+        return setmetatable({ settings = copyTable(spike22("settings-init").settings.userSettings.settings) },
+            UserSettings22)
+    end }
+    -- the builder: answers when the test says so
+    g_currentMission = { terrainDetailId = 11 }
+    localToWorld = function(node, x, y, z) return -135.75 + z, 0, 366.25 end
+    getDensityAtWorldPos = function() return 1 end
+    g_fieldCourseManager = {}
+    function g_fieldCourseManager:roundToTerrainDetailPixel(x, z) return x, z end
+    function g_fieldCourseManager:generateFieldCourseAtWorldPos(x, z, s, callback)
+        game22.calls[#game22.calls + 1] = string.format("build %.2f %.2f", x, z)
+        game22.built[#game22.built + 1] = { x = x, z = z, settings = s, callback = callback }
+    end
+    local player = { vehicle = vehicle }
+    player.getCurrentVehicle = function(self) return self.vehicle end
+    g_localPlayer = player
+    g_server = {}
+    SpikeRigs.binding()
+    return vehicle
+end
+
+local function steering22Off()
+    AIModeSelection, GameSettings, g_gameSettings, FieldCourseSettings, AIUserSettings = nil, nil, nil, nil, nil
+    g_currentMission, localToWorld, getDensityAtWorldPos, g_fieldCourseManager = nil, nil, nil, nil
+    g_localPlayer, g_server, g_inputBinding, game22 = nil, nil, nil, nil
+end
+
+local function called(name)
+    local n = 0
+    for _, c in ipairs(game22.calls) do
+        if c == name or c:sub(1, #name + 1) == name .. " " then
+            n = n + 1
+        end
+    end
+    return n
+end
+
+-- a raw course as the builder gives it (spike 0.0.18): segments,
+-- courseField.boundaryPositions, fieldCourseSettings
+local function builtCourse(width)
+    local segs = {}
+    for i = 1, 4 do
+        segs[i] = { segmentId = i, isHeadlandSegment = i == 4, headlandIndex = i == 4 and 1 or nil,
+            offsetLineIndex = i < 4 and i or nil, positions = { { -130 + i * 5, 340 }, { -130 + i * 5, 400 } } }
+    end
+    return { segments = segs, fieldCourseSettings = { implementWidth = width or 5 },
+        courseField = { boundaryPositions = { { -140, 330 }, { -100, 330 }, { -100, 410 }, { -140, 410 } } } }
+end
+
+-- the commands over the fake game: run(action, value, settings) -> ack, frames
+local function steering22Commands(tag)
+    local dir = TMP_DIR .. "/steer22_" .. tag .. "_"
+    local write = commandStubs(dir)
+    local commands = Companion.Commands.new(dir, "S22", function() end)
+    local n = 0
+    local function start(action, value, settings)
+        n = n + 1
+        write(n, "S22", action, nil, value, nil, nil, nil, nil, settings)
+    end
+    local function run(action, value, settings, between)
+        start(action, value, settings)
+        for i = 1, 300 do
+            local ack = commands:poll()
+            if ack ~= nil then
+                return ack, i
+            end
+            if between ~= nil then
+                between(i)
+            end
+        end
+        error(action .. ": no ack")
+    end
+    return run, commands, start
+end
+
+test("cab: steering settings from the dialog's entries: Auto as the default, set values, ranges (specs/0022)", function()
+    local VS = Companion.VehicleState
+    -- on Auto after a reload (spike 0.0.19: the direction -57)
+    local s = VS.steeringSettings(steering22("settings-load"))
+    eq(s.width.m, 5, "width")
+    eq(s.width.auto, true, "width auto")
+    eq(s.width.min, 0.5, "width min")
+    eq(s.width.max, 60, "width max")
+    eq(s.headlands.count, 2, "headlands")
+    eq(s.headlands.auto, true)
+    eq(s.headlands.min, 1, "Steering Assist's headlands from 1")
+    eq(s.headlands.max, 4)
+    eq(s.direction.auto, true, "-57 is Auto")
+    eq(s.direction.deg, nil, "no angle on Auto")
+    eq(s.offset.m, 0)
+    eq(s.offset.auto, true)
+    eq(s.offset.min, -5)
+    eq(s.showLines, true)
+    eq(s.cruiseOff, true)
+    -- set: 45° and Auto from the dialog's Reset (-57.2958) in spike 0.0.20's
+    s = VS.steeringSettings(steering22("settings-d45"))
+    eq(s.direction.deg, 45, "a set angle")
+    eq(s.direction.auto, false)
+    local v = steering22("settings-load")
+    local list = v.spec_aiModeSelection.userSettings.settings[2]
+    list[1].value = 66
+    list[3].value = -57.295779513082
+    list[4].value = -0.4
+    s = VS.steeringSettings(v)
+    eq(s.width.m, 6.6, "66 tenths")
+    eq(s.width.auto, false, "not the default")
+    eq(s.direction.auto, true, "the Reset's -57.2958")
+    eq(s.offset.m, -0.4)
+    eq(s.offset.auto, false)
+    -- the game settings are game-wide: read from g_gameSettings
+    g_gameSettings.steeringAssistLines = false
+    g_gameSettings.steeringAssistCruiseControl = false
+    s = VS.steeringSettings(v)
+    eq(s.showLines, false)
+    eq(s.cruiseOff, false)
+    -- Steering Assist's entries even in AI worker mode (the rows fade then)
+    v.spec_aiModeSelection.currentMode = 1
+    eq(VS.steeringSettings(v).width.m, 6.6, "Steering Assist's, not the worker's")
+    steering22Off()
+end)
+
+test("cab: steering settings after a hitch from the course's settings, all Auto; absent with neither; canAssist (specs/0022)", function()
+    load("src/collectors/Cab.lua")
+    local VS = Companion.VehicleState
+    local v = steering22()
+    v.spec_aiModeSelection.userSettings = nil
+    v.spec_aiModeSelection.fieldCourseSettings = nil
+    local s = VS.steeringSettings(v)
+    eq(s.width.m, 5, "the course's width")
+    eq(s.width.auto, true)
+    eq(s.headlands.count, 2)
+    eq(s.direction.auto, true)
+    eq(s.offset.auto, true)
+    eq(s.made, false, "not made yet")
+    eq(called("generate"), 0, "nothing made by a read")
+    v.spec_aiAutomaticSteering.steeringFieldCourse = nil
+    eq(VS.steeringSettings(v), nil, "no settings, no course")
+    -- in the cab
+    v = steering22()
+    Companion.Collectors.Cab.reset()
+    local cab = Companion.Collectors.Cab.collect({})
+    eq(cab.steering.settings.width.m, 5)
+    eq(cab.steering.canAssist, true)
+    v = steering22(nil, { canAssist = false })
+    eq(VS.steering(v).canAssist, false)
+    steering22Off()
+end)
+
+test("commands: steering.settings.apply sets the entries, applies them onto a clone and commits (specs/0022)", function()
+    if TMP_DIR == nil then
+        return
+    end
+    local v = steering22()
+    local run = steering22Commands("apply")
+    local ack = run("steering.settings.apply", nil, "direction=45")
+    eq(ack.ok, true, tostring(ack.reason))
+    eq(ack.checked, true)
+    local sel = v.spec_aiModeSelection
+    eq(sel.userSettings.settings[2][3].value, 45, "the entry")
+    near(sel.fieldCourseSettings.workDirection, math.rad(45), "the game's settings")
+    eq(called("clone"), 1)
+    eq(called("apply"), 1)
+    eq(game22.calls[2], "apply 2", "Steering Assist's entries")
+    eq(called("aiModeSettingsChanged"), 1)
+    -- metres to tenths, Auto to the default, several at once
+    ack = run("steering.settings.apply", nil, "width=6.6;headlands=3;offset=-0.4")
+    eq(ack.ok, true, tostring(ack.reason))
+    eq(sel.userSettings.settings[2][1].value, 66)
+    eq(sel.userSettings.settings[2][2].value, 3)
+    eq(sel.userSettings.settings[2][4].value, -0.4)
+    near(sel.fieldCourseSettings.implementWidth, 6.6, "width")
+    -- Reset: the four rows to Auto; the direction the first of its choices
+    ack = run("steering.settings.apply", nil, "width=auto;headlands=auto;direction=auto;offset=auto")
+    eq(ack.ok, true, tostring(ack.reason))
+    eq(sel.userSettings.settings[2][1].value, 50)
+    eq(sel.userSettings.settings[2][2].value, 2)
+    near(sel.userSettings.settings[2][3].value, -57.295779513082, "Automatic")
+    eq(sel.fieldCourseSettings.workDirection, -1)
+    eq(sel.userSettings.settings[2][4].value, 0)
+    -- Show lines and Cruise untouched by Reset
+    eq(sel.userSettings.settings[2][5].value, true)
+    steering22Off()
+end)
+
+test("commands: steering.settings.apply refused where the game wouldn't, nothing changed (specs/0022)", function()
+    if TMP_DIR == nil then
+        return
+    end
+    local cases = {
+        { { mode = 1 }, "direction=45", "not in Steering Assist mode" },
+        { { offField = true }, "direction=45", "not on a field you may work" },
+        { { steering = true }, "direction=45", "steering is on" },
+        { {}, "direction=47", "value not allowed" },
+        { {}, "direction=180", "value not allowed" },
+        { {}, "headlands=5", "value not allowed" },
+        { {}, "width=0.4", "value not allowed" },
+        { {}, "sideways=1", "value not allowed" },
+        { {}, "", "value not allowed" },
+    }
+    for i, c in ipairs(cases) do
+        local v = steering22(nil, c[1])
+        local run = steering22Commands("refuse" .. i)
+        local ack = run("steering.settings.apply", nil, c[2] ~= "" and c[2] or nil)
+        eq(ack.ok, false, c[2])
+        eq(ack.reason, c[3], c[2])
+        eq(called("aiModeSettingsChanged"), 0, c[2] .. ": nothing committed")
+        eq(v.spec_aiModeSelection.userSettings.settings[2][3].value, -57, c[2] .. ": the entry kept")
+    end
+    -- a settings attribute on another action, or none on apply
+    steering22()
+    local run = steering22Commands("refuseattr")
+    eq(run("steering.set", 1, "direction=45").reason, "value not allowed")
+    steering22Off()
+end)
+
+test("commands: steering.settings.apply fails without read-back and puts the entries back when apply throws (specs/0022)", function()
+    if TMP_DIR == nil then
+        return
+    end
+    local v = steering22()
+    game22.applyFails = true
+    local run = steering22Commands("applyfail")
+    local ack = run("steering.settings.apply", nil, "direction=45")
+    eq(ack.ok, false)
+    eq(v.spec_aiModeSelection.userSettings.settings[2][3].value, -57, "the entry back")
+    eq(called("aiModeSettingsChanged"), 0)
+    -- committed, but the game reads another value
+    v = steering22()
+    function v:aiModeSettingsChanged() end
+    run = steering22Commands("noreadback")
+    ack = run("steering.settings.apply", nil, "direction=45")
+    eq(ack.ok, false)
+    eq(ack.reason, "didn't change")
+    steering22Off()
+end)
+
+test("commands: steering.mode.set applies the new mode's own choices; refused without a tool, while the worker drives (specs/0022)", function()
+    if TMP_DIR == nil then
+        return
+    end
+    local v = steering22("settings-worker90")
+    local run = steering22Commands("mode")
+    local ack = run("steering.mode.set", 0)
+    eq(ack.ok, true, tostring(ack.reason))
+    eq(v.spec_aiModeSelection.currentMode, 1, "AI worker")
+    near(v.spec_aiModeSelection.fieldCourseSettings.workDirection, math.rad(90), "the worker's 90°")
+    eq(game22.calls[2], "apply 1")
+    ack = run("steering.mode.set", 0)
+    eq(ack.already, true, "already")
+    ack = run("steering.mode.set", 1)
+    eq(ack.ok, true, tostring(ack.reason))
+    eq(v.spec_aiModeSelection.currentMode, 2)
+    eq(v.spec_aiModeSelection.fieldCourseSettings.workDirection, -1, "Steering Assist's Auto")
+    eq(called("allowed") >= 1, true, "the game's guard asked")
+    -- no tool allows steering
+    v = steering22(nil, { mode = 1, canAssist = false })
+    run = steering22Commands("modenotool")
+    ack = run("steering.mode.set", 1)
+    eq(ack.ok, false)
+    eq(ack.reason, "no tool allows steering")
+    eq(called("aiModeSettingsChanged"), 0)
+    -- the AI worker drives
+    steering22(nil, { mode = 1, aiActive = true })
+    run = steering22Commands("modeworker")
+    ack = run("steering.mode.set", 1)
+    eq(ack.reason, "the AI worker is driving")
+    steering22Off()
+end)
+
+test("commands: steering.lines.set and cruiseOff.set write the entry and the game setting; already only when both hold it (specs/0022)", function()
+    if TMP_DIR == nil then
+        return
+    end
+    local v = steering22()
+    local run = steering22Commands("lines")
+    local list = v.spec_aiModeSelection.userSettings.settings[2]
+    local ack = run("steering.lines.set", 0)
+    eq(ack.ok, true, tostring(ack.reason))
+    eq(list[5].value, false, "the entry")
+    eq(g_gameSettings.steeringAssistLines, false, "the game setting")
+    eq(called("setValue"), 1)
+    eq(game22.calls[1], "setValue steeringAssistLines false true")
+    ack = run("steering.lines.set", 0)
+    eq(ack.already, true)
+    -- the game's own key flipped only the setting: not already
+    g_gameSettings.steeringAssistLines = true
+    ack = run("steering.lines.set", 0)
+    eq(ack.already, nil, "the setting differs")
+    eq(g_gameSettings.steeringAssistLines, false)
+    ack = run("steering.cruiseOff.set", 0)
+    eq(ack.ok, true, tostring(ack.reason))
+    eq(list[6].value, false)
+    eq(g_gameSettings.steeringAssistCruiseControl, false)
+    steering22Off()
+end)
+
+test("commands: after a hitch each command first makes the settings as holding H does (specs/0022)", function()
+    if TMP_DIR == nil then
+        return
+    end
+    local v = steering22(nil, { mode = 1 })
+    v.spec_aiModeSelection.userSettings = nil
+    v.spec_aiModeSelection.fieldCourseSettings = nil
+    local run = steering22Commands("hitch")
+    local ack = run("steering.mode.set", 1)
+    eq(ack.ok, true, tostring(ack.reason))
+    eq(game22.calls[2], "generate", "the course settings first")
+    eq(game22.calls[3], "AIUserSettings.new")
+    eq(v.spec_aiModeSelection.currentMode, 2)
+    eq(v.spec_aiModeSelection.userSettings ~= nil, true)
+    -- made once: the next command finds them
+    ack = run("steering.settings.apply", nil, "direction=45")
+    eq(ack.ok, true, tostring(ack.reason))
+    eq(called("generate"), 1)
+    steering22Off()
+end)
+
+test("commands: steering.settings.preview builds with a clone at the front, never sets the course; the topic (specs/0022)", function()
+    if TMP_DIR == nil then
+        return
+    end
+    load("src/collectors/SteeringCourse.lua")
+    load("src/collectors/SteeringPreview.lua")
+    local P = Companion.Collectors.SteeringPreview
+    P.reset()
+    local v = steering22()
+    local course = v.spec_aiAutomaticSteering.steeringFieldCourse
+    local settings = v.spec_aiModeSelection.fieldCourseSettings
+    local run = steering22Commands("preview")
+    local sent = {}
+    local ack = run("steering.settings.preview", nil, "width=6.6;headlands=auto;direction=45;offset=0", function(i)
+        if i == 1 then
+            local data = P.changed() and P.collect({}) or nil
+            sent[#sent + 1] = data
+        end
+        if i == 3 then
+            game22.built[1].callback(nil, builtCourse(6.6))
+        end
+    end)
+    eq(ack.ok, true, tostring(ack.reason))
+    eq(#game22.built, 1, "one build")
+    local b = game22.built[1]
+    near(b.x, -135.75 + 4.9 * 0.5 + 0.16, "the vehicle's front")
+    near(b.settings.implementWidth, 6.6, "the clone's width")
+    near(b.settings.workDirection, math.rad(45), "the clone's direction")
+    eq(b.settings.numHeadlands, 2, "headlands Auto: the entry's default")
+    eq(b.settings ~= settings, true, "a clone")
+    eq(settings.workDirection, -0.99483767363677, "the game's settings untouched")
+    eq(v.spec_aiAutomaticSteering.steeringFieldCourse, course, "the vehicle's course untouched")
+    eq(called("aiModeSettingsChanged"), 0)
+    eq(v.spec_aiModeSelection.userSettings.settings[2][3].value, -57, "no entry touched")
+    eq(sent[1].state, "building")
+    eq(sent[1]["for"], "width=6.6;headlands=auto;direction=45;offset=0", "the settings as sent")
+    eq(P.changed(), true, "the answer to send")
+    local data = P.collect({})
+    eq(data.state, "ready")
+    eq(data.key, sent[1].key, "the same preview")
+    eq(#data.segments, 4)
+    eq(data.segments[1].lane, 1)
+    eq(data.segments[4].round, 1)
+    near(data.width, 6.6, "its width")
+    eq(#data.boundary, 8, "the field's outline")
+    eq(P.changed(), false, "sent once")
+    -- no lanes
+    ack = run("steering.settings.preview", nil, "width=40;headlands=4;direction=0;offset=0", function(i)
+        if i == 2 then
+            game22.built[2].callback(nil, nil)
+        end
+    end)
+    eq(ack.ok, true)
+    data = P.collect({})
+    eq(data.state, "none")
+    eq(data.key, sent[1].key + 1, "a new preview")
+    steering22Off()
+end)
+
+test("commands: a preview the game never answers fails; one answered after the vehicle changed is dropped (specs/0022)", function()
+    if TMP_DIR == nil then
+        return
+    end
+    load("src/collectors/SteeringCourse.lua")
+    load("src/collectors/SteeringPreview.lua")
+    local P = Companion.Collectors.SteeringPreview
+    P.reset()
+    steering22()
+    local run, commands, start = steering22Commands("previewlate")
+    local wait = Companion.SteeringCommands.PREVIEW_WAIT_FRAMES
+    Companion.SteeringCommands.PREVIEW_WAIT_FRAMES = 20
+    local ack = run("steering.settings.preview", nil, "width=5;headlands=2;direction=45;offset=0")
+    eq(ack.ok, false)
+    eq(ack.reason, "no answer from the game")
+    P.collect({})
+    -- answered after the player got into another vehicle: stored nowhere
+    local v = steering22()
+    run = steering22Commands("previewother")
+    ack = run("steering.settings.preview", nil, "width=5;headlands=2;direction=45;offset=0", function(i)
+        if i == 2 then
+            g_localPlayer.vehicle = { id = 9 }
+        end
+    end)
+    eq(ack.ok, false)
+    eq(ack.reason, "not in that vehicle any more")
+    eq(P.collect({}).state, "failed", "said once")
+    -- the builder answers after all: stored nowhere, nothing sent
+    game22.built[1].callback(nil, builtCourse())
+    eq(P.changed(), false, "a late answer sends nothing")
+    eq(Companion.SteeringCommands.previewState().data.state, "failed", "and changes nothing")
+    Companion.SteeringCommands.PREVIEW_WAIT_FRAMES = wait
+    -- refused where the course rows are
+    steering22(nil, { steering = true })
+    run = steering22Commands("previewsteer")
+    eq(run("steering.settings.preview", nil, "direction=45").reason, "steering is on")
+    eq(#game22.built, 0, "no build")
+    steering22Off()
+end)
+
+test("modDesc lists every source file, in an order that loads (specs/0022)", function()
+    local f = assert(io.open(MOD_ROOT .. "modDesc.xml", "r"))
+    local desc = f:read("*a")
+    f:close()
+    local listed = {}
+    for name in desc:gmatch('<sourceFile filename="([^"]+)"') do
+        listed[#listed + 1] = name
+        listed[name] = #listed
+    end
+    for _, name in ipairs({ "src/SteeringCommands.lua", "src/collectors/SteeringPreview.lua" }) do
+        eq(listed[name] ~= nil, true, name .. " listed")
+    end
+    eq(listed["src/SteeringCommands.lua"] > listed["src/Commands.lua"], true, "after Commands.lua")
+    eq(listed["src/Companion.lua"], #listed, "Companion.lua last")
 end)
 
 -- runner -------------------------------------------------------------------

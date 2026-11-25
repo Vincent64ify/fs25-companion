@@ -2,8 +2,8 @@
 -- Runs the dashboard's commands (docs/ARCHITECTURE.md, Commands). The companion
 -- writes one file per command, numbered from 1 per game session, with the
 -- dashboard's action name (specs/0007) and the state it wants (specs/0008;
--- hello says so: commands.actions 5, 4 before steering.set, 3 before
--- contracts):
+-- hello says so: commands.actions 6, 5 before the Steering Assist
+-- settings, 4 before steering.set, 3 before contracts):
 --
 --     modSettings/FS25_Companion/cmd/<n>.xml
 --     <command session="<sessionId>" id="<n>" action="beacon.set" ref="<companion ref>" value="1.000"/>
@@ -12,6 +12,7 @@
 --     <command ... action="tool.width" ref="..." value="-1.000" tool="9" side="left"/>
 --     <command ... action="tool.unload" ref="..." tool="9"/>   (a one-shot: no value)
 --     <command ... action="contract.accept" ref="..." value="1.000" contract="mission0034..."/>   (specs/0019)
+--     <command ... action="steering.settings.apply" ref="..." settings="width=6.6;direction=auto"/>   (specs/0022)
 --
 -- (a temp file, read back once, then renamed, so it appears whole). Every
 -- frame the mod checks whether the next number exists (fileExists costs
@@ -1202,6 +1203,9 @@ end
 --              it the command carries none (a tool's one-shot); whole: a
 --              whole number; step: not 0
 --   optional   the number may be left out (a tool's id: the key's own tool)
+--   settings   the command carries a `settings` attribute (specs/0022:
+--              "width=6.6;direction=auto"), which job(vehicle, value,
+--              settings) reads; on no other action
 -- No command carries a key: the dashboard has a fixed list of buttons, no
 -- list of the keys the game registered (specs/0012, rule 4)
 local TOOL_ID = { 0, 2 ^ 31 }
@@ -1303,11 +1307,34 @@ end
 
 local SIDES = { left = true, right = true }
 
+-- specs/0022: a settings attribute's shape: short, "name=value" pairs
+-- joined by ";", names letters, values a number or auto. What each row
+-- takes is the action's own check (SteeringCommands.lua)
+local function settingsFit(settings)
+    if type(settings) ~= "string" or #settings < 3 or #settings > 160 then
+        return false
+    end
+    for part in (settings .. ";"):gmatch("([^;]*);") do
+        local name, v = part:match("^(%a+)=([%w%.%-]+)$")
+        if name == nil or (v ~= "auto" and tonumber(v) == nil) then
+            return false
+        end
+    end
+    return true
+end
+
 -- whether the command's number, tool and side fit its action; a key fits
 -- none (specs/0012: implement.key went, an older companion may still write
 -- one)
-local function valueFits(spec, value, tool, side, key, contract)
+local function valueFits(spec, value, tool, side, key, contract, settings)
     if key ~= nil then
+        return false
+    end
+    if spec.settings then
+        if not settingsFit(settings) then
+            return false
+        end
+    elseif settings ~= nil then
         return false
     end
     -- specs/0019: a contract's id on a contract's action, on no other
@@ -1341,7 +1368,7 @@ local function valueFits(spec, value, tool, side, key, contract)
     return inRange(spec.values, value)
 end
 
-local ATTRIBUTES = { "session", "id", "action", "ref", "value", "tool", "side", "key", "contract" }
+local ATTRIBUTES = { "session", "id", "action", "ref", "value", "tool", "side", "key", "contract", "settings" }
 
 function Commands.new(dir, sessionId, log)
     local self = setmetatable({}, Commands)
@@ -1364,8 +1391,9 @@ end
 -- contract commands (actions 4, specs/0019)
 function Commands:info()
     -- actions: 3 names the set actions (specs/0008), 4 takes contracts
-    -- (specs/0019), 5 steering.set (specs/0020)
-    return { dir = self.dir, next = self.nextId, actions = 5 }
+    -- (specs/0019), 5 steering.set (specs/0020), 6 the Steering Assist
+    -- settings with their settings attribute (specs/0022)
+    return { dir = self.dir, next = self.nextId, actions = 6 }
 end
 
 function Commands:path(id)
@@ -1428,13 +1456,14 @@ end
 -- returns ok, reason, via, or a job (specs/0003) as the fourth, or
 -- already (specs/0008) as the fifth; value: the command's number, if it has
 -- one; tool: its tool's id; side: tool.width's; key: refused (specs/0012);
--- contract: a contract's id (specs/0019)
-local function run(actionName, value, tool, side, key, contract)
+-- contract: a contract's id (specs/0019); settings: the Steering Assist
+-- settings' attribute (specs/0022)
+local function run(actionName, value, tool, side, key, contract, settings)
     local spec = Commands.ACTIONS[actionName]
     if spec == nil then
         return false, "action not allowed"
     end
-    if not valueFits(spec, value, tool, side, key, contract) then
+    if not valueFits(spec, value, tool, side, key, contract, settings) then
         return false, "value not allowed"
     end
     -- a contract's (specs/0019): the game's, on foot or in a vehicle
@@ -1514,7 +1543,7 @@ local function run(actionName, value, tool, side, key, contract)
         return nil, nil, nil, job
     end
     -- a job, unless it has none for this rig (then as below)
-    local job = spec.job ~= nil and spec.job(vehicle, value) or nil
+    local job = spec.job ~= nil and spec.job(vehicle, value, settings) or nil
     if job == ALREADY then
         return true, nil, nil, nil, true
     end
@@ -1793,7 +1822,7 @@ function Commands:poll()
     self.nextId = id + 1
     local ran, reason, via, job, already
     ok, ran, reason, via, job, already = pcall(run, cmd.action, tonumber(cmd.value), tonumber(cmd.tool), cmd.side, cmd.key,
-        cmd.contract)
+        cmd.contract, cmd.settings)
     if ok and job ~= nil then
         job.ack = { id = id, ref = cmd.ref, action = cmd.action }
         self.job = job

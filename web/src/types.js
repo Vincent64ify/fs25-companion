@@ -47,7 +47,9 @@
  * @property {string} [gameDir]
  * @property {{dir?: string, next: number, actions?: number}} [commands] where
  *   the companion writes commands and the number the mod reads next;
- *   actions 5: and steering.set (mod 0.21.0, specs/0020); 4: and
+ *   actions 6: and the Steering Assist settings, with their settings
+ *   attribute (mod 0.23.0, specs/0022); 5: and steering.set (mod 0.21.0,
+ *   specs/0020); 4: and
  *   contract commands (mod 0.20.0, specs/0019); 3: the
  *   files name the dashboard's set actions (mod 0.10.0, specs/0008); 2: its
  *   toggles (mod 0.9.x, specs/0007); absent before
@@ -132,6 +134,41 @@
  *   work" (specs/0021, mod 0.22.0)
  * @property {number} [courseKey] the steering_course topic's key while the
  *   game has a course for this vehicle (specs/0021)
+ * @property {SteeringSettings} [settings] the game's AI Settings dialog's
+ *   Steering Assist rows (specs/0022, mod 0.23.0); absent while the game
+ *   has none for this vehicle
+ * @property {boolean} [canAssist] whether a tool here allows Steering
+ *   Assist (the game's own guard; specs/0022)
+ */
+
+/**
+ * Steering Assist's settings (specs/0022), as the game's dialog shows them:
+ * Auto is the tool's own value for width, headlands and offset, and the
+ * game's own angle for the field for the direction. min and max are the
+ * dialog's range. Show lines and Cruise are game settings, the same for
+ * every vehicle. made false: after a hitch, before the mod made the
+ * dialog's settings (the course's own, all Auto).
+ * @typedef {Object} SteeringSettings
+ * @property {{m: number, auto: boolean, min?: number, max?: number}} width metres
+ * @property {{count: number, auto: boolean, min?: number, max?: number}} headlands rounds before the lanes
+ * @property {{deg?: number, auto: boolean}} direction degrees, 0 to 175
+ * @property {{m: number, auto: boolean, min?: number, max?: number}} offset metres, − left, + right
+ * @property {boolean} [showLines]
+ * @property {boolean} [cruiseOff] Cruise Control Deactivation: true Automatic (off at the lane end)
+ * @property {boolean} [made]
+ */
+
+/**
+ * The steering_preview topic (specs/0022, mod 0.23.0): the course the
+ * game's builder made for the panel's settings before Apply, never given
+ * to the vehicle; the course in steering_course's shape when ready.
+ * @typedef {Object} SteeringPreview
+ * @property {number} key one per preview
+ * @property {string} for the settings attribute it was built with, as sent
+ * @property {"building"|"ready"|"none"|"failed"} state
+ * @property {number} [width]
+ * @property {number[]} [boundary]
+ * @property {CourseSegment[]} [segments]
  */
 
 /**

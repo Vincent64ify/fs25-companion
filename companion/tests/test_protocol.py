@@ -109,3 +109,15 @@ def test_a_contract_is_a_short_id():
     assert command_refusal("beacon.set", 1) is None, "without one, as before"
     for contract in ("", "x" * 65, "c 1", "c/1", "c.1", "<c>", 'c"1', 3, True, [], {}, 1.5):
         assert command_refusal("contract.accept", 1, contract=contract) == "value not allowed", contract
+
+
+def test_steering_settings_are_a_short_list_of_rows():
+    """specs/0022: the Steering Assist settings' attribute, the course rows
+    as name=value pairs joined by ";", each a number or auto; passed to the
+    mod as the web built it (the preview echoes it)."""
+    for s in ("direction=45", "width=6.6;headlands=auto;direction=45;offset=-0.4",
+              "width=auto;headlands=auto;direction=auto;offset=auto", "offset=0", "width=12"):
+        assert command_refusal("steering.settings.apply", None, settings=s) is None, s
+    for s in ("", "direction", "direction=", "sideways=1", "width=6.6;", ";width=6", "width=1e3",
+              "width=6.6;width=6.6;" * 10, "width=abc", "width = 6", "width=6.6,offset=0", 3, True, [], {}):
+        assert command_refusal("steering.settings.apply", None, settings=s) == "value not allowed", s

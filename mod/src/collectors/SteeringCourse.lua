@@ -79,6 +79,9 @@ local function geometryOf(course)
     return out
 end
 
+-- specs/0022: the preview's course (the builder's raw course) the same way
+Companion.CourseGeometry = geometryOf
+
 -- the indices whose flag is set, ascending
 local function doneOf(course, count)
     local states = Api.courseStates(course)

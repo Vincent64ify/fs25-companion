@@ -10,6 +10,7 @@ action and its value against its own list (specs/0007):
     <command ... action="tool.width" ref="<ref>" value="-1.000" tool="9" side="left"/>
     <command ... action="tool.unload" ref="<ref>" tool="9"/>
     <command ... action="contract.accept" ref="<ref>" value="1.000" contract="mission0034..."/>
+    <command ... action="steering.settings.apply" ref="<ref>" settings="width=6.6;direction=auto"/>
 
 numbered from 1 per game session (the hello's sessionId), continuing from
 hello.commands.next when the companion starts mid-session. Each file is
@@ -104,10 +105,11 @@ class CommandWriter:
             pass
 
     def submit(self, ref: str, action: str, value: Any = None, tool: Optional[int] = None,
-               side: Optional[str] = None, *, contract: Optional[str] = None) -> None:
+               side: Optional[str] = None, *, contract: Optional[str] = None,
+               settings: Optional[str] = None) -> None:
         """The server checked the shape; the mod checks the action, its
-        value, its tool, its side and its contract (specs/0007, 0008, 0011,
-        0019)."""
+        value, its tool, its side, its contract and its settings (specs/0007,
+        0008, 0011, 0019, 0022)."""
         if self.cmd_dir is None:
             self.put(ack_envelope(ref, "no game (replay)"))
             return
@@ -119,7 +121,7 @@ class CommandWriter:
             return
         cid = self.next_id
         try:
-            self.write(cid, action, ref, value, tool, side, contract=contract)
+            self.write(cid, action, ref, value, tool, side, contract=contract, settings=settings)
         except OSError as e:
             log.warning("cannot write command %d: %s", cid, e)
             self.put(ack_envelope(ref, "cannot write the command file"))
@@ -129,7 +131,8 @@ class CommandWriter:
         self.fast_until = self.clock() + FAST_POLL_S
 
     def write(self, cid: int, action: str, ref: str, value: Any = None, tool: Optional[int] = None,
-              side: Optional[str] = None, *, contract: Optional[str] = None) -> Path:
+              side: Optional[str] = None, *, contract: Optional[str] = None,
+              settings: Optional[str] = None) -> Path:
         assert self.cmd_dir is not None
         self.cmd_dir.mkdir(parents=True, exist_ok=True)
         path = self.cmd_dir / f"{cid}.xml"
@@ -141,6 +144,7 @@ class CommandWriter:
                 + (f' tool="{int(tool)}"' if tool is not None else "")
                 + (f" side={quoteattr(side)}" if side is not None else "")
                 + (f" contract={quoteattr(contract)}" if contract is not None else "")
+                + (f" settings={quoteattr(settings)}" if settings is not None else "")
                 + "/>\n")
         tmp.write_text(text, encoding="utf-8")
         # read it back once before the rename: the mod's first open is then

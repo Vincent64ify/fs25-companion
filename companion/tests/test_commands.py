@@ -261,3 +261,16 @@ def test_a_mod_with_contract_commands_still_gets_commands_by_name(tmp_path):
         writer.submit("1", "contract.cancel", contract="c-1")
         assert (tmp_path / str(actions) / "cmd" / "1.xml").exists() is written, actions
         assert [a["data"]["reason"] for a in acks] == ([] if written else ["update the mod"]), actions
+
+
+def test_the_file_carries_the_steering_settings(tmp_path):
+    """specs/0022: the Steering Assist settings' rows go in a settings
+    attribute, as the viewer sent them; the others have none."""
+    writer, acks, _ = make(tmp_path)
+    writer.submit("1", "steering.settings.apply", settings="width=6.6;direction=auto")
+    a = attrs(tmp_path / "cmd" / "1.xml")
+    assert (a["action"], a["settings"]) == ("steering.settings.apply", "width=6.6;direction=auto")
+    assert "value" not in a and "contract" not in a
+    writer.submit("2", "steering.mode.set", 1)
+    assert "settings" not in attrs(tmp_path / "cmd" / "2.xml")
+    assert acks == []

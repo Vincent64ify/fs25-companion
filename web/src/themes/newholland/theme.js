@@ -112,9 +112,10 @@ export default {
     {
       // GPS (specs/0021): the field the game's Steering Assist built lanes
       // on, big, with the counts and the time left; then the column, since
-      // you drive with it (steering on and off is Drive's)
+      // you drive with it (steering on and off is Drive's). Set up opens
+      // the Steering Assist settings in the column's place (specs/0022)
       id: "gps", label: "GPS", icon: "area",
-      slots: [{ widget: "gpsScreen" }, { controls: true }],
+      slots: [{ widget: "gpsScreen" }, { controls: true }, { widget: "steeringSettings" }],
     },
     {
       // Contracts (specs/0018): the list and the detail take the whole

@@ -22,6 +22,16 @@
 //   the strips are drawn full width, so a dense field reads as areas.
 // - The trail shows only inside the lanes to do (a mask the trail painter
 //   applies after each paint); the fill is one SVG line masked by the rounds.
+// - Set up (specs/0022), top right on the field card, opens the Steering
+//   Assist settings in the Drive column's place (widgets/steeringSettings.js).
+//   While a course row differs from the game's, the field shows the preview
+//   the game's builder made for the panel's settings (steering_preview):
+//   its lanes and rounds tinted in this lane's colour with a centre line,
+//   tagged "Preview · not applied", the counts quiet; "Building the
+//   preview…" over the game's course dimmed until the one asked for comes;
+//   "No lanes with these settings" when the game built none. The course
+//   and the preview are painted on the same canvas, their keys kept apart
+//   ("c3", "p3").
 
 import { countsOf, createGpsTimes, fillOf, gpsState, roundLoopsOf, roundRuns, runOut, stateOf, widthOf } from "../data/gps.js";
 import { controlledVehicle, fieldAt, outlineBounds } from "../data/selectors.js";
@@ -30,6 +40,8 @@ import { coverageOf } from "../data/coverage.js";
 import { areaText, unitsOf } from "../data/units.js";
 import { createTrailCanvas, fitView, TRAIL_FALLBACK } from "../ui/trailCanvas.js";
 import { h } from "../ui/dom.js";
+import { icon } from "../ui/icons.js";
+import { dropPreview, setupOf, setSetup } from "../data/steeringSettings.js";
 
 /** @typedef {import("../types.js").SteeringCourse} SteeringCourse */
 /** @typedef {import("../types.js").CourseSegment} CourseSegment */
@@ -54,6 +66,9 @@ const EDGE_PX = 2;
 const MITER = 8;
 // the trail shows this far in from a lane to do's sides (the tool spills over them)
 const TRAIL_IN_M = 1.5;
+// the preview's strips (specs/0022): this lane's colour this strong, a centre line this strong
+const PREVIEW_ALPHA = 0.3;
+const PREVIEW_LINE_ALPHA = 0.75;
 // each screen's SVG mask its own id
 let screens = 0;
 
@@ -62,6 +77,14 @@ function svg(tag, attrs = {}) {
   const el = document.createElementNS(SVG, tag);
   for (const [k, v] of Object.entries(attrs)) el.setAttribute(k, String(v));
   return el;
+}
+
+/** Close's X, as the canvas draws it (specs/0022). */
+function closeIcon() {
+  const s = svg("svg", { viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", "stroke-width": 2.2,
+    "stroke-linecap": "round", "aria-hidden": "true" });
+  s.append(svg("path", { d: "M6 6l12 12M18 6L6 18" }));
+  return s;
 }
 
 /** A number for an attribute: a tenth is plenty. */
@@ -165,11 +188,29 @@ export function gpsScreen(store, opts = {}) {
   const key = (/** @type {string} */ cls, /** @type {string} */ text) => h("span", { className: "gps-key" },
     h("i", { className: cls }), document.createTextNode(text));
   const trailKey = key("trail", "Worked, not counted");
-  const legend = h("div", { className: "gps-legend" }, key("done", "Done"), key("current", "This lane"), key("todo", "To do"), trailKey);
+  const courseKeys = [key("done", "Done"), key("current", "This lane"), key("todo", "To do"), trailKey];
+  const previewKey = key("preview", "Lanes with these settings");
+  // the preview's key is in the legend only while a preview shows
+  const legend = h("div", { className: "gps-legend" }, ...courseKeys);
   const wordsEl = h("div", { className: "gps-words" });
+  // Set up (specs/0022): top right on the field card; Close while open
+  const setUp = /** @type {HTMLButtonElement} */ (h("button", { className: "st-open" }));
+  setUp.type = "button";
+  setUp.setAttribute("aria-controls", "st-col");
+  setUp.addEventListener("click", () => {
+    const open = !setupOf(store).open;
+    dropPreview(store);
+    setSetup(store, { open, draft: undefined, phase: "idle", previewFor: undefined, previewFailed: undefined,
+      lanesChanged: false });
+  });
+  // whose course the field shows while Set up is open
+  const tagText = h("b");
+  const tagSub = h("span");
+  const tag = h("div", { className: "st-tag" }, tagText, tagSub);
+  tag.hidden = true;
   // every layer in one measured box, so the canvases, the SVGs and the rig share one fit
   const box = h("div", { className: "gps-box" }, ground, trailCanvas, courseCanvas, over, rig);
-  const mapBox = h("div", { className: "gps-map" }, box, legend, wordsEl);
+  const mapBox = h("div", { className: "gps-map" }, box, legend, wordsEl, tag, setUp);
   mapBox.setAttribute("role", "img");
   const root = h("section", { className: "gps-screen" }, head, mapBox);
   root.setAttribute("aria-label", "GPS");
@@ -187,6 +228,8 @@ export function gpsScreen(store, opts = {}) {
   let fieldId = /** @type {number|undefined} */ (undefined);
   let clip = /** @type {number[]|undefined} */ (undefined);
   let course = /** @type {SteeringCourse|undefined} */ (undefined);
+  /** specs/0022: the course on the canvas is the preview's */
+  let previewing = false;
   let rigAt = /** @type {{x: number, z: number, heading: number}|undefined} */ (undefined);
   let lastHead = "";
   /** what the course canvas holds; -1: a course gone while the page was hidden, to clear */
@@ -298,6 +341,20 @@ export function gpsScreen(store, opts = {}) {
     }
   }
 
+  /**
+   * The preview (specs/0022): every lane and round as the strip it would
+   * work, tinted in this lane's colour, with a centre line.
+   * @param {SteeringCourse} c @param {ReturnType<typeof lookOf>} look
+   */
+  function paintPreview(c, look) {
+    for (const s of c.segments) {
+      if (s.pts.length >= 4) stroke(() => trace(ctx, s.pts, false), look.band, look.colours.current, PREVIEW_ALPHA);
+    }
+    for (const s of c.segments) {
+      if (s.pts.length >= 4) stroke(() => trace(ctx, s.pts, false), look.px, look.colours.current, PREVIEW_LINE_ALPHA);
+    }
+  }
+
   /** The course: whole when it's new (or the size or palette), else only what changed. */
   function paintCourse() {
     const dpr = window.devicePixelRatio || 1;
@@ -336,7 +393,14 @@ export function gpsScreen(store, opts = {}) {
     ctx.beginPath();
     trace(ctx, course.boundary, true);
     ctx.clip();
-    if (full) {
+    if (previewing) {
+      // the preview has no states: painted whole, once per key and size
+      if (full) {
+        paintPreview(course, look);
+        stats.full++;
+        Object.assign(painted, { key: course.key, w: boxW, h: boxH, dpr, palette });
+      }
+    } else if (full) {
       // the lanes, cut by the rounds, then the rounds
       for (const s of lanes) drawLane(s, states.get(s.i) || "todo", look, false);
       cutRounds(look);
@@ -359,7 +423,7 @@ export function gpsScreen(store, opts = {}) {
 
   /** The lane you're on, filled up to the rig: one polyline's points, no lane repainted. */
   function placeFill() {
-    const fill = course && rigAt ? fillOf(course, rigAt) : undefined;
+    const fill = course && rigAt && !previewing ? fillOf(course, rigAt) : undefined;
     const pts = fill && fill.pts.length >= 4 ? pointsAttr(fill.pts) : "";
     if (fillEl.getAttribute("points") !== pts) fillEl.setAttribute("points", pts);
     if (!course || !view || !(boxW > 0 && boxH > 0)) return;
@@ -424,7 +488,7 @@ export function gpsScreen(store, opts = {}) {
   /** What depends on the box's size; nothing while the page is hidden (0 × 0). */
   function paint() {
     if (!(boxW > 0 && boxH > 0)) return;
-    trail.paint({ fieldId, view, clip, w: boxW, h: boxH, mask: course && view ? trailMask(course) : undefined });
+    trail.paint({ fieldId, view, clip, w: boxW, h: boxH, mask: course && view && !previewing ? trailMask(course) : undefined });
     paintCourse();
     placeRig();
   }
@@ -445,20 +509,83 @@ export function gpsScreen(store, opts = {}) {
     return undefined;
   }
 
+  /**
+   * Set up's button and tag, and what the field shows (specs/0022): the
+   * game's course, the preview, or the game's course dimmed while the
+   * preview builds.
+   * @param {ReturnType<typeof gpsState>} state
+   * @returns {{course: SteeringCourse|undefined, previewing: boolean, words: string, dim: boolean, empty: boolean,
+   *   building: boolean}}
+   */
+  function setUpView(state) {
+    const steering = store.get("cab")?.steering;
+    const setup = setupOf(store);
+    const open = setup.open && !!steering;
+    setUp.hidden = !steering;
+    setUp.setAttribute("aria-expanded", String(open));
+    const label = open ? "Close" : "Set up";
+    if (setUp.dataset.label !== label) {
+      setUp.dataset.label = label;
+      setUp.replaceChildren(open ? closeIcon() : icon("steering"), document.createTextNode(label));
+    }
+    const game = { course: state.course, previewing: false, words: state.words, dim: state.dim, empty: false, building: false };
+    tag.hidden = !open;
+    if (!open) return game;
+    /** @param {string} b @param {string} [sub] @param {string} [kind] @param {string} [tone] */
+    const setTag = (b, sub = "", kind = "course", tone = "") => {
+      if (tagText.textContent !== b) tagText.textContent = b;
+      if (tagSub.textContent !== sub) tagSub.textContent = sub;
+      tagSub.hidden = !sub;
+      tag.dataset.kind = kind;
+      if (tone) tagSub.dataset.tone = tone;
+      else delete tagSub.dataset.tone;
+    };
+    if (steering.mode !== "steeringAssist") {
+      setTag("AI worker mode", "No lanes");
+      return game;
+    }
+    if (!setup.lanesChanged || !setup.previewFor) {
+      setTag("The game's course");
+      return game;
+    }
+    const applying = setup.phase === "applying";
+    const lanesDone = (state.course?.done || []).length > 0;
+    setTag(applying ? "Preview · applying" : "Preview · not applied",
+      applying ? "The game builds them now" : lanesDone ? "Changing starts a new course" : "Apply to steer on these lanes",
+      "preview", lanesDone && !applying ? "warn" : "");
+    const pv = /** @type {import("../types.js").SteeringPreview|undefined} */ (store.get("steering_preview"));
+    const mine = pv && pv.for === setup.previewFor ? pv : undefined;
+    if (mine?.state === "ready" && mine.boundary && mine.segments) {
+      const c = /** @type {SteeringCourse} */ ({ key: /** @type {any} */ (`p${mine.key}`), width: mine.width,
+        boundary: mine.boundary, segments: mine.segments, done: [] });
+      return { course: c, previewing: true, words: "", dim: false, empty: false, building: false };
+    }
+    if (mine?.state === "none") return { ...game, course: undefined, words: "No lanes with these settings", dim: false, empty: true };
+    if (mine?.state === "failed" || (!mine && setup.previewFailed === setup.previewFor)) return { ...game, words: "Preview failed" };
+    return { ...game, words: "Building the preview…", dim: true, building: true };
+  }
+
   const render = () => {
     const state = gpsState(store);
     const v = /** @type {any} */ (controlledVehicle(store));
     const placed = v && typeof v.x === "number" && typeof v.z === "number";
     rigAt = placed ? { x: v.x, z: v.z, heading: typeof v.heading === "number" ? v.heading : 0 } : undefined;
     times.feed(state.course, v?.speed);
-    course = state.course;
+    const shown = setUpView(state);
+    previewing = shown.previewing;
+    // the course's key apart from the preview's (both count from 1)
+    course = shown.course && !previewing ? /** @type {SteeringCourse} */ ({ ...shown.course, key: /** @type {any} */ (`c${shown.course.key}`) })
+      : shown.course;
+    const words = shown.words;
     // no course: the canvas is stale even while hidden, so a key the mod
     // gives again (it counts from 1 after a restart) still paints whole
     if (!course && painted.key !== undefined) painted.key = -1;
 
-    // the field: the course's outline, or (building) the field's under the rig
-    const here = course ? courseField(course) : state.building && placed ? fieldAt(store, v.x, v.z) : undefined;
-    const outline = course ? course.boundary : here?.points;
+    // the field: the course's outline, or (building) the field's under the rig;
+    // a preview is on the game's course's field (the header keeps to it)
+    const fieldOf = state.course || course;
+    const here = fieldOf ? courseField(fieldOf) : state.building && placed ? fieldAt(store, v.x, v.z) : undefined;
+    const outline = course ? course.boundary : fieldOf ? fieldOf.boundary : here?.points;
     fieldId = here?.id;
     clip = here?.points;
     const nextViewKey = outline ? outline.join(",") : "";
@@ -473,21 +600,30 @@ export function gpsScreen(store, opts = {}) {
       edgeEl.setAttribute("points", pts);
     }
     mapBox.dataset.empty = String(!view);
-    courseCanvas.dataset.dim = String(state.dim);
-    legend.hidden = !course || !!state.words;
-    trailKey.hidden = !coverage.trails || fieldId === undefined || !coverage.trails(fieldId).length;
-    if (wordsEl.textContent !== state.words) wordsEl.textContent = state.words;
-    wordsEl.hidden = !state.words;
+    courseCanvas.dataset.dim = String(shown.dim);
+    trailCanvas.hidden = previewing;
+    // the legend goes with words, but for the game's course under "Building the preview…"
+    legend.hidden = !course || (!!words && !shown.building);
+    for (const k of courseKeys) k.hidden = previewing;
+    if (previewing !== previewKey.isConnected) {
+      if (previewing) legend.append(previewKey);
+      else previewKey.remove();
+    }
+    trailKey.hidden = previewing || !coverage.trails || fieldId === undefined || !coverage.trails(fieldId).length;
+    if (wordsEl.textContent !== words) wordsEl.textContent = words;
+    wordsEl.hidden = !words;
 
-    // the header: rewritten only when its words change
-    const counts = course ? countsOf(course) : undefined;
-    const fill = course && rigAt ? fillOf(course, rigAt) : undefined;
-    const minutes = times.minutesLeft(course, fill?.t ?? 0);
+    // the header: rewritten only when its words change; quiet while a preview shows
+    head.dataset.quiet = String(previewing || shown.empty);
+    const counted = state.course;
+    const counts = counted ? countsOf(counted) : undefined;
+    const fill = counted && rigAt ? fillOf(counted, rigAt) : undefined;
+    const minutes = times.minutesLeft(counted, fill?.t ?? 0);
     const units = unitsOf(store);
     const field = here ? (store.get("fields")?.fields || []).find((/** @type {any} */ f) => f.id === here.id) : undefined;
     const contract = here ? onField(contractsOf(store), here.id)[0] : undefined;
     const parts = [typeof field?.areaHa === "number" ? areaText(field.areaHa, units) : "",
-      contract ? `Contract: ${titleOf(contract)}` : "", course ? `${widthOf(course).toFixed(1)} m` : ""].filter(Boolean);
+      contract ? `Contract: ${titleOf(contract)}` : "", counted ? `${widthOf(counted).toFixed(1)} m` : ""].filter(Boolean);
     const headKey = JSON.stringify([here?.id, parts, counts, minutes === undefined ? -1 : Math.round(minutes)]);
     if (headKey !== lastHead) {
       lastHead = headKey;
@@ -499,7 +635,7 @@ export function gpsScreen(store, opts = {}) {
       roundsStat.set(counts && counts.rounds ? String(counts.roundsDone) : "–", counts && counts.rounds ? `of ${counts.rounds}` : "");
       timeStat.set(minutes === undefined ? "–" : `≈ ${Math.max(1, Math.round(minutes))}`, minutes === undefined ? "" : "min");
       mapBox.setAttribute("aria-label", counts
-        ? `Field ${here?.id ?? ""}: ${counts.lanesDone} of ${counts.lanes} lanes done` : state.words || "GPS");
+        ? `Field ${here?.id ?? ""}: ${counts.lanesDone} of ${counts.lanes} lanes done` : words || "GPS");
     }
     paint();
     placeFill();
@@ -511,7 +647,8 @@ export function gpsScreen(store, opts = {}) {
     // the fill's width and the rounds' mask go by the size too
     placeFill();
   });
-  for (const k of ["cab", "vehicles", "steering_course", "field_outlines", "fields", "contracts", "env", "farmlands"]) {
+  for (const k of ["cab", "vehicles", "steering_course", "field_outlines", "fields", "contracts", "env", "farmlands",
+    "gpsSetup", "steering_preview"]) {
     store.subscribe(k, render);
   }
   return root;

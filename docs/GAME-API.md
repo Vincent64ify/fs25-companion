@@ -761,6 +761,24 @@ as confirmed: a wrong guess leaves the value out. Some have run live for
 weeks without anyone writing it down; they stay here until a live check
 says so.
 
+- **Steering Assist's settings (spec 0022, mod 0.23.0):** seen in spikes
+  0.0.18 to 0.0.21 on Solek field 119 (2026-11-24), not yet live-checked
+  through the mod; the details are in
+  [spec 0022](../specs/0022-steering-assist-settings.md)'s Data contract
+  and Log. `spec_aiModeSelection.userSettings.settings[MODE]` (the
+  dialog's rows: `value`, `defaultValue`, `min`, `max`,
+  `setting.identifier`, the direction's `setting.textMapping`), Auto as
+  the value equal to the default, `fieldCourseSettings` the selected
+  mode's; `userSettings:apply(clone, mode)` and
+  `aiModeSettingsChanged(mode, clone)` as the dialog's OK; after a hitch,
+  `FieldCourseSettings.generate` and `AIUserSettings.new` as holding H;
+  `getIsAutomaticSteeringAllowed`; `setAIModeSelection` (keeps the old
+  mode's values); `g_gameSettings`' `steeringAssistLines` and
+  `steeringAssistCruiseControl`, every vehicle's, put back from the
+  dialog's entries when H is held; `g_fieldCourseManager:
+  generateFieldCourseAtWorldPos` (answers later, 150 to 340 ms, one at a
+  time, never touches the vehicle).
+
 - **macOS:** nothing here has been seen on a Mac.
 - **Env:** the weather (`getWeatherTypeAtTime`, the temperatures) and each
   farm's money (`g_farmManager`).
