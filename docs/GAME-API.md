@@ -767,7 +767,8 @@ the Fendt 728 on field 119 and the Valtra S 286 on field 150; spikes
   `workDirection` in degrees from `setting.textMapping`, −57 Automatic,
   `sideOffset`, − left); Auto is the value equal to the default. The
   game's dialog writes them as you step a row and Back keeps them: only
-  OK builds a course.
+  OK builds a course (live, mod 0.23.1: each ► press reached the entry on
+  the frame; OK built a new course table at once).
 - **The dialog's OK:** the entries set, `userSettings:apply(clone, mode)`
   onto a clone of `fieldCourseSettings`, then
   `aiModeSettingsChanged(mode, clone)`; the game stores it, builds the

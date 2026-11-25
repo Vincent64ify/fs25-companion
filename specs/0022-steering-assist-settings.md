@@ -1,6 +1,6 @@
 # 0022: Steering Assist settings from the dashboard
 
-Status: live-checked; revision 2 built (the dialog left with Back), its live check open
+Status: live-checked (revision 2 too)
 Mod: 0.23.1 (revision 2; 0.23.0 before) · Started: 2026-11-17 · Design: the "Steering Assist settings" row on the GPS canvas, approved 2026-11-24 (version 30) (`FS25 Companion: GPS`, https://claude.ai/artifact/45ruF2v1hH49JJi4HyRTeM, board `Settings`), drawn 2026-11-23, redrawn 2026-11-24; the brainstorm's brief, `concepts_brief.md`, is in git history (commit b0cffeb)
 
 ## Goal
@@ -529,14 +529,14 @@ Live check (Solek, mod 0.23.0):
   PF changes nothing for the GPS, settled in earlier sessions.
 
 Live check, revision 2 (mod 0.23.1):
-- [ ] Step a row in the game's dialog (width) and press Back: the panel
+- [x] Step a row in the game's dialog (width) and press Back: the panel
   shows the lanes' value with "Dialog: …" under the row.
-- [ ] Then Apply another row (headlands) from the dashboard: the lanes
+- [x] Then Apply another row (headlands) from the dashboard: the lanes
   and the dialog have only the dashboard's change; the width is the
   lanes' again.
-- [ ] A row stepped in the dialog and confirmed with OK: the note goes,
+- [x] A row stepped in the dialog and confirmed with OK: the note goes,
   the panel shows the new value.
-- [ ] In AI worker mode (the Valtra after a detach), Show lines and
+- [x] In AI worker mode (the Valtra after a detach), Show lines and
   Cruise show the game's values, faded.
 
 ## Decisions
@@ -911,3 +911,14 @@ Live check, revision 2 (mod 0.23.1):
   unchanged; run.lua 2 new), test.html 462 all green (5 new), the replay
   with a fed-in `dialog` at 1180×820 day and 1158×676 night. Live check
   open.
+- 2026-11-25: revision 2 live-checked on Solek, mod 0.23.1, all four
+  boxes. The Fendt on field 119 (7.0 m, 2 Auto): width stepped to 9.0 in
+  the game's dialog, Back: the mod sent `dialog.width` 7.0 to 9.0 step by
+  step, the panel kept 7.0 m with "Dialog: 9.0 m", nothing to apply.
+  Headlands 3 applied from the dashboard: the leftover put back, the game
+  built course 2 at 7 m with 3 rounds, and the dialog showed 7.0 M and 3
+  (Vincent). Direction stepped to 45° in the dialog and OK: the note
+  followed (35, 40, 45°), then course 3 at 45° and the note gone; the
+  dialog said 45°. The Valtra with only the front hopper (AI worker
+  mode): Show lines On and Cruise Manual from `cab.steering`'s top,
+  faded, the course rows "–".
