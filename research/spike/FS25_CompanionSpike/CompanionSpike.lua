@@ -23,7 +23,7 @@
 CompanionSpike = {}
 local CS = CompanionSpike
 
-local SPIKE_VERSION = "0.0.20"
+local SPIKE_VERSION = "0.0.21"
 local MOD_DIR = g_currentModDirectory or ""
 
 local LIMITS = {
@@ -4251,6 +4251,183 @@ CS._watchUpdate = watchUpdate
 end)()
 
 ---------------------------------------------------------------------------
+-- csInit (spike 0.0.21, spec 0022)
+---------------------------------------------------------------------------
+-- After a hitch the game drops the dialog's settings (AIModeSelection
+-- onStateChange: fieldCourseSettings and userSettings nil) and makes them
+-- again only when H is held, just before its dialog opens
+-- (actionEventToggleAIState, AIModeSelection.lua:231-243). csInit NAME runs
+-- those same lines on the next frame, without the dialog:
+--     if spec.fieldCourseSettings == nil then
+--         spec.fieldCourseSettings = FieldCourseSettings.generate(self.rootVehicle)
+--         if spec.userSettings ~= nil then spec.userSettings:reinitialize(spec.fieldCourseSettings, true) end
+--     end
+--     if spec.userSettings == nil then spec.userSettings = AIUserSettings.new(spec.fieldCourseSettings) end
+-- and records both before and after, and 3 s of the course and flags:
+-- init-NAME.json. Refused when both are there already.
+-- Not `(function() ... end)()`: right after the block above's `end)()`
+-- Lua would read it as a call of that block's result.
+CS._initBlock = function()
+local INIT_MS = 3000
+
+local function initEntries(us)
+    local lists = type(us) == "table" and rawget(us, "settings") or nil
+    if type(lists) ~= "table" then
+        return nil
+    end
+    local out = {}
+    for m = 1, rawLen(lists) do
+        local list, row = rawget(lists, m), {}
+        for i = 1, rawLen(list) do
+            local e = rawget(list, i)
+            local s = type(e) == "table" and rawget(e, "setting") or nil
+            local id = type(s) == "table" and rawget(s, "identifier") or tostring(i)
+            row[tostring(id)] = { value = scalarOf(rawget(e, "value")), default = scalarOf(rawget(e, "defaultValue")) }
+        end
+        out[m] = row
+    end
+    return out
+end
+
+local function initState(run)
+    local aut, sel = run.aut, run.sel
+    local course = rawget(aut, "steeringFieldCourse")
+    return {
+        currentMode = scalarOf(rawget(sel, "currentMode")),
+        hasSettings = rawget(sel, "fieldCourseSettings") ~= nil,
+        hasUserSettings = rawget(sel, "userSettings") ~= nil,
+        hasLoadedUserSettings = rawget(sel, "loadedUserSettings") ~= nil,
+        course = course == nil and "none" or (rawequal(course, run.course0) and "same" or "new"),
+        steeringEnabled = rawget(aut, "steeringEnabled"),
+        lastIsOnField = rawget(aut, "lastIsOnField"),
+        fieldCourseDetectionInProgress = rawget(aut, "fieldCourseDetectionInProgress"),
+        forceFieldCourseUpdate = rawget(aut, "forceFieldCourseUpdate"),
+    }
+end
+
+local function initAct(run)
+    local sel, holder = run.sel, run.holder
+    local root = firstOf(holder, "getRootVehicle") or holder
+    run.steps = {}
+    if rawget(sel, "fieldCourseSettings") == nil then
+        local ok, settings = pcall(FieldCourseSettings.generate, root)
+        run.steps[#run.steps + 1] = { call = "FieldCourseSettings.generate", ok = ok,
+            error = not ok and tostring(settings) or nil, got = ok and type(settings) or nil }
+        if not ok or type(settings) ~= "table" then
+            return
+        end
+        sel.fieldCourseSettings = settings
+        local us = rawget(sel, "userSettings")
+        if us ~= nil then
+            local rok, rerr = pcall(us.reinitialize, us, settings, true)
+            run.steps[#run.steps + 1] = { call = "userSettings:reinitialize", ok = rok,
+                error = not rok and tostring(rerr) or nil }
+        end
+    end
+    if rawget(sel, "userSettings") == nil then
+        local ok, us = pcall(AIUserSettings.new, rawget(sel, "fieldCourseSettings"))
+        run.steps[#run.steps + 1] = { call = "AIUserSettings.new", ok = ok,
+            error = not ok and tostring(us) or nil, got = ok and type(us) or nil }
+        if ok and type(us) == "table" then
+            sel.userSettings = us
+        end
+    end
+end
+
+local function initFrame(run)
+    if run.calledAt == nil then
+        run.before = { state = initState(run), settings = plainFieldsOf(rawget(run.sel, "fieldCourseSettings")),
+            entries = initEntries(rawget(run.sel, "userSettings")) }
+        run.last = run.before.state
+        run.calledAt = g_time
+        initAct(run)
+    end
+    local now = initState(run)
+    for k, v in pairs(now) do
+        if v ~= run.last[k] then
+            run.changes[#run.changes + 1] = { ms = g_time - run.calledAt, key = k, from = run.last[k], to = v }
+        end
+    end
+    run.last = now
+    return g_time - run.calledAt >= INIT_MS
+end
+
+local function initFinish(run, err)
+    ctx.initRun = nil
+    local out = { name = run.name, vehicle = objectLabel(run.holder), calledAt = run.calledAt, error = err,
+        globals = run.globals, steps = run.steps, before = run.before, changes = run.changes,
+        after = { state = run.last, settings = plainFieldsOf(rawget(run.sel, "fieldCourseSettings")),
+            entries = initEntries(rawget(run.sel, "userSettings")) } }
+    local file = "init-" .. (tostring(run.name or ""):gsub("[^%w_-]", "")) .. ".json"
+    local written = CS._writeJson(file, { init = out })
+    local failed = err
+    for _, s in ipairs(run.steps or {}) do
+        failed = failed or s.error
+    end
+    ctx.status = string.format("init %s%s", written and ("written to " .. file) or "write FAILED",
+        failed and (", ERROR " .. tostring(failed)) or "")
+    log("csInit: %s", ctx.status)
+end
+
+local function initUpdate()
+    local run = ctx.initRun
+    if run == nil then
+        return
+    end
+    local ok, done = pcall(initFrame, run)
+    if not ok or done then
+        local fok, ferr = pcall(initFinish, run, not ok and tostring(done) or nil)
+        if not fok then
+            ctx.initRun = nil
+            log("csInit finish failed: %s", tostring(ferr))
+        end
+    end
+end
+
+function CompanionSpike:consoleInit(name)
+    local v = getControlledVehicle()
+    if v == nil then
+        return "get in a vehicle first"
+    end
+    if ctx.initRun ~= nil then
+        return "refused: still recording"
+    end
+    if g_server == nil then
+        return "refused: not the server: host only"
+    end
+    local holder = steeringHolder(v)
+    if holder == nil then
+        return "refused: no Steering Assist part in this rig"
+    end
+    local aut, sel = rawget(holder, "spec_aiAutomaticSteering"), rawget(holder, "spec_aiModeSelection")
+    if type(sel) ~= "table" then
+        return "refused: no AI mode part on " .. tostring(objectLabel(holder))
+    end
+    local globals = { FieldCourseSettings = type(FieldCourseSettings), AIUserSettings = type(AIUserSettings),
+        generate = type(FieldCourseSettings) == "table" and type(FieldCourseSettings.generate) or nil,
+        new = type(AIUserSettings) == "table" and type(AIUserSettings.new) or nil }
+    if globals.generate ~= "function" or globals.new ~= "function" then
+        return string.format("refused: FieldCourseSettings.generate is %s, AIUserSettings.new is %s",
+            tostring(globals.generate), tostring(globals.new))
+    end
+    if rawget(sel, "fieldCourseSettings") ~= nil and rawget(sel, "userSettings") ~= nil then
+        return "refused: the settings are there already (hitch or unhitch a tool first)"
+    end
+    if rawget(sel, "loadedUserSettings") ~= nil then
+        return "refused: the save's settings are still waiting to load: drive onto the field first"
+    end
+    ctx.initRun = { name = name, holder = holder, aut = aut, sel = sel, globals = globals,
+        course0 = rawget(aut, "steeringFieldCourse"), changes = {} }
+    ctx.status = "init on the next frame (settings " .. (rawget(sel, "fieldCourseSettings") == nil and "missing" or "there")
+        .. ", userSettings " .. (rawget(sel, "userSettings") == nil and "missing" or "there") .. ")"
+    return ctx.status
+end
+
+CS._initUpdate = initUpdate
+end
+CS._initBlock()
+
+---------------------------------------------------------------------------
 -- Mod event listener
 ---------------------------------------------------------------------------
 
@@ -4305,6 +4482,8 @@ function CompanionSpike:loadMap(name)
             "consoleCruise", CompanionSpike)
         addConsoleCommand("csLines", "Press the game's Show lines key and record it: csLines NAME (lines-NAME.json)",
             "consoleLines", CompanionSpike)
+        addConsoleCommand("csInit", "Make the dialog's settings as holding H does, after a hitch: csInit NAME (init-NAME.json)",
+            "consoleInit", CompanionSpike)
     end
 end
 
@@ -4528,6 +4707,7 @@ function CompanionSpike:update(dt)
     previewUpdate()
     modeUpdate()
     CS._watchUpdate()
+    CS._initUpdate()
     if ctx.pressNext ~= nil then
         local name = ctx.pressNext
         ctx.pressNext = nil

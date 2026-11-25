@@ -617,3 +617,81 @@ def test_auto_direction_applies_as_minus_one_radian(alua):
     watch_frames(alua, 60)
     out = written_as(alua, "apply-a.json", "apply")
     assert out["applied"]["clone"]["workDirection"] == pytest.approx(-1)
+
+
+# spike 0.0.21: csInit makes the dialog's settings after a hitch, as holding
+# H does (AIModeSelection.lua:231-243)
+
+INIT_STUB = r"""
+generated = setmetatable({ implementWidth = 5, numHeadlands = 2, workDirection = -1, sideOffset = 0 }, FieldCourseSettings)
+function FieldCourseSettings.generate(root)
+    calls[#calls + 1] = "generate " .. tostring(root.id)
+    return generated, {}
+end
+AIUserSettings.new = function(s)
+    calls[#calls + 1] = "AIUserSettings.new " .. tostring(s == generated)
+    return { settings = { {}, { { value = 50, defaultValue = 50, setting = { identifier = "implementWidth" } } } } }
+end
+-- after a hitch (onStateChange)
+sel.fieldCourseSettings = nil
+sel.userSettings = nil
+"""
+
+
+@pytest.fixture
+def ilua(alua):
+    alua.execute(INIT_STUB)
+    return alua
+
+
+def init_frames(lua, n, ms=100):
+    for _ in range(n):
+        lua.execute(f"g_time = g_time + {ms}; CompanionSpike._initUpdate()")
+
+
+def test_the_block_loaded_and_runs_each_frame(ilua):
+    assert ilua.eval("type(CompanionSpike._initUpdate)") == "function"
+    assert ilua.eval("type(CompanionSpike.consoleApply)") == "function"
+
+
+def test_init_makes_both_on_the_next_frame(ilua):
+    msg = ilua.eval('CompanionSpike:consoleInit("h")')
+    assert "settings missing, userSettings missing" in msg and calls(ilua) == []
+    init_frames(ilua, 40)
+    out = plain(ilua.eval('written["init-h.json"]'))["init"]
+    assert calls(ilua) == ["generate 1", "AIUserSettings.new true"]
+    assert [s["call"] for s in out["steps"]] == ["FieldCourseSettings.generate", "AIUserSettings.new"]
+    assert out["before"]["state"]["hasSettings"] is False and out["after"]["state"]["hasUserSettings"] is True
+    assert out["after"]["entries"][1]["implementWidth"] == {"value": 50, "default": 50}
+    assert out["after"]["settings"]["workDirection"] == -1
+    assert ilua.eval("sel.fieldCourseSettings == generated")
+
+
+def test_init_only_the_missing_one(ilua):
+    ilua.execute("sel.fieldCourseSettings = settings")
+    ilua.eval('CompanionSpike:consoleInit("u")')
+    init_frames(ilua, 40)
+    assert calls(ilua) == ["AIUserSettings.new false"]
+
+
+def test_a_failed_generate_makes_nothing(ilua):
+    ilua.execute("FieldCourseSettings.generate = function() calls[#calls + 1] = 'generate'; error('no tool') end")
+    ilua.eval('CompanionSpike:consoleInit("f")')
+    init_frames(ilua, 40)
+    out = plain(ilua.eval('written["init-f.json"]'))["init"]
+    assert "no tool" in out["steps"][0]["error"] and len(out["steps"]) == 1
+    assert ilua.eval("sel.userSettings == nil and sel.fieldCourseSettings == nil")
+
+
+@pytest.mark.parametrize("setup, refusal", [
+    ("sel.fieldCourseSettings = settings; sel.userSettings = {}", "there already"),
+    ("sel.loadedUserSettings = {}", "still waiting to load"),
+    ("AIUserSettings = nil", "AIUserSettings.new is nil"),
+    ("g_server = nil", "host only"),
+])
+def test_init_refusals_call_nothing(ilua, setup, refusal):
+    ilua.execute(setup)
+    msg = ilua.eval('CompanionSpike:consoleInit("x")')
+    assert msg.startswith("refused") and refusal in msg
+    init_frames(ilua, 5)
+    assert calls(ilua) == []

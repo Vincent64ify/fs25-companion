@@ -404,6 +404,28 @@ anything odd, quit without saving and say which step.
    `csCruise aut on` and `csLines on`: the two are game settings the game
    keeps outside the save, so end with both on.
 
+## Steering Assist: the settings after a hitch, without H (spike 0.0.21, spec 0022)
+
+After a hitch the game drops the dialog's settings and makes them again
+only when H is held, just before its dialog opens (AIModeSelection.lua:
+231-243). `csInit NAME` runs those same lines from the console:
+`FieldCourseSettings.generate` for the rig, then `AIUserSettings.new`
+from it (the two new calls). It records both before and after, and 3 s of
+the course and flags: `init-NAME.json`. It's refused when both are
+already there.
+
+1. Install the zip beside FS25 Companion 0.22.0 and restart the game. The
+   Fendt with the LEMKEN on field 119, Steering Assist mode, steering off.
+2. Detach the LEMKEN and attach it again (the game drops the settings).
+   Don't hold H from here on. `csSettings hitched` (no `userSettings`).
+3. `csInit init`: "written", no ERROR. `csSettings init`: the entries on
+   Auto.
+4. Still without H: `csApply d45 direction 45`. The lanes go to 45°. Then
+   hold H: the dialog shows 45°. Back.
+5. `csApply auto direction auto`. Save, reload, hold H (Back),
+   `csSettings reload`.
+6. On "ERROR" or anything odd, quit without saving and say which step.
+
 ## Contracts: is getMaxCutLiters safe on an offer? (spike 0.0.14, spec 0018)
 
 `csMaxCut N` calls `getMaxCutLiters()` once on harvest offer N (its

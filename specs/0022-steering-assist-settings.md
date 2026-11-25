@@ -196,14 +196,14 @@ Game API names, all **unverified** unless marked:
 | `spec_aiModeSelection.fieldCourseSettings` and its plain fields (above) | spike 0.0.15's `csParts` (`mod/tests/fixtures/spike0020/`); spikes 0.0.18–19 | seen: the selected mode's (spike 0.0.19) |
 | `setAIModeSelection(aiMode)`: sends its own event | AIModeSelection.lua:294-314 | seen (spike 0.0.19): the mode changes on the frame; to AI worker the course goes, to Steering Assist the game builds a new one (187 ms); it does **not** apply the new mode's choices onto `fieldCourseSettings` (the worker's 90° stayed Steering Assist's Auto) |
 | `getIsAutomaticSteeringAllowed()`: whether a tool allows steering (the dialog's guard; the game puts the mode back to AI worker otherwise); each tool's `getImplementAllowAutomaticSteering()` returns a constant or reads its work areas' types | AIAutomaticSteering.lua:629-645; AIImplement.lua:761, WorkArea.lua:693, Combine.lua:1886, TreePlanter.lua:958 | seen (spike 0.0.19): true with the LEMKEN (the cultivator's own true), false in the Arocs 4133 |
-| `aiModeSettingsChanged(aiMode, fieldCourseSettings)`: the dialog's own OK, on a clone of the game's settings; it stores the clone, sends `AIModeSelectionSettingsEvent`, calls `setAIModeSelection(aiMode)` and raises `onAIModeSettingsChanged`, and doesn't touch `userSettings` (the dialog changes those itself) | AIModeSelection.lua:249, 324-333 | unverified |
-| `spec_aiModeSelection.userSettings` (class `AIUserSettings`: `new(fieldCourseSettings)`, `reinitialize(fieldCourseSettings, bool)`, `apply(fieldCourseSettings, mode)`, `saveToXML`, `loadFromXML`): what the player chose, per mode (the save's `settings`), applied onto `fieldCourseSettings`; nil after any attach or detach until H is held or a save loads (`onStateChange`), which may be why spike 0.0.15 didn't see it | AIModeSelection.lua:100-127, 155-180, 205-210, 224-249, 337-350; the class itself is not in the archive (nor any global named AI…Setting…, spike 0.0.19) | fields seen (spike 0.0.19, the table above); its methods **unverified** |
+| `aiModeSettingsChanged(aiMode, fieldCourseSettings)`: the dialog's own OK, on a clone of the game's settings; it stores the clone, sends `AIModeSelectionSettingsEvent`, calls `setAIModeSelection(aiMode)` and raises `onAIModeSettingsChanged`, and doesn't touch `userSettings` (the dialog changes those itself) | AIModeSelection.lua:249, 324-333 | seen (spike 0.0.20): with a clone the mode's entries were applied onto, the game stores it, rebuilds the course (about 200 ms) and its dialog then shows the change; a 45° course identical to the dialog's own, point for point; kept through a save and reload |
+| `spec_aiModeSelection.userSettings` (class `AIUserSettings`: `new(fieldCourseSettings)`, `reinitialize(fieldCourseSettings, bool)`, `apply(fieldCourseSettings, mode)`, `saveToXML`, `loadFromXML`): what the player chose, per mode (the save's `settings`), applied onto `fieldCourseSettings`; nil after any attach or detach until H is held or a save loads (`onStateChange`), which may be why spike 0.0.15 didn't see it | AIModeSelection.lua:100-127, 155-180, 205-210, 224-249, 337-350; the class itself is not in the archive (nor any global named AI…Setting…, spike 0.0.19) | fields seen (spike 0.0.19, the table above); `apply(clone, mode)` seen (spike 0.0.20): writes that mode's entries onto the clone (Steering Assist's gave the game's own settings, the worker's its 90°), nothing else changed; the other methods **unverified** |
 | `FieldCourseSettings.generate(rootVehicle)`: the tool's own settings, the Auto values; the game calls it when there are none | AIModeSelection.lua:231-233, 367 | never called by the mod |
 | `AISettingsDialog.show(userSettings, fieldCourseSettings:clone(), vehicle, mode, fieldX, fieldZ, callback)`: the dialog gets the game's own `userSettings` (not a copy) and a clone of the course settings; its Reset is in the dialog's code | AIModeSelection.lua:249; the dialog is not in the archive | unverified |
 | `g_fieldCourseManager:generateFieldCourseAtWorldPos(x, z, fieldCourseSettings, callback)`: the game's course builder; the course comes back later to `callback(_, course)`, nil if none; Steering Assist then wraps it (`SteeringFieldCourse.new(course)`) and sets it on the vehicle, which the preview never does. It builds one at a time per vehicle (`fieldCourseDetectionInProgress`, a pending one queued) | AIAutomaticSteering.lua:738-776; AIDriveStrategyFieldCourse.lua (the AI worker, the same call); the manager is not in the archive | **unknown: the spike** (that it leaves the vehicle alone, how long it takes, two at once) |
 | the dialog's own preview (the map beside its settings) | not in the archive; likely the same builder | unverified |
-| `GameSettings.SETTING.STEERING_ASSIST_LINES` = `"steeringAssistLines"`, a game setting for every vehicle, read raw from `g_gameSettings`; the key `TOGGLE_AI_STEERING_LINES` flips it with `g_gameSettings:setValue(…, not value, true)` (seen: active, `displayIsVisible` false, spike 0.0.15) | AIAutomaticSteering.lua:895, 922-925; spike 0.0.18 | read: seen (spike 0.0.18); the key: unverified |
-| `GameSettings.SETTING.STEERING_ASSIST_CRUISE_CONTROL` = `"steeringAssistCruiseControl"`, a game setting (true = Automatic) that each vehicle copies when you get in and when it changes (`registerVehicleSetting`); set with `g_gameSettings:setValue`, as the lines key does | AIAutomaticSteering.lua:157, 407; VehicleSettings.lua:96-170; spike 0.0.18 | read: seen (spike 0.0.18); `setValue` for cruise: unverified |
+| `GameSettings.SETTING.STEERING_ASSIST_LINES` = `"steeringAssistLines"`, a game setting for every vehicle, read raw from `g_gameSettings`; the key `TOGGLE_AI_STEERING_LINES` flips it with `g_gameSettings:setValue(…, not value, true)` (seen: active, `displayIsVisible` false, spike 0.0.15) | AIAutomaticSteering.lua:895, 922-925; spike 0.0.18 | read: seen (spike 0.0.18); the key: seen (spike 0.0.20), flips the setting, and holding H puts the dialog's entry back (the lines return) |
+| `GameSettings.SETTING.STEERING_ASSIST_CRUISE_CONTROL` = `"steeringAssistCruiseControl"`, a game setting (true = Automatic) that each vehicle copies when you get in and when it changes (`registerVehicleSetting`); set with `g_gameSettings:setValue`, as the lines key does | AIAutomaticSteering.lua:157, 407; VehicleSettings.lua:96-170; spike 0.0.18 | read: seen (spike 0.0.18); `setValue`: seen (spike 0.0.20), the vehicle's copy follows, and holding H puts the dialog's entry back |
 
 Never called: `setAIModeFieldCourseSettings` (the receiving end of the
 game's network event), a settings object the mod builds itself,
@@ -223,25 +223,36 @@ the change back. It is host only until checked on a multiplayer client.
   mapped to `AIModeSelection.MODE.WORKER` and `.STEERING_ASSIST` read at
   run time (1 and 2 today): a set. Steering Assist needs
   `getIsAutomaticSteeringAllowed()` (else refused "no tool allows
-  steering"). `setAIModeSelection`; ok when `currentMode` reads it back.
+  steering"). As the dialog's OK with a new mode (spike 0.0.20): a clone of
+  the course settings, that mode's entries applied onto it
+  (`userSettings:apply(clone, mode)`), then `aiModeSettingsChanged(mode,
+  clone)`; ok when `currentMode` reads it back. Not `setAIModeSelection`
+  alone: it keeps the old mode's values in the course settings (spike
+  0.0.19).
 - **`steering.settings.apply`**, with the changed values in a new
   `settings` attribute (width, headlands, direction, offset, Auto per
   setting): in Steering Assist mode, on a field the farm may work,
-  steering off. The game's own clone, changed, through
-  `aiModeSettingsChanged`; the saved settings object changed too, the way
-  the dialog does, once the spike shows how. Ok when the game's settings
-  and the new course read back the values. This needs the attribute in
+  steering off. As the dialog's OK (spike 0.0.20): each changed row's
+  entry in `userSettings` set (what the save writes; Auto is the entry's
+  `defaultValue`, the direction's the first of its `textMapping`), the
+  entries applied onto a clone (`userSettings:apply`), then
+  `aiModeSettingsChanged(mode, clone)`. Ok when the game's settings read
+  back the values. Reset is the four course rows to Auto, one Apply. This needs the attribute in
   `mod/src/Commands.lua`, `companion/server.py` and
   `companion/commands.py`.
 - **`steering.lines.set`** and **`steering.cruiseOff.set`**, value 0 or 1,
-  game-wide (the game's settings, every vehicle): show lines through the
-  game's own key, `TOGGLE_AI_STEERING_LINES`, pressed only when the
-  setting differs; cruise through `g_gameSettings:setValue`, the way the
-  lines key sets its own (the game has no key for cruise). Ok when
-  `g_gameSettings` reads the value back.
+  game-wide (the game's settings, every vehicle): as the dialog's OK, the
+  row's entry in Steering Assist's `userSettings` (`showLines`,
+  `cruiseControl`) and the game setting with `g_gameSettings:setValue(id,
+  value, true)`. The setting alone, or the game's lines key, is undone the
+  next time H is held: the dialog puts its entry back (spike 0.0.20).
+  Writing both is inferred from what the dialog's OK changed (spike
+  0.0.18); the live check confirms it. Ok when both read back.
 - **`steering.settings.preview`**, with the panel's values in the same
   `settings` attribute: in Steering Assist mode, on a field the farm may
-  work, steering off. A clone of the game's course settings, changed, to
+  work, steering off. A clone of the game's course settings, its fields
+  set directly (metres, radians, −1 for Auto direction; the entries never
+  touched), to
   `generateFieldCourseAtWorldPos` at the vehicle's position; one build at
   a time, the newest settings waiting behind it (as the game does), older
   ones dropped. Ok once the game has answered (a course or none), with the
@@ -379,6 +390,12 @@ Live check (Solek, mod 0.23.0):
    0.0.18): 150 to 340 ms a build here.
 7. ~~**The direction's steps:**~~ answered 2026-11-24 (Vincent): 5° only,
    as the game's dialog (0° to 175° and Automatic).
+8. **After a hitch:** the game drops `userSettings` and the course
+   settings (`onStateChange`) and makes them again only when H is held
+   (`AIUserSettings.new`, `FieldCourseSettings.generate`, both never
+   called by the mod). Until then the panel has no rows to show or set.
+   Vincent (2026-11-24): no in-game step for the GPS, so the mod makes them
+   the way holding H does; spike 0.0.21 (`csInit`) checks the two calls.
 
 ## Log
 
@@ -564,3 +581,32 @@ Live check (Solek, mod 0.23.0):
   with the new mode's own choices, and has a dry run that only applies.
   `csCruise` uses `g_gameSettings:setValue`; `csLines` presses the game's
   key. Three game sessions, one new call each.
+- 2026-11-24: spike 0.0.20 run on field 119 (the Fendt and the LEMKEN),
+  three game sessions; dumps in `mod/tests/fixtures/spike0022/`.
+  `userSettings:apply` onto clones changed nothing: Steering Assist's
+  entries gave the game's own settings and the worker's gave its 90°.
+  Then entries set, applied onto a clone and committed with
+  `aiModeSettingsChanged`:
+  - direction 45°: the dialog showed 45°, and the course was identical to
+    the one the dialog built, all 55 segments point for point; it was
+    kept through a save and reload;
+  - Auto: −57.2958 in the entry, −1 rad in the settings, the field's own
+    angle;
+  - width 6.6 m; Reset (5.0 m, 2, Automatic, 0.0 m, all Auto; lines and
+    cruise as they were, Vincent's screenshot);
+  - the mode to AI worker with its 90° and back to Steering Assist on Auto
+    (course rebuilt within 35 ms).
+  Each change rebuilt the course within about 200 ms, and the dialog
+  showed it. Cruise through `g_gameSettings:setValue` and lines through
+  the game's key changed the game settings, but holding H brought back
+  the dialog's own entries (Automatic, lines On). Commands updated: the
+  mode as the dialog's OK with a mode, Apply's entries, lines and cruise
+  writing the entry and the setting. Open question 8 (after a hitch)
+  added. The single-player spikes are done; a multiplayer client stays
+  for later (host only).
+- 2026-11-24: Vincent: no in-game step for the GPS, not even H after a
+  hitch (open question 8). Spike 0.0.21 written: `csInit` runs the game's
+  own lines from holding H (AIModeSelection.lua:231-243),
+  `FieldCourseSettings.generate` for the rig, then `AIUserSettings.new`,
+  without the dialog. Until the spike, the Data contract table's "never
+  called" note still names `FieldCourseSettings.generate`.
