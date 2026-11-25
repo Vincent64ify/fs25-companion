@@ -343,7 +343,10 @@ width, Headlands, Work direction, Side offset; a gap; Show lines, Cruise
 control), each a button with its value on the right and a small "Auto"
 tag; a tap opens its steps under it in a `--line` well, as the game speed
 panel's; a changed row's value ringed in `--select` with "was …" under its
-name. Reset and Apply (`--accent`, "Apply 2 changes", "Applying…",
+name. A row the game's own dialog holds without OK (stepped there, left
+with Back) keeps the lanes' value and says "Dialog: 6.0 m" under its name
+in `--warn` (revision 2; "was …" wins while the panel has a change).
+Reset and Apply (`--accent`, "Apply 2 changes", "Applying…",
 "Failed") at the foot. 44-tall rows on a short screen. The field stays as
 it is; while a change waits, a glass tag top left ("Preview · not
 applied") and the game's preview: every lane and round a strip in
