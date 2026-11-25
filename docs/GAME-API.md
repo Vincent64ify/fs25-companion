@@ -24,7 +24,8 @@ Contents:
 - [Contracts](#contracts-mod-0191-live-checked-2026-11-15-and-16)
 - [Steering Assist](#steering-assist-mod-0210-live-checked-2026-11-19): the
   mode, the course, the steering key and its press, and
-  [the course's lanes](#the-course-mod-0220-live-checked-2026-11-23)
+  [the course's lanes](#the-course-mod-0220-live-checked-2026-11-23) and
+  [its settings](#the-settings-mod-0230-live-checked-2026-11-25)
 - [Not verified yet](#not-verified-yet)
 
 ---
@@ -754,30 +755,46 @@ SDK's archive.
   `spec_aiAutomaticSteering.lastIsOnField`: false off the field, true on
   a field you may work.
 
+### The settings (mod 0.23.0, live-checked 2026-11-25)
+
+From the dashboard on Solek ([specs/0022](../specs/0022-steering-assist-settings.md),
+the Fendt 728 on field 119 and the Valtra S 286 on field 150; spikes
+0.0.18 to 0.0.21 in its Log).
+
+- **The dialog's rows:** `spec_aiModeSelection.userSettings.settings[MODE]`,
+  one list per mode, each entry `value`, `defaultValue`, `min`, `max`,
+  `setting.identifier` (`implementWidth` in tenths, `numHeadlands`,
+  `workDirection` in degrees from `setting.textMapping`, −57 Automatic,
+  `sideOffset`, − left); Auto is the value equal to the default. The
+  game's dialog writes them as you step a row and Back keeps them: only
+  OK builds a course.
+- **The dialog's OK:** the entries set, `userSettings:apply(clone, mode)`
+  onto a clone of `fieldCourseSettings`, then
+  `aiModeSettingsChanged(mode, clone)`; the game stores it, builds the
+  course within a second (a new course table) and its dialog shows the
+  change. The same with a new mode switches the mode with that mode's own
+  choices; while steering, steering stops.
+- **After a hitch:** the game drops `userSettings`; the mod makes them as
+  holding H does (`FieldCourseSettings.generate`, `AIUserSettings.new`),
+  all Auto, and the mode, a preview and an Apply then work with no H.
+  Save and reload keeps both vehicles' settings and the mode.
+- **Allowed:** `getIsAutomaticSteeringAllowed`, false with only a front
+  hopper, true with the seeder or cultivator.
+- **Lines and cruise:** `g_gameSettings`' `steeringAssistLines` and
+  `steeringAssistCruiseControl` with the dialog's entry, game-wide; they
+  hold after holding H, and lines work with their key unbound.
+- **The preview:** `g_fieldCourseManager:generateFieldCourseAtWorldPos`
+  with a clone answers later (150 to 340 ms) and leaves the vehicle's
+  course alone; its lanes were the course the game built after Apply.
+- **Spike only:** `setAIModeSelection` keeps the old mode's values (the
+  mod doesn't call it).
+
 ## Not verified yet
 
 Read by the mod behind `mod/src/Api.lua`'s guards, but not recorded above
 as confirmed: a wrong guess leaves the value out. Some have run live for
 weeks without anyone writing it down; they stay here until a live check
 says so.
-
-- **Steering Assist's settings (spec 0022, mod 0.23.0):** seen in spikes
-  0.0.18 to 0.0.21 on Solek field 119 (2026-11-24), not yet live-checked
-  through the mod; the details are in
-  [spec 0022](../specs/0022-steering-assist-settings.md)'s Data contract
-  and Log. `spec_aiModeSelection.userSettings.settings[MODE]` (the
-  dialog's rows: `value`, `defaultValue`, `min`, `max`,
-  `setting.identifier`, the direction's `setting.textMapping`), Auto as
-  the value equal to the default, `fieldCourseSettings` the selected
-  mode's; `userSettings:apply(clone, mode)` and
-  `aiModeSettingsChanged(mode, clone)` as the dialog's OK; after a hitch,
-  `FieldCourseSettings.generate` and `AIUserSettings.new` as holding H;
-  `getIsAutomaticSteeringAllowed`; `setAIModeSelection` (keeps the old
-  mode's values); `g_gameSettings`' `steeringAssistLines` and
-  `steeringAssistCruiseControl`, every vehicle's, put back from the
-  dialog's entries when H is held; `g_fieldCourseManager:
-  generateFieldCourseAtWorldPos` (answers later, 150 to 340 ms, one at a
-  time, never touches the vehicle).
 
 - **macOS:** nothing here has been seen on a Mac.
 - **Env:** the weather (`getWeatherTypeAtTime`, the temperatures) and each

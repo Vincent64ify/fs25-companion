@@ -1,6 +1,6 @@
 # 0022: Steering Assist settings from the dashboard
 
-Status: built
+Status: live-checked
 Mod: 0.23.0 · Started: 2026-11-17 · Design: the "Steering Assist settings" row on the GPS canvas, approved 2026-11-24 (version 30) (`FS25 Companion: GPS`, https://claude.ai/artifact/45ruF2v1hH49JJi4HyRTeM, board `Settings`), drawn 2026-11-23, redrawn 2026-11-24; the brainstorm's brief, `concepts_brief.md`, is in git history (commit b0cffeb)
 
 ## Goal
@@ -105,6 +105,12 @@ Vincent changes all of them, field by field and tool by tool.
   needed (Vincent, 2026-11-24): the mod makes the settings the way holding
   H does, whenever a command needs them, and the Mode row brings Steering
   Assist back.
+- **Changed in the game's dialog and left with Back** (live check,
+  2026-11-25): the dialog writes each row into its entries as you step
+  it, and Back doesn't undo that; only OK builds a course. The panel
+  reads the entries, so it then shows the dialog's unconfirmed values as
+  the game's, with no changes to Apply, while the course is still the old
+  one. Open question 9.
 - **These are Steering Assist's own settings:** the save keeps the AI
   worker's apart (`settings` › `worker` and `steering_assist`). In memory
   both modes showed the same values (spike 0.0.15), so where the game
@@ -390,30 +396,31 @@ Automated:
 - [x] Replay in the browser pane at 1158×676 and 1180×820, day and night.
 
 Live check (Solek, mod 0.23.0):
-- [ ] Each setting set from the dashboard: the game's dialog shows the
+- [x] Each setting set from the dashboard: the game's dialog shows the
   same, and the lanes move as they should.
-- [ ] The preview: each change shows lanes that match the game's dialog
+- [x] The preview: each change shows lanes that match the game's dialog
   preview for the same settings, and the course after Apply; the
   vehicle's course doesn't change before Apply.
-- [ ] Back to Auto from the dashboard: the dialog shows Auto.
-- [ ] Reset and Apply from the dashboard: the dialog shows the four
+- [x] Back to Auto from the dashboard: the dialog shows Auto.
+- [x] Reset and Apply from the dashboard: the dialog shows the four
   course rows on Auto, Show lines and Cruise as they were.
-- [ ] Rehitch: the panel shows Auto.
-- [ ] The offset left and right: the lanes move to the side the panel
+- [x] Rehitch: the panel shows Auto.
+- [x] The offset left and right: the lanes move to the side the panel
   says.
-- [ ] Two tractors: a change on one leaves the other's settings.
-- [ ] Save and reload: the settings stay, Auto included.
-- [ ] In AI worker mode, off the field and while steering: faded, with
+- [x] Two tractors: a change on one leaves the other's settings.
+- [x] Save and reload: the settings stay, Auto included.
+- [x] In AI worker mode, off the field and while steering: faded, with
   the words.
-- [ ] A tool that doesn't allow steering: the Mode row's Steering Assist
+- [x] A tool that doesn't allow steering: the Mode row's Steering Assist
   faded.
-- [ ] With H's hold never used, and with the lines key unbound.
-- [ ] Straight after a hitch, without H: the panel's rows, a preview, an
+- [x] With H's hold never used, and with the lines key unbound.
+- [x] Straight after a hitch, without H: the panel's rows, a preview, an
   Apply and the mode (spike 0.0.21's path).
-- [ ] Show lines and Cruise from the dashboard, then hold H: the dialog
+- [x] Show lines and Cruise from the dashboard, then hold H: the dialog
   shows them, and they stay after Back.
-- [ ] The mode while steering, and while the AI worker drives (refused).
-- [ ] Precision Farming on and off.
+- [x] The mode while steering, and while the AI worker drives (refused).
+- ~~Precision Farming on and off.~~ Not needed (Vincent, 2026-11-25):
+  PF changes nothing for the GPS, settled in earlier sessions.
 
 ## Decisions
 
@@ -474,6 +481,16 @@ Live check (Solek, mod 0.23.0):
    Vincent (2026-11-24): no in-game step for the GPS, so the mod makes them
    the way holding H does. Answered by spike 0.0.21: it works (Commands,
    "Settings missing").
+9. **Dialog rows left with Back** (live check, 2026-11-25): the panel
+   shows the dialog's entries, which the dialog changes before OK (seen
+   twice: width 6.0, and headlands 3 with 35°, after Back; the course
+   kept its key). To fix: show what the course is built with
+   (`fieldCourseSettings`) where it differs from the entries, or
+   compare against it for Apply. A revision for Vincent to choose.
+10. **Show lines and Cruise without settings:** in AI worker mode or
+    before a vehicle has settings, the two game-wide rows show "–", as the
+    four course rows do (`settings` is absent). They're the game's,
+    every vehicle's, so they could show the game's value. Small, with 9.
 
 ## Log
 
@@ -739,3 +756,26 @@ Live check (Solek, mod 0.23.0):
     (faded) when the mode goes to AI worker, until Close; the mode refused
     while the AI worker drives; `hello` actions 6; the settings attribute
     a string the web builds.
+- 2026-11-25: live check on Solek, mod 0.23.0 (the Fendt 728 and the
+  LEMKEN on field 119, the Valtra S 286 and the Aerosem on field 150), all
+  from the dashboard, Vincent reading the game's dialog and the ground.
+  - Passed: width (7.0), headlands (3) and direction (90°) applied in one
+    Apply, the dialog and the lanes the same, a new course each time;
+    the preview the same as the course after Apply, the course's key
+    unchanged before Apply; back to Auto; Reset and Apply (the four rows
+    Auto, lines and cruise as they were); the offset −2.0 m (left) and
+    2.0 m (right), the lanes to that side; two tractors kept their own;
+    save and reload kept both, Auto included, no H; the rows faded with
+    their words in AI worker mode, off the field and while steering; the
+    Mode row's Steering Assist faded with only the front hopper ("No tool
+    here allows steering"); the lines key unbound (it was), Show lines
+    On through the setter; Show lines Off and Cruise Manual, kept after
+    Back; the mode while steering (steering stops, AI worker) and while
+    the AI worker drives (refused, "Failed" on the button); after a
+    rehitch Auto (the Valtra's 4 headlands and 6.0 m dropped), and with
+    no H the mode, a preview and an Apply.
+  - "Changing starts a new course" showed with a lane done.
+  - Found: the game's dialog writes its rows before OK and Back keeps
+    them; the panel showed them as the game's (step 2's 6.0 m: no Apply
+    was sent, the course stayed). Open questions 9 and 10. Precision
+    Farming: not needed for the GPS (Vincent).
