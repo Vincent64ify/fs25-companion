@@ -33,7 +33,7 @@ here is history, and nothing here is a check:
 - **GPS lanes on the Map** (Vincent, 2026-11-19, from
   [specs/0021](../specs/0021-gps-screen.md)'s questions): the lanes of the
   field you're on as a Map layer you can switch on and off, from the
-  `steering_course` topic once it exists.
+  `steering_course` topic (the GPS screen's, since spec 0021).
 - **AI worker button opens the game's worker screen** (spec 0008's live
   check, 2026-10-31): `TOGGLE_AI` did nothing live in a vehicle with no
   job set up, so the button can't hire. A tap should open the game's AI job

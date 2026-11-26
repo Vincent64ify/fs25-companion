@@ -76,12 +76,15 @@ How a tap on the dashboard reaches the game:
    whole and its first-open cost stays off the game's frame.
 3. **The mod** looks for the next number every frame. It checks the
    session, the action and its value against `Commands.ACTIONS`, the one
-   list of actions. It reads the state the cab reports and presses the
+   list of actions (`SteeringCommands.lua` adds Steering Assist's five to
+   it). It reads the state the cab reports and presses the
    game's own key only when the game isn't there yet; already there, it
    presses nothing and answers `already`. A key with no live event answers
-   "not available now". Three actions have no key and run a setter: the
-   cruise set speed, select and detach
-   ([spec 0009](../specs/0009-one-way-to-run-each-action.md)).
+   "not available now". Where the game has no key, the action runs the
+   game's own functions instead: the cruise set speed, select and detach
+   ([spec 0009](../specs/0009-one-way-to-run-each-action.md)), and the
+   contract and Steering Assist settings actions (see
+   [Why it's built this way](#why-its-built-this-way)).
 4. **The answer** is a `command_ack` envelope, with the `cab` topic in the
    same frame. A tool's button answers ok only once the tool moved
    (specs [0003](../specs/0003-implement-screen.md) and
@@ -106,22 +109,32 @@ layers and widgets each subscribe to the topics they show.
 ```
 web/
   index.html      an empty #app the theme draws
-  test.html       the browser tests (all green)
+  style.css       what every theme shares: the map, its overlays, the legend
+  manifest.json   the Home Screen app, its icons in icons/
+  test.html       the browser tests (all green), with fixtures/ (rigs,
+                  contracts, a steering course)
+  tools/          icons.html, the icons' contact sheet
   src/
     main.js         wires the connection, the store, the map and the theme
     connection.js   the WebSocket, reconnecting; commands.js sends and times commands
     store.js        the latest data per topic, with subscriptions
     types.js        JSDoc types: the one description of each topic
     data/           pure reads of the store: selectors, units, rates (tank
-                    estimates), coverage (the trail on a field)
+                    estimates), coverage (the trail on a field), contracts,
+                    gps (the course's counts), steeringSettings (the
+                    settings panel's draft)
     map/            mapView.js (the one world ↔ map transform), mapFrame.js,
-                    the overview image, the legend, layers/ (one per feature)
+                    the overview image, the legend, layers/ (one per
+                    feature), and the map's helpers (field colours, follow,
+                    marker glide, map symbols, popup placement, idle fade)
     themes/         render.js (the theme contract and its one renderer),
-                    registry.js, newholland/ (the theme's data and CSS)
+                    registry.js, newholland/ (the theme's data, CSS and map
+                    controls)
     widgets/        every widget by id (index.js): the names a theme's
                     layout uses
     ui/             control.js (a control button), icons.js (our own SVG
-                    set), settings.js, screenMode.js, dom.js
+                    set), settings.js, speedPanel.js, screenMode.js,
+                    trailCanvas.js (a field's trail), dom.js
     panels/         the Map's land panel
   vendor/         Leaflet and the Archivo font, so it works without internet
 ```
@@ -131,7 +144,8 @@ web/
   so there's nothing to calibrate. The companion reads the image from the
   player's own install and converts it; a paid DLC map's image can't be
   read and gets a plain stand-in.
-- **Farmlands** arrive as a grid of ids on 4 m cells; the browser traces
+- **Farmlands** arrive as a grid of ids, 4 m cells on a 2 km map and at
+  most 512 cells a side (bigger cells on bigger maps); the browser traces
   the outlines (`map/farmlandGeometry.js`). Fields draw on the same
   canvas, coloured like the PDA's filters.
 - **A theme is data.** It names its screens, their layout and the widgets
@@ -144,7 +158,8 @@ web/
   lupa, and the rig dumps recorded from the game.
 - `companion/tests`: the tailer, the state, the commands, the server.
 - `tests/test_golden.py`: every message a viewer gets from the Solek
-  replay, pinned.
+  replay, pinned; `tests/test_theme_css.py`: every theme's CSS flat, no
+  rule nested in another by a stray brace.
 - `web/test.html`: the dashboard's pure functions and widgets, in the
   browser.
 - Live checks, in the game, by Vincent: each spec lists its own, and

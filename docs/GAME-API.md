@@ -659,6 +659,8 @@ name with where it came from.
   - `MissionFinishState` has `NONE` (1): an unfinished contract's
     `finishState`. `SUCCESS` 2, `FAILED` 3, `TIMED_OUT` 4, `CANCELED` 5.
   - A contract's id is "mission" and 32 hex digits.
+    `g_missionManager:getMissionByUniqueId(id)` finds it: every command
+    of the mod 0.20.0 live check looked its contract up with it.
   - `MissionStartEvent`, `MissionCancelEvent`, `MissionDismissEvent`
     exist (each with `new` and `newServerToClient`); the menu frame
     `InGameMenuContractsFrame` has `onButtonAccept`, `onButtonLease`,
@@ -800,7 +802,7 @@ says so.
 - **macOS:** nothing here has been seen on a Mac.
 - **Env:** the weather (`getWeatherTypeAtTime`, the temperatures) and each
   farm's money (`g_farmManager`).
-- **Player:** `player.nickname`.
+- **Player:** `player.nickname`, else `getNickname()`.
 - **Fold and lower readings:** `getIsAnimationPlaying` and `foldAnimTime`
   (a fold that runs), `getAllowsLowering`.
 - **A tool's speed limit:** `getSpeedLimit`.
@@ -842,14 +844,33 @@ says so.
   ([specs/0017](../specs/0017-game-speed.md)): the fallback when
   `missionInfo.timeScale` is missing; never needed live.
 - **Contracts, the rest** ([specs/0018](../specs/0018-contracts.md)):
-  `BaleMission.FILL_SUCCESS_FACTOR` (not there on 2026-11-16: no `bale`
-  factor is sent), `getReimbursement()` and `stealingCost` (never seen in
+  `getReimbursement()` and `stealingCost` (never seen in
   a stream), the figures of a successful contract's reimbursement at
   hand-in, a refusal from `startMission` and `isSpawnSpaceAvailable()`
-  false ([specs/0019](../specs/0019-contract-actions.md)),
-  the shop categories `DISCHARROWS`,
-  `PLANTERS`, `WEEDERS`, `CORNHEADERS`, `MANURESPREADERS` and
-  `BALERSSQUARE`, and the type names `plowMission`, weeding and stone
-  picking.
+  false ([specs/0019](../specs/0019-contract-actions.md)). The web's
+  table in `data/contracts.js` (not the mod) also expects the shop
+  categories `DISCHARROWS`, `PLANTERS`, `WEEDERS`, `CORNHEADERS`,
+  `MANURESPREADERS` and `BALERSSQUARE`, and the type names `plowMission`,
+  weeding and stone picking. Ruled out: `BaleMission.FILL_SUCCESS_FACTOR`
+  is BetterContracts' own, not the game's, and the mod stopped reading it
+  in 0.20.5.
+- **Read since, never written down here** (found by a drift check,
+  2026-11-26). The mod calls these through `Api.tryCall` or reads them as
+  fields:
+  - seen in a spike, what they answer only partly checked
+    ([specs/0003](../specs/0003-implement-screen.md),
+    [specs/0012](../specs/0012-card-buttons.md)): `getFoldAnimTime`,
+    `getCanToggleTurnedOn`, `getActiveInputAttacherJoint`,
+    `getIsPlowRotationAllowed`, `getPlowForceLimitToField`,
+    `getIsSprayerExternallyFilled`, `getSprayerFillUnitIndex`,
+    `spec_baler`, `spec_pickup`, and `g_currentMission:getHasPlayerPermission`
+    with the tool's `getOwnerConnection()` (the Create fields button);
+  - not written down anywhere: the env's `getCurrentTemperatureTrend`,
+    `getPeriodFromDay` and `g_farmManager:getFarms()`; the motor's
+    `getLastRealMotorRpm`, `getMinRpm`, `getMaxRpm`, `getLastSpeed`; a
+    vehicle's `getTotalMass`, `spec_aiJobVehicle`; and for tools
+    `getSelectedImplement`, `getAttacherJointIndexFromObject`,
+    `getAttacherJointByJointDescIndex`, `getIsFillUnitActive`,
+    `getFillUnitUnloadPalletFilename`, `getFillTypeByFruitTypeIndex`.
 - **Not found yet** ([PLAN.md](PLAN.md)): the call that opens the AI job
   screen and Refill at a fill station.

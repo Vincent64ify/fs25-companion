@@ -13,7 +13,7 @@ in `web/src/themes/newholland/theme.css`: change them together.
 - [Research: the IntelliView 12](#research-the-intelliview-12)
 - [The look](#the-look)
 - [Layout](#layout)
-- [Screens](#screens): Map, and the Vehicle tab's pages
+- [Screens](#screens): Map, the Vehicle tab's pages, GPS and Contracts
 - [The map in themes](#the-map-in-themes)
 - [Icons](#icons), [Controls](#controls), [Settings](#settings)
 - [Design system](#design-system): type, palettes, depth, motion, radii,
@@ -28,7 +28,7 @@ in `web/src/themes/newholland/theme.css`: change them together.
 |---|---|
 | Theme | A complete look: chrome, screens, palettes. "New Holland style". |
 | Palette | A theme's colours for day or for night. |
-| Size class | compact, regular or wide. Layouts adapt to the screen's size, not to a device model. |
+| Size class | compact or regular (a short screen and a wide one are regular with less or more room). Layouts adapt to the screen's size, not to a device model. |
 | Chrome | The parts around the screens: status bar, control column, tab bar. |
 | Screen | One page of the terminal, picked with a tab: Map, Vehicle. A tab can hold several pages (Vehicle, Loader, Harvester), picked by what you drive. |
 | Slot | A place in the chrome or on a screen that holds a widget, a control or the map. |
@@ -171,8 +171,9 @@ The regular layout, for tablets:
 - **Compact** (narrower than 900 px, or portrait): the same status bar and
   tab bar; the screen on top, then the control groups docked under it,
   side by side.
-- **Wide** (1600 px and up): the main area grows. Each tab stays one
-  screen; Map and Vehicle side by side was tried and turned down.
+- **Wide** (1600 px and up): no rules of its own; the main area's `1fr`
+  column grows. Each tab stays one screen; Map and Vehicle side by side
+  was tried and turned down.
 
 ## Screens
 
@@ -232,7 +233,8 @@ After the canvas
   margin; a band per work area, so a butterfly mower draws two wings.
   Revision 4: with Precision Farming's nozzles, the trail, the boom and the
   card's section strip show what sprays.
-- **Bottom bar:** the tractor's numbers, as on the Map screen.
+- **Bottom bar:** the tractor's numbers, the Vehicle pages' own set (see
+  Layout grid), not the Map's.
 - **Compact:** one column, the strip scrolling sideways, the cards, the
   field panel 240 tall (the outline beside the rows), the column docked under.
 
@@ -395,7 +397,7 @@ the row, which never moves.
   land panel drops to the bottom-right corner when a popup would cover it.
 - **Slot zoom:** the smaller the slot, the closer the default zoom, centred
   on the player or vehicle with follow on.
-  - A pure `defaultZoom({x, y})` takes the slot's short side `s` and shows a
+  - A pure `defaultZoom(size, bounds)` takes the slot's short side `s` and shows a
     span of `clamp(s² / 900, 80 m, whole map)` across it.
   - That's about 100 m across a 300 px mini-map, and about 1.1 km across a
     1000 px main area; about 505 m across the Map screen at 1180×820.
@@ -638,14 +640,15 @@ yellow ([specs/0013](../specs/0013-vehicle-screen-calm.md)).
 | Size class | When | Grid |
 |---|---|---|
 | Regular | 900–1599 px wide, landscape | rows `56 / 1fr / 64`; main columns `1fr` and `268` |
-| Wide | 1600 px and up | as regular; the map grows |
+| Wide | 1600 px and up | regular's grid, no rules of its own: the `1fr` column grows |
 | Compact | under 900 px, or portrait | rows `56 / 1fr / 64`; main rows `1fr / auto`, the control dock in 3 columns |
 
 - **Tab bar readout:** on the Map screen speed, gear, rpm, fuel (with a
   small bar, warn-coloured when low), engine temp, fuel usage and the
   cruise speed; on the Vehicle and Loader pages (specs/0013) speed, gear,
-  fuel, DEF, wear ("23 % wear") and engine temp. When space runs out,
-  drop temp, then gear.
+  fuel, DEF, wear ("23 % wear") and engine temp. When space runs out:
+  under 1000 px wide the Vehicle and Loader pages drop temp; under 600 px
+  the Map drops rpm, the pages drop DEF, and the fuel bar goes.
 - **Tab labels:** shown whenever they fit (see Tab bar).
 
 ## Responsive
@@ -670,7 +673,8 @@ yellow ([specs/0013](../specs/0013-vehicle-screen-calm.md)).
     tabs go icon-only when narrow);
   - the map fills whatever box it gets.
 - **Size classes, not devices:** compact below 900 px or portrait; regular
-  for tablets; wide from 1600 px.
+  for tablets and up, with a short-screen variant under 800 px tall (see
+  the Vehicle page). Phones (under 600 px) get fewer words in the bars.
 - **Browser bars:** a tablet browser's own bars take up part of the height
   (`dvh`, plus safe areas for the iPad home indicator). So:
   - **Screen button** (`widgets/screen.js`, `ui/screenMode.js`), at the
@@ -740,8 +744,11 @@ yellow ([specs/0013](../specs/0013-vehicle-screen-calm.md)).
 - **Saved per device** (localStorage, every read and write through
   try/catch): `fs25companion.theme`, `.palette`, `.screen` (the last
   screen, per theme), `.mapSlots` (zoom and follow per theme and slot),
-  `.legend` (the layers shown), `.keepAwake`, `.autoPick` (Screen for what
-  I drive) and `.moreOpen` (the tool cards whose More is open).
+  `.follow` (follow, for a map with no slot), `.legend` (the layers
+  shown), `.keepAwake`, `.autoPick` (Screen for what I drive),
+  `.moreOpen` (the tool cards whose More is open), `.contracts` (the
+  Contracts page's choices: lease or own, the sort, the tool picked per
+  job, the folded types) and `.gpsView` (Field, Auto or Close).
 - **Fonts:** Archivo, self-hosted in `web/vendor/fonts/`, never a CDN,
   because the dashboard may run on a LAN without internet.
 - **A new theme** is a folder under `themes/` added to `THEMES` in
@@ -749,9 +756,9 @@ yellow ([specs/0013](../specs/0013-vehicle-screen-calm.md)).
 
 ## Later
 
-- **More screens** (brainstorm, 2026-10-24): four more tabs beside Map and
-  Vehicle; the tab bar has room for seven. Not designed yet. Suggested
-  order:
+- **More screens** (brainstorm, 2026-10-24): more tabs beside Map,
+  Vehicle, GPS and Contracts; the tab bar has room for seven. Not designed
+  yet. Suggested order:
   1. **Fields:** the fields as a to-do list: crop, growth stage, ready to
      harvest, and what each needs (lime, fertiliser, plough, weeds,
      rolling), most urgent first; tap one to see it on the Map. The
@@ -761,10 +768,10 @@ yellow ([specs/0013](../specs/0013-vehicle-screen-calm.md)).
      year), what's in the silos and storage, and the market: where each
      crop sells best and what the stock is worth there. Needs the
      `prices` topic (PLAN.md, Later) and a storage and finance topic.
-  3. **Work:** hired workers and contracts side by side: job, progress,
-     time left, reward or hourly cost; plus vehicles that need fuel or
-     repair. Workers are partly sent already; contracts, and fuel and
-     wear for vehicles not being driven, are new.
+  3. **Work:** hired workers: job, progress, time left, hourly cost; plus
+     vehicles that need fuel or repair. Contracts have their own tab
+     (specs 0018, 0019). Workers are partly sent already; fuel and wear
+     for vehicles not being driven are new.
   4. **Yard:** animals and production points, the buildings that need
      feeding: headcount, food, water, straw, health and outputs to
      collect for each barn; running or not, missing inputs and full
