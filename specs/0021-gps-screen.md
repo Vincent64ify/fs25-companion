@@ -1,6 +1,6 @@
 # 0021: GPS screen: the field, its lanes and the progress
 
-Status: live-checked (revision 2 too); revisions 3 and 4 built (2026-11-26), live check open
+Status: live-checked (revisions 2 to 5 too)
 Mod: 0.22.0 · Started: 2026-11-17 · Design: the canvas [FS25 Companion: GPS](https://claude.ai/artifact/45ruF2v1hH49JJi4HyRTeM) (private, on claude.ai; at 1158 × 676 and 1180 × 820, day and night; approved by Vincent, 2026-11-19; revision 2's "Refined lanes" row approved 2026-11-23); the brainstorm's brief, `concepts_brief.md`, is in git history (commit b0cffeb)
 
 ## Goal
@@ -196,6 +196,55 @@ the same day. Behaviour below says the same. Web only, no mod change.
 enough to line up with, the mod would send the controlled vehicle's pose
 more often: a mod change, its own revision.
 
+## Revision 5: Auto by the close-up's own picture, no jump at a new picture
+
+Drafted 2026-11-26 from Vincent's live check of revision 4: "3 seconds
+is too fast" (he wants the whole field again 40 m after a lane is
+started) and "there is stuttering for the lane draw". Approved by
+Vincent the same day ("Approve, build it") and built with 40 m in and
+lanes under 100 m staying close; then, the same day, he asked for a rule
+with no numbers of ours ("we will always run into a scenario where we're
+either just a bit short or just a bit too long"), and no seconds either
+(a player may leave the game running): approved ("Yes, build it") and
+built as below. Behaviour below says the same. Web only, no mod change.
+
+**Behaviour.**
+- **Auto shows the close-up while an end of your lane is on the
+  close-up's own picture**, in place of 40 m before the end and 3 s
+  settled. On a lane (within half a width of it, heading along it within
+  15°): the close-up if the lane's start or its end is inside the
+  picture the close-up would show for the rig now (`closeView`: nine
+  lanes across, the rig a third in), else the whole field. On a headland
+  round the same, with the piece's corners for ends (each corner along
+  the piece you're on, its two ends included; Vincent, 2026-11-26: the
+  close-up into each corner, the field along the sides). Anywhere else
+  (the turn, the game's piece flickering to a neighbour, heading across)
+  it stays as it was. So it comes in as the lane's end appears on
+  the close-up and goes out once the start you came from has left it;
+  how early and how late follow the close-up's size, which follows the
+  tool's width, with no distance and no time of ours. A lane that fits
+  on the close-up is close all along (the whole field would show
+  nothing more); one a little longer shows the whole field only while
+  neither end could be on the close-up. It doesn't flap: on a lane the
+  view is the rig's place alone, nothing remembered. The direction counts
+  (north up, the box wider than tall), so with 3 m lanes at 1158 × 676
+  it comes in about 20 to 45 m before the end. The tag says
+  "Close-up · Auto" (no "the lane's end": it also shows at a lane's start).
+- **The lane's fill steps with each position, as before:** the green
+  up to the rig moves when a position comes (twice a second). A 500 ms
+  slide with the arrow was built and taken out the same day: on the
+  iPad it looked jittery, the step "more natural" (Vincent).
+- **No jump at a new picture:** when the close-up is painted again for a
+  new area, the picture and the arrow carry on gliding from where they
+  were, instead of jumping to the newest position.
+
+**Painting.** The fill is the whole lane's polyline, set once per lane,
+shown up to the rig by its dash (`stroke-dasharray`, the length along
+the lane), set per position with no slide; a vehicles message moves a
+transform and the fill's dash, and repaints no lane. On a new picture: the layers
+placed at once where the old view sits in the new area, then slid to the
+new place.
+
 ## Behaviour
 
 To be drawn on a canvas first; this is what it holds.
@@ -225,11 +274,14 @@ To be drawn on a canvas first; this is what it holds.
 - **The close-up** (revision 4): a switch bottom right on the field card,
   Field · Auto · Close, kept in the browser, Auto at first. Field: the
   whole field. Close: the close-up, always. Auto: the whole field while
-  you work a lane; the close-up from the last 40 m of a lane, through the
-  turn, until you are settled on a lane (within half a width, heading
-  along it within 15°, more than 40 m from its end) for 3 s; only where
-  a lane is under 16 px in the whole-field view, and never from a round.
-  It says so top left: "Close-up · Auto · the lane's end". The close-up:
+  you work a lane; the close-up while an end of your lane is on the
+  close-up's picture (revision 5: on the lane, within half a width,
+  heading along it within 15°; on a headland round the same with the
+  piece's corners; anywhere else, the turn included, it stays as it was); only where a lane is under 16 px in
+  the whole-field view. It says so top left: "Close-up · Auto".
+  The picture and the rig glide between the positions, also when the
+  close-up is painted again; the fill's end steps with each position
+  (revision 5). The close-up:
   north up, about nine lanes across the box's short side (at least 30 m),
   the rig a third in from where it came so the lane's end, the headland
   and the next lanes are ahead; the lanes' numbers in chips at each
@@ -307,7 +359,8 @@ To be drawn on a canvas first; this is what it holds.
   (revision 2's painting); the trail as on the Vehicle page (its newest
   stretch, the same painter: `web/src/ui/trailCanvas.js`), masked to the
   lanes to do; the rig one element moved by a CSS transform, the lane
-  you're on filled by one SVG line masked by the rounds, so a vehicles
+  you're on filled by one SVG line masked by the rounds (a headland
+  round's own fill unmasked, or the mask hides it), so a vehicles
   message repaints no lane; nothing painted while the page is hidden. The Vehicle page's field
   panel was slow on iPad Safari for doing otherwise (spec 0013).
   Revision 4: every layer sits in one element; the close-up paints the
@@ -460,7 +513,7 @@ Automated:
 - [x] `web/test.html`, revision 4, Auto (`createAutoZoom`): the whole field
   on a lane, close from its last 40 m, through the turn and a round, back
   once settled on the next lane for 3 s; never with lanes of 16 px or
-  more, never from a round.
+  more, never from a round (revision 5: a round's corners count).
 - [x] `web/test.html`, revision 4: the close-up's view (`closeView`: nine
   lanes, 30 m at least, the rig a third in); the lanes' numbers at their
   ends nearer the rig, in view, with their state (`laneNumbersOf`).
@@ -470,6 +523,21 @@ Automated:
   the picture with no paint, near the edge one paint more with the lane
   ends' numbers; Field the whole field; Auto with narrow lanes zooms at
   the lane's end with its tag; Set up open: the whole field, no switch.
+- [x] `web/test.html`, revision 5, Auto: the whole field mid-lane, close
+  once the lane's end is on the close-up's picture (50 m to go, 6 m
+  lanes in 900 × 600), through the turn and a round, still close 10 m
+  into the next lane (its start on the picture), kept while heading
+  across, the field 60 m in; a 40 m lane close all along, the next 300 m
+  lane the field mid-way; the tag "Close-up · Auto". On a headland
+  round's 200 m piece: the field mid-side, close 30 m before its corner,
+  the field again mid-side.
+- [x] `web/test.html`, revision 5, the fill: the lane's points set once,
+  a rig update moves only its dash, which ends at the rig; painted again
+  near the edge, the picture and the arrow pass through the old view's
+  place and glide on (no jump).
+- [x] The live game in the browser pane at 1180 × 820 (field 122, 3 m
+  lanes), a rig fed along lane 64: in the close-up the green stops
+  square at the arrow, the lane ahead blue, cut by the rounds as before.
 - [x] Replay in the browser pane, a 59-lane field of 3 m lanes fed in: the
   edge lines at 1180 × 820 day; Auto's close-up 25 m from the lane's end
   (numbers 34 to 43, the tag); in the turn at 1158 × 676 night; Set up
@@ -497,15 +565,21 @@ Live check, revision 2 (no mod change: 0.22.0):
   lanes; a lane started and left (to do) shows its trail inside it.
 - [x] Smooth on the iPad as before: a lane going done, the rig moving.
 
-Live check, revisions 3 and 4 (no mod change):
-- [ ] On the iPad, day and night: the lanes to do countable by their
+Live check, revisions 3, 4 and 5 (no mod change):
+- [x] On the iPad, day and night: the lanes to do countable by their
   edge lines, on a field with a narrow tool.
-- [ ] Auto with a narrow tool: the close-up from about 40 m before a
-  lane's end, through the turn, back to the whole field about 3 s after
-  settling on the next lane; it doesn't flicker in the turn.
-- [ ] The lane numbers match the game's lanes (the one you turn into).
-- [ ] Close and Field picked: they stay, after a reload too.
-- [ ] Smooth enough to line up by on the iPad: the glide between the
+- [x] Auto with a narrow tool: the close-up as the lane's end comes onto
+  it, through the turn, back to the whole field once the lane's start has
+  left it (revision 5); it doesn't flicker in the turn.
+- [x] The lane numbers match the game's lanes (the one you turn into).
+- [x] Close and Field picked: they stay, after a reload too.
+- [x] Revision 5, Auto: the close-up comes in early enough to line up and
+  goes out late enough, on the 3 m tool; it stays put with the game left
+  running; a lane's sliver past a round stays close.
+- [x] Revision 5, on the iPad: no jump every 10 to 20 m when the
+  close-up is painted again; the fill stepping with each position as
+  before (its slide taken out, 2026-11-26).
+- [x] Smooth enough to line up by on the iPad: the glide between the
   twice-a-second positions, no stutter when the picture is painted again.
 
 ## Decisions
@@ -693,3 +767,59 @@ Live check, revisions 3 and 4 (no mod change):
   swatch, the switch and the chips. test.html 478 green, pytest 226; the
   replay in the pane with a 59-lane field at both sizes, day and night.
   Live check open.
+- 2026-11-26: live check, revision 3 (Solek, mod 0.23.1, no mod change):
+  on the iPad, day and night, a field with a narrow tool, the lanes to do
+  countable by their edge lines. The close-up's four boxes still open.
+- 2026-11-26: live check, revision 4 (Solek, mod 0.23.1): Close and Field
+  stay picked, after a reload too. Auto's way back out is too quick:
+  Vincent wants the whole field again 40 m into the next lane, in place of
+  3 s settled. The lane's draw stutters in the close-up. In the code: the
+  fill's end is set per vehicles message while the arrow and the picture
+  glide 500 ms, and a new picture (every 10 to 20 m) jumps to the newest
+  position. Both for a revision 5; the lane numbers and the turn not
+  reported yet (field 122 with a 3 m tool: 73 lanes in 107 pieces, the
+  lanes 104 to 309 m; 34 lanes split, each with a sliver of 1 to 31 m
+  past a round, lane 55 in 8 and 167 m).
+- 2026-11-26: revision 5 approved and built (web only): `data/gps.js`
+  `createAutoZoom` out 40 m into another lane (`startM`, `fieldM`: a lane
+  under 100 m stays close; no time in the rule), `fillOf` also gives the
+  whole lane, its length and the metres along; `widgets/gpsScreen.js` the
+  fill set once per lane and shown by its dash, a new close-up picture
+  glides on from the old view (layers and arrow), the tag "Close-up ·
+  Auto"; `theme.css` the dash's 500 ms slide in the close-up (none with
+  reduced motion). The draft's "under 80 m" became 100 m: just over 80 m
+  would have flapped (out at 40 m in, back at the last 40 m). test.html
+  480 green, pytest 226. Live check open.
+- 2026-11-26: Auto's rule again, no numbers of ours (Vincent): the
+  close-up while an end of your lane is on the close-up's own picture
+  (`createAutoZoom` takes `closeView`'s picture; `startM`, `fieldM`,
+  `endM` and the zoomed-in lane gone; the rounds and the turn keep the
+  view as it was). test.html 481 green, pytest 226.
+- 2026-11-26: Vincent on the iPad: the fill's slide is "so jittery",
+  the half-second step "more natural". The slide is out (`theme.css`'s
+  transition on the dash); the fill still is the lane once with a dash,
+  set per position. The picture and the arrow keep their glide and the
+  no-jump at a new picture. test.html 481 green.
+- 2026-11-26: working a headland round showed no green (Vincent): since
+  revision 2 the fill was masked by the rounds' strokes, which hid a
+  round piece's own fill whole. The mask is now on only while the piece
+  you're on is a lane. test.html 482 green. Vincent saw a headland's
+  green on the iPad the same day.
+- 2026-11-26: live check, revision 5's Auto (Solek field 122, 3 m tool,
+  iPad): in and out "feels right"; the lane numbers match the game's.
+  Left open: the game left running, a sliver past a round, no jump at a
+  new picture, the glide's smoothness.
+- 2026-11-26: Auto on a headland round (Vincent: "Auto zoom doesn't
+  work on headland segments?"; it never did, by revision 4's rule): the
+  same picture rule with the piece's corners for ends; the heading
+  checked against the stretch under the rig. test.html 482 green.
+  Vincent on the iPad the same day: it works.
+- 2026-11-26: live check on the iPad: the close-up smooth, no jump when
+  it is painted again. Then the game left running (the view stayed put)
+  and a lane's sliver past a round (the close-up stayed): every box
+  ticked, revisions 4 and 5 live-checked (Solek field 122, 3 m tool, mod
+  0.23.1, web only).
+- 2026-11-26: the lane numbers sat off centre in their chips on the iPad
+  (Vincent): `dominant-baseline` is ignored by iPad Safari. The baseline
+  is now placed by hand, 0.34 em under the chip's middle (Archivo 700's
+  digits are 0.70 em tall). test.html 481 green.

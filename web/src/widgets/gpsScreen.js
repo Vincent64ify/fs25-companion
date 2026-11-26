@@ -11,7 +11,7 @@
 // - The course canvas is painted whole once per course `key` (and per
 //   size, dpr and palette), then only the segments whose state changed
 //   (and the round's pieces over a changed lane's ends). A vehicles message
-//   moves the rig and the fill and paints no lane.
+//   moves the rig and the fill's dash and paints no lane.
 // - Nothing is painted while the page is hidden (0 × 0): screens are built
 //   once and switched with `hidden`, and the iPad pays for every paint.
 // - Every lane and round is the strip it works (revision 2): a stroke its
@@ -23,7 +23,11 @@
 //   stroke, worked part way clipped to each run's sector. Closer than 4 px
 //   the strips are drawn full width, so a dense field reads as areas.
 // - The trail shows only inside the lanes to do (a mask the trail painter
-//   applies after each paint); the fill is one SVG line masked by the rounds.
+//   applies after each paint); the fill is one SVG line, masked by the rounds
+//   on a lane (not on a round piece, which the mask would hide):
+//   the whole lane you're on, set once per lane, shown up to the rig by its
+//   dash, which steps with each position (revision 5: a slide with the
+//   arrow felt jittery on the iPad, Vincent).
 // - Set up (specs/0022), top right on the field card, opens the Steering
 //   Assist settings in the Drive column's place (widgets/steeringSettings.js).
 //   While a course row differs from the game's, the field shows the preview
@@ -35,15 +39,16 @@
 //   and the preview are painted on the same canvas, their keys kept apart
 //   ("c3", "p3").
 // - The close-up (revision 4): a switch bottom right on the field card,
-//   Field · Auto · Close, kept in the browser. Auto shows the close-up from
-//   the last 40 m of a lane, through the turn, until settled on a lane for
-//   3 s, where lanes are under 16 px in the whole field (data/gps.js
-//   createAutoZoom). The close-up is about nine lanes across, north up, the
+//   Field · Auto · Close, kept in the browser. Auto shows the close-up while
+//   an end of your lane is on the close-up's picture, keeping it through the
+//   turn (revision 5), where lanes are under 16 px in the whole field
+//   (data/gps.js createAutoZoom). The close-up is about nine lanes across, north up, the
 //   rig a third in from where it came, with the lanes' numbers at their
 //   ends. Every layer sits in one element (.gps-layers): the close-up is
 //   painted once for twice the box each way and slid by a transform as the
 //   rig moves (gliding between positions), painted again only near the
-//   painted area's edge; going in and out scales the old picture for
+//   painted area's edge, the picture and the arrow then gliding on from
+//   where they were (revision 5); going in and out scales the old picture for
 //   0.4 s, then paints the new one sharp. Set up's preview is always the
 //   whole field.
 
@@ -93,6 +98,8 @@ let screens = 0;
 const VIEW_KEY = "fs25companion.gpsView";
 const VIEWS = /** @type {const} */ (["field", "auto", "close"]);
 const ZOOM_MS = 400;
+// a lane number's baseline under its chip's middle, in ems (Archivo 700's digits: 0.70 em up, 0.02 down)
+const DIGIT_MID_EM = 0.34;
 // a canvas's pixels at most (Safari's limit is 16.7 M): the close-up's painted area keeps under it
 const MAX_CANVAS_PX = 15e6;
 /** @typedef {"field"|"auto"|"close"} ViewMode */
@@ -269,7 +276,7 @@ export function gpsScreen(store, opts = {}) {
     viewEl.append(b);
   }
   // Auto has zoomed: why, top left
-  const zoomTag = h("div", { className: "gps-zoomtag" }, h("b", { text: "Close-up" }), h("span", { text: "Auto · the lane's end" }));
+  const zoomTag = h("div", { className: "gps-zoomtag" }, h("b", { text: "Close-up" }), h("span", { text: "Auto" }));
   zoomTag.hidden = true;
   const mapBox = h("div", { className: "gps-map" }, box, legend, wordsEl, tag, zoomTag, setUp, viewEl);
   mapBox.setAttribute("role", "img");
@@ -514,8 +521,23 @@ export function gpsScreen(store, opts = {}) {
   /** The lane you're on, filled up to the rig: one polyline's points, no lane repainted. */
   function placeFill() {
     const fill = course && rigAt && !previewing ? fillOf(course, rigAt) : undefined;
-    const pts = fill && fill.pts.length >= 4 ? pointsAttr(fill.pts) : "";
-    if (fillEl.getAttribute("points") !== pts) fillEl.setAttribute("points", pts);
+    const run = fill && fill.run && fill.run.length >= 4 && fill.t > 0 ? fill : undefined;
+    // revision 5: the whole lane, in the way it's driven, set once; its dash ends at the rig, a step per position
+    const runKey = run && course ? `${course.key}:${course.current?.i}:${run.run?.slice(0, 2).join(",")}` : "";
+    const off = run ? n1(/** @type {number} */ (run.total) - /** @type {number} */ (run.along)) : "";
+    if (fillEl.dataset.run !== runKey) {
+      fillEl.dataset.run = runKey;
+      fillEl.setAttribute("points", run ? pointsAttr(/** @type {number[]} */ (run.run)) : "");
+      fillEl.style.strokeDasharray = run ? `${n1(/** @type {number} */ (run.total))} ${n1(/** @type {number} */ (run.total) + 1)}` : "";
+      fillEl.style.strokeDashoffset = off;
+    } else if (fillEl.style.strokeDashoffset !== off) fillEl.style.strokeDashoffset = off;
+    // a lane's fill is cut flush by the rounds' mask; a round's own fill isn't, or the mask would hide all of it
+    const cur = course?.current ? course.segments.find((sg) => sg.i === course.current?.i) : undefined;
+    const masked = !cur || typeof cur.lane === "number";
+    if (fillEl.hasAttribute("mask") !== masked) {
+      if (masked) fillEl.setAttribute("mask", `url(#${maskId})`);
+      else fillEl.removeAttribute("mask");
+    }
     if (!course || !view || !(lw > 0 && lh > 0)) return;
     const look = lookOf(course);
     const g = geometry(course);
@@ -573,12 +595,21 @@ export function gpsScreen(store, opts = {}) {
     const fit = fitView(view, lw, lh);
     // the heading the short way round from the last one, so the close-up's glide never spins the arrow
     rigDeg = rigAt.heading + 360 * Math.round((rigDeg - rigAt.heading) / 360);
-    const t = `translate(${n1(fit.x0 + rigAt.x * fit.k)}px, ${n1(fit.z0 + rigAt.z * fit.k)}px) rotate(${n1(rigDeg)}deg)`;
-    // a new picture: the arrow at its new place at once, not gliding from the old one
+    const place = (/** @type {{x: number, z: number}} */ p, /** @type {number} */ deg) =>
+      `translate(${n1(fit.x0 + p.x * fit.k)}px, ${n1(fit.z0 + p.z * fit.k)}px) rotate(${n1(deg)}deg)`;
+    const t = place(rigAt, rigDeg);
     if (freshPicture) {
       freshPicture = false;
-      jump(rig, t);
+      // the close-up painted again (revision 5): from where the arrow was, in the new picture, gliding on;
+      // else a new picture: the arrow at its new place at once, not gliding from the old one
+      if (carryPicture && rigWas) {
+        jump(rig, place(rigWas, rigWasDeg));
+        rig.style.transform = t;
+      } else jump(rig, t);
+      carryPicture = false;
     } else if (rig.style.transform !== t) rig.style.transform = t;
+    rigWas = { x: rigAt.x, z: rigAt.z };
+    rigWasDeg = rigDeg;
   }
 
   /** What depends on the box's size; nothing while the page is hidden (0 × 0). */
@@ -604,6 +635,10 @@ export function gpsScreen(store, opts = {}) {
   /** a new picture since the arrow was placed; the arrow's heading as last set (unwound) */
   let freshPicture = false;
   let rigDeg = 0;
+  /** revision 5: the new picture is the close-up painted again, so the picture and the arrow glide on; where the arrow was */
+  let carryPicture = false;
+  let rigWas = /** @type {{x: number, z: number}|undefined} */ (undefined);
+  let rigWasDeg = 0;
 
   /**
    * The view the layers are painted for and where they sit (revision 4):
@@ -634,15 +669,19 @@ export function gpsScreen(store, opts = {}) {
       setSvgView();
       return;
     }
+    const viewWas = mapBox.dataset.view === "close" ? screenView : undefined;
     screenView = closeView(rigAt, widthOf(course), boxW, boxH);
     const f = overPaint();
     const fitNow = view && lw === Math.round(f * boxW) && lh === Math.round(f * boxH) ? fitView(view, lw, lh) : undefined;
     // the screen's view inside the painted area, in the layers' pixels
-    const at = (/** @type {{k: number, x0: number, z0: number}} */ f) =>
-      [f.x0 + /** @type {View} */ (screenView)[0] * f.k, f.z0 + /** @type {View} */ (screenView)[1] * f.k];
+    const at = (/** @type {{k: number, x0: number, z0: number}} */ f, /** @type {View} */ sv = /** @type {View} */ (screenView)) =>
+      [f.x0 + sv[0] * f.k, f.z0 + sv[1] * f.k];
     let off = fitNow && mapBox.dataset.view === "close" ? at(fitNow) : undefined;
     // a new picture: none yet, or the screen's view within an eighth of the box of the painted area's edge
     const fresh = !off || off[0] < boxW / 8 || off[1] < boxH / 8 || off[0] > lw - boxW - boxW / 8 || off[1] > lh - boxH - boxH / 8;
+    // painted again while the close-up shows: glide on from the old view (revision 5)
+    const carry = fresh && !!off && !!viewWas;
+    let from = /** @type {number[]|undefined} */ (undefined);
     if (fresh) {
       const [x, z, w, hh] = screenView;
       const f = overPaint();
@@ -651,14 +690,20 @@ export function gpsScreen(store, opts = {}) {
       lh = Math.round(f * boxH);
       layers.style.width = `${lw}px`;
       layers.style.height = `${lh}px`;
-      off = at(fitView(view, lw, lh));
+      const fit = fitView(view, lw, lh);
+      off = at(fit);
+      if (carry) from = at(fit, /** @type {View} */ (viewWas));
     }
     mapBox.dataset.view = "close";
     setSvgView();
     const t = `translate(${n1(-off[0])}px, ${n1(-off[1])}px)`;
     if (fresh) {
-      jump(layers, t);
+      if (from) {
+        jump(layers, `translate(${n1(-from[0])}px, ${n1(-from[1])}px)`);
+        layers.style.transform = t;
+      } else jump(layers, t);
       freshPicture = true;
+      carryPicture = carry;
     } else if (layers.style.transform !== t) layers.style.transform = t;
   }
 
@@ -694,8 +739,11 @@ export function gpsScreen(store, opts = {}) {
       const txt = String(n.n), cw = (14 + 8 * txt.length) / k, ch = 22 / k;
       const cx = n.x + n.ux * (cw / 2 + 8 / k), cz = n.z + n.uz * (cw / 2 + 8 / k);
       const g = svg("g", { class: "gps-chip", "data-state": n.state });
-      const label = svg("text", { x: n1(cx), y: n1(cz), "font-size": String(Math.round((13 / k) * 100) / 100), "text-anchor": "middle",
-        "dominant-baseline": "central" });
+      const r2 = (/** @type {number} */ v) => String(Math.round(v * 100) / 100);
+      const fs = Math.round((13 / k) * 100) / 100;
+      // the baseline by hand, so the digits sit in the chip's middle: iPad Safari ignores dominant-baseline;
+      // Archivo's digits are 0.70 em tall, a hair below the baseline, so their middle is 0.34 em above it
+      const label = svg("text", { x: r2(cx), y: r2(cz + DIGIT_MID_EM * fs), "font-size": String(fs), "text-anchor": "middle" });
       label.textContent = txt;
       g.append(svg("rect", { x: String(Math.round((cx - cw / 2) * 100) / 100), y: String(Math.round((cz - ch / 2) * 100) / 100),
         width: String(Math.round(cw * 100) / 100), height: String(Math.round(ch * 100) / 100), rx: String(Math.round((6 / k) * 100) / 100) }), label);
@@ -843,7 +891,8 @@ export function gpsScreen(store, opts = {}) {
     const setupOpen = !tag.hidden;
     for (const [v, b] of Object.entries(viewSegs)) b.setAttribute("aria-checked", String(viewMode === v));
     const lanePx = course && fieldView && boxW > 0 && boxH > 0 ? widthOf(course) * fitView(fieldView, boxW, boxH).k : Infinity;
-    const auto = viewMode === "auto" && !setupOpen && !previewing ? autoZoom.feed(state.course, rigAt, lanePx) : false;
+    const auto = viewMode === "auto" && !setupOpen && !previewing ? autoZoom.feed(state.course, rigAt, lanePx,
+      state.course && rigAt && boxW > 0 && boxH > 0 ? closeView(rigAt, widthOf(state.course), boxW, boxH) : undefined) : false;
     if (viewMode !== "auto") autoZoom.feed(undefined, undefined, Infinity);
     const close = !!course && !!rigAt && !setupOpen && !previewing && (viewMode === "close" || auto);
     zoomTag.hidden = !(viewMode === "auto" && close);

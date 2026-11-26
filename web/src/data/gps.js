@@ -130,9 +130,11 @@ export function progressAlong(pts, rig, near) {
 
 /**
  * The lane you're on, filled: how far along, and the polyline from the end
- * the rig drives from up to it. Undefined without a rig on it.
+ * the rig drives from up to it; on the lane also the whole lane in that
+ * order (`run`), its length and the metres along it (revision 5: the fill
+ * is the run shown up to `along` by its dash). Undefined without a rig on it.
  * @param {SteeringCourse} c @param {{x: number, z: number, heading?: number}|undefined} rig
- * @returns {{t: number, pts: number[]}|undefined}
+ * @returns {{t: number, pts: number[], run?: number[], total?: number, along?: number}|undefined}
  */
 export function fillOf(c, rig) {
   const cur = c.current ? c.segments.find((s) => s.i === c.current?.i) : undefined;
@@ -141,7 +143,8 @@ export function fillOf(c, rig) {
   if (!p.at || p.t <= 0) return { t: 0, pts: [] };
   // the polyline from the start end up to the rig's place on it
   const pts = p.fromStart ? cur.pts : reversed(cur.pts);
-  const want = p.t * lengthOf(pts);
+  const total = lengthOf(pts);
+  const want = p.t * total;
   const out = [pts[0], pts[1]];
   let walked = 0;
   for (let i = 2; i + 1 < pts.length; i += 2) {
@@ -149,12 +152,12 @@ export function fillOf(c, rig) {
     if (walked + len >= want) {
       const k = len > 0 ? (want - walked) / len : 0;
       out.push(pts[i - 2] + (pts[i] - pts[i - 2]) * k, pts[i - 1] + (pts[i + 1] - pts[i - 1]) * k);
-      return { t: p.t, pts: out };
+      return { t: p.t, pts: out, run: pts, total, along: want };
     }
     walked += len;
     out.push(pts[i], pts[i + 1]);
   }
-  return { t: p.t, pts: out };
+  return { t: p.t, pts: out, run: pts, total, along: want };
 }
 
 /** A flat polyline the other way round. @param {number[]} pts */
@@ -291,64 +294,58 @@ export function offsetLine(pts, d) {
 
 // --- revision 4: the close-up at the lane's end ------------------------------------
 
-/** Auto's rule: close from the last `endM` of a lane, back once settled on one (within half a width, heading
- * along it within `headingDeg`) for `settleMs`; only while lanes are under `helpsPx` in the whole field */
-export const AUTO_ZOOM = { endM: 40, settleMs: 3000, headingDeg: 15, helpsPx: 16 };
+/**
+ * Auto's rule (revision 5): the close-up while an end of your lane is on the
+ * close-up's own picture, so how early it comes in and how late it goes out
+ * follow the close-up's size (nine lanes across), not distances or times of
+ * ours. On the piece you're on (within half a width, heading along it
+ * within `headingDeg`): close if one of its ends is in the picture (a
+ * lane's start or end; on a headland round each corner of the piece), else
+ * the whole field. Anywhere else (the turn, the game's piece flickering to
+ * a neighbour, heading across) it stays as it was. Only while lanes are
+ * under `helpsPx` in the whole field.
+ */
+export const AUTO_ZOOM = { headingDeg: 15, helpsPx: 16 };
 
 /**
- * Auto's state, fed the course, the rig and how wide a lane is in the
- * whole-field view, as they come; says whether the close-up shows. `now`
- * (ms) for the tests.
- * @param {{now?: () => number}} [opts]
+ * Auto's state, fed the course, the rig, how wide a lane is in the
+ * whole-field view and the close-up's picture for that rig (`closeView`),
+ * as they come; says whether the close-up shows.
  */
-export function createAutoZoom({ now = () => performance.now() } = {}) {
+export function createAutoZoom() {
   let zoomed = false;
-  let settledSince = /** @type {number|undefined} */ (undefined);
   return {
     /**
      * @param {SteeringCourse|undefined} c
      * @param {{x: number, z: number, heading?: number}|undefined} rig
      * @param {number} lanePx a lane's width in the whole-field view
+     * @param {number[]} [frame] the close-up's picture for this rig, world [x, z, w, h]
      */
-    feed(c, rig, lanePx) {
-      if (!c || !rig || !(lanePx < AUTO_ZOOM.helpsPx)) {
+    feed(c, rig, lanePx, frame) {
+      if (!c || !rig || !frame || !(lanePx < AUTO_ZOOM.helpsPx)) {
         zoomed = false;
-        settledSince = undefined;
         return false;
       }
-      const w = widthOf(c);
       const cur = c.current ? c.segments.find((s) => s.i === c.current?.i) : undefined;
-      const lane = cur && typeof cur.lane === "number" && cur.pts.length >= 4 ? cur : undefined;
-      // how far to the lane's end the rig drives to, while it is on the lane
-      const left = (/** @type {number} */ near) => {
-        if (!lane) return undefined;
-        const p = progressAlong(lane.pts, rig, near);
-        return p.at ? (1 - p.t) * lengthOf(lane.pts) : undefined;
-      };
-      if (!zoomed) {
-        const l = left(w);
-        if (l !== undefined && l <= AUTO_ZOOM.endM) {
-          zoomed = true;
-          settledSince = undefined;
-        }
-        return zoomed;
+      if (!cur || cur.pts.length < 4 || !progressAlong(cur.pts, rig, widthOf(c) / 2).at) return zoomed;
+      const p = cur.pts, n = p.length;
+      // heading along the stretch under the rig (a round's piece turns at its corners)
+      let best = Infinity, dx = 0, dz = 0;
+      for (let i = 2; i + 1 < n; i += 2) {
+        const ax = p[i - 2], az = p[i - 1], ex = p[i] - ax, ez = p[i + 1] - az, l2 = ex * ex + ez * ez;
+        if (!(l2 > 0)) continue;
+        const u = Math.max(0, Math.min(1, ((rig.x - ax) * ex + (rig.z - az) * ez) / l2));
+        const d = Math.hypot(rig.x - ax - ex * u, rig.z - az - ez * u);
+        if (d < best) { best = d; dx = ex; dz = ez; }
       }
-      // settled: on a lane, within half a width of it, heading along it, and not at its end already
-      const l = left(w / 2);
-      let aligned = false;
-      if (lane && l !== undefined) {
-        const n = lane.pts.length;
-        const dx = lane.pts[n - 2] - lane.pts[0], dz = lane.pts[n - 1] - lane.pts[1], len = Math.hypot(dx, dz) || 1;
-        const h = ((rig.heading ?? 0) * Math.PI) / 180;
-        aligned = Math.abs((Math.sin(h) * dx - Math.cos(h) * dz) / len) >= Math.cos((AUTO_ZOOM.headingDeg * Math.PI) / 180);
-      }
-      if (aligned && /** @type {number} */ (l) > AUTO_ZOOM.endM) {
-        settledSince ??= now();
-        if (now() - settledSince >= AUTO_ZOOM.settleMs) {
-          zoomed = false;
-          settledSince = undefined;
-        }
-      } else settledSince = undefined;
+      const len = Math.hypot(dx, dz) || 1;
+      const h = ((rig.heading ?? 0) * Math.PI) / 180;
+      if (Math.abs((Math.sin(h) * dx - Math.cos(h) * dz) / len) < Math.cos((AUTO_ZOOM.headingDeg * Math.PI) / 180)) return zoomed;
+      const [fx, fz, fw, fh] = frame;
+      const inFrame = (/** @type {number} */ x, /** @type {number} */ z) => x >= fx && x <= fx + fw && z >= fz && z <= fz + fh;
+      // a lane: its two ends; a headland round's piece: every corner along it, its ends included
+      const ends = typeof cur.lane === "number" ? [0, n - 2] : Array.from({ length: n / 2 }, (_, k) => 2 * k);
+      zoomed = ends.some((k) => inFrame(p[k], p[k + 1]));
       return zoomed;
     },
   };

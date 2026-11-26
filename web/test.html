@@ -4108,6 +4108,7 @@ const gsCanvas = /** @type {HTMLCanvasElement} */ (gsScreen.querySelector(".gps-
 const gsFill = /** @type {SVGPolylineElement} */ (gsScreen.querySelector(".gps-fill"));
 const gsRig = /** @type {HTMLElement} */ (gsScreen.querySelector(".gps-rig"));
 const gsFillBefore = gsFill.getAttribute("points");
+const gsDashBefore = gsFill.style.strokeDashoffset;
 check("gps screen: shown, the course painted whole once at the box's size; the rig placed; lane 7 filled from its west end",
   [gsStats.full, gsCanvas.width === Math.round(800 * (window.devicePixelRatio || 1)), gsRig.hidden,
     /^translate\(/.test(gsRig.style.transform), gsFillBefore?.split(" ")[0]], [1, true, false, true, "-797.3,-618.9"]);
@@ -4115,9 +4116,13 @@ check("gps screen: shown, the course painted whole once at the box's size; the r
 const gsMo = new MutationObserver(() => {});
 gsMo.observe(gsScreen, { subtree: true, childList: true });
 gsRigAt(-650, -586.4);
-check("gps screen: a rig update moves the rig and the fill, repaints no lane and adds no element",
-  [{ ...gsStats }, gsFill.getAttribute("points") !== gsFillBefore, gsMo.takeRecords().flatMap((r) => [...r.addedNodes]).length],
-  [{ full: 1, lanes: 0, pieces: 0 }, true, 0]);
+const gsFillNow = gps.fillOf(gsS.get("steering_course"), gsS.get("vehicles").vehicles[0]);
+const gsDash = parseFloat(gsFill.style.strokeDasharray), gsOff = parseFloat(gsFill.style.strokeDashoffset);
+check("gps screen: a rig update moves the rig and the fill's dash (the lane's points set once, revision 5), repaints no lane, "
+  + "adds no element; the dash ends at the rig", [{ ...gsStats }, gsFill.getAttribute("points") === gsFillBefore,
+  gsFill.style.strokeDashoffset !== gsDashBefore, gsMo.takeRecords().flatMap((r) => [...r.addedNodes]).length,
+  Math.abs(gsDash - gsOff - (gsFillNow?.along ?? -1)) < 0.11, Math.abs(gsDash - (gsFillNow?.total ?? -1)) < 0.11],
+  [{ full: 1, lanes: 0, pieces: 0 }, true, true, 0, true, true]);
 // lane 8 goes done: that lane, and the round over its ends
 gsS.set("steering_course", { ...gpsCourse, done: [7, 8, 9, 10, 11, 12, 13, 14] });
 const gsAfterDone = { ...gsStats };
@@ -4254,6 +4259,16 @@ check("gps strips: the fill the lane's width less a pixel, masked by the round; 
   String(Math.round((6 - 1 / g2Fit.k) * 10) / 10), String(Math.round((6 - 1 / g2Fit.k) * 10) / 10), true, 1,
   ["Done", "This lane", "To do", "Worked, not counted"]]);
 
+// on a round piece (12, to do): its fill shows, not hidden by the rounds' mask, its dash up to the rig; back on a lane, masked again
+g2Store.set("steering_course", { ...gpsCourse, current: { i: 12, left: true }, done: [7, 9, 10] });
+g2Store.set("vehicles", { controlledId: 7, vehicles: [{ id: 7, name: "Mach 4R", x: -704.9, z: -579.05, heading: 284.5, speed: 10 }] });
+const g2OnRound = [g2Fill.hasAttribute("mask"), g2Fill.getAttribute("points"),
+  Math.round(parseFloat(g2Fill.style.strokeDasharray) - parseFloat(g2Fill.style.strokeDashoffset))];
+g2Store.set("steering_course", gpsCourse);
+g2Store.set("vehicles", { controlledId: 7, vehicles: [{ id: 7, name: "Mach 4R", x: -693.9, z: -596.15, heading: 102.6, speed: 10 }] });
+check("gps strips: on a headland round its fill shows (no rounds' mask), up to the rig; on a lane masked again",
+  [g2OnRound, g2Fill.hasAttribute("mask")], [[false, "-608.3,-554.1 -801.5,-604", 100], true]);
+
 // the trail only inside the lanes to do: along lane 8 (to do), lane 9 (done), lane 7 (yours),
 // one along lane 8 moved 2.5 m sideways (a spill), and one across the round
 g2Store.set("steering_course", gpsCourse);
@@ -4335,12 +4350,13 @@ const g4At = (/** @type {number} */ fromEnd, heading = 102.6, side = 0) => {
   return { x: ex - ux * fromEnd - uz * side, z: ez - uz * fromEnd + ux * side, heading };
 };
 const g4T = { t: 0 };
-const g4Zoom = gps.createAutoZoom({ now: () => g4T.t });
+const g4Zoom = gps.createAutoZoom();
+// the close-up's picture for that rig in a 900 × 600 box (54 m tall: nine 6 m lanes; 57 m ahead of the rig, 24 m behind, heading east)
 const g4Feed = (/** @type {any} */ rig, /** @type {number|undefined} */ cur = 7, lanePx = 8) =>
-  g4Zoom.feed({ ...gpsCourse, current: cur === undefined ? undefined : { i: cur, left: true } }, rig, lanePx);
+  g4Zoom.feed({ ...gpsCourse, current: cur === undefined ? undefined : { i: cur, left: true } }, rig, lanePx, gps.closeView(rig, 6, 900, 600));
 const g4Steps = [
-  g4Feed(g4At(100)),                         // on the lane, 100 m to go: the whole field
-  g4Feed(g4At(39)),                          // the last 40 m: close
+  g4Feed(g4At(100)),                         // on the lane, 100 m to go: neither end on the close-up, the whole field
+  g4Feed(g4At(50)),                          // 50 m to go: the lane's end on the close-up's picture, close
   (g4T.t = 2000, g4Feed(g4At(5), 102.6, 12)),  // in the turn, off the lane (none under you): still close
   (g4T.t = 3000, g4Feed(g4At(5, 20), 11)),    // on a round piece: still close
   (g4T.t = 4000, g4Feed(g4At(150, 282.6), 6)), // the game's lane is 6 already, the rig not on it yet
@@ -4350,16 +4366,30 @@ const g4On6 = (/** @type {number} */ along) => {
   const [ax, az, bx, bz] = g4Lane6.slice(-4), l = Math.hypot(bx - ax, bz - az);
   return { x: bx - ((bx - ax) / l) * along, z: bz - ((bz - az) / l) * along, heading: 282.6 };
 };
-g4T.t = 4000; const g4Settling = g4Feed(g4On6(60), 6);
-g4T.t = 6500; const g4Still = g4Feed(g4On6(70), 6);
-g4T.t = 7100; const g4Out = g4Feed(g4On6(80), 6);
-check("gps auto: the whole field on a lane; close from its last 40 m, through the turn and a round; back once settled on a lane for 3 s", [
-  g4Steps[0], g4Steps[1], g4Steps[2], g4Steps[3], g4Settling, g4Still, g4Out], [false, true, true, true, true, true, false]);
-const g4Wide = gps.createAutoZoom({ now: () => 0 });
-check("gps auto: never where lanes are 16 px or more in the whole field (it wouldn't help); a round never zooms in", [
-  g4Wide.feed({ ...gpsCourse, current: { i: 7, left: true } }, g4At(20), 16),
-  gps.createAutoZoom({ now: () => 0 }).feed({ ...gpsCourse, current: { i: 12, left: true } }, { x: -700, z: -579, heading: 282 }, 8)],
-  [false, false]);
+g4T.t = 4000; const g4In10 = g4Feed(g4On6(10), 6);                // 10 m in: the start behind still on the picture, close
+g4T.t = 60000; const g4Across = g4Feed({ ...g4On6(60), heading: 192.6 }, 6); // heading across the lane: not on it, as it was
+const g4Out = g4Feed(g4On6(60), 6);                                 // 60 m in, along it: neither end on the picture, the field
+check("gps auto: the close-up while an end of your lane is on its picture (revision 5): the field mid-lane, close near its end, "
+  + "through the turn and a round, back once the start is off the picture; no time in it", [g4Steps[0], g4Steps[1], g4Steps[2],
+  g4Steps[3], g4Steps[4], g4In10, g4Across, g4Out], [false, true, true, true, true, true, true, false]);
+// a 40 m lane: both ends always on the picture, close all along; then a 300 m lane: close at its start, the field 60 m in
+const g5Course = /** @type {any} */ ({ key: 1, width: 6, boundary: [], done: [], segments: [
+  { i: 1, lane: 1, pts: [0, 0, 40, 0] }, { i: 2, lane: 2, pts: [40, 6, -260, 6] }] });
+const g5Zoom = gps.createAutoZoom();
+const g5Feed = (/** @type {number} */ cur, /** @type {number} */ x, /** @type {number} */ z, /** @type {number} */ heading) =>
+  g5Zoom.feed({ ...g5Course, current: { i: cur, left: true } }, { x, z, heading }, 8, gps.closeView({ x, z, heading }, 6, 900, 600));
+check("gps auto: a lane that fits on the close-up stays close all along; the next long one goes back to the field mid-lane",
+  [g5Feed(1, 5, 0, 90), g5Feed(1, 20, 0, 90), g5Feed(1, 38, 0, 90), g5Feed(2, 30, 6, 270), g5Feed(2, -20, 6, 270)],
+  [true, true, true, true, false]);
+const g4Wide = gps.createAutoZoom();
+// a headland round's piece 12 runs 200 m to the round's corner at (-801.5, -604): by the same rule, with its corners
+const g4Round = gps.createAutoZoom();
+const g4OnRound = (/** @type {number} */ x, /** @type {number} */ z) => g4Round.feed({ ...gpsCourse, current: { i: 12, left: true } },
+  { x, z, heading: 284.5 }, 8, gps.closeView({ x, z, heading: 284.5 }, 6, 900, 600));
+check("gps auto: never where lanes are 16 px or more in the whole field (it wouldn't help); on a headland round the close-up "
+  + "while a corner of the piece is on its picture, the field mid-side", [
+  g4Wide.feed({ ...gpsCourse, current: { i: 7, left: true } }, g4At(20), 16, gps.closeView(g4At(20), 6, 900, 600)),
+  g4OnRound(-704.9, -579.05), g4OnRound(-772.45, -596.5), g4OnRound(-704.9, -579.05)], [false, false, true, false]);
 const g4View = gps.closeView({ x: 0, z: 0, heading: 90 }, 6, 900, 600);
 const g4Narrow = gps.closeView({ x: 0, z: 0, heading: 0 }, 2, 900, 600);
 check("gps close-up: nine lanes across the short side (30 m at least), the rig a third in from where it came", [
@@ -4405,9 +4435,34 @@ check("gps view: Close: kept in the browser, the close-up painted once at twice 
 const g4Full1 = g4Stats.full, g4T1 = g4Layers.style.transform;
 g4Rig(g4At(97));
 const g4Slid = [g4Stats.full - g4Full1, g4Layers.style.transform !== g4T1];
+const g4Styles = new MutationObserver(() => {});
+g4Styles.observe(g4Layers, { attributes: true, attributeFilter: ["style"], attributeOldValue: true });
+const g4RigEl = g4Q(".gps-rig");
+g4Styles.observe(g4RigEl, { attributes: true, attributeFilter: ["style"], attributeOldValue: true });
 g4Rig(g4At(20));
+// each element's styles in turn while it was painted again: the transforms it was given, the last one gliding
+const g4Recs = g4Styles.takeRecords();
+const g4Turns = (/** @type {HTMLElement} */ el) => {
+  const tf = (/** @type {string} */ v) => (/transform:\s*([^;]+)/.exec(v) || [])[1];
+  const mine = g4Recs.filter((r) => r.target === el).map((r) => r.oldValue || "");
+  const before = tf(mine[0] || ""), last = tf(el.getAttribute("style") || "");
+  // a place in between: neither where it was in the old picture nor where it goes (a jump has none)
+  const between = mine.slice(1).map(tf).some((t) => t && t !== before && t !== last);
+  return [between, !/transition:\s*none/.test(el.getAttribute("style") || "")];
+};
+check("gps view: painted again near the edge, the picture and the arrow glide on from where they were (revision 5)",
+  [g4Turns(g4Layers), g4Turns(g4RigEl)], [[true, true], [true, true]]);
 check("gps view: a few metres on slides the picture (no paint); near the painted area's edge it's painted once again, with the lane ends' numbers",
   [g4Slid, g4Stats.full - g4Full1, [...g4Screen.querySelectorAll(".gps-chip text")].map((t) => t.textContent).includes("7")], [[0, true], 1, true]);
+// each number centred in its chip by its own baseline (Safari ignores dominant-baseline): Archivo's digits are 0.70 em tall
+const g4Centred = [...g4Screen.querySelectorAll(".gps-chip")].every((g) => {
+  const r = /** @type {SVGRectElement} */ (g.querySelector("rect")), t = /** @type {SVGTextElement} */ (g.querySelector("text"));
+  const cx = +(r.getAttribute("x") || 0) + +(r.getAttribute("width") || 0) / 2, cy = +(r.getAttribute("y") || 0) + +(r.getAttribute("height") || 0) / 2;
+  const fs = +(t.getAttribute("font-size") || 0);
+  return Math.abs(+(t.getAttribute("x") || 0) - cx) < 0.02 && Math.abs(+(t.getAttribute("y") || 0) - (cy + 0.34 * fs)) < 0.02
+    && !t.hasAttribute("dominant-baseline");
+});
+check("gps close-up: each lane number centred in its chip, its baseline placed by hand (iPad Safari)", g4Centred, true);
 g4Q(".gps-view [data-value='field']").dispatchEvent(new MouseEvent("click", { bubbles: true }));
 check("gps view: Field: the whole field, even at the lane's end; the numbers gone", [g4Q(".gps-map").dataset.view, g4Kept["fs25companion.gpsView"],
   g4Layers.style.width, g4Screen.querySelectorAll(".gps-chip").length], ["field", "field", "800px", 0]);
@@ -4418,7 +4473,7 @@ g4Rig(g4At(100));
 const g4AutoFar = g4Q(".gps-map").dataset.view;
 g4Rig(g4At(30));
 check("gps view: Auto with narrow lanes: the field on the lane, the close-up from its last 40 m, its tag says why", [g4AutoFar,
-  g4Q(".gps-map").dataset.view, g4Q(".gps-zoomtag").hidden, g4Q(".gps-zoomtag").textContent], ["field", "close", false, "Close-upAuto · the lane's end"]);
+  g4Q(".gps-map").dataset.view, g4Q(".gps-zoomtag").hidden, g4Q(".gps-zoomtag").textContent], ["field", "close", false, "Close-upAuto"]);
 const g4St = await import("./src/data/steeringSettings.js");
 g4St.setSetup(g4S, { open: true });
 check("gps view: Set up open: the whole field, the switch hidden", [g4Q(".gps-map").dataset.view, g4Q(".gps-view").hidden], ["field", true]);

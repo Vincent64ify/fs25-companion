@@ -337,8 +337,7 @@ dock. Bottom right a switch in a glass well, Field · Auto · Close (44
 tall, the picked one ringed like the speed panel's step); the close-up
 (revision 4) is the same drawing nine lanes across, with the lanes'
 numbers in small card-coloured chips at their ends (done ones quiet,
-this lane ringed in `--gps-current`), and "Close-up · Auto · the lane's
-end" top left in a glass tag edged in `--on-border` when Auto zoomed.
+this lane ringed in `--gps-current`), and "Close-up · Auto" top left in a glass tag edged in `--on-border` when Auto zoomed.
 
 Set up, top right on the field card (a 44-tall button like the column's),
 opens Steering Assist's settings in the Drive column's place, 268 wide
