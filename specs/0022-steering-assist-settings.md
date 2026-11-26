@@ -1,6 +1,6 @@
 # 0022: Steering Assist settings from the dashboard
 
-Status: live-checked (revision 2 too); revision 3 built (2026-11-26), live check open
+Status: live-checked (revisions 2 and 3 too)
 Mod: 0.23.1 (revision 2; 0.23.0 before) · Started: 2026-11-17 · Design: the "Steering Assist settings" row on the GPS canvas, approved 2026-11-24 (version 30) (`FS25 Companion: GPS`, https://claude.ai/artifact/45ruF2v1hH49JJi4HyRTeM, board `Settings`), drawn 2026-11-23, redrawn 2026-11-24; the brainstorm's brief, `concepts_brief.md`, is in git history (commit b0cffeb)
 
 ## Goal
@@ -621,10 +621,10 @@ Live check, revision 2 (mod 0.23.1):
   Cruise show the game's values, faded.
 
 Live check, revision 3 (no mod change):
-- [ ] On the iPad mini, day and night: every setting there without
+- [x] On the iPad mini, day and night: every setting there without
   scrolling; width, headlands and direction changed and applied in a few
   taps, the preview following.
-- [ ] Show lines and Cruise set at once from the dashboard: the game's
+- [x] Show lines and Cruise set at once from the dashboard: the game's
   lines and its cruise setting change without Apply.
 
 ## Decisions
@@ -1038,3 +1038,13 @@ Live check, revision 3 (no mod change):
   foot); `theme.css` the gl- list in place of the rows that opened, night's
   changed blue #7AA7F5. test.html 478 green, pytest 226; the replay in the
   pane at both sizes. Live check open. The recall per tool went to PLAN.md.
+- 2026-11-26: live check, revision 3 (Solek, mod 0.23.1, DEUTZ-FAHR 6135 C
+  with the Knoche ECO-CULTIVATOR 300, iPad mini): every setting on screen
+  without scrolling, day and night. Width +1, Headlands +, Direction +5°
+  twice: "Apply 3 changes", previews built (acks 27 to 29), one
+  `steering.settings.apply` (ack 30) and the game had width 3 → 4 m,
+  headlands 3 → 4, direction Auto → 25°, a new course (key 4) a second
+  later. At night a width step drew its preview (acks 31, 32), Reset sent
+  nothing. Show lines Off then On (acks 33, 34) and Cruise Automatic →
+  Manual → Automatic (acks 35, 36), each on the tap, the game's values
+  changing, no Apply. Both boxes ticked; no new game names.
