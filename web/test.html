@@ -4276,6 +4276,154 @@ g2Store.set("steering_course", { ...gpsCourse, done: [7, 10, 11, 12, 13, 14] });
 check("gps strips: the trail only inside the lanes to do, 1.5 m in from their sides; not on a done lane, yours or a round; a lane back to to do shows it",
   [g2Before, g2T(g2On9)], [[true, false, false, false, false], true]);
 
+// --- GPS screen, revision 3: lanes you can count (specs/0021) ------------------------
+
+check("gps edges: a polyline moved half a width to each side, mitred at its joints", [
+  gps.offsetLine([0, 0, 10, 0], 3), gps.offsetLine([0, 0, 10, 0], -3),
+  gps.offsetLine([0, 0, 10, 0, 10, 10], 1).map((v) => Math.round(v * 100) / 100)],
+  [[0, 3, 10, 3], [0, -3, 10, -3], [0, 1, 9, 1, 9, 10]]);
+// the course canvas at 800 × 400 (g2): lanes 5 and 6 to do, their shared edge a line, the strip between stronger than before
+g2Store.set("steering_course", gpsCourse);
+g2Size(800, 401);
+g2Size(800, 400);
+/** the strongest alpha within a pixel of a world point, and its rgb */
+const g3Near = (/** @type {number} */ x, /** @type {number} */ z) => {
+  const c = /** @type {CanvasRenderingContext2D} */ (g2Course.getContext("2d"));
+  const px = Math.floor((g2Fit.x0 + x * g2Fit.k) * g2Dpr), pz = Math.floor((g2Fit.z0 + z * g2Fit.k) * g2Dpr);
+  const d = c.getImageData(px - 1, pz - 1, 3, 3).data;
+  let best = [0, 0, 0, 0];
+  for (let i = 0; i < d.length; i += 4) if (d[i + 3] > best[3]) best = [d[i], d[i + 1], d[i + 2], d[i + 3]];
+  return best;
+};
+const g3Mid5 = g2Along(g2Seg(5).slice(2), 80), g3Mid6 = g2Along(g2Seg(6).slice(2), 80);
+const g3Edge = [(g3Mid5[0] + g3Mid6[0]) / 2, (g3Mid5[1] + g3Mid6[1]) / 2];
+const g3Todo = getComputedStyle(g2Screen).getPropertyValue("--gps-todo").trim() || "#6F7C94";
+const g3Hex = (/** @type {number[]} */ p) => "#" + p.slice(0, 3).map((v) => v.toString(16).padStart(2, "0")).join("").toUpperCase();
+const g3EdgePx = g3Near(g3Edge[0], g3Edge[1]), g3MidPx = g2At(g2Course, g3Mid5[0], g3Mid5[1]);
+// the canvas rounds a colour by a step or two: compare each channel within 3
+const g3Close = (/** @type {number[]} */ p, /** @type {string} */ hex) => [1, 3, 5].every((k, i) => Math.abs(p[i] - parseInt(hex.slice(k, k + 2), 16)) <= 3);
+check("gps edges: between two lanes to do a line of the to-do colour; the strip between at about 24 %", [
+  g3EdgePx[3] > 200, g3Close(g3EdgePx, g3Todo.toUpperCase()) || g3Hex(g3EdgePx), g3MidPx[3] > 50 && g3MidPx[3] < 72], [true, true, true]);
+// lanes under 3 px apart: no lines, one tinted area
+g2Size(120, 60);
+const g3Small = gsw.courseView(gpsCourse.boundary);
+const g3SmallFit = g2FitView(g3Small, 120, 60);
+const g3SmallCtx = /** @type {CanvasRenderingContext2D} */ (g2Course.getContext("2d"));
+const g3SmallMax = (() => {
+  let m = 0;
+  for (const [x, z] of [g3Mid5, g3Edge, g3Mid6]) {
+    const d = g3SmallCtx.getImageData(Math.floor((g3SmallFit.x0 + x * g3SmallFit.k) * g2Dpr), Math.floor((g3SmallFit.z0 + z * g3SmallFit.k) * g2Dpr), 1, 1).data;
+    m = Math.max(m, d[3]);
+  }
+  return m;
+})();
+check("gps edges: lanes under 3 px apart have no lines (one tinted area)", [6 * g3SmallFit.k < 3, g3SmallMax < 100], [true, true]);
+g2Size(800, 400);
+// this page doesn't load the theme: its rule read from theme.css
+const g3Css = await (await fetch("src/themes/newholland/theme.css")).text();
+const g3Rule = (g3Css.match(/\.gps-key i\.todo \{([^}]*)\}/) || [])[1] || "";
+check("gps edges: the legend's To do swatch at 24 %, with its edges", [g3Rule.includes("24%"), g3Rule.includes("inset 0 1px 0 var(--gps-todo)")],
+  [true, true]);
+
+// --- GPS screen, revision 4: the close-up at the lane's end (specs/0021) -------------
+
+// lane 7 runs west to east (-797.3,-618.9 → -594.8,-574, about 207 m); the rig heads east (102.6°)
+const g4Lane7 = g2Seg(7);
+const g4At = (/** @type {number} */ fromEnd, heading = 102.6, side = 0) => {
+  const n = g4Lane7.length, ex = g4Lane7[n - 2], ez = g4Lane7[n - 1], ax = g4Lane7[n - 4], az = g4Lane7[n - 3];
+  const l = Math.hypot(ex - ax, ez - az), ux = (ex - ax) / l, uz = (ez - az) / l;
+  return { x: ex - ux * fromEnd - uz * side, z: ez - uz * fromEnd + ux * side, heading };
+};
+const g4T = { t: 0 };
+const g4Zoom = gps.createAutoZoom({ now: () => g4T.t });
+const g4Feed = (/** @type {any} */ rig, /** @type {number|undefined} */ cur = 7, lanePx = 8) =>
+  g4Zoom.feed({ ...gpsCourse, current: cur === undefined ? undefined : { i: cur, left: true } }, rig, lanePx);
+const g4Steps = [
+  g4Feed(g4At(100)),                         // on the lane, 100 m to go: the whole field
+  g4Feed(g4At(39)),                          // the last 40 m: close
+  (g4T.t = 2000, g4Feed(g4At(5), 102.6, 12)),  // in the turn, off the lane (none under you): still close
+  (g4T.t = 3000, g4Feed(g4At(5, 20), 11)),    // on a round piece: still close
+  (g4T.t = 4000, g4Feed(g4At(150, 282.6), 6)), // the game's lane is 6 already, the rig not on it yet
+];
+const g4Lane6 = g2Seg(6);
+const g4On6 = (/** @type {number} */ along) => {
+  const [ax, az, bx, bz] = g4Lane6.slice(-4), l = Math.hypot(bx - ax, bz - az);
+  return { x: bx - ((bx - ax) / l) * along, z: bz - ((bz - az) / l) * along, heading: 282.6 };
+};
+g4T.t = 4000; const g4Settling = g4Feed(g4On6(60), 6);
+g4T.t = 6500; const g4Still = g4Feed(g4On6(70), 6);
+g4T.t = 7100; const g4Out = g4Feed(g4On6(80), 6);
+check("gps auto: the whole field on a lane; close from its last 40 m, through the turn and a round; back once settled on a lane for 3 s", [
+  g4Steps[0], g4Steps[1], g4Steps[2], g4Steps[3], g4Settling, g4Still, g4Out], [false, true, true, true, true, true, false]);
+const g4Wide = gps.createAutoZoom({ now: () => 0 });
+check("gps auto: never where lanes are 16 px or more in the whole field (it wouldn't help); a round never zooms in", [
+  g4Wide.feed({ ...gpsCourse, current: { i: 7, left: true } }, g4At(20), 16),
+  gps.createAutoZoom({ now: () => 0 }).feed({ ...gpsCourse, current: { i: 12, left: true } }, { x: -700, z: -579, heading: 282 }, 8)],
+  [false, false]);
+const g4View = gps.closeView({ x: 0, z: 0, heading: 90 }, 6, 900, 600);
+const g4Narrow = gps.closeView({ x: 0, z: 0, heading: 0 }, 2, 900, 600);
+check("gps close-up: nine lanes across the short side (30 m at least), the rig a third in from where it came", [
+  g4View.map((v) => Math.round(v * 10) / 10), g4Narrow.map((v) => Math.round(v * 10) / 10)],
+  [[-24.3, -27, 81, 54], [-22.5, -21, 45, 30]]);
+const g4Chips = gps.laneNumbersOf({ ...gpsCourse, done: [9, 10, 11, 12, 13, 14] }, g4At(20), [-640, -600, 80, 40]);
+check("gps close-up: lane numbers at each lane's end nearer the rig, in view, done ones marked", [
+  g4Chips.map((c) => c.n), g4Chips.find((c) => c.n === 7)?.state, g4Chips.find((c) => c.n === 9)?.state,
+  g4Chips.every((c) => c.x > -620)], [[3, 4, 5, 6, 7, 8, 9], "current", "done", true]);
+
+// the screen: the view switch, kept in the browser; Close paints the close-up once and slides it
+/** @type {Record<string, string>} */
+const g4Kept = {};
+const g4Storage = { getItem: (/** @type {string} */ k) => g4Kept[k] ?? null, setItem: (/** @type {string} */ k, /** @type {string} */ v) => { g4Kept[k] = v; } };
+const g4S = createStore();
+g4S.set("hello", { farmId: 1 });
+g4S.set("field_outlines", { fields: [{ id: 7, points: gpsCourse.boundary }] });
+g4S.set("fields", { fields: [{ id: 7, farmlandId: 7, areaHa: 1.62 }] });
+const g4Rig = (/** @type {any} */ r) => g4S.set("vehicles", { controlledId: 7, vehicles: [{ id: 7, name: "Mach 4R", ...r, speed: 10 }] });
+g4Rig(g4At(100));
+g4S.set("cab", { inVehicle: true, vehicleId: 7, ...gpsSa() });
+g4S.set("steering_course", gpsCourse);
+const g4Stats = { full: 0, lanes: 0, pieces: 0 };
+let g4Size = (/** @type {number} */ _w, /** @type {number} */ _h) => {};
+const g4Screen = gsw.gpsScreen(g4S, { watchSize: (_el, cb) => { g4Size = cb; }, stats: g4Stats, storage: g4Storage, zoomMs: 0,
+  coverage: { trails: () => [], percent: () => undefined, version: () => 0 } });
+g4Size(800, 400);
+const g4Q = (/** @type {string} */ sel) => /** @type {HTMLElement} */ (g4Screen.querySelector(sel));
+const g4Picked = () => [...g4Screen.querySelectorAll(".gps-view button")].filter((b) => b.getAttribute("aria-checked") === "true")
+  .map((b) => b.textContent);
+check("gps view: a switch bottom right, Field · Auto · Close, Auto at first; field 7's lanes (18 px here) never zoom on Auto", [
+  [...g4Screen.querySelectorAll(".gps-view button")].map((b) => b.textContent), g4Picked(), g4Q(".gps-map").dataset.view,
+  (g4Rig(g4At(20)), g4Q(".gps-map").dataset.view), g4Q(".gps-zoomtag").hidden], [["Field", "Auto", "Close"], ["Auto"], "field", "field", true]);
+const g4FullBefore = g4Stats.full;
+g4Rig(g4At(100));
+g4S.set("steering_course", { ...gpsCourse, current: { i: 7, left: true } });
+g4Q(".gps-view [data-value='close']").dispatchEvent(new MouseEvent("click", { bubbles: true }));
+const g4Layers = g4Q(".gps-layers");
+const g4CloseState = [g4Picked(), g4Kept["fs25companion.gpsView"], g4Q(".gps-map").dataset.view, g4Stats.full - g4FullBefore,
+  g4Layers.style.width];
+check("gps view: Close: kept in the browser, the close-up painted once at twice the box",
+  g4CloseState, [["Close"], "close", "close", 1, "1600px"]);
+const g4Full1 = g4Stats.full, g4T1 = g4Layers.style.transform;
+g4Rig(g4At(97));
+const g4Slid = [g4Stats.full - g4Full1, g4Layers.style.transform !== g4T1];
+g4Rig(g4At(20));
+check("gps view: a few metres on slides the picture (no paint); near the painted area's edge it's painted once again, with the lane ends' numbers",
+  [g4Slid, g4Stats.full - g4Full1, [...g4Screen.querySelectorAll(".gps-chip text")].map((t) => t.textContent).includes("7")], [[0, true], 1, true]);
+g4Q(".gps-view [data-value='field']").dispatchEvent(new MouseEvent("click", { bubbles: true }));
+check("gps view: Field: the whole field, even at the lane's end; the numbers gone", [g4Q(".gps-map").dataset.view, g4Kept["fs25companion.gpsView"],
+  g4Layers.style.width, g4Screen.querySelectorAll(".gps-chip").length], ["field", "field", "800px", 0]);
+// Auto where it helps: the same course drawn at a quarter of the size (lanes under 16 px)
+g4Q(".gps-view [data-value='auto']").dispatchEvent(new MouseEvent("click", { bubbles: true }));
+g4Size(400, 200);
+g4Rig(g4At(100));
+const g4AutoFar = g4Q(".gps-map").dataset.view;
+g4Rig(g4At(30));
+check("gps view: Auto with narrow lanes: the field on the lane, the close-up from its last 40 m, its tag says why", [g4AutoFar,
+  g4Q(".gps-map").dataset.view, g4Q(".gps-zoomtag").hidden, g4Q(".gps-zoomtag").textContent], ["field", "close", false, "Close-upAuto · the lane's end"]);
+const g4St = await import("./src/data/steeringSettings.js");
+g4St.setSetup(g4S, { open: true });
+check("gps view: Set up open: the whole field, the switch hidden", [g4Q(".gps-map").dataset.view, g4Q(".gps-view").hidden], ["field", true]);
+g4St.setSetup(g4S, { open: false });
+
 // the theme: a GPS tab with the control column, between Vehicle and Contracts
 const { default: nhTheme } = await import("./src/themes/newholland/theme.js");
 const nhGps = nhTheme.screens?.find((s) => s.id === "gps");
@@ -4367,35 +4515,40 @@ document.body.append(stHost);
 const stQ = (/** @type {string} */ sel) => /** @type {HTMLElement} */ (stCol.querySelector(sel));
 const stRow = (/** @type {string} */ row) => /** @type {HTMLElement} */ (stCol.querySelector(`[data-row="${row}"]`));
 const stTap = (/** @type {HTMLElement} */ el) => el.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-const stValues = () => ["mode", "width", "headlands", "direction", "offset", "lines", "cruise"]
-  .map((r) => stRow(r).querySelector(".st-v b")?.textContent);
-check("settings column: hidden until Set up; open, in the Drive column's place, each row as the game holds it", [
+/** the choice lit in the mode switch, Show lines or Cruise */
+const stChecked = (/** @type {string} */ row) => stRow(row).querySelector('[aria-checked="true"]')?.textContent;
+const stValues = () => [stChecked("mode"), ...["width", "headlands", "direction", "offset"]
+  .map((r) => stRow(r).querySelector(".gl-val b")?.textContent), stChecked("lines"), stChecked("cruise")];
+const stLab = (/** @type {string} */ row) => stRow(row).querySelector(".gl-lab")?.textContent;
+const stStep = (/** @type {string} */ row, /** @type {string} */ aria) => stTap(/** @type {HTMLElement} */ ([...stRow(row)
+  .querySelectorAll(".gl-b")].find((b) => (b.getAttribute("aria-label") || "").includes(aria))));
+const stSeg = (/** @type {string} */ row, /** @type {string} */ label) => /** @type {HTMLElement} */ ([...stRow(row)
+  .querySelectorAll("button")].find((b) => b.textContent === label));
+const stLanes = ["width", "headlands", "direction", "offset"];
+check("settings column: hidden until Set up; open, in the Drive column's place, each row as the game holds it, every row's steps there", [
   stCol.hidden, (st.setSetup(stStore, { open: true }), stCol.hidden), stDrive.hidden, stQ(".st-col-label span").textContent,
-  stValues(), [...stCol.querySelectorAll(".st-v i")].map((i) => /** @type {HTMLElement} */ (i).hidden),
-  stQ(".st-apply").textContent, stQ(".st-apply").getAttribute("aria-disabled"), stQ(".st-reset").getAttribute("aria-disabled")],
+  stValues(), stLanes.map((r) => /** @type {HTMLElement} */ (stRow(r).querySelector(".gl-val i")).hidden),
+  stLanes.map((r) => /** @type {HTMLElement} */ (stRow(r).querySelector(".gl-auto")).hidden),
+  stLanes.map((r) => stRow(r).querySelectorAll(".gl-b").length), stRow("width").dataset.wide,
+  stQ(".st-apply").textContent, stQ(".st-apply").getAttribute("aria-disabled"), stQ(".st-reset").getAttribute("aria-disabled"),
+  stQ(".st-why").hidden],
   [true, false, true, "Fendt 728 Vario · LEMKEN Smaragd 9/500K",
     ["Steering Assist", "5.0 m", "2 rounds", "Auto", "0.0 m", "On", "Automatic"],
-    [true, false, false, true, false, true, true], "No changes", "true", "true"]);
-stTap(/** @type {HTMLElement} */ (stRow("width").querySelector(".st-head")));
-stTap(/** @type {HTMLElement} */ (stRow("offset").querySelector(".st-head")));
-check("settings column: a row opens its steps under it, one row at a time", [
-  stRow("width").dataset.open, stRow("offset").dataset.open,
-  [...stRow("offset").querySelectorAll(".st-step")].map((b) => b.textContent)], [undefined, "true", ["Left", "Right", "Auto"]]);
-const stStep = (/** @type {string} */ row, /** @type {string} */ label) => stTap(/** @type {HTMLElement} */ ([...stRow(row)
-  .querySelectorAll(".st-step")].find((b) => b.textContent === label)));
-stStep("offset", "Left");
-check("settings column: a change: the value ringed, what it was, Apply counts it; the preview not asked yet", [
-  stRow("offset").dataset.changed, stRow("offset").querySelector(".st-name span")?.textContent, stValues()[4],
+    [false, false, true, false], [true, true, true, true], [4, 2, 2, 2], "true", "No changes", "true", "true", true]);
+stStep("offset", "to the left");
+check("settings column: one tap a step: the value blue (changed), its name says what it was, the Auto chip, Apply counts it; no preview yet", [
+  stRow("offset").dataset.changed, stLab("offset"), stRow("offset").querySelector(".gl-lab")?.getAttribute("data-tone"), stValues()[4],
+  /** @type {HTMLElement} */ (stRow("offset").querySelector(".gl-auto")).hidden,
   stQ(".st-apply").textContent, stQ(".st-apply").getAttribute("aria-disabled"), stSent.length],
-  ["true", "was Auto · 0.0 m", "0.1 m left", "Apply 1 change", null, 0]);
+  ["true", "Offset · was Auto · 0.0 m", "changed", "0.1 m left", false, "Apply 1 change", null, 0]);
 await stTick();
 check("settings column: half a second after the last change the preview is asked for, all four rows", [
   stSent.map((s) => [s.action, s.settings]), st.setupOf(stStore).previewFor, st.setupOf(stStore).lanesChanged],
   [[["steering.settings.preview", "width=auto;headlands=auto;direction=auto;offset=-0.1"]],
     "width=auto;headlands=auto;direction=auto;offset=-0.1", true]);
-stStep("offset", "Left");
+stStep("offset", "to the left");
 await stTick();
-stStep("offset", "Left");
+stStep("offset", "to the left");
 await stTick();
 check("settings column: one preview out at a time, the newest waiting (older ones dropped)", stSent.length, 1);
 stSent[0].resolve({ ok: false, reason: "no game (replay)" });
@@ -4407,15 +4560,22 @@ stSent[1].resolve({ ok: false, reason: "no settings" });
 await stTick();
 check("settings column: the preview asked for now fails: the screen is told (no topic will come)",
   st.setupOf(stStore).previewFailed, "width=auto;headlands=auto;direction=auto;offset=-0.3");
-stTap(/** @type {HTMLElement} */ (stRow("lines").querySelector(".st-head")));
-stTap(/** @type {HTMLElement} */ ([...stRow("lines").querySelectorAll(".st-seg")].find((b) => b.textContent === "Off")));
+stTap(stSeg("lines", "Off"));
+await stTick();
+check("settings column (revision 3): Show lines sets at once, not on Apply; its switch breathes, the choice lit", [
+  [stSent[2]?.action, stSent[2]?.value], stRow("lines").querySelector(".gl-seg")?.getAttribute("data-state"), stChecked("lines"),
+  stQ(".st-apply").textContent], [["steering.lines.set", 0], "pending", "Off", "Apply 1 change"]);
+stSent[2].resolve({ ok: true });
+await stTick();
+const stHeld = [stChecked("lines"), stRow("lines").querySelector(".gl-seg")?.getAttribute("data-state")];
+stSteering({}, { ...stGame, showLines: false });
+check("settings column (revision 3): answered, the choice held until the game says so; then the game's", [stHeld, stChecked("lines"),
+  stQ(".st-apply").textContent], [["Off", null], "Off", "Apply 1 change"]);
 stTap(stQ(".st-apply"));
 await stTick();
-check("settings column: Apply sends the course rows changed, then Show lines; Applying… on the rows and on Apply", [
-  stSent.slice(2).map((s) => [s.action, s.value, s.settings]), stQ(".st-apply").textContent, stQ(".st-apply").dataset.state,
-  stRow("offset").querySelector(".st-name span")?.textContent], [[["steering.settings.apply", undefined, "offset=-0.3"],
-    ["steering.lines.set", 0, undefined]], "Applying…", "pending", "Applying…"]);
-stSent[2].resolve({ ok: true });
+check("settings column: Apply sends the lane rows changed only; Applying… on the row and on Apply", [
+  stSent.slice(3).map((s) => [s.action, s.value, s.settings]), stQ(".st-apply").textContent, stQ(".st-apply").dataset.state,
+  stLab("offset")], [[["steering.settings.apply", undefined, "offset=-0.3"]], "Applying…", "pending", "Offset · Applying…"]);
 stSent[3].resolve({ ok: false, reason: "didn't change" });
 await stTick();
 check("settings column: a change that doesn't get there: Failed on Apply, the draft kept", [stQ(".st-apply").textContent,
@@ -4423,54 +4583,59 @@ check("settings column: a change that doesn't get there: Failed on Apply, the dr
 stTap(stQ(".st-apply"));
 await stTick();
 stSent[4].resolve({ ok: true });
-stSent[5].resolve({ ok: true });
 stSteering({}, { ...stGame, offset: { m: -0.3, auto: false, min: -5, max: 5 }, showLines: false });
 await stTick();
 check("settings column: applied and read back: the panel follows the game, nothing to apply", [stValues()[4], stValues()[5],
   stQ(".st-apply").textContent, st.setupOf(stStore).draft, stRow("offset").dataset.changed], ["0.3 m left", "Off", "No changes", undefined, undefined]);
 stTap(stQ(".st-reset"));
-check("settings column: Reset: the four course rows to Auto, Show lines as it is", [stValues().slice(1), stQ(".st-apply").textContent],
+check("settings column: Reset: the four lane rows to Auto, Show lines as it is", [stValues().slice(1), stQ(".st-apply").textContent],
   [["5.0 m", "2 rounds", "Auto", "0.0 m", "Off", "Automatic"], "Apply 1 change"]);
 st.setSetup(stStore, { open: false, draft: undefined });
 check("settings column: Close drops what wasn't applied and brings the Drive column back", [stCol.hidden, stDrive.hidden,
   (st.setSetup(stStore, { open: true }), stValues()[4])], [true, false, "0.3 m left"]);
-stSteering({ mode: "worker" });
-check("settings column: AI worker mode: the course rows, Show lines and Cruise faded with why; the mode live", [
-  stQ(".st-why").hidden, stQ(".st-why").textContent, ["width", "lines", "mode"].map((r) => stRow(r).dataset.locked),
-  stQ(".st-reset").getAttribute("aria-disabled")],
-  [false, "Switch to SteeringAssistThese are its settings; the AI worker keeps its own.".replace("SteeringAssist", "Steering Assist"),
-    ["true", "true", undefined], "true"]);
-stTap(/** @type {HTMLElement} */ (stRow("mode").querySelector(".st-head")));
-const stSeg = (/** @type {string} */ label) => /** @type {HTMLElement} */ ([...stRow("mode").querySelectorAll(".st-seg")]
-  .find((b) => b.textContent === label));
-stTap(stSeg("Steering Assist"));
+stTap(stSeg("cruise", "Manual"));
 await stTick();
-check("settings column: the mode sets at once, Switching… until the answer", [stSent.at(-1)?.action, stSent.at(-1)?.value,
-  stRow("mode").querySelector(".st-name span")?.textContent, stSeg("Steering Assist").dataset.state],
+stSent.at(-1)?.resolve({ ok: false, reason: "didn't change" });
+await stTick();
+check("settings column (revision 3): a flip the game doesn't take rings its switch; the game's choice back", [
+  stSent.at(-1)?.action, stRow("cruise").querySelector(".gl-seg")?.getAttribute("data-error"), stChecked("cruise")],
+  ["steering.cruiseOff.set", "true", "Automatic"]);
+stSteering({ mode: "worker" });
+check("settings column: AI worker mode: the lane rows, Show lines and Cruise faded; the reason in Reset and Apply's place; the mode live", [
+  stQ(".st-why").hidden, stQ(".st-why").textContent, stQ(".st-apply").hidden, stQ(".st-reset").hidden,
+  [...stCol.querySelectorAll(".gl-group")].map((g) => /** @type {HTMLElement} */ (g).dataset.locked), stRow("mode").dataset.locked],
+  [false, "Switch to Steering AssistThese are its settings; the AI worker keeps its own.", true, true, ["true", "true"], undefined]);
+stTap(stSeg("mode", "Steering Assist"));
+await stTick();
+const stModeSeg = (/** @type {string} */ v) => /** @type {HTMLElement} */ (stRow("mode").querySelector(`[data-value="${v}"]`));
+check("settings column: the mode sets at once, Switching… on its choice until the answer", [stSent.at(-1)?.action, stSent.at(-1)?.value,
+  stModeSeg("steeringAssist").textContent, stModeSeg("steeringAssist").dataset.state],
   ["steering.mode.set", 1, "Switching…", "pending"]);
 stSent.at(-1)?.resolve({ ok: false, reason: "no tool allows steering" });
 await stTick();
-check("settings column: a mode change that fails says Failed on its segment", stSeg("Steering Assist").hasAttribute("data-error"), true);
+check("settings column: a mode change that fails says Failed on its choice", [stModeSeg("steeringAssist").hasAttribute("data-error"),
+  stModeSeg("steeringAssist").textContent], [true, "Steering Assist"]);
 stSteering({ mode: "worker", canAssist: false });
-check("settings column: no tool allows steering: Steering Assist faded in the Mode row, with why", [
-  stSeg("Steering Assist").getAttribute("aria-disabled"), stRow("mode").querySelector(".st-name span")?.textContent,
-  stQ(".st-why").firstChild?.textContent], ["true", "No tool here allows steering", "No tool here allows Steering Assist"]);
+check("settings column: no tool allows steering: Steering Assist faded in the switch, the reason at the foot", [
+  stModeSeg("steeringAssist").getAttribute("aria-disabled"), stQ(".st-why").firstChild?.textContent],
+  ["true", "No tool here allows Steering Assist"]);
 stSteering({ state: "steering" });
-check("settings column: while steering, the course rows faded; Show lines and Cruise still set", [
-  stRow("width").dataset.locked, stRow("cruise").dataset.locked, stQ(".st-why").firstChild?.textContent], ["true", undefined, "Steering is on"]);
+check("settings column: while steering, the lane rows faded; Show lines and Cruise still set", [
+  /** @type {HTMLElement} */ (stCol.querySelector('[data-group="lanes"]')).dataset.locked,
+  /** @type {HTMLElement} */ (stCol.querySelector('[data-group="game"]')).dataset.locked,
+  stQ(".st-why").firstChild?.textContent, stRow("width").querySelector(".gl-b")?.getAttribute("aria-disabled")],
+  ["true", undefined, "Steering is on", "true"]);
 st.setSetup(stStore, { draft: undefined, phase: "idle" });
 stSteering({ dialog: { width: { m: 6, auto: false } } });
-check("settings column (revision 2): a row left in the game's dialog: the lanes' value, the dialog's on its sub-line; nothing to apply", [
-  stValues()[1], stRow("width").querySelector(".st-name span")?.textContent,
-  stRow("width").querySelector(".st-name span")?.getAttribute("data-tone"), stRow("width").dataset.changed,
-  stQ(".st-apply").textContent], ["5.0 m", "Dialog: 6.0 m", "dialog", undefined, "No changes"]);
-stTap(/** @type {HTMLElement} */ (stRow("width").querySelector(".st-head")));
-stStep("width", "+0.1");
-check("settings column (revision 2): changed on the panel, what it was wins the sub-line", [
-  stRow("width").querySelector(".st-name span")?.textContent, stQ(".st-apply").textContent], ["was Auto · 5.0 m", "Apply 1 change"]);
+check("settings column (revision 2): a row left in the game's dialog: the lanes' value, the dialog's beside its name; nothing to apply", [
+  stValues()[1], stLab("width"), stRow("width").querySelector(".gl-lab")?.getAttribute("data-tone"), stRow("width").dataset.changed,
+  stQ(".st-apply").textContent], ["5.0 m", "Width · Dialog: 6.0 m", "dialog", undefined, "No changes"]);
+stStep("width", "Wider by 0.1");
+check("settings column (revision 2): changed on the panel, what it was wins", [stLab("width"), stQ(".st-apply").textContent],
+  ["Width · was Auto · 5.0 m", "Apply 1 change"]);
 st.setSetup(stStore, { draft: undefined });
 stSteering({ mode: "worker", showLines: false, cruiseOff: true }, null);
-check("settings column (revision 2): no settings yet: Show lines and Cruise show the game's, the course rows –", stValues().slice(1),
+check("settings column (revision 2): no settings yet: Show lines and Cruise show the game's, the lane rows –", stValues().slice(1),
   ["–", "–", "–", "–", "Off", "Automatic"]);
 st.setSetup(stStore, { open: false });
 stHost.remove();

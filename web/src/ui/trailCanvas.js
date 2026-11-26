@@ -35,7 +35,7 @@ export function createTrailCanvas(canvas, coverage, colourOf) {
   const ctx = /** @type {CanvasRenderingContext2D} */ (canvas.getContext("2d"));
   /** what the canvas holds: a field at a size and palette, by these tools, at this version */
   const painted = { field: /** @type {number|undefined} */ (undefined), w: 0, h: 0, dpr: 0, palette: "", version: -1,
-    seam: 0, tools: /** @type {Set<number>} */ (new Set()), mask: "" };
+    seam: 0, tools: /** @type {Set<number>} */ (new Set()), mask: "", view: "" };
   /** how many points of each run are on the canvas */
   /** @type {WeakMap<object, number>} */
   const drawnPts = new WeakMap();
@@ -78,8 +78,10 @@ export function createTrailCanvas(canvas, coverage, colourOf) {
     }
     const version = coverage.version(fieldId);
     const maskKey = mask ? mask.key : "";
+    // the view too: the GPS screen's close-up paints a new area as the rig moves (specs/0021 revision 4)
+    const viewKey = view.join(",");
     const full = painted.field !== fieldId || painted.w !== boxW || painted.h !== boxH || painted.dpr !== dpr
-      || painted.palette !== palette || painted.mask !== maskKey;
+      || painted.palette !== palette || painted.mask !== maskKey || painted.view !== viewKey;
     if (!full && version === painted.version) return;
     const list = coverage.trails(fieldId);
     const ids = new Set(list.map((t) => t.tool));
@@ -104,7 +106,7 @@ export function createTrailCanvas(canvas, coverage, colourOf) {
       ctx.lineCap = "butt";
       ctx.lineJoin = "round";
       // a pixel wider (in metres), so passes side by side leave no seam
-      Object.assign(painted, { field: fieldId, w: boxW, h: boxH, dpr, palette, seam: 1 / fit.k, mask: maskKey });
+      Object.assign(painted, { field: fieldId, w: boxW, h: boxH, dpr, palette, seam: 1 / fit.k, mask: maskKey, view: viewKey });
       const colours = { work: colourOf("work"), mow: colourOf("mow") };
       for (const t of list) {
         for (const run of t.runs) {

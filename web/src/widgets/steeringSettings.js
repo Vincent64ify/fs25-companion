@@ -2,23 +2,29 @@
 // Steering Assist's settings column (specs/0022): the game's AI Settings
 // dialog on the GPS page. Set up (on the GPS screen's field card) opens it
 // in the Drive column's place; Close drops what wasn't applied and brings
-// the Drive column back. One row per setting, its value on the right as the
-// game holds it; a tap opens its steps under it, one row at a time.
+// the Drive column back.
 //
-// - Mode sets at once (its own command); the other rows are held in the
-//   panel until Apply, which sends the course rows in one command, then
-//   Show lines and Cruise. "Applying…" until the mod answers (it answers ok
-//   once the game reads the change back); a failure says "Failed" on Apply.
-// - Reset, as the game's dialog: the four course rows to Auto.
-// - The preview: half a second after the last change to a course row the
-//   GPS screen's field shows the course the game would build. One preview
-//   is out at a time; the newest settings wait behind it, older ones are
+// Revision 3 (every setting at a glance): a grouped list, every row open.
+// - Mode: a slim two-way switch; it sets at once (its own command).
+// - Lanes: one line a setting, its name (or "Width · was 5.0 m"), its value
+//   (blue while changed), an AUTO tag or an Auto chip, and its steps in a
+//   small well; the width on two lines (four steps). One tap a step; held
+//   in the panel until Apply, which sends the four lane rows in one command.
+//   "Applying…" until the mod answers (ok once the game reads the change
+//   back); a failure says "Failed" on Apply. Reset: the four rows to Auto.
+// - Every vehicle: Show lines and Cruise, two choices each, set at once
+//   (they build no course); the tapped one breathes until the game has it,
+//   a failure rings its switch.
+// - The preview: half a second after the last change to a lane row the GPS
+//   screen's field shows the course the game would build. One preview is
+//   out at a time; the newest settings wait behind it, older ones are
 //   dropped. The column and the screen share the panel's state in the
 //   store's "gpsSetup" (data/steeringSettings.js).
-// - Faded, with the reason above them: the course rows in AI worker mode,
-//   off a field you may work and while steering; Show lines and Cruise in
-//   AI worker mode; Steering Assist in the Mode row without a tool that
-//   allows it.
+// - Faded in place: the lane rows in AI worker mode, off a field you may
+//   work and while steering, with the reason in Reset and Apply's place;
+//   Show lines and Cruise in AI worker mode; Steering Assist in the switch
+//   without a tool that allows it (the reason says so). A mode tapped says
+//   "Switching…" on its own choice until the answer.
 
 import { sendCommand } from "../connection.js";
 import { ERROR_SHOWN_MS } from "../ui/control.js";
@@ -31,9 +37,11 @@ import {
 import { courseOf } from "../data/gps.js";
 
 /** @typedef {import("../data/steeringSettings.js").Draft} Draft */
-/** @typedef {import("../data/steeringSettings.js").Row} Row */
 /** @typedef {import("../data/steeringSettings.js").CourseRow} CourseRow */
 /** @typedef {import("../commands.js").CommandResult} CommandResult */
+
+/** a flip of Show lines or Cruise held until the game has it: these long at most once answered */
+const FLIP_HOLD_MS = 3000;
 
 /**
  * A button.
@@ -81,20 +89,117 @@ export function steeringSettings(store, opts = {}) {
   const send = more.send || sendCommand;
   const previewDelayMs = more.previewDelayMs ?? PREVIEW_DELAY_MS;
 
+  const steering = () => store.get("cab")?.steering;
+  const game = () => {
+    const s = steering()?.settings;
+    return s ? draftOf(s) : undefined;
+  };
+  /** the panel's draft: its own once edited, else the game's */
+  const draft = () => setupOf(store).draft || game();
+
+  // the mode: a slim switch -------------------------------------------------------------
+  /** @type {Record<string, HTMLButtonElement>} */
+  const modeSegs = {};
+  const modeEl = h("div", { className: "gl-mode" });
+  modeEl.dataset.row = "mode";
+  modeEl.setAttribute("role", "radiogroup");
+  modeEl.setAttribute("aria-label", "Mode");
+  for (const [m, label] of [["worker", "AI worker"], ["steeringAssist", "Steering Assist"]]) {
+    const seg = button("gl-mseg", label, { role: "radio" });
+    seg.dataset.value = m;
+    seg.addEventListener("click", () => pickMode(m));
+    modeSegs[m] = seg;
+    modeEl.append(seg);
+  }
+
+  // the lane rows: one line each, the steps in a well ------------------------------------
+  /**
+   * @param {CourseRow} row @param {string} name @param {[string, number, string, boolean?][]} steps
+   */
+  function laneRow(row, name, steps) {
+    const lab = h("span", { className: "gl-lab", text: name });
+    const value = h("b");
+    const tag = h("i", { text: "Auto" });
+    const auto = button("gl-auto", "Auto", { "aria-label": `${name} back to Auto` });
+    auto.addEventListener("click", () => {
+      if (auto.getAttribute("aria-disabled") !== "true") edit((d) => toAuto(d, row, steering()?.settings));
+    });
+    const well = h("div", { className: "gl-well" });
+    for (const [label, by, aria, fine] of steps) {
+      const b = button("gl-b", "", { "aria-label": aria });
+      if (fine) b.dataset.fine = "true";
+      if (row === "offset") b.append(arrow(by < 0));
+      else b.textContent = label;
+      b.addEventListener("click", () => {
+        if (b.getAttribute("aria-disabled") !== "true") edit((d) => step(d, row, by, steering()?.settings, courseOf(store)));
+      });
+      well.append(b);
+    }
+    const el = h("div", { className: "gl-r" }, h("div", { className: "gl-info" }, lab, h("span", { className: "gl-val" }, value, tag, auto)), well);
+    el.dataset.row = row;
+    if (steps.length > 2) el.dataset.wide = "true";
+    return { el, name, lab, value, tag, auto, well };
+  }
+  const lanes = {
+    width: laneRow("width", "Width", [["−1", -1, "Narrower by 1 metre"], ["−.1", -0.1, "Narrower by 0.1 metre", true],
+      ["+.1", 0.1, "Wider by 0.1 metre", true], ["+1", 1, "Wider by 1 metre"]]),
+    headlands: laneRow("headlands", "Headlands", [["−", -1, "One round fewer"], ["+", 1, "One round more"]]),
+    direction: laneRow("direction", "Direction", [["−5°", -5, "5 degrees anticlockwise"], ["+5°", 5, "5 degrees clockwise"]]),
+    offset: laneRow("offset", "Offset", [["Left", -0.1, "0.1 metre to the left"], ["Right", 0.1, "0.1 metre to the right"]]),
+  };
+  const lanesGroup = h("div", { className: "gl-group" }, lanes.width.el, lanes.headlands.el, lanes.direction.el, lanes.offset.el);
+  lanesGroup.dataset.group = "lanes";
+
+  // Show lines and Cruise: two choices, set at once -------------------------------------
+  /** a tap waiting for the game, or one that failed */
+  let flip = /** @type {{row: "lines"|"cruise", on: boolean, answered?: boolean, at?: number}|null} */ (null);
+  let flipFailed = /** @type {string|null} */ (null);
+  let flipTimer = /** @type {ReturnType<typeof setTimeout>|undefined} */ (undefined);
+  /**
+   * @param {"lines"|"cruise"} row @param {string} name @param {string} aria @param {[string, string]} labels off, on
+   */
+  function gameRow(row, name, aria, labels) {
+    const well = h("div", { className: "gl-well gl-seg" });
+    well.setAttribute("role", "radiogroup");
+    well.setAttribute("aria-label", aria);
+    /** @type {HTMLButtonElement[]} */
+    const segs = [];
+    for (const on of [false, true]) {
+      const seg = button("gl-s", labels[on ? 1 : 0], { role: "radio" });
+      seg.dataset.value = String(on);
+      seg.addEventListener("click", () => pickFlip(row, on));
+      segs.push(seg);
+      well.append(seg);
+    }
+    const el = h("div", { className: "gl-r" }, h("span", { className: "gl-lab gl-lab-line", text: name }), well);
+    el.dataset.row = row;
+    return { el, well, segs };
+  }
+  const gameRows = {
+    lines: gameRow("lines", "Show lines", "Show lines", ["Off", "On"]),
+    cruise: gameRow("cruise", "Cruise control", "Cruise Control Deactivation", ["Manual", "Automatic"]),
+  };
+  const gameGroup = h("div", { className: "gl-group" }, gameRows.lines.el, gameRows.cruise.el);
+  gameGroup.dataset.group = "game";
+
+  // the column ---------------------------------------------------------------------------
   const vehicleLabel = h("span");
-  const list = h("div", { className: "st-list" });
+  const list = h("div", { className: "st-list gl-list" }, modeEl, h("div", { className: "gl-head", text: "Lanes" }), lanesGroup,
+    h("div", { className: "gl-head", text: "Every vehicle" }), gameGroup);
+  const whyEl = h("div", { className: "st-why gl-why" });
+  const whyText = document.createTextNode("");
+  const whySmall = h("small");
+  whyEl.append(whyText, whySmall);
   const resetEl = button("st-reset", "", {});
   resetEl.append(icon("reset"), document.createTextNode("Reset"));
   const applyEl = button("st-apply", "No changes");
   const root = h("aside", { className: "st-col" },
     h("div", { className: "st-col-label" }, document.createTextNode("Set up"), vehicleLabel),
-    list, h("div", { className: "st-foot" }, resetEl, applyEl));
+    list, h("div", { className: "st-foot" }, whyEl, resetEl, applyEl));
   root.setAttribute("aria-label", "Steering Assist settings");
   root.id = opts.id || "st-col";
   root.hidden = true;
 
-  /** the row whose steps are open */
-  let openRow = /** @type {Row|"mode"|null} */ (null);
   /** the mode asked for, while its answer is out; the one whose tap failed */
   let modePending = /** @type {string|null} */ (null);
   let modeFailed = /** @type {string|null} */ (null);
@@ -104,118 +209,17 @@ export function steeringSettings(store, opts = {}) {
   let previewWaiting = /** @type {string|undefined} */ (undefined);
   let previewTimer = /** @type {ReturnType<typeof setTimeout>|undefined} */ (undefined);
 
-  const steering = () => store.get("cab")?.steering;
-  const game = () => {
-    const s = steering()?.settings;
-    return s ? draftOf(s) : undefined;
-  };
-  /** the panel's draft: its own once edited, else the game's */
-  const draft = () => setupOf(store).draft || game();
-
-  // one setting: a head to tap, its steps under it ---------------------------------
-  /**
-   * @param {Row|"mode"} id @param {string} label
-   * @param {(body: HTMLElement) => void} fillBody
-   */
-  function item(id, label, fillBody) {
-    const name = h("b", { text: label });
-    const sub = h("span");
-    const value = h("b");
-    const autoTag = h("i", { text: "Auto" });
-    const head = button("st-head");
-    head.append(h("span", { className: "st-name" }, name, sub), h("span", { className: "st-v" }, value, autoTag));
-    const body = h("div", { className: "st-body" });
-    fillBody(body);
-    const el = h("div", { className: "st-item" }, head, body);
-    el.dataset.row = id;
-    head.addEventListener("click", () => {
-      if (head.getAttribute("aria-disabled") === "true") return;
-      openRow = openRow === id ? null : id;
-      render();
-    });
-    return { el, head, sub, value, autoTag, body };
-  }
-
-  /** a change to the draft: the course rows ask for a preview */
-  function edit(/** @type {(d: Draft) => Draft} */ fn, lanes = true) {
+  /** a change to the draft's lane rows: the preview follows */
+  function edit(/** @type {(d: Draft) => Draft} */ fn) {
     const d = draft();
     if (!d || setupOf(store).phase === "applying") return;
     setSetup(store, { draft: fn(d), phase: "idle" });
-    if (lanes) schedulePreview();
+    schedulePreview();
   }
 
-  /** a step on a course row */
-  const stepOn = (/** @type {CourseRow} */ row, /** @type {number} */ by) => () =>
-    edit((d) => step(d, row, by, steering()?.settings, courseOf(store)));
-  const autoOn = (/** @type {CourseRow} */ row) => () => edit((d) => toAuto(d, row, steering()?.settings));
-
-  /** @param {HTMLElement} body @param {CourseRow} row @param {[string, number, string, boolean?][]} steps */
-  function steps(body, row, steps) {
-    for (const [label, by, aria, fine] of steps) {
-      const b = button("st-step", "", { "aria-label": aria });
-      if (fine) b.dataset.fine = "true";
-      if (row === "offset") b.append(arrow(by < 0), document.createTextNode(label));
-      else b.textContent = label;
-      b.addEventListener("click", stepOn(row, by));
-      body.append(b);
-    }
-    const auto = button("st-step", "Auto");
-    auto.dataset.auto = "";
-    auto.addEventListener("click", autoOn(row));
-    body.append(auto);
-  }
-
-  // the rows -----------------------------------------------------------------
-  /** @type {Record<string, HTMLButtonElement>} */
-  const modeSegs = {};
-  const mode = item("mode", "Mode", (body) => {
-    body.setAttribute("role", "radiogroup");
-    body.setAttribute("aria-label", "Mode");
-    for (const [m, label, ic] of [["worker", "AI worker", "aiWorker"], ["steeringAssist", "Steering Assist", "steering"]]) {
-      const seg = button("st-seg", "", { role: "radio" });
-      seg.append(icon(ic), document.createTextNode(label));
-      seg.addEventListener("click", () => pickMode(m));
-      modeSegs[m] = seg;
-      body.append(seg);
-    }
-  });
-  const whyEl = h("div", { className: "st-why" });
-  const whyText = document.createTextNode("");
-  const whySmall = h("small");
-  whyEl.append(whyText, whySmall);
-  const rows = {
-    width: item("width", "Working width", (b) => steps(b, "width", [["−1", -1, "Narrower by 1 metre"],
-      ["−0.1", -0.1, "Narrower by 0.1 metre", true], ["+0.1", 0.1, "Wider by 0.1 metre", true], ["+1", 1, "Wider by 1 metre"]])),
-    headlands: item("headlands", "Headlands", (b) => steps(b, "headlands", [["−", -1, "One round fewer"], ["+", 1, "One round more"]])),
-    direction: item("direction", "Work direction", (b) => steps(b, "direction", [["−5°", -5, "5 degrees anticlockwise"],
-      ["+5°", 5, "5 degrees clockwise"]])),
-    offset: item("offset", "Side offset", (b) => steps(b, "offset", [["Left", -0.1, "0.1 metre to the left"],
-      ["Right", 0.1, "0.1 metre to the right"]])),
-    lines: item("lines", "Show lines", (body) => {
-      body.dataset.text = "true";
-      body.setAttribute("role", "radiogroup");
-      body.setAttribute("aria-label", "Show lines");
-      for (const [label, on] of /** @type {[string, boolean][]} */ ([["Off", false], ["On", true]])) {
-        const seg = button("st-seg", label, { role: "radio" });
-        seg.dataset.value = String(on);
-        seg.addEventListener("click", () => edit((d) => ({ ...d, lines: on }), false));
-        body.append(seg);
-      }
-    }),
-    cruise: item("cruise", "Cruise control", (body) => {
-      body.dataset.text = "true";
-      body.setAttribute("role", "radiogroup");
-      body.setAttribute("aria-label", "Cruise control deactivation");
-      for (const [label, on] of /** @type {[string, boolean][]} */ ([["Manual", false], ["Automatic", true]])) {
-        const seg = button("st-seg", label, { role: "radio" });
-        seg.dataset.value = String(on);
-        seg.addEventListener("click", () => edit((d) => ({ ...d, cruise: on }), false));
-        body.append(seg);
-      }
-    }),
-  };
-  list.append(mode.el, whyEl, rows.width.el, rows.headlands.el, rows.direction.el, rows.offset.el,
-    h("div", { className: "st-gap" }), rows.lines.el, rows.cruise.el);
+  /** the lane rows the panel holds otherwise than the game (Show lines and Cruise set at once) */
+  const laneChanges = (/** @type {Draft} */ d, /** @type {Draft} */ g, /** @type {ReturnType<typeof locksOf>} */ locks) =>
+    changesOf(d, g, locks).filter((row) => COURSE_ROWS.includes(/** @type {CourseRow} */ (row)));
 
   // the mode: at once ----------------------------------------------------------------
   /** @param {string} m */
@@ -237,6 +241,35 @@ export function steeringSettings(store, opts = {}) {
       modeFailed = m;
       clearTimeout(modeFailTimer);
       modeFailTimer = setTimeout(() => { modeFailed = null; render(); }, ERROR_SHOWN_MS);
+    }
+    render();
+  }
+
+  // Show lines and Cruise: at once ------------------------------------------------------
+  /** @param {"lines"|"cruise"} row @param {boolean} on */
+  async function pickFlip(row, on) {
+    const s = steering();
+    const now = miscOf(s)[row];
+    if (!s || flip || locksOf(s).misc || now === on) return;
+    flip = { row, on };
+    flipFailed = null;
+    render();
+    /** @type {CommandResult} */
+    let result;
+    try {
+      result = await send(row === "lines" ? "steering.lines.set" : "steering.cruiseOff.set", on ? 1 : 0);
+    } catch (e) {
+      result = { ok: false, reason: String(e) };
+    }
+    clearTimeout(flipTimer);
+    if (!result.ok) {
+      flip = null;
+      flipFailed = row;
+      flipTimer = setTimeout(() => { flipFailed = null; render(); }, ERROR_SHOWN_MS);
+    } else {
+      // the cab may say so a moment later: the choice stays until it does
+      flip = { row, on, answered: true };
+      flipTimer = setTimeout(() => { flip = null; render(); }, FLIP_HOLD_MS);
     }
     render();
   }
@@ -278,28 +311,25 @@ export function steeringSettings(store, opts = {}) {
       });
   }
 
-  // Apply and Reset ---------------------------------------------------------------------
+  // Apply and Reset: the lane rows ------------------------------------------------------
   async function apply() {
     const setup = setupOf(store);
     const d = setup.draft, g = game();
     const locks = locksOf(steering());
-    if (!d || !g || setup.phase === "applying") return;
-    const changes = changesOf(d, g, locks);
-    if (!changes.length) return;
+    if (!d || !g || setup.phase === "applying" || locks.lanes || !laneChanges(d, g, locks).length) return;
     setSetup(store, { phase: "applying" });
-    /** @type {Promise<CommandResult>[]} the commands, in the order they run */
-    const out = [];
-    const course = changes.some((row) => COURSE_ROWS.includes(/** @type {CourseRow} */ (row)));
-    if (course) out.push(send("steering.settings.apply", undefined, undefined, undefined, undefined, applyAttr(d, g)));
-    if (changes.includes("lines")) out.push(send("steering.lines.set", d.lines ? 1 : 0));
-    if (changes.includes("cruise")) out.push(send("steering.cruiseOff.set", d.cruise ? 1 : 0));
-    const results = await Promise.all(out.map((p) => Promise.resolve(p).catch((e) => ({ ok: false, reason: String(e) }))));
+    /** @type {CommandResult} */
+    let result;
+    try {
+      result = await send("steering.settings.apply", undefined, undefined, undefined, undefined, applyAttr(d, g));
+    } catch (e) {
+      result = { ok: false, reason: String(e) };
+    }
     if (!setupOf(store).open) return;
-    if (results.every((r) => r.ok)) {
+    if (result.ok) {
       dropPreview(store);
       setSetup(store, { phase: "idle", draft: undefined, previewFor: undefined });
-    }
-    else setSetup(store, { phase: "failed" });
+    } else setSetup(store, { phase: "failed" });
   }
   applyEl.addEventListener("click", () => { if (applyEl.getAttribute("aria-disabled") !== "true") apply(); });
   resetEl.addEventListener("click", () => {
@@ -322,16 +352,12 @@ export function steeringSettings(store, opts = {}) {
     if (!open) {
       if (wasOpen) {
         wasOpen = false;
-        openRow = null;
         clearTimeout(previewTimer);
         previewWaiting = undefined;
       }
       return;
     }
-    if (!wasOpen) {
-      wasOpen = true;
-      openRow = null;
-    }
+    wasOpen = true;
     const rig = store.get("cab")?.rig || [];
     const names = [rig[0]?.name, rig.length > 1 ? rig[rig.length - 1]?.name : undefined].filter(Boolean);
     text(vehicleLabel, names.join(" · "));
@@ -340,23 +366,13 @@ export function steeringSettings(store, opts = {}) {
     const d = draft();
     const locks = locksOf(s);
     const applying = setup.phase === "applying";
-    const changes = d && g ? changesOf(d, g, locks) : [];
-    const assist = s.mode === "steeringAssist";
-    // a row that locks closes
-    if ((openRow && openRow !== "mode" && COURSE_ROWS.includes(/** @type {CourseRow} */ (openRow)) && locks.lanes)
-      || ((openRow === "lines" || openRow === "cruise") && locks.misc)) openRow = null;
+    const changes = d && g ? laneChanges(d, g, locks) : [];
 
     // the mode
-    text(mode.value, assist ? "Steering Assist" : "AI worker");
-    attr(mode.el, "data-open", openRow === "mode");
-    attr(mode.head, "aria-expanded", String(openRow === "mode"));
-    mode.autoTag.hidden = true;
-    mode.body.hidden = openRow !== "mode";
-    const modeSub = modePending ? "Switching…" : s.canAssist === false ? "No tool here allows steering" : "";
-    text(mode.sub, modeSub);
-    mode.sub.hidden = !modeSub;
-    attr(mode.sub, "data-tone", modePending ? "pending" : undefined);
+    // the choice waiting says Switching… (no line of its own: the mini's list has no height to spare);
+    // without a tool that allows it, the reason at the foot says why
     for (const [m, seg] of Object.entries(modeSegs)) {
+      text(seg, modePending === m ? "Switching…" : m === "worker" ? "AI worker" : "Steering Assist");
       attr(seg, "aria-checked", String(s.mode === m));
       attr(seg, "aria-disabled", m === "steeringAssist" && s.canAssist === false ? "true" : undefined);
       attr(seg, "data-state", modePending === m ? "pending" : undefined);
@@ -364,47 +380,50 @@ export function steeringSettings(store, opts = {}) {
       else delete seg.dataset.error;
     }
 
-    // why the rows are faded
-    text(whyText, locks.why);
-    text(whySmall, locks.whySmall);
-    whyEl.hidden = !locks.why;
-
-    // the course rows, Show lines, Cruise
-    for (const row of /** @type {Row[]} */ (["width", "headlands", "direction", "offset", "lines", "cruise"])) {
-      const r = rows[row];
-      const locked = COURSE_ROWS.includes(/** @type {CourseRow} */ (row)) ? locks.lanes : locks.misc;
-      const changed = !!d && !!g && changes.includes(row);
-      const isOpen = openRow === row && !locked;
-      // revision 2: Show lines and Cruise are the game's even before a vehicle has settings
-      const misc = row === "lines" || row === "cruise" ? miscOf(s) : undefined;
-      text(r.value, d ? rowText(d, row) : misc ? rowText(/** @type {any} */ (misc), row) : "–");
-      r.autoTag.hidden = !(d && (row === "width" || row === "headlands" || row === "offset") && d[row].auto
-        && rowText(d, row) !== "Auto");
-      // revision 2: a row the game's dialog holds without OK says so
-      const inDialog = !changed && !misc ? dialogText(s.dialog, /** @type {CourseRow} */ (row)) : "";
-      const sub = changed ? (applying ? "Applying…" : wasText(/** @type {Draft} */ (g), row))
-        : inDialog || (row === "cruise" ? "Off at the lane end" : "");
-      text(r.sub, sub);
-      r.sub.hidden = !sub;
-      attr(r.sub, "data-tone", changed ? (applying ? "pending" : "changed") : inDialog ? "dialog" : undefined);
-      attr(r.el, "data-open", isOpen);
+    // the lane rows
+    attr(lanesGroup, "data-locked", locks.lanes);
+    for (const row of COURSE_ROWS) {
+      const r = lanes[row];
+      const changed = changes.includes(row);
+      text(r.value, d ? rowText(d, row) : "–");
+      const isAuto = !!d && d[row].auto;
+      // the AUTO tag on a value the game picks, the chip back to Auto on a set one (the direction's Auto is its value)
+      r.tag.hidden = !(isAuto && row !== "direction" && rowText(/** @type {Draft} */ (d), row) !== "Auto");
+      r.auto.hidden = !d || isAuto;
+      const inDialog = !changed ? dialogText(s.dialog, row) : "";
+      const sub = changed ? (applying ? "Applying…" : wasText(/** @type {Draft} */ (g), row)) : inDialog;
+      text(r.lab, sub ? `${r.name} · ${sub}` : r.name);
+      attr(r.lab, "data-tone", changed ? (applying ? "pending" : "changed") : inDialog ? "dialog" : undefined);
       attr(r.el, "data-changed", changed);
       attr(r.el, "data-state", changed && applying ? "pending" : undefined);
-      attr(r.el, "data-locked", locked);
-      attr(r.head, "aria-expanded", String(isOpen));
-      attr(r.head, "aria-disabled", locked ? "true" : undefined);
-      r.body.hidden = !isOpen;
-      if (row === "lines" || row === "cruise") {
-        for (const seg of r.body.querySelectorAll("button")) {
-          attr(/** @type {HTMLElement} */ (seg), "aria-checked", String(d?.[row] === (seg.dataset.value === "true")));
-        }
-      } else {
-        const auto = /** @type {HTMLElement} */ (r.body.querySelector("[data-auto]"));
-        attr(auto, "aria-pressed", String(!!d && d[/** @type {CourseRow} */ (row)].auto));
-      }
+      for (const b of [r.auto, ...r.well.querySelectorAll("button")]) attr(/** @type {HTMLElement} */ (b), "aria-disabled", locks.lanes || applying ? "true" : undefined);
     }
 
-    // Reset and Apply
+    // Show lines and Cruise: the game's, or the choice waiting for it
+    attr(gameGroup, "data-locked", locks.misc);
+    const misc = miscOf(s);
+    if (flip?.answered && misc[flip.row] === flip.on) {
+      flip = null;
+      clearTimeout(flipTimer);
+    }
+    for (const row of /** @type {("lines"|"cruise")[]} */ (["lines", "cruise"])) {
+      const r = gameRows[row];
+      const on = flip?.row === row ? flip.on : misc[row];
+      for (const seg of r.segs) {
+        attr(seg, "aria-checked", String(on !== undefined && on === (seg.dataset.value === "true")));
+        attr(seg, "aria-disabled", locks.misc ? "true" : undefined);
+      }
+      attr(r.well, "data-state", flip?.row === row && !flip.answered ? "pending" : undefined);
+      attr(r.well, "data-error", flipFailed === row ? "true" : undefined);
+      attr(r.well, "title", flipFailed === row ? "Failed" : undefined);
+    }
+
+    // the foot: the reason while the lane rows can't be set, else Reset and Apply
+    text(whyText, locks.lanes ? locks.why : "");
+    text(whySmall, locks.lanes ? locks.whySmall : "");
+    whyEl.hidden = !locks.lanes;
+    resetEl.hidden = locks.lanes;
+    applyEl.hidden = locks.lanes;
     const allAuto = !d || COURSE_ROWS.every((row) => d[row].auto);
     attr(resetEl, "aria-disabled", locks.lanes || allAuto || applying ? "true" : undefined);
     const n = changes.length;
@@ -419,9 +438,8 @@ export function steeringSettings(store, opts = {}) {
     if (!!setup.lanesChanged !== lanesChanged) patch.lanesChanged = lanesChanged;
     if (!lanesChanged && setup.previewFor !== undefined) patch.previewFor = undefined;
     if (Object.keys(patch).length) setSetup(store, patch);
-    // back to the game's settings: the draft goes (the panel follows the game again)
-    if (setup.draft && g && !applying && COURSE_ROWS.every((row) => sameRow(row, setup.draft, g))
-      && sameRow("lines", setup.draft, g) && sameRow("cruise", setup.draft, g)) {
+    // back to the game's lane settings: the draft goes (the panel follows the game again)
+    if (setup.draft && g && !applying && COURSE_ROWS.every((row) => sameRow(row, setup.draft, g))) {
       setSetup(store, { draft: undefined, phase: "idle" });
     }
   }

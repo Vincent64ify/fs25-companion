@@ -23,6 +23,13 @@ here is history, and nothing here is a check:
 - **Sell prices:** a `prices` topic (sell point → fill type → price, about
   every 60 s), and a way to show it.
 - **AI workers:** their routes on the map.
+- **GPS settings: as last time with this tool** (Vincent, 2026-11-26,
+  asked in [specs/0022](../specs/0022-steering-assist-settings.md)'s
+  revision 3, drawn on the GPS canvas's board "Glance day recall"): after
+  a hitch the game puts the settings back to Auto, so a button on the
+  field under the tag, "As last time with the LEMKEN Smaragd: 5.0 m · 2
+  headlands · 0.3 m right", puts width, headlands and offset in the draft
+  (not the direction: it's the field's); kept in the browser per tool.
 - **GPS lanes on the Map** (Vincent, 2026-11-19, from
   [specs/0021](../specs/0021-gps-screen.md)'s questions): the lanes of the
   field you're on as a Map layer you can switch on and off, from the

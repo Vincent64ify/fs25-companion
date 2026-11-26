@@ -264,6 +264,140 @@ export function runOut(pts, w) {
 }
 
 /**
+ * A polyline moved `d` metres to its left (its normal (−dz, dx); − moves it
+ * right), mitred at its joints: a lane's edge, half its width out
+ * (specs/0021 revision 3).
+ * @param {number[]} pts @param {number} d
+ */
+export function offsetLine(pts, d) {
+  const n = pts.length / 2;
+  /** the unit left normal of the piece from point i to i + 1 */
+  const nrm = (/** @type {number} */ i) => {
+    const dx = pts[2 * i + 2] - pts[2 * i], dz = pts[2 * i + 3] - pts[2 * i + 1], l = Math.hypot(dx, dz) || 1;
+    return [-dz / l, dx / l];
+  };
+  const out = [];
+  for (let i = 0; i < n; i++) {
+    const a = i > 0 ? nrm(i - 1) : undefined, b = i < n - 1 ? nrm(i) : undefined;
+    let m = a && b ? [a[0] + b[0], a[1] + b[1]] : /** @type {number[]} */ (a || b);
+    const ml = Math.hypot(m[0], m[1]) || 1;
+    m = [m[0] / ml, m[1] / ml];
+    // the mitre: as far out as keeps both pieces d away (capped at a sharp turn)
+    const c = a && b ? Math.max(0.25, m[0] * a[0] + m[1] * a[1]) : 1;
+    out.push(pts[2 * i] + (m[0] * d) / c, pts[2 * i + 1] + (m[1] * d) / c);
+  }
+  return out.map((v) => Math.round(v * 1e6) / 1e6);
+}
+
+// --- revision 4: the close-up at the lane's end ------------------------------------
+
+/** Auto's rule: close from the last `endM` of a lane, back once settled on one (within half a width, heading
+ * along it within `headingDeg`) for `settleMs`; only while lanes are under `helpsPx` in the whole field */
+export const AUTO_ZOOM = { endM: 40, settleMs: 3000, headingDeg: 15, helpsPx: 16 };
+
+/**
+ * Auto's state, fed the course, the rig and how wide a lane is in the
+ * whole-field view, as they come; says whether the close-up shows. `now`
+ * (ms) for the tests.
+ * @param {{now?: () => number}} [opts]
+ */
+export function createAutoZoom({ now = () => performance.now() } = {}) {
+  let zoomed = false;
+  let settledSince = /** @type {number|undefined} */ (undefined);
+  return {
+    /**
+     * @param {SteeringCourse|undefined} c
+     * @param {{x: number, z: number, heading?: number}|undefined} rig
+     * @param {number} lanePx a lane's width in the whole-field view
+     */
+    feed(c, rig, lanePx) {
+      if (!c || !rig || !(lanePx < AUTO_ZOOM.helpsPx)) {
+        zoomed = false;
+        settledSince = undefined;
+        return false;
+      }
+      const w = widthOf(c);
+      const cur = c.current ? c.segments.find((s) => s.i === c.current?.i) : undefined;
+      const lane = cur && typeof cur.lane === "number" && cur.pts.length >= 4 ? cur : undefined;
+      // how far to the lane's end the rig drives to, while it is on the lane
+      const left = (/** @type {number} */ near) => {
+        if (!lane) return undefined;
+        const p = progressAlong(lane.pts, rig, near);
+        return p.at ? (1 - p.t) * lengthOf(lane.pts) : undefined;
+      };
+      if (!zoomed) {
+        const l = left(w);
+        if (l !== undefined && l <= AUTO_ZOOM.endM) {
+          zoomed = true;
+          settledSince = undefined;
+        }
+        return zoomed;
+      }
+      // settled: on a lane, within half a width of it, heading along it, and not at its end already
+      const l = left(w / 2);
+      let aligned = false;
+      if (lane && l !== undefined) {
+        const n = lane.pts.length;
+        const dx = lane.pts[n - 2] - lane.pts[0], dz = lane.pts[n - 1] - lane.pts[1], len = Math.hypot(dx, dz) || 1;
+        const h = ((rig.heading ?? 0) * Math.PI) / 180;
+        aligned = Math.abs((Math.sin(h) * dx - Math.cos(h) * dz) / len) >= Math.cos((AUTO_ZOOM.headingDeg * Math.PI) / 180);
+      }
+      if (aligned && /** @type {number} */ (l) > AUTO_ZOOM.endM) {
+        settledSince ??= now();
+        if (now() - settledSince >= AUTO_ZOOM.settleMs) {
+          zoomed = false;
+          settledSince = undefined;
+        }
+      } else settledSince = undefined;
+      return zoomed;
+    },
+  };
+}
+
+/**
+ * The close-up's view, world metres [x, z, w, h] in the box's shape: about
+ * nine lanes across its short side, at least 30 m; north up; the rig a
+ * third in from where it came, so the lane's end and the headland are ahead.
+ * @param {{x: number, z: number, heading?: number}} rig @param {number} w the lanes' width
+ * @param {number} boxW @param {number} boxH
+ * @returns {[number, number, number, number]}
+ */
+export function closeView(rig, w, boxW, boxH) {
+  const span = Math.max(9 * w, 30);
+  const wide = boxW >= boxH;
+  const vw = wide ? (span * boxW) / boxH : span, vh = wide ? span : (span * boxH) / boxW;
+  const h = ((rig.heading ?? 0) * Math.PI) / 180, hx = Math.sin(h), hz = -Math.cos(h);
+  const ahead = 0.2 * (Math.abs(hx) * vw + Math.abs(hz) * vh);
+  const cx = rig.x + hx * ahead, cz = rig.z + hz * ahead;
+  return [cx - vw / 2, cz - vh / 2, vw, vh];
+}
+
+/**
+ * The lanes' numbers for the close-up: each lane's end nearer the rig (its
+ * first piece's, by number), where it is in the view, with the direction
+ * into the lane and the lane's state.
+ * @param {SteeringCourse} c @param {{x: number, z: number}} rig @param {number[]} view [x, z, w, h]
+ * @returns {{n: number, x: number, z: number, ux: number, uz: number, state: string}[]}
+ */
+export function laneNumbersOf(c, rig, view) {
+  const done = new Set(c.done || []);
+  const seen = new Set();
+  const out = [];
+  for (const s of c.segments) {
+    if (typeof s.lane !== "number" || seen.has(s.lane) || s.pts.length < 4) continue;
+    seen.add(s.lane);
+    const n = s.pts.length;
+    const a = [s.pts[0], s.pts[1]], b = [s.pts[n - 2], s.pts[n - 1]];
+    const nearA = Math.hypot(a[0] - rig.x, a[1] - rig.z) <= Math.hypot(b[0] - rig.x, b[1] - rig.z);
+    const [e, f] = nearA ? [a, b] : [b, a];
+    if (e[0] < view[0] || e[0] > view[0] + view[2] || e[1] < view[1] || e[1] > view[1] + view[3]) continue;
+    const l = Math.hypot(f[0] - e[0], f[1] - e[1]) || 1;
+    out.push({ n: s.lane, x: e[0], z: e[1], ux: (f[0] - e[0]) / l, uz: (f[1] - e[1]) / l, state: stateOf(c, done, s) });
+  }
+  return out.sort((p, q) => p.n - q.n);
+}
+
+/**
  * The time left on a course, fed the course and the rig as they come. One
  * per page; `now` (ms) for the tests.
  * @param {{now?: () => number}} [opts]

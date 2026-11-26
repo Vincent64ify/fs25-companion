@@ -1,6 +1,6 @@
 # 0021: GPS screen: the field, its lanes and the progress
 
-Status: live-checked (revision 2 too)
+Status: live-checked (revision 2 too); revisions 3 and 4 built (2026-11-26), live check open
 Mod: 0.22.0 · Started: 2026-11-17 · Design: the canvas [FS25 Companion: GPS](https://claude.ai/artifact/45ruF2v1hH49JJi4HyRTeM) (private, on claude.ai; at 1158 × 676 and 1180 × 820, day and night; approved by Vincent, 2026-11-19; revision 2's "Refined lanes" row approved 2026-11-23); the brainstorm's brief, `concepts_brief.md`, is in git history (commit b0cffeb)
 
 ## Goal
@@ -73,6 +73,129 @@ the same. No mod change.
   do (their strokes 3 m narrower) and erases the rounds. When a lane goes
   back to to do, the trail is painted whole again.
 
+## Revision 3: lanes you can count
+
+Drafted 2026-11-26 from Vincent's note ("the lines of the lanes are
+quite pale vs the background"); drawn the same day on the GPS canvas's
+"Lanes you can count" row (version 32: field 7 and a big field with a
+3 m tool, both sizes, day and night, and the three looks side by side);
+approved by Vincent the same day (edge lines), built the same day.
+Behaviour below says the same. Web only, no mod change.
+
+**Why.** A lane to do is its strip at 16 % of `--gps-todo` over the
+field, and the line between two lanes to do is a hairline of the field
+itself: light on light, about 1.1 : 1 (day). With lanes 6 m wide on
+field 7 you can still guess them; with a narrow tool on a big field
+(a replay with 2 m lanes on field 7, about 5 px each at 1158 × 676) the
+lanes to do are one pale wash and lane 21 can't be told from 22. Below
+4 px (`DENSE_PX`) there is no line at all.
+
+**Behaviour.**
+- **Every lane to do has its edges drawn:** a line 1 px wide (in CSS
+  pixels) in `--gps-todo` along each side of its strip, at least 3 : 1
+  on the field in both palettes, so the lanes read like the game's own
+  lines in the cab. Two lanes to do side by side share one line. A done
+  lane keeps its hairline of the field (green on the field is already
+  over 3 : 1).
+- **The strip under it a little stronger:** to do at 24 % (was 16 %),
+  so the field, the lanes to do and the lanes done are three steps
+  apart.
+- **Day's `--gps-todo` darker** to reach 3 : 1 on the field: `#8F9BB0`
+  is 2.6 : 1 on `#F4F7FC`; about `#6F7C94` (3.9 : 1, 3.0 : 1 on its
+  own strip). **Night's lighter:** `#5D6B86` is 3.1 : 1 on `#161E2F` but
+  2.5 : 1 on its own strip; about `#7684A0` (4.4 : 1, 3.2 : 1 on its
+  strip). The canvas settles
+  both. Nothing yellow at night.
+- **Dense:** the lines stay down to 3 px between them; closer, the
+  lanes to do are one tinted area as today (they can't be counted at
+  that size anyway: revision 4's close-up is for that).
+- The legend's To do swatch gets its edges too.
+- The canvas also shows a second look for Vincent to compare: lanes to
+  do alternately tinted (22 % and 34 %), no lines. The lines are the
+  recommendation (they are what the game draws, and they hold at night).
+
+**Painting:** the lines are one stroke per lane to do along each side
+(the lane's polyline offset half a width), painted with the lane, so a
+changed lane still repaints only itself and the rounds over its ends.
+
+## Revision 4: the close-up at the lane's end
+
+Drafted 2026-11-26 from Vincent's note: on a big field with a narrow
+tool the lanes are close, and near a lane's end he wants to see clearly
+which lane he turns into and line up with it. He offered three ways:
+two buttons (zoom on the rig, back to the field), an automatic zoom from
+75 % of the lane until he's on another lane, or a picture in picture
+with that same rule. Drawn on the GPS canvas's "The close-up at the
+lane's end" row (version 32, interactive: Field, Auto, Close); approved
+by Vincent the same day (Auto at first, 40 m, the lane numbers), built
+the same day. Behaviour below says the same. Web only, no mod change.
+
+**The choice: one view that zooms, automatic, with a manual override.**
+- **Not a picture in picture.** At 1158 × 676 the field's box is about
+  830 × 420 px. An inset big enough to line up in (300 × 220) covers a
+  third of it, right where you are, since at a lane's end the rig is at
+  the field's edge, so it would have to jump corners. It also paints the
+  course twice, and the iPad already pays for every paint (spec 0013).
+  In a turn you look at one picture; the close-up in the whole box is
+  three times the size of an inset.
+- **Not two buttons alone.** You drive with the joystick and the screen
+  is for looking at (Goal): two presses at every lane's end is what the
+  dashboard is meant to save. The buttons stay, as a choice that sticks.
+- **Not 75 % of the lane.** 75 % of a 600 m lane is 150 m (about 35 s at
+  15 km/h) too early; of a 40 m lane, 10 m. A distance from the lane's
+  end works the same on every field.
+
+**Behaviour.**
+- **A view switch** on the field card, bottom right (the legend sits
+  bottom left, Set up top right): three choices in a well, **Field**,
+  **Auto**, **Close**. The choice is kept in the browser; Auto at first.
+  - **Field:** the whole field, as today.
+  - **Close:** always the close-up, following the rig.
+  - **Auto:** the whole field while you work a lane; the close-up from
+    the last 40 m of a lane (the rig's place along it, as the fill
+    measures it), through the turn, and back to the whole field once you
+    are settled on a lane: within half a width of it, heading along it
+    (within 15°), for 3 s. The game's lane under you flickers between
+    neighbours for a second in a turn (live check, 2026-11-23); the 3 s
+    ride over it. Only where it helps: when a lane is under 16 px wide in
+    the whole-field view; on a field where lanes are already wide Auto
+    stays on the field. Headland rounds never zoom (their corners aren't
+    a lane's end).
+- **The close-up:** north up, like the whole field (the two line up and
+  nothing turns or repaints as you steer); about nine lanes across the
+  box's short side, so four lanes each side are in view (a skip of two
+  or three for a smoother turn is on screen), never less than 30 m. The
+  rig a third in from where it came, so the lane's end, the headland and
+  the next lanes are ahead in view (the canvas: centred, a lane's end
+  40 m ahead was off the screen). Auto says why it zoomed in a tag, top
+  left on the field card ("Close-up · Auto"). The strips, the trail, the fill and the rig as in the
+  whole-field view.
+- **Lane numbers** in the close-up only: a small chip with the lane's
+  number at the end of each lane in view, the end nearer the rig, so you
+  can pick "lane 23" before you turn into it.
+- **Moving:** going in and out of the close-up takes 0.4 s (the box
+  scaled by a transform, then painted sharp once at the new scale). In
+  the close-up the rig and the view glide between the positions (they
+  come twice a second, 1 cm and 0.1°; spec 0013's `vehicles`), so the
+  picture is about half a second behind and never jumps 2 m at a time.
+- **The counts, time left and legend** stay as they are. Set up's preview
+  (spec 0022) is always shown whole field.
+- **Sizes:** works at 1158 × 676 and 1180 × 820, day and night; the
+  switch's buttons at least 44 px.
+
+**Painting** (Fast on the iPad stays):
+- The close-up paints the course and the trail once for an area larger
+  than the box (twice its size each way, kept under Safari's canvas
+  limit), and slides that by a CSS transform as the rig moves; it paints
+  again only when the rig nears the painted area's edge, and when a lane
+  changes state (only that lane, as today). A vehicles message moves a
+  transform and repaints nothing.
+- Nothing painted while the page is hidden, as today.
+
+**Risks:** if gliding between the twice-a-second positions isn't smooth
+enough to line up with, the mod would send the controlled vehicle's pose
+more often: a mod change, its own revision.
+
 ## Behaviour
 
 To be drawn on a canvas first; this is what it holds.
@@ -88,7 +211,10 @@ To be drawn on a canvas first; this is what it holds.
     innermost round; a hairline of the field between strips so they can
     be counted (revision 2).
   - Done lanes and rounds are solid green ("worked", like the trail but
-    darker); the ones to do are the strip faintly tinted; the lane you're
+    darker); the ones to do are the strip tinted at 24 % with its two
+    edges as lines of the to-do colour, a CSS pixel wide, while lanes are
+    3 px or more apart (revision 3: at 16 % with a hairline of the field
+    between them they were about 1.1 : 1 against it); the lane you're
     on is outlined in the on blue, the part ahead tinted with it, filled
     green up to where you are along it (measured from its points and your
     position, no rule of ours) with a square cut. A small legend sits in
@@ -96,6 +222,19 @@ To be drawn on a canvas first; this is what it holds.
   - The rig's position and heading, live.
   - With lanes closer than about 1 px on screen, they are shaded by state
     instead of drawn one by one.
+- **The close-up** (revision 4): a switch bottom right on the field card,
+  Field · Auto · Close, kept in the browser, Auto at first. Field: the
+  whole field. Close: the close-up, always. Auto: the whole field while
+  you work a lane; the close-up from the last 40 m of a lane, through the
+  turn, until you are settled on a lane (within half a width, heading
+  along it within 15°, more than 40 m from its end) for 3 s; only where
+  a lane is under 16 px in the whole-field view, and never from a round.
+  It says so top left: "Close-up · Auto · the lane's end". The close-up:
+  north up, about nine lanes across the box's short side (at least 30 m),
+  the rig a third in from where it came so the lane's end, the headland
+  and the next lanes are ahead; the lanes' numbers in chips at each
+  lane's end nearer the rig (done ones quiet, this lane ringed). Set up's
+  column shows the whole field, the switch hidden.
 - **The counts,** over the field: lanes done ("Lanes done 10 of 40"), the
   lane you're on beside it ("On lane 21"), and the headland rounds done
   ("Rounds done 0 of 2"). Done lanes aren't all behind you: many players
@@ -171,6 +310,14 @@ To be drawn on a canvas first; this is what it holds.
   you're on filled by one SVG line masked by the rounds, so a vehicles
   message repaints no lane; nothing painted while the page is hidden. The Vehicle page's field
   panel was slow on iPad Safari for doing otherwise (spec 0013).
+  Revision 4: every layer sits in one element; the close-up paints the
+  course and the trail once for twice the box each way (less where a
+  canvas would pass 15 Mpx: Safari's limit is 16.7) and slides them by
+  a CSS transform as the rig moves (gliding 0.5 s between its twice-a-
+  second positions), painted again only when the view comes within an
+  eighth of the box of the painted area's edge (the arrow then jumps
+  with the picture, and turns the short way round); going in and out
+  scales the old picture for 0.4 s, then paints the new one sharp.
 - **Sizes:** works on any tablet down to 1158×676; the compact class keeps
   the field on top and the control column under it.
 
@@ -306,6 +453,28 @@ Automated:
 - [x] Replay in the browser pane at 1158×676 and 1180×820, day and night,
   the fixture's course fed in.
 
+- [x] `web/test.html`, revision 3: a polyline offset half a width each
+  side, mitred (`offsetLine`); on the course canvas, between two lanes to
+  do a line of the to-do colour and the strip between at about 24 %;
+  under 3 px apart no lines; the legend's swatch at 24 % with its edges.
+- [x] `web/test.html`, revision 4, Auto (`createAutoZoom`): the whole field
+  on a lane, close from its last 40 m, through the turn and a round, back
+  once settled on the next lane for 3 s; never with lanes of 16 px or
+  more, never from a round.
+- [x] `web/test.html`, revision 4: the close-up's view (`closeView`: nine
+  lanes, 30 m at least, the rig a third in); the lanes' numbers at their
+  ends nearer the rig, in view, with their state (`laneNumbersOf`).
+- [x] `web/test.html`, revision 4, the screen: the switch (Field, Auto,
+  Close; Auto at first; kept in the browser); field 7 at 800 × 400 never
+  zooms on Auto; Close paints once at twice the box; a few metres slide
+  the picture with no paint, near the edge one paint more with the lane
+  ends' numbers; Field the whole field; Auto with narrow lanes zooms at
+  the lane's end with its tag; Set up open: the whole field, no switch.
+- [x] Replay in the browser pane, a 59-lane field of 3 m lanes fed in: the
+  edge lines at 1180 × 820 day; Auto's close-up 25 m from the lane's end
+  (numbers 34 to 43, the tag); in the turn at 1158 × 676 night; Set up
+  open shows the whole field.
+
 Live check (Solek, mod 0.22.0):
 - [x] The dashboard's lanes match the ones the game draws (fields 7 and 6).
 - [x] Two headlands, and a field with an island: the rounds count and the
@@ -327,6 +496,17 @@ Live check, revision 2 (no mod change: 0.22.0):
   square, lanes flush against the headland, no halo beside or past the
   lanes; a lane started and left (to do) shows its trail inside it.
 - [x] Smooth on the iPad as before: a lane going done, the rig moving.
+
+Live check, revisions 3 and 4 (no mod change):
+- [ ] On the iPad, day and night: the lanes to do countable by their
+  edge lines, on a field with a narrow tool.
+- [ ] Auto with a narrow tool: the close-up from about 40 m before a
+  lane's end, through the turn, back to the whole field about 3 s after
+  settling on the next lane; it doesn't flicker in the turn.
+- [ ] The lane numbers match the game's lanes (the one you turn into).
+- [ ] Close and Field picked: they stay, after a reload too.
+- [ ] Smooth enough to line up by on the iPad: the glide between the
+  twice-a-second positions, no stutter when the picture is painted again.
 
 ## Decisions
 
@@ -491,3 +671,25 @@ Live check, revision 2 (no mod change: 0.22.0):
 - 2026-11-23: revision 2 live-checked on the iPad by Vincent, day and
   night: the corners square, the lanes flush, no halo, smooth as before
   ("everything working fine").
+- 2026-11-26: revisions 3 and 4 drafted from Vincent's notes: the lanes
+  to do too pale against the field (1.1 : 1; one pale wash with 2 m lanes
+  in the replay), and a close-up at a lane's end for narrow tools on big
+  fields. Recommended: edge lines on the lanes to do; one view that zooms
+  (Field, Auto, Close), not a picture in picture or two buttons alone, from
+  the last 40 m rather than 75 %. Waiting for Vincent's answers and the
+  canvas.
+- 2026-11-26: revisions 3 and 4 drawn on the GPS canvas (version 32):
+  the three looks side by side at the screen's own scale, the edge lines
+  at both sizes, the close-up's boards (Auto at the end and in the turn,
+  Auto on a lane, Close mid-lane, Field at the end) and the field drawing
+  alone. The close-up now looks ahead (the rig a third in), since a
+  centred view left the lane's end off screen.
+- 2026-11-26: revisions 3 and 4 approved by Vincent on the canvas and
+  built (web only): `data/gps.js` `offsetLine`, `createAutoZoom`,
+  `closeView`, `laneNumbersOf`; `widgets/gpsScreen.js` the edge lines, the
+  layers in one element, the switch, the tag, the chips, the slide and the
+  zoom; `ui/trailCanvas.js` paints again when its view changes;
+  `theme.css` `--gps-todo` #6F7C94 day and #7684A0 night, the legend's
+  swatch, the switch and the chips. test.html 478 green, pytest 226; the
+  replay in the pane with a 59-lane field at both sizes, day and night.
+  Live check open.

@@ -104,7 +104,8 @@
   --gps-edge: #0C2D6B;
   --gps-done: #2F8A5C;
   --gps-current: #0C4DB8;
-  --gps-todo: #8F9BB0;
+  --gps-todo: #6F7C94;  /* specs/0021 revision 3: 3.9:1 on the field (was #8F9BB0, 2.6:1) */
+  --changed-ink: #0C4DB8;  /* a setting changed, not applied (specs/0022 revision 3) */
   --gps-rig: #0D1B33;
   --gps-rig-edge: #FFFFFF;
   --warn: #A15800;
@@ -200,7 +201,8 @@
   --gps-edge: #97A3B9;
   --gps-done: #2F9468;
   --gps-current: #C9D4E8;
-  --gps-todo: #5D6B86;
+  --gps-todo: #7684A0;  /* revision 3: 4.4:1 on the field, 3.2:1 on its own strip (was #5D6B86) */
+  --changed-ink: #7AA7F5;  /* 6.4:1 on a row, 2.1:1 apart from the white values */
   --gps-rig: #E8EDF5;
   --gps-rig-edge: #070B13;
   --warn: #FFB648;
@@ -2170,7 +2172,11 @@ button.day-clock[aria-expanded="true"] .day-clock-when { color: inherit; opacity
   background: var(--card);
 }
 /* one box 12 px in, measured: every layer fills it, so all share one fit */
-.gps-box { position: absolute; inset: 12px; }
+.gps-box { position: absolute; inset: 12px; overflow: hidden; }
+/* every layer in one element: the box's size, or twice it each way in the close-up, slid by a transform (specs/0021 revision 4) */
+.gps-layers { position: absolute; left: 0; top: 0; width: 100%; height: 100%; transform-origin: 0 0; will-change: transform; }
+/* the close-up glides between the rig's positions (they come twice a second) */
+.gps-map[data-view="close"] .gps-layers, .gps-map[data-view="close"] .gps-rig { transition: transform 500ms linear; }
 .gps-ground, .gps-trail, .gps-course, .gps-over {
   position: absolute;
   inset: 0;
@@ -2209,8 +2215,9 @@ button.day-clock[aria-expanded="true"] .day-clock-when { color: inherit; opacity
 .gps-key i.done { background: var(--gps-done); }
 .gps-key i.current { background: linear-gradient(90deg, var(--gps-done) 50%,
   color-mix(in srgb, var(--gps-current) 20%, var(--gps-field)) 50%); box-shadow: inset 0 0 0 1.5px var(--gps-current); }
-.gps-key i.todo { background: color-mix(in srgb, var(--gps-todo) 16%, var(--gps-field));
-  box-shadow: 0 0 0 1px color-mix(in srgb, var(--gps-todo) 30%, transparent); }
+/* to do as drawn since revision 3: the strip at 24 %, its two edges lines */
+.gps-key i.todo { background: color-mix(in srgb, var(--gps-todo) 24%, var(--gps-field));
+  box-shadow: inset 0 1px 0 var(--gps-todo), inset 0 -1px 0 var(--gps-todo); }
 .gps-key i.trail { background: var(--trail-work); }
 /* no lanes: the reason, in the game's words, over the field */
 .gps-words {
@@ -2232,12 +2239,40 @@ button.day-clock[aria-expanded="true"] .day-clock-when { color: inherit; opacity
 }
 .gps-words[hidden] { display: none; }
 
+/* revision 4: the view switch, bottom right on the field card (the legend bottom left, Set up top right) */
+.gps-view { position: absolute; right: 14px; bottom: 14px; z-index: 2; display: flex; gap: 4px; padding: 4px; border: 1px solid var(--border);
+  border-radius: 14px; background: var(--glass); box-shadow: var(--lift); }
+.gps-view[hidden] { display: none; }
+.gps-view-seg { height: 44px; min-width: 66px; padding: 0 14px; box-sizing: border-box; display: inline-flex; align-items: center; justify-content: center;
+  border: 0; border-radius: 10px; background: transparent; color: var(--glass-text); font: 600 14px/1 var(--font); cursor: pointer;
+  touch-action: manipulation; white-space: nowrap; }
+.gps-view-seg[aria-checked="true"] { background: var(--card-solid); color: var(--sel-ink); font-weight: 700;
+  box-shadow: inset 0 0 0 2px var(--select), 0 1px 2px rgba(12, 45, 107, 0.15); }
+:root[data-palette="night"] .gps-view-seg[aria-checked="true"] { background: var(--sel-tint); box-shadow: inset 0 0 0 2px var(--select); }
+.gps-view-seg:focus-visible { outline: 3px solid var(--select); outline-offset: 2px; }
+/* Auto has zoomed: why, top left on the field card */
+.gps-zoomtag { position: absolute; top: 14px; left: 14px; z-index: 2; display: flex; flex-direction: column; gap: 2px; padding: 8px 14px;
+  border: 1px solid var(--on-border); border-radius: 12px; background: var(--glass); color: var(--glass-text); box-shadow: var(--lift); }
+.gps-zoomtag[hidden] { display: none; }
+.gps-zoomtag b { font-size: 14px; font-weight: 700; color: var(--on-text); white-space: nowrap; }
+:root[data-palette="night"] .gps-zoomtag b { color: var(--text); }
+.gps-zoomtag span { font-size: 12px; color: var(--muted); white-space: nowrap; }
+/* the lanes' numbers, close up: at each lane's end nearer the rig */
+.gps-chip rect { fill: var(--card-solid); stroke: var(--border); stroke-width: 1px; vector-effect: non-scaling-stroke; }
+.gps-chip text { fill: var(--text); font-family: var(--font); font-weight: 700; font-variant-numeric: tabular-nums; }
+.gps-chip[data-state="done"] rect { fill: var(--gps-field); }
+.gps-chip[data-state="done"] text { fill: var(--muted); font-weight: 600; }
+.gps-chip[data-state="current"] rect { stroke: var(--gps-current); stroke-width: 2px; }
+@media (prefers-reduced-motion: reduce) {
+  .gps-map[data-view="close"] .gps-layers, .gps-map[data-view="close"] .gps-rig { transition: none; }
+}
+
 /* --- Steering Assist settings (specs/0022): Set up on the field card turns
    the Drive column into the settings column; the field keeps its place and
    shows the game's preview of the course. As the GPS canvas's "Steering
-   Assist settings" row (approved 2026-11-24): the rows are the column's
-   buttons, the open one shows its steps in a --line well like the game
-   speed panel's. Nothing new in colour. */
+   Assist settings" row (approved 2026-11-24; revision 3, every setting at
+   a glance, approved 2026-11-26: the gl- list below). Night's changed blue
+   #7AA7F5 is the one new colour. */
 
 /* Set up / Close: top right on the field card, as the legend sits bottom left */
 .st-open { position: absolute; top: 14px; right: 14px; z-index: 2; display: inline-flex; align-items: center; gap: 8px; height: 44px;
@@ -2272,63 +2307,80 @@ button.day-clock[aria-expanded="true"] .day-clock-when { color: inherit; opacity
   margin: -6px; padding: 6px; }
 .st-gap { height: 4px; flex: none; }
 
-/* one setting: a row you tap to open; open, its steps under it */
-.st-item { display: flex; flex-direction: column; flex: none; border: 1px solid var(--border); border-radius: 14px;
-  background: var(--btn); box-shadow: var(--lift); }
-.st-item[data-open="true"] { border-color: var(--on-border); box-shadow: none; background: var(--card-solid); }
-:root[data-palette="night"] .st-item[data-open="true"] { background: var(--select-bg); }
-.st-item[data-locked="true"] { opacity: 0.4; box-shadow: none; }
-.st-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; min-height: 50px; padding: 6px 12px 6px 14px;
-  box-sizing: border-box; border: 0; background: transparent; color: inherit; font: inherit; text-align: left; cursor: pointer; touch-action: manipulation; }
-.st-head[aria-disabled="true"] { cursor: default; }
-.st-name { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-.st-name b { font-size: 14px; font-weight: 600; line-height: 1.15; white-space: nowrap; }
-.st-name span { font-size: 11px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.st-name span[data-tone="changed"] { color: var(--sel-ink); font-weight: 600; }
-/* specs/0022 revision 2: a row the game's dialog holds without OK */
-.st-name span[data-tone="dialog"] { color: var(--warn); font-weight: 600; }
-.st-name span[data-tone="pending"] { color: var(--on-text); font-weight: 600; animation: st-blink 1.2s var(--ease) infinite alternate; }
-:root[data-palette="night"] .st-name span[data-tone="pending"] { color: var(--text); }
+/* specs/0022 revision 3, every setting at a glance (the GPS canvas's row, approved 2026-11-26): a grouped
+   list, every row open. Mode a slim switch; the lane rows one line each, their steps in a small well (the
+   width on two lines); Show lines and Cruise their own small group, set at once. A changed value is blue. */
 @keyframes st-blink { from { opacity: 0.55; } to { opacity: 1; } }
-.st-v { flex: none; display: inline-flex; align-items: center; gap: 6px; padding: 5px 8px; border-radius: 9px; font-variant-numeric: tabular-nums; }
-.st-v b { font-size: 15px; font-weight: 700; white-space: nowrap; }
-.st-v i { font-style: normal; font-size: 10px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted);
-  padding: 2px 5px; border-radius: 5px; background: var(--line); }
-/* changed, not applied yet: the value ringed, as the speed panel's step you picked */
-.st-item[data-changed="true"] .st-v { color: var(--sel-ink); box-shadow: inset 0 0 0 2px var(--select); }
-.st-item[data-state="pending"] .st-v { animation: st-wait 1.2s var(--ease) infinite alternate; }
 @keyframes st-wait {
   from { box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--on-border) 30%, transparent); }
   to { box-shadow: inset 0 0 0 2px var(--on-border); }
 }
+.gl-list { gap: 6px; }
+/* Mode: a slim two-way switch */
+.gl-mode { flex: none; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 2px; padding: 2px; border-radius: 10px; background: var(--line); }
+.gl-mseg { height: 40px; min-width: 0; padding: 0 6px; box-sizing: border-box; border: 0; border-radius: 8px; background: transparent; color: var(--muted);
+  font: 600 13px/1 var(--font); white-space: nowrap; cursor: pointer; touch-action: manipulation; }
+.gl-mseg[aria-checked="true"] { background: var(--card-solid); color: var(--sel-ink); font-weight: 700; box-shadow: 0 1px 2px rgba(12, 45, 107, 0.18); }
+:root[data-palette="night"] .gl-mseg[aria-checked="true"] { background: var(--sel-tint); color: var(--text); }
+.gl-mseg[aria-disabled="true"] { opacity: 0.45; cursor: default; }
+.gl-mseg[data-state="pending"] { animation: st-blink 1.2s var(--ease) infinite alternate; }
+/* Failed on the choice tapped (failures on the button, spec 0013 revision 6) */
+.gl-mseg[data-error] { box-shadow: inset 0 0 0 2px var(--alarm); color: var(--alarm); }
+/* a group's small heading, then its rows in one card with hairlines between */
+.gl-head { flex: none; margin: 4px 4px -2px; font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+.gl-group { flex: none; display: flex; flex-direction: column; border: 1px solid var(--border); border-radius: 14px; background: var(--btn);
+  box-shadow: var(--lift); overflow: hidden; }
+.gl-group[data-locked="true"] { opacity: 0.4; box-shadow: none; }
+.gl-group[data-locked="true"] button { cursor: default; }
+.gl-r { display: flex; align-items: center; gap: 6px; min-height: 64px; padding: 5px 6px 5px 12px; box-sizing: border-box; }
+.gl-r + .gl-r { border-top: 1px solid var(--border); }
+.gl-info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.gl-lab { font-size: 11px; font-weight: 600; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.gl-lab-line { flex: 1; min-width: 0; font-size: 13px; color: var(--text); }
+/* changed, not applied yet: blue (Vincent, 2026-11-26: blue text, no ring); day the on blue, night a stronger blue apart from the white */
+.gl-lab[data-tone="changed"], .gl-r[data-changed="true"] .gl-val b { color: var(--changed-ink); }
+.gl-lab[data-tone="pending"] { color: var(--on-text); animation: st-blink 1.2s var(--ease) infinite alternate; }
+:root[data-palette="night"] .gl-lab[data-tone="pending"] { color: var(--text); }
+/* specs/0022 revision 2: a row the game's dialog holds without OK */
+.gl-lab[data-tone="dialog"] { color: var(--warn); }
+.gl-r[data-state="pending"] .gl-val b { animation: st-blink 1.2s var(--ease) infinite alternate; }
+.gl-val { display: flex; align-items: center; gap: 5px; min-width: 0; font-variant-numeric: tabular-nums; }
+.gl-val b { font-size: 17px; font-weight: 700; white-space: nowrap; }
+.gl-val i { font-style: normal; font-size: 9px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted);
+  padding: 2px 4px; border-radius: 4px; background: var(--line); }
+.gl-val i[hidden], .gl-auto[hidden] { display: none; }
+/* back to Auto: a small chip outlined in the blue beside a set value (its hit area larger) */
+.gl-auto { position: relative; height: 20px; padding: 0 6px; border: 1px solid var(--changed-ink); border-radius: 6px; background: transparent;
+  color: var(--changed-ink); font: 700 10px/1 var(--font); letter-spacing: 0.04em; text-transform: uppercase; cursor: pointer; touch-action: manipulation; }
+.gl-auto::after { content: ""; position: absolute; inset: -8px -6px; }
+/* the steps: a well of small buttons */
+.gl-well { flex: none; display: flex; gap: 2px; padding: 2px; border-radius: 10px; background: var(--line); }
+.gl-b { width: 48px; height: 48px; padding: 0; box-sizing: border-box; display: inline-flex; align-items: center; justify-content: center; border: 0; border-radius: 8px;
+  background: var(--card-solid); color: var(--text); font: 700 15px/1 var(--font); font-variant-numeric: tabular-nums;
+  box-shadow: 0 1px 1px rgba(12, 45, 107, 0.12); cursor: pointer; touch-action: manipulation; transition: transform 90ms var(--ease); }
+:root[data-palette="night"] .gl-b { background: var(--btn); }
+/* the fine steps: smaller, not greyed (grey read as switched off at night) */
+.gl-b[data-fine="true"] { width: 32px; font-size: 13px; font-weight: 600; }
+.gl-b svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.gl-b:active { transform: scale(0.93); }
+/* the width: its name and value across the top, its four steps across the row */
+.gl-r[data-wide="true"] { flex-wrap: wrap; row-gap: 6px; padding-top: 8px; }
+.gl-r[data-wide="true"] .gl-info { flex: 1 1 100%; }
+.gl-r[data-wide="true"] .gl-well { flex: 1 1 100%; margin-left: -7px; }
+.gl-r[data-wide="true"] .gl-b { flex: 1; width: auto; }
+/* Show lines and Cruise: two choices; set at once, the tapped one breathing until the game has it */
+.gl-group[data-group="game"] .gl-r { min-height: 60px; }
+.gl-seg { width: 132px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.gl-s { height: 48px; min-width: 0; padding: 0 4px; border: 0; border-radius: 8px; background: transparent; color: var(--muted); font: 600 12px/1 var(--font);
+  white-space: nowrap; cursor: pointer; touch-action: manipulation; }
+.gl-s[aria-checked="true"] { background: var(--card-solid); color: var(--sel-ink); font-weight: 700; box-shadow: 0 1px 2px rgba(12, 45, 107, 0.18); }
+:root[data-palette="night"] .gl-s[aria-checked="true"] { background: var(--sel-tint); color: var(--text); }
+.gl-seg[data-state="pending"] { animation: st-wait 1.2s var(--ease) infinite alternate; }
+.gl-seg[data-error="true"] { box-shadow: inset 0 0 0 2px var(--alarm); }
+.gl-mseg:focus-visible, .gl-b:focus-visible, .gl-s:focus-visible, .gl-auto:focus-visible { outline: 3px solid var(--select); outline-offset: 2px; }
 
-/* the steps: one well, the finer steps inside, Auto at the end, lit while on Auto */
-.st-body { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 4px; margin: 0 6px 6px; padding: 4px;
-  border-radius: 12px; background: var(--line); }
-.st-step, .st-seg { display: inline-flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; min-width: 0; height: 44px; padding: 0 2px;
-  box-sizing: border-box; border: 0; border-radius: 10px; background: transparent; color: var(--text); font: 700 15px/1 var(--font);
-  font-variant-numeric: tabular-nums; white-space: nowrap; cursor: pointer; touch-action: manipulation;
-  transition: background 160ms var(--ease), box-shadow 160ms var(--ease), transform 90ms var(--ease); }
-.st-step:active, .st-seg:active { transform: scale(0.95); }
-.st-step[data-fine="true"] { font-weight: 600; font-size: 13px; color: var(--muted); }
-.st-step svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
-.st-step[data-auto] { font-size: 13px; font-weight: 600; }
-.st-step[aria-pressed="true"] { background: var(--card-solid); color: var(--sel-ink); font-weight: 700; cursor: default;
-  box-shadow: inset 0 0 0 2px var(--select), 0 1px 2px rgba(12, 45, 107, 0.15); }
-:root[data-palette="night"] .st-step[aria-pressed="true"] { background: var(--sel-tint); box-shadow: inset 0 0 0 2px var(--select); }
-.st-seg { height: 52px; font-size: 13px; font-weight: 600; }
-.st-seg svg { width: 20px; height: 20px; }
-.st-seg[aria-checked="true"] { background: var(--card-solid); color: var(--sel-ink); font-weight: 700;
-  box-shadow: inset 0 0 0 2px var(--select), 0 1px 2px rgba(12, 45, 107, 0.15), 0 4px 10px rgba(12, 45, 107, 0.12); }
-:root[data-palette="night"] .st-seg[aria-checked="true"] { background: var(--sel-tint); box-shadow: inset 0 0 0 2px var(--select); }
-.st-seg[aria-disabled="true"] { opacity: 0.45; cursor: default; }
-.st-seg[data-state="pending"] { animation: st-wait 1.2s var(--ease) infinite alternate; }
-/* Failed on the segment tapped (failures on the button, spec 0013 revision 6) */
-.st-seg[data-error] { box-shadow: inset 0 0 0 2px var(--alarm); color: var(--alarm); }
-.st-body[data-text="true"] .st-seg { height: 44px; font-size: 14px; }
-
-/* the lane rows the game won't take now: why, above them */
-.st-why { flex: none; padding: 8px 12px; border: 1px solid var(--border); border-radius: 12px; background: var(--glass); color: var(--glass-text);
+/* the lane rows the game won't take now: why, in Reset and Apply's place (revision 3) */
+.st-why { flex: 1; min-height: 52px; box-sizing: border-box; display: flex; flex-direction: column; justify-content: center; padding: 8px 12px; border: 1px solid var(--border); border-radius: 12px; background: var(--glass); color: var(--glass-text);
   font-size: 13px; font-weight: 700; line-height: 1.3; }
 .st-why small { display: block; font-size: 12px; font-weight: 500; color: var(--muted); }
 
@@ -2348,24 +2400,33 @@ button.day-clock[aria-expanded="true"] .day-clock-when { color: inherit; opacity
 .st-apply[data-state="pending"] { background: var(--line); color: var(--text); animation: st-wait 1.2s var(--ease) infinite alternate; box-shadow: none; }
 .st-apply[data-state="error"] { background: var(--card-solid); color: var(--alarm); box-shadow: inset 0 0 0 2px var(--alarm); }
 
-.st-head:focus-visible, .st-step:focus-visible, .st-seg:focus-visible, .st-apply:focus-visible, .st-reset:focus-visible, .st-open:focus-visible {
+.st-why[hidden], .st-reset[hidden], .st-apply[hidden] { display: none; }
+
+.st-apply:focus-visible, .st-reset:focus-visible, .st-open:focus-visible {
   outline: 3px solid var(--select); outline-offset: 2px; }
 
-/* the iPad mini (1158 × 676): 44 px rows, the steps still 44 tall */
+/* the iPad mini (1158 × 676): the list full without scrolling (checked at 268 px wide), steps 40 to 42 px */
 @media (max-height: 799px) and (min-width: 900px) and (orientation: landscape) {
-  .st-head { min-height: 44px; padding: 4px 10px 4px 12px; }
-  .st-list { gap: 4px; }
   .st-col { gap: 6px; }
   .st-reset, .st-apply { height: 48px; }
-  .st-seg { height: 48px; }
-  .st-body[data-text="true"] .st-seg { height: 44px; }
+  .st-why { min-height: 48px; }
+  .gl-list { gap: 5px; }
+  .gl-mseg { height: 34px; }
+  .gl-r { min-height: 52px; padding: 4px 4px 4px 10px; }
+  .gl-r[data-wide="true"] { padding-top: 6px; row-gap: 4px; }
+  .gl-r[data-wide="true"] .gl-well { margin-left: -6px; }
+  .gl-b, .gl-s { height: 40px; }
+  .gl-b { width: 42px; }
+  .gl-val b { font-size: 16px; }
+  .gl-group[data-group="game"] .gl-r { min-height: 48px; }
+  .gl-group[data-group="game"] .gl-s { height: 38px; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .st-step, .st-seg, .st-apply { transition: none; }
-  .st-step:active, .st-seg:active, .st-apply:active { transform: none; }
-  .st-item[data-state="pending"] .st-v, .st-seg[data-state="pending"], .st-apply[data-state="pending"] { animation: none; box-shadow: inset 0 0 0 2px var(--on-border); }
-  .st-name span[data-tone="pending"] { animation: none; }
+  .gl-b, .st-apply { transition: none; }
+  .gl-b:active, .st-apply:active { transform: none; }
+  .gl-seg[data-state="pending"], .st-apply[data-state="pending"] { animation: none; box-shadow: inset 0 0 0 2px var(--on-border); }
+  .gl-r[data-state="pending"] .gl-val b, .gl-mseg[data-state="pending"], .gl-lab[data-tone="pending"] { animation: none; }
 }
 
 @media (max-width: 899px), (orientation: portrait) {

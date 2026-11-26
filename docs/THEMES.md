@@ -325,29 +325,37 @@ Under it the field's card: the field in `--gps-field` with its edge;
 every lane and round the strip it works (revision 2): its width wide less
 a pixel, square ends, mitred corners, lanes cut flush a hairline before
 the innermost round. Done solid `--gps-done`; to do the strip in
-`--gps-todo` at 16 %; the lane you're on outlined in `--gps-current`, the
+`--gps-todo` at 24 % with its two edges as 1 px lines of it, 3 px apart
+or more (revision 3); the lane you're on outlined in `--gps-current`, the
 part ahead tinted with it at 20 %, `--gps-done` up to the rig with a square
 cut (closer than 4 px: full width, no hairline). The trail
 (`--trail-work`) only inside the lanes to do, 1.5 m in from their sides:
 "Worked, not counted". A legend pill bottom-left with the strips as
 swatches; the rig an arrow. No lanes: the reason in a glass card in the middle, the course kept
 and dimmed off the field. No readout. Compact: the field 420 tall over the
-dock.
+dock. Bottom right a switch in a glass well, Field · Auto · Close (44
+tall, the picked one ringed like the speed panel's step); the close-up
+(revision 4) is the same drawing nine lanes across, with the lanes'
+numbers in small card-coloured chips at their ends (done ones quiet,
+this lane ringed in `--gps-current`), and "Close-up · Auto · the lane's
+end" top left in a glass tag edged in `--on-border` when Auto zoomed.
 
 Set up, top right on the field card (a 44-tall button like the column's),
 opens Steering Assist's settings in the Drive column's place, 268 wide
 ([spec 0022](../specs/0022-steering-assist-settings.md), the GPS canvas's
 "Steering Assist settings" row): Set up and the vehicle over a list of
-rows (Mode; the reason the rows below are faded, in a glass card; Working
-width, Headlands, Work direction, Side offset; a gap; Show lines, Cruise
-control), each a button with its value on the right and a small "Auto"
-tag; a tap opens its steps under it in a `--line` well, as the game speed
-panel's; a changed row's value ringed in `--select` with "was …" under its
-name. A row the game's own dialog holds without OK (stepped there, left
-with Back) keeps the lanes' value and says "Dialog: 6.0 m" under its name
-in `--warn` (revision 2; "was …" wins while the panel has a change).
-Reset and Apply (`--accent`, "Apply 2 changes", "Applying…",
-"Failed") at the foot. 44-tall rows on a short screen. The field stays as
+settings, every one open (revision 3): Mode a slim two-way switch in a
+`--line` well; "Lanes", a grouped card with hairlines between, one line a
+setting (its name small, "Width · was 6.0 m" while changed; its value,
+blue while changed (`--chip-on-text`, night #7AA7F5); an AUTO tag on Auto
+or an Auto chip outlined in that blue; its steps in a small `--line`
+well, the width's four across a second line); "Every vehicle", a second
+card with Show lines Off | On and Cruise Manual | Automatic. A row the
+game's own dialog holds without OK says "Width · Dialog: 6.0 m" in
+`--warn` (revision 2). Reset and Apply (`--accent`, "Apply 2 changes",
+"Applying…", "Failed") at the foot, or the reason in a glass card in
+their place while the lane rows can't be set. Steps 48 tall, 40 to 42 on
+a short screen, where the list fills the column without scrolling. The field stays as
 it is; while a change waits, a glass tag top left ("Preview · not
 applied") and the game's preview: every lane and round a strip in
 `--gps-current` at 30 % with a centre line, the counts quiet; "Building
@@ -544,7 +552,7 @@ yellow ([specs/0013](../specs/0013-vehicle-screen-calm.md)).
 | Backdrop behind a panel | `rgba(4,17,42,0.45)` | `rgba(0,0,0,0.55)` |
 | Map overlays (scale, labels) | white glass `rgba(255,255,255,0.85)` | dark glass `rgba(7,11,19,0.82)` |
 | GPS: the field, its edge (`--gps-field`, `--gps-edge`) | `#F4F7FC`, `#0C2D6B` | `#161E2F`, `#97A3B9` |
-| GPS: done, this lane, to do (`--gps-done`, `--gps-current`, `--gps-todo`) | `#2F8A5C` (3.6:1 on the field), `#0C4DB8`, `#8F9BB0` | `#2F9468` (3.9:1), `#C9D4E8` (the ring's light grey: no yellow), `#5D6B86` |
+| GPS: done, this lane, to do (`--gps-done`, `--gps-current`, `--gps-todo`) | `#2F8A5C` (3.6:1 on the field), `#0C4DB8`, `#6F7C94` (3.9:1, spec 0021 revision 3) | `#2F9468` (3.9:1), `#C9D4E8` (the ring's light grey: no yellow), `#7684A0` (4.4:1) |
 | GPS: the rig's arrow (`--gps-rig`, its edge) | `#0D1B33`, `#FFFFFF` | `#E8EDF5`, `#070B13` |
 
 - Map colours (hotspots, fields, crops, markers) are the same in both

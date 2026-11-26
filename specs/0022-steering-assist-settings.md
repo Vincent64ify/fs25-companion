@@ -1,6 +1,6 @@
 # 0022: Steering Assist settings from the dashboard
 
-Status: live-checked (revision 2 too)
+Status: live-checked (revision 2 too); revision 3 built (2026-11-26), live check open
 Mod: 0.23.1 (revision 2; 0.23.0 before) · Started: 2026-11-17 · Design: the "Steering Assist settings" row on the GPS canvas, approved 2026-11-24 (version 30) (`FS25 Companion: GPS`, https://claude.ai/artifact/45ruF2v1hH49JJi4HyRTeM, board `Settings`), drawn 2026-11-23, redrawn 2026-11-24; the brainstorm's brief, `concepts_brief.md`, is in git history (commit b0cffeb)
 
 ## Goal
@@ -94,15 +94,81 @@ fade, as now.
   lanes' value with the dialog's note; Apply another row; the dialog and
   the lanes have only the dashboard's change. A dialog OK clears the note.
 
+## Revision 3: every setting at a glance
+
+Drafted 2026-11-26 from Vincent's note: changing the settings must be
+quicker than in the game, or the dashboard loses its point; opening each
+row one by one is too slow. Drawn on the GPS canvas's "Every setting at
+a glance" row (version 32, redrawn after his comments up to version 38),
+approved by Vincent the same day and built the same day; Behaviour below
+says the same. The recall per tool isn't in it (PLAN.md). Web only, no
+mod change.
+
+**Why.** Today a row opens its steps under it, one row at a time: a
+width, a headland and a direction is tap, step, tap, step, tap, step,
+Apply. In the game it's hold H, step, step, step, OK.
+
+**Behaviour** (compact, after Vincent's canvas comment, 2026-11-26: "it's
+cramped up"; a grouped list like a phone's settings, with nudge buttons
+like the guidance terminals').
+- **Mode:** a slim two-way switch at the top (36 px), AI worker |
+  Steering Assist; it sets at once, as today, the choice tapped saying
+  "Switching…" until the answer. Without a tool that allows it, Steering
+  Assist fades and the reason at the foot says why (no line of its own:
+  the mini's list has no height to spare).
+- **Lanes:** one card, one line a setting, hairlines between. Each line
+  has the name ("Width", "Headlands", "Direction", "Offset"; "Width · was
+  6.0 m" while changed, "Applying…" while applying, the dialog's note as
+  today), the value under it (in blue while changed, not applied: Vincent, 2026-11-26, blue text rather than a ring; day the on blue #0C4DB8, night a new stronger blue #7AA7F5, 6.4 : 1 on the row and apart from the white values), an AUTO tag on Auto
+  or a small Auto chip outlined in that blue beside a set value, so it
+  reads as a button (one tap back to Auto), and
+  the steps in a small well on the right: width −1, −.1, +.1, +1;
+  headlands −, +; direction −5°, +5°; offset ←, →. One tap a step.
+- **Every vehicle:** a second card, Show lines Off | On and Cruise control
+  Manual | Automatic.
+- **Show lines and Cruise set at once,** like Mode (proposed; today they
+  wait for Apply): they build no course, and their commands are their own
+  already (`steering.lines.set`, `steering.cruiseOff.set`). Apply is then
+  only the four course rows, as the game builds the lanes once. A tapped
+  choice breathes until the game has it, and its switch rings in the
+  alarm colour ("Failed") when the game doesn't take it.
+- **What stays:** the preview after half a second, Reset, Apply, Close.
+  Locked rows fade with their card and keep their place; the reason
+  ("Steering is on", "Drive onto a field you may work", "Switch to
+  Steering Assist") takes Reset and Apply's place at the foot, since
+  neither can do anything then.
+- **The width on two lines:** its name and value across the top, its
+  four steps across the whole row, so nothing crowds its value.
+- **Uses the column's height** and fits without scrolling at 1158 × 676
+  in the Drive column's width (268 px): steps 48 px at 1180 × 820, 40 to
+  42 px on the mini, where the list is full (checked in a browser at
+  268 px wide, day and night). The Auto chip is small, its hit area
+  larger.
+
+**A question beside it: a recall per tool.** After every hitch the game
+puts the settings back to Auto (Behaviour, "After hitching"), so the same
+tool on the next field needs its width, headlands and offset again. A
+button on the field under the tag, "As last time with the LEMKEN Smaragd: 5.0 m · 2 headlands · 0.3 m
+right", one tap to put them in the draft (the direction stays: it's the
+field's). Kept in the browser per tool name. Not in this revision unless
+Vincent wants it here; else PLAN.md.
+
+**Tests:** `web/test.html`'s settings checks that open a row first lose
+that tap; new: every row's steps are there without a tap; a step changes
+the draft at once; Show lines and Cruise send their command on the tap,
+not on Apply; Apply counts only course rows; the column's list doesn't
+scroll at 1158 × 676 (the pane).
+
 ## Behaviour
 
 - **A settings column,** opened by Set up on the GPS screen's field card
   (Vincent, 2026-11-24): it takes the Drive column's place, so the field
   keeps its place and size and shows the preview (below) while you
-  adjust. One row per setting, its value on the right, with the game's
-  values as it holds them, never a copy; tap a row and its steps open
-  under it, one row at a time. Close (where Set up was) drops what wasn't
-  applied, as the game's Back, and brings the Drive column back:
+  adjust. Every setting open, as the game holds it, never a copy
+  (revision 3: a grouped list, a slim Mode switch, the four lane rows one
+  line each with their steps in a small well, Show lines and Cruise in
+  their own group; one tap a step). Close (where Set up was) drops what
+  wasn't applied, as the game's Back, and brings the Drive column back:
   - **Mode:** AI worker or Steering Assist, two choices in a well. It sets
     at once (its own command, like the game speed steps), not on Apply;
     the rows below follow the game's mode. Steering Assist is faded with
@@ -124,9 +190,10 @@ fade, as now.
     or metres to one side, "0.5 m left" (the game's −) or "0.5 m right"
     (+) (Vincent tested it, 2026-11-23); −/+ in 0.1 m steps, and one tap
     back to Auto.
-  - **Show lines:** On or Off.
+  - **Show lines:** On or Off, set at once (revision 3).
   - **Cruise control:** Manual or Automatic, the game's words for its
-    "Cruise Control Deactivation" (off at the lane end).
+    "Cruise Control Deactivation" (off at the lane end), set at once
+    (revision 3).
   - Show lines and Cruise are the game's own settings, the same for every
     vehicle (spike 0.0.18; Vincent, 2026-11-24: game-wide, as the game
     does).
@@ -153,8 +220,9 @@ fade, as now.
   course rows are faded (off the field, steering, AI worker mode). If the
   spike shows the builder isn't safe to call this way, the preview goes
   and the field shows the game's new course after Apply.
-- **Apply,** like the dialog's OK: the panel holds the changes until Apply,
-  so the game builds the course once. The rows show "Applying…" until the
+- **Apply,** like the dialog's OK: the panel holds the lane rows' changes
+  until Apply, so the game builds the course once (Show lines and Cruise
+  set at once since revision 3). The rows show "Applying…" until the
   game reads the change back; a change that doesn't get there says "Failed"
   on Apply.
 - **Only the selected mode's settings** (Vincent, 2026-11-23): the rows
@@ -361,7 +429,8 @@ the change back. It is host only until checked on a multiplayer client.
   `mod/src/Commands.lua`, `companion/server.py` and
   `companion/commands.py`.
 - **`steering.lines.set`** and **`steering.cruiseOff.set`**, value 0 or 1,
-  game-wide (the game's settings, every vehicle): as the dialog's OK, the
+  game-wide (the game's settings, every vehicle), sent on the tap since
+  revision 3 (before, with Apply): as the dialog's OK, the
   row's entry in Steering Assist's `userSettings` (`showLines`,
   `cruiseControl`) and the game setting with `g_gameSettings:setValue(id,
   value, true)`. The setting alone, or the game's lines key, is undone the
@@ -528,6 +597,18 @@ Live check (Solek, mod 0.23.0):
 - ~~Precision Farming on and off.~~ Not needed (Vincent, 2026-11-25):
   PF changes nothing for the GPS, settled in earlier sessions.
 
+- [x] `web/test.html`, revision 3: every row's steps there without a tap
+  (the width's four on two lines); one tap a step, the value changed
+  (blue), "Offset · was Auto · 0.0 m", the Auto chip; Show lines sent at
+  once (not on Apply), breathing, held until the game says so; a flip the
+  game doesn't take rings its switch; Apply sends the lane rows only;
+  the reason in Reset and Apply's place in AI worker mode, off the field
+  and while steering; the mode at once with "Switching…" and Failed;
+  revision 2's dialog note beside the name.
+- [x] Replay in the browser pane at 1158 × 676 night (steering: the list
+  fits, 466 of 466 px, the reason at the foot) and 1180 × 820 day (two
+  changes: blue values, the Auto chips, "Apply 2 changes").
+
 Live check, revision 2 (mod 0.23.1):
 - [x] Step a row in the game's dialog (width) and press Back: the panel
   shows the lanes' value with "Dialog: …" under the row.
@@ -538,6 +619,13 @@ Live check, revision 2 (mod 0.23.1):
   the panel shows the new value.
 - [x] In AI worker mode (the Valtra after a detach), Show lines and
   Cruise show the game's values, faded.
+
+Live check, revision 3 (no mod change):
+- [ ] On the iPad mini, day and night: every setting there without
+  scrolling; width, headlands and direction changed and applied in a few
+  taps, the preview following.
+- [ ] Show lines and Cruise set at once from the dashboard: the game's
+  lines and its cruise setting change without Apply.
 
 ## Decisions
 
@@ -922,3 +1010,31 @@ Live check, revision 2 (mod 0.23.1):
   dialog said 45°. The Valtra with only the front hopper (AI worker
   mode): Show lines On and Cruise Manual from `cab.steering`'s top,
   faded, the course rows "–".
+- 2026-11-26: revision 3 drafted from Vincent's note (changing the
+  settings must be quicker than in the game): every row always open, one
+  tap a step; Show lines and Cruise set at once (proposed); a recall per
+  tool asked. Waiting for Vincent's answers and the canvas.
+- 2026-11-26: revision 3 drawn on the GPS canvas (version 32): every row
+  open at both sizes, the steering and AI worker states, Show lines set
+  at once, and the recall question. Changed while drawing: Show lines and
+  Cruise flip with one tap (two choices didn't fit the mini), the reason
+  takes Reset and Apply's place, the recall sits on the field.
+- 2026-11-26: Vincent's canvas comment ("cramped up", the mode switch too
+  big, the four settings more compact): redrawn as a grouped list, one
+  line a setting with its steps in a small well, a slim mode switch, Show
+  lines and Cruise in their own small card (canvas version 34).
+- 2026-11-26: Vincent's second comment (things overlapping, space left at
+  the foot): the width's value and Auto chip crowded its four steps, so
+  the width takes two lines; rows and steps grow to fill the column (48 px
+  steps at 1180 × 820, 40 to 42 on the mini). Checked in a browser page
+  at 268 px wide, day and night, at both heights (canvas version 35).
+- 2026-11-26: night checked in a browser (canvas version 37): the changed
+  value's blue made stronger at night (#7AA7F5, a new colour for
+  `theme.css`), the ±0.1 steps no longer grey (they looked switched off),
+  the Auto chip outlined in blue so it doesn't look like the AUTO tag.
+- 2026-11-26: revision 3 approved by Vincent on the canvas and built (web
+  only): `widgets/steeringSettings.js` rewritten as the grouped list (Show
+  lines and Cruise at once, Apply the lane rows only, the reason at the
+  foot); `theme.css` the gl- list in place of the rows that opened, night's
+  changed blue #7AA7F5. test.html 478 green, pytest 226; the replay in the
+  pane at both sizes. Live check open. The recall per tool went to PLAN.md.

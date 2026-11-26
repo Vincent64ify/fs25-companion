@@ -16,7 +16,9 @@
 //   once and switched with `hidden`, and the iPad pays for every paint.
 // - Every lane and round is the strip it works (revision 2): a stroke its
 //   width less a pixel (a hairline between strips), square ends, mitred
-//   corners. Lanes run out a width past their ends and are cut flush by
+//   corners; a lane to do also has its two edges as lines of the to-do
+//   colour while lanes are 3 px or more apart (revision 3, so they can be
+//   counted). Lanes run out a width past their ends and are cut flush by
 //   erasing the rounds' strokes a pixel wider; each round is one closed
 //   stroke, worked part way clipped to each run's sector. Closer than 4 px
 //   the strips are drawn full width, so a dense field reads as areas.
@@ -32,8 +34,21 @@
 //   "No lanes with these settings" when the game built none. The course
 //   and the preview are painted on the same canvas, their keys kept apart
 //   ("c3", "p3").
+// - The close-up (revision 4): a switch bottom right on the field card,
+//   Field · Auto · Close, kept in the browser. Auto shows the close-up from
+//   the last 40 m of a lane, through the turn, until settled on a lane for
+//   3 s, where lanes are under 16 px in the whole field (data/gps.js
+//   createAutoZoom). The close-up is about nine lanes across, north up, the
+//   rig a third in from where it came, with the lanes' numbers at their
+//   ends. Every layer sits in one element (.gps-layers): the close-up is
+//   painted once for twice the box each way and slid by a transform as the
+//   rig moves (gliding between positions), painted again only near the
+//   painted area's edge; going in and out scales the old picture for
+//   0.4 s, then paints the new one sharp. Set up's preview is always the
+//   whole field.
 
-import { countsOf, createGpsTimes, fillOf, gpsState, roundLoopsOf, roundRuns, runOut, stateOf, widthOf } from "../data/gps.js";
+import { closeView, countsOf, createAutoZoom, createGpsTimes, fillOf, gpsState, laneNumbersOf, offsetLine, roundLoopsOf, roundRuns, runOut, stateOf,
+  widthOf } from "../data/gps.js";
 import { controlledVehicle, fieldAt, outlineBounds } from "../data/selectors.js";
 import { contractsOf, onField, titleOf } from "../data/contracts.js";
 import { coverageOf } from "../data/coverage.js";
@@ -56,9 +71,12 @@ const MIN_MARGIN_M = 8;
 // lanes narrower than this on screen are drawn full width, the ones to do shaded
 const DENSE_PX = 4;
 // the colours when the theme has none (the day's)
-const FALLBACK = { done: "#2F8A5C", current: "#0C4DB8", todo: "#8F9BB0" };
-// a lane to do: its strip in the to-do colour this strong; the lane you're on ahead of the rig in its own
-const TODO_ALPHA = 0.16;
+const FALLBACK = { done: "#2F8A5C", current: "#0C4DB8", todo: "#6F7C94" };
+// a lane to do: its strip in the to-do colour this strong (revision 3: 24 %, was 16 %); the lane you're on
+// ahead of the rig in its own
+const TODO_ALPHA = 0.24;
+// revision 3: a lane to do's edges are lines of the to-do colour, a CSS pixel wide, while lanes are this far apart
+const LINE_MIN_PX = 3;
 const AHEAD_ALPHA = 0.2;
 // the lane you're on: its outline this many pixels wide each side
 const EDGE_PX = 2;
@@ -71,6 +89,19 @@ const PREVIEW_ALPHA = 0.3;
 const PREVIEW_LINE_ALPHA = 0.75;
 // each screen's SVG mask its own id
 let screens = 0;
+// revision 4: the view picked, kept in the browser; going in and out of the close-up
+const VIEW_KEY = "fs25companion.gpsView";
+const VIEWS = /** @type {const} */ (["field", "auto", "close"]);
+const ZOOM_MS = 400;
+// a canvas's pixels at most (Safari's limit is 16.7 M): the close-up's painted area keeps under it
+const MAX_CANVAS_PX = 15e6;
+/** @typedef {"field"|"auto"|"close"} ViewMode */
+/** @typedef {{getItem: (k: string) => string|null, setItem: (k: string, v: string) => void}} KeptChoices */
+/** the browser's own, quiet in private mode @type {KeptChoices} */
+const BROWSER = {
+  getItem: (k) => { try { return localStorage.getItem(k); } catch { return null; } },
+  setItem: (k, v) => { try { localStorage.setItem(k, v); } catch { /* private mode */ } },
+};
 
 /** @param {string} tag @param {Record<string, string|number>} [attrs] */
 function svg(tag, attrs = {}) {
@@ -142,11 +173,13 @@ function stat(label) {
  */
 export function gpsScreen(store, opts = {}) {
   const more = /** @type {{coverage?: ReturnType<typeof coverageOf>, watchSize?: WatchSize,
-    times?: ReturnType<typeof createGpsTimes>, stats?: PaintStats}} */ (/** @type {any} */ (opts));
+    times?: ReturnType<typeof createGpsTimes>, stats?: PaintStats, storage?: KeptChoices, zoomMs?: number}} */ (/** @type {any} */ (opts));
   const coverage = more.coverage || coverageOf(store);
   const watchSize = more.watchSize || observeSize;
   const times = more.times || createGpsTimes();
   const stats = more.stats || { full: 0, lanes: 0, pieces: 0 };
+  const storage = more.storage || BROWSER;
+  const zoomMs = more.zoomMs ?? ZOOM_MS;
 
   // the header: the field, the counts, the time left
   const badge = h("span", { className: "gps-badge" });
@@ -180,7 +213,9 @@ export function gpsScreen(store, opts = {}) {
   defs.append(roundsMask);
   const fillEl = svg("polyline", { class: "gps-fill", mask: `url(#${maskId})` });
   const edgeEl = svg("polygon", { class: "gps-edge" });
-  over.append(defs, fillEl, edgeEl);
+  // revision 4: the lanes' numbers in the close-up
+  const chipsEl = svg("g", { class: "gps-chips" });
+  over.append(defs, fillEl, edgeEl, chipsEl);
   const rigSvg = svg("svg", { class: "gps-rig-svg", width: 1, height: 1, overflow: "visible" });
   rigSvg.append(svg("path", { class: "gps-arrow", d: "M0 -13 L9 10 L0 5 L-9 10 Z" }));
   const rig = h("div", { className: "gps-rig" }, rigSvg);
@@ -208,9 +243,35 @@ export function gpsScreen(store, opts = {}) {
   const tagSub = h("span");
   const tag = h("div", { className: "st-tag" }, tagText, tagSub);
   tag.hidden = true;
-  // every layer in one measured box, so the canvases, the SVGs and the rig share one fit
-  const box = h("div", { className: "gps-box" }, ground, trailCanvas, courseCanvas, over, rig);
-  const mapBox = h("div", { className: "gps-map" }, box, legend, wordsEl, tag, setUp);
+  // every layer in one element in one measured box, so the canvases, the SVGs and the rig share one fit;
+  // the close-up's layers are twice the box each way, slid by a transform (revision 4)
+  const layers = h("div", { className: "gps-layers" }, ground, trailCanvas, courseCanvas, over, rig);
+  const box = h("div", { className: "gps-box" }, layers);
+  // the view switch, bottom right: Field · Auto · Close
+  let viewMode = /** @type {ViewMode} */ (VIEWS.find((v) => v === storage.getItem(VIEW_KEY)) || "auto");
+  /** @type {Record<string, HTMLButtonElement>} */
+  const viewSegs = {};
+  const viewEl = h("div", { className: "gps-view" });
+  viewEl.setAttribute("role", "radiogroup");
+  viewEl.setAttribute("aria-label", "View");
+  for (const [v, label] of [["field", "Field"], ["auto", "Auto"], ["close", "Close"]]) {
+    const b = /** @type {HTMLButtonElement} */ (h("button", { className: "gps-view-seg", text: label }));
+    b.type = "button";
+    b.dataset.value = v;
+    b.setAttribute("role", "radio");
+    b.addEventListener("click", () => {
+      if (viewMode === v) return;
+      viewMode = /** @type {ViewMode} */ (v);
+      storage.setItem(VIEW_KEY, v);
+      render();
+    });
+    viewSegs[v] = b;
+    viewEl.append(b);
+  }
+  // Auto has zoomed: why, top left
+  const zoomTag = h("div", { className: "gps-zoomtag" }, h("b", { text: "Close-up" }), h("span", { text: "Auto · the lane's end" }));
+  zoomTag.hidden = true;
+  const mapBox = h("div", { className: "gps-map" }, box, legend, wordsEl, tag, zoomTag, setUp, viewEl);
   mapBox.setAttribute("role", "img");
   const root = h("section", { className: "gps-screen" }, head, mapBox);
   root.setAttribute("aria-label", "GPS");
@@ -222,9 +283,19 @@ export function gpsScreen(store, opts = {}) {
     (kind) => colourOf(`--trail-${kind}`, TRAIL_FALLBACK[kind]));
 
   let boxW = 0, boxH = 0;
-  /** what's on screen: the view, the field (for the trail), the outline drawn */
+  /** the layers' size: the box's, twice it each way in the close-up */
+  let lw = 0, lh = 0;
+  /** what's on screen: the view the layers are painted for, the field (for the trail), the outline drawn */
   let view = /** @type {View|undefined} */ (undefined);
   let viewKey = "";
+  /** revision 4: the whole field's view; the close-up on screen; Auto's rule; going in or out now */
+  let fieldView = /** @type {View|undefined} */ (undefined);
+  let screenView = /** @type {View|undefined} */ (undefined);
+  let zoomed = false;
+  let zooming = false;
+  const autoZoom = createAutoZoom();
+  let svgViewKey = "";
+  let chipsKey = "";
   let fieldId = /** @type {number|undefined} */ (undefined);
   let clip = /** @type {number[]|undefined} */ (undefined);
   let course = /** @type {SteeringCourse|undefined} */ (undefined);
@@ -233,12 +304,12 @@ export function gpsScreen(store, opts = {}) {
   let rigAt = /** @type {{x: number, z: number, heading: number}|undefined} */ (undefined);
   let lastHead = "";
   /** what the course canvas holds; -1: a course gone while the page was hidden, to clear */
-  const painted = { key: /** @type {number|undefined} */ (undefined), w: 0, h: 0, dpr: 0, palette: "",
+  const painted = { key: /** @type {number|undefined} */ (undefined), w: 0, h: 0, dpr: 0, palette: "", view: "",
     states: /** @type {Map<number, string>} */ (new Map()) };
 
   /** the course's shapes, once per key: each round's loop, each lane's polyline run out past its ends */
   const geo = { key: /** @type {number|undefined} */ (undefined), loops: /** @type {ReturnType<typeof roundLoopsOf>} */ ([]),
-    lanes: /** @type {Map<number, number[]>} */ (new Map()) };
+    lanes: /** @type {Map<number, number[]>} */ (new Map()), edges: /** @type {Map<number, number[][]>} */ (new Map()) };
   /** @param {SteeringCourse} c */
   function geometry(c) {
     if (geo.key !== c.key) {
@@ -247,6 +318,8 @@ export function gpsScreen(store, opts = {}) {
       geo.loops = roundLoopsOf(c);
       geo.lanes = new Map(c.segments.filter((s) => typeof s.lane === "number" && s.pts.length >= 4)
         .map((s) => [s.i, runOut(s.pts, w)]));
+      // revision 3: each lane's two edges, half its width out
+      geo.edges = new Map([...geo.lanes].map(([i, pts]) => [i, [offsetLine(pts, w / 2), offsetLine(pts, -w / 2)]]));
     }
     return geo;
   }
@@ -254,9 +327,10 @@ export function gpsScreen(store, opts = {}) {
   /** The strips' widths at this size, in world metres (the canvas's transform makes them pixels). @param {SteeringCourse} c */
   function lookOf(c) {
     const w = widthOf(c);
-    const px = view && boxW > 0 && boxH > 0 ? 1 / fitView(view, boxW, boxH).k : w / 20;
+    const px = view && lw > 0 && lh > 0 ? 1 / fitView(view, lw, lh).k : w / 20;
     const dense = w / px < DENSE_PX;
-    return { w, px, dense, band: dense ? w : w - px, cut: dense ? w : w + px, inner: Math.max(px, w - (1 + 2 * EDGE_PX) * px),
+    return { w, px, dense, lines: w / px >= LINE_MIN_PX, band: dense ? w : w - px, cut: dense ? w : w + px,
+      inner: Math.max(px, w - (1 + 2 * EDGE_PX) * px),
       colours: { done: colourOf("--gps-done", FALLBACK.done), current: colourOf("--gps-current", FALLBACK.current),
         todo: colourOf("--gps-todo", FALLBACK.todo) } };
   }
@@ -314,6 +388,17 @@ export function gpsScreen(store, opts = {}) {
     strip(shape, state, look);
   }
 
+  /**
+   * A lane to do's two edges (revision 3), a CSS pixel wide: drawn before the
+   * rounds cut the lanes, so they stop flush too.
+   * @param {CourseSegment} s @param {ReturnType<typeof lookOf>} look
+   */
+  function drawEdges(s, look) {
+    const sides = geometry(/** @type {SteeringCourse} */ (course)).edges.get(s.i);
+    if (!sides || !look.lines) return;
+    stroke(() => { for (const pts of sides) trace(ctx, pts, false); }, look.px, look.colours.todo);
+  }
+
   /** The lanes cut flush by the rounds: their strokes erased a pixel wider. @param {ReturnType<typeof lookOf>} look */
   function cutRounds(look) {
     const g = geometry(/** @type {SteeringCourse} */ (course));
@@ -368,17 +453,18 @@ export function gpsScreen(store, opts = {}) {
       painted.states = new Map();
       return;
     }
-    const fit = fitView(view, boxW, boxH);
+    const fit = fitView(view, lw, lh);
     const look = lookOf(course);
     const g = geometry(course);
+    const viewStr = view.join(",");
     const done = new Set(course.done || []);
     const states = new Map(course.segments.map((s) => [s.i, stateOf(/** @type {SteeringCourse} */ (course), done, s)]));
-    const full = painted.key !== course.key || painted.w !== boxW || painted.h !== boxH || painted.dpr !== dpr
-      || painted.palette !== palette;
+    const full = painted.key !== course.key || painted.w !== lw || painted.h !== lh || painted.dpr !== dpr
+      || painted.palette !== palette || painted.view !== viewStr;
     const lanes = course.segments.filter((s) => typeof s.lane === "number");
     const changed = (/** @type {number} */ i) => painted.states.get(i) !== states.get(i);
     if (full) {
-      const width = Math.round(boxW * dpr), height = Math.round(boxH * dpr);
+      const width = Math.round(lw * dpr), height = Math.round(lh * dpr);
       if (courseCanvas.width !== width) courseCanvas.width = width;
       if (courseCanvas.height !== height) courseCanvas.height = height;
       ctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -398,18 +484,22 @@ export function gpsScreen(store, opts = {}) {
       if (full) {
         paintPreview(course, look);
         stats.full++;
-        Object.assign(painted, { key: course.key, w: boxW, h: boxH, dpr, palette });
+        Object.assign(painted, { key: course.key, w: lw, h: lh, dpr, palette, view: viewStr });
       }
     } else if (full) {
       // the lanes, cut by the rounds, then the rounds
       for (const s of lanes) drawLane(s, states.get(s.i) || "todo", look, false);
+      for (const s of lanes) if (states.get(s.i) === "todo") drawEdges(s, look);
       cutRounds(look);
       for (const r of g.loops) drawRound(r, states, look, false);
       stats.full++;
-      Object.assign(painted, { key: course.key, w: boxW, h: boxH, dpr, palette });
+      Object.assign(painted, { key: course.key, w: lw, h: lh, dpr, palette, view: viewStr });
     } else {
       const lanesChanged = lanes.filter((s) => changed(s.i));
       for (const s of lanesChanged) drawLane(s, states.get(s.i) || "todo", look, true);
+      // the edges of the lanes changed, and of their neighbours to do (an erase takes half a shared edge)
+      const near = new Set(lanesChanged.flatMap((s) => [/** @type {number} */ (s.lane) - 1, s.lane, /** @type {number} */ (s.lane) + 1]));
+      for (const s of lanes) if (near.has(s.lane) && states.get(s.i) === "todo") drawEdges(s, look);
       stats.lanes += lanesChanged.length;
       // a lane's erase reaches into the rounds at its ends: the rounds again
       if (lanesChanged.length) cutRounds(look);
@@ -426,7 +516,7 @@ export function gpsScreen(store, opts = {}) {
     const fill = course && rigAt && !previewing ? fillOf(course, rigAt) : undefined;
     const pts = fill && fill.pts.length >= 4 ? pointsAttr(fill.pts) : "";
     if (fillEl.getAttribute("points") !== pts) fillEl.setAttribute("points", pts);
-    if (!course || !view || !(boxW > 0 && boxH > 0)) return;
+    if (!course || !view || !(lw > 0 && lh > 0)) return;
     const look = lookOf(course);
     const g = geometry(course);
     // the rounds in the mask: once per course
@@ -480,17 +570,168 @@ export function gpsScreen(store, opts = {}) {
     const show = !!rigAt && !!view;
     if (rig.hidden === show) rig.hidden = !show;
     if (!rigAt || !view) return;
-    const fit = fitView(view, boxW, boxH);
-    rig.style.transform = `translate(${n1(fit.x0 + rigAt.x * fit.k)}px, ${n1(fit.z0 + rigAt.z * fit.k)}px) `
-      + `rotate(${n1(rigAt.heading)}deg)`;
+    const fit = fitView(view, lw, lh);
+    // the heading the short way round from the last one, so the close-up's glide never spins the arrow
+    rigDeg = rigAt.heading + 360 * Math.round((rigDeg - rigAt.heading) / 360);
+    const t = `translate(${n1(fit.x0 + rigAt.x * fit.k)}px, ${n1(fit.z0 + rigAt.z * fit.k)}px) rotate(${n1(rigDeg)}deg)`;
+    // a new picture: the arrow at its new place at once, not gliding from the old one
+    if (freshPicture) {
+      freshPicture = false;
+      jump(rig, t);
+    } else if (rig.style.transform !== t) rig.style.transform = t;
   }
 
   /** What depends on the box's size; nothing while the page is hidden (0 × 0). */
   function paint() {
-    if (!(boxW > 0 && boxH > 0)) return;
-    trail.paint({ fieldId, view, clip, w: boxW, h: boxH, mask: course && view && !previewing ? trailMask(course) : undefined });
+    if (!(boxW > 0 && boxH > 0) || zooming) return;
+    frame();
+    trail.paint({ fieldId, view, clip, w: lw, h: lh, mask: course && view && !previewing ? trailMask(course) : undefined });
     paintCourse();
     placeRig();
+    placeChips();
+  }
+
+  /** A transform at once, not glided (a new picture, or the zoom's end). @param {HTMLElement} el @param {string} t */
+  function jump(el, t) {
+    el.style.transition = "none";
+    el.style.transform = t;
+    void el.offsetWidth;
+    el.style.transition = "";
+  }
+
+  /** whether the close-up shows now (Auto fed elsewhere, in render) */
+  let wantClose = false;
+  /** a new picture since the arrow was placed; the arrow's heading as last set (unwound) */
+  let freshPicture = false;
+  let rigDeg = 0;
+
+  /**
+   * The view the layers are painted for and where they sit (revision 4):
+   * the whole field at the box's size, or the close-up, painted for twice
+   * the box each way around the screen's view, slid by a transform, painted
+   * again when the screen's view nears its edge.
+   */
+  function frame() {
+    if (!fieldView) {
+      view = undefined;
+      lw = boxW;
+      lh = boxH;
+      return;
+    }
+    if (!wantClose || !rigAt || !course) {
+      const changed = view !== fieldView || lw !== boxW || lh !== boxH;
+      view = fieldView;
+      lw = boxW;
+      lh = boxH;
+      screenView = undefined;
+      if (changed) {
+        layers.style.width = `${lw}px`;
+        layers.style.height = `${lh}px`;
+        jump(layers, "");
+        freshPicture = true;
+      }
+      mapBox.dataset.view = "field";
+      setSvgView();
+      return;
+    }
+    screenView = closeView(rigAt, widthOf(course), boxW, boxH);
+    const f = overPaint();
+    const fitNow = view && lw === Math.round(f * boxW) && lh === Math.round(f * boxH) ? fitView(view, lw, lh) : undefined;
+    // the screen's view inside the painted area, in the layers' pixels
+    const at = (/** @type {{k: number, x0: number, z0: number}} */ f) =>
+      [f.x0 + /** @type {View} */ (screenView)[0] * f.k, f.z0 + /** @type {View} */ (screenView)[1] * f.k];
+    let off = fitNow && mapBox.dataset.view === "close" ? at(fitNow) : undefined;
+    // a new picture: none yet, or the screen's view within an eighth of the box of the painted area's edge
+    const fresh = !off || off[0] < boxW / 8 || off[1] < boxH / 8 || off[0] > lw - boxW - boxW / 8 || off[1] > lh - boxH - boxH / 8;
+    if (fresh) {
+      const [x, z, w, hh] = screenView;
+      const f = overPaint();
+      view = [x - (w * (f - 1)) / 2, z - (hh * (f - 1)) / 2, w * f, hh * f];
+      lw = Math.round(f * boxW);
+      lh = Math.round(f * boxH);
+      layers.style.width = `${lw}px`;
+      layers.style.height = `${lh}px`;
+      off = at(fitView(view, lw, lh));
+    }
+    mapBox.dataset.view = "close";
+    setSvgView();
+    const t = `translate(${n1(-off[0])}px, ${n1(-off[1])}px)`;
+    if (fresh) {
+      jump(layers, t);
+      freshPicture = true;
+    } else if (layers.style.transform !== t) layers.style.transform = t;
+  }
+
+  /**
+   * How much bigger than the box the close-up is painted each way: twice,
+   * less where a canvas would pass about 15 Mpx (Safari's limit is 16.7).
+   */
+  function overPaint() {
+    const dpr = window.devicePixelRatio || 1;
+    return Math.max(1.25, Math.min(2, Math.sqrt(MAX_CANVAS_PX / Math.max(1, boxW * boxH * dpr * dpr))));
+  }
+
+  /** The SVGs' view box: the view the layers are painted for. */
+  function setSvgView() {
+    const attr = view ? view.map(n1).join(" ") : "0 0 1 1";
+    if (attr === svgViewKey) return;
+    svgViewKey = attr;
+    ground.setAttribute("viewBox", attr);
+    over.setAttribute("viewBox", attr);
+  }
+
+  /** The lanes' numbers, close up: at each lane's end nearer the rig, in the painted area. */
+  function placeChips() {
+    const show = mapBox.dataset.view === "close" && !!course && !!view && !!rigAt && lw > 0;
+    const c = /** @type {SteeringCourse} */ (course);
+    const key = show ? `${svgViewKey}|${c.key}|${(c.done || []).join(",")}|${c.current?.i}` : "";
+    if (key === chipsKey) return;
+    chipsKey = key;
+    chipsEl.replaceChildren();
+    if (!show) return;
+    const k = fitView(/** @type {View} */ (view), lw, lh).k;
+    for (const n of laneNumbersOf(c, /** @type {{x: number, z: number}} */ (rigAt), /** @type {View} */ (view))) {
+      const txt = String(n.n), cw = (14 + 8 * txt.length) / k, ch = 22 / k;
+      const cx = n.x + n.ux * (cw / 2 + 8 / k), cz = n.z + n.uz * (cw / 2 + 8 / k);
+      const g = svg("g", { class: "gps-chip", "data-state": n.state });
+      const label = svg("text", { x: n1(cx), y: n1(cz), "font-size": String(Math.round((13 / k) * 100) / 100), "text-anchor": "middle",
+        "dominant-baseline": "central" });
+      label.textContent = txt;
+      g.append(svg("rect", { x: String(Math.round((cx - cw / 2) * 100) / 100), y: String(Math.round((cz - ch / 2) * 100) / 100),
+        width: String(Math.round(cw * 100) / 100), height: String(Math.round(ch * 100) / 100), rx: String(Math.round((6 / k) * 100) / 100) }), label);
+      chipsEl.append(g);
+    }
+  }
+
+  /**
+   * Going in or out of the close-up (revision 4): the old picture scaled to
+   * where the new view is for 0.4 s, then the new one painted sharp.
+   * @param {boolean} into
+   */
+  function zoomTo(into) {
+    wantClose = into;
+    if (zoomed === into) return;
+    zoomed = into;
+    if (!(zoomMs > 0) || !view || !fieldView || !rigAt || !course || !(boxW > 0)) return;
+    const f = fitView(fieldView, boxW, boxH);
+    let t = "";
+    if (into) {
+      const sv = closeView(rigAt, widthOf(course), boxW, boxH);
+      const s = boxW / (sv[2] * f.k);
+      t = `scale(${s}) translate(${n1(-(f.x0 + sv[0] * f.k))}px, ${n1(-(f.z0 + sv[1] * f.k))}px)`;
+    } else {
+      const kc = fitView(view, lw, lh).k;
+      t = `translate(${n1(f.x0 + view[0] * f.k)}px, ${n1(f.z0 + view[1] * f.k)}px) scale(${f.k / kc})`;
+    }
+    zooming = true;
+    layers.style.transition = `transform ${zoomMs}ms var(--ease, ease)`;
+    layers.style.transform = t;
+    setTimeout(() => {
+      zooming = false;
+      layers.style.transition = "";
+      paint();
+      placeFill();
+    }, zoomMs);
   }
 
   /**
@@ -591,15 +832,21 @@ export function gpsScreen(store, opts = {}) {
     const nextViewKey = outline ? outline.join(",") : "";
     if (nextViewKey !== viewKey) {
       viewKey = nextViewKey;
-      view = outline && outline.length >= 6 ? courseView(outline) : undefined;
-      const attr = view ? view.map(n1).join(" ") : "0 0 1 1";
-      ground.setAttribute("viewBox", attr);
-      over.setAttribute("viewBox", attr);
+      fieldView = outline && outline.length >= 6 ? courseView(outline) : undefined;
+      if (!fieldView) view = undefined;
       const pts = outline ? pointsAttr(outline) : "";
       fieldEl.setAttribute("points", pts);
       edgeEl.setAttribute("points", pts);
     }
-    mapBox.dataset.empty = String(!view);
+    mapBox.dataset.empty = String(!fieldView);
+    // revision 4: the view switch, and whether the close-up shows (never with Set up open)
+    const setupOpen = !tag.hidden;
+    for (const [v, b] of Object.entries(viewSegs)) b.setAttribute("aria-checked", String(viewMode === v));
+    const lanePx = course && fieldView && boxW > 0 && boxH > 0 ? widthOf(course) * fitView(fieldView, boxW, boxH).k : Infinity;
+    const auto = viewMode === "auto" && !setupOpen && !previewing ? autoZoom.feed(state.course, rigAt, lanePx) : false;
+    if (viewMode !== "auto") autoZoom.feed(undefined, undefined, Infinity);
+    const close = !!course && !!rigAt && !setupOpen && !previewing && (viewMode === "close" || auto);
+    zoomTag.hidden = !(viewMode === "auto" && close);
     courseCanvas.dataset.dim = String(shown.dim);
     trailCanvas.hidden = previewing;
     // the legend goes with words, but for the game's course under "Building the preview…"
@@ -610,6 +857,7 @@ export function gpsScreen(store, opts = {}) {
       else previewKey.remove();
     }
     trailKey.hidden = previewing || !coverage.trails || fieldId === undefined || !coverage.trails(fieldId).length;
+    viewEl.hidden = legend.hidden || setupOpen;
     if (wordsEl.textContent !== words) wordsEl.textContent = words;
     wordsEl.hidden = !words;
 
@@ -637,6 +885,7 @@ export function gpsScreen(store, opts = {}) {
       mapBox.setAttribute("aria-label", counts
         ? `Field ${here?.id ?? ""}: ${counts.lanesDone} of ${counts.lanes} lanes done` : words || "GPS");
     }
+    zoomTo(close);
     paint();
     placeFill();
   };
