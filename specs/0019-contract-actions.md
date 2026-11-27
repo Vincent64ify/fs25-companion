@@ -282,7 +282,7 @@ doubled command does nothing wrong.
    `web/fixtures/contracts.json` (`total` on the finished one; for the
    pane check a preparing contract is patched in, the file keeps its
    nine).
-4. **Docs:** [ARCHITECTURE.md](../docs/ARCHITECTURE.md#ground-rules)'s
+4. **Docs:** [ARCHITECTURE.md](../docs/ARCHITECTURE.md#why-its-built-this-way)'s
    "The game's keys, not its setters" names this exception; spec 0018's
    Out of scope points here; THEMES.md's Contracts page gets the row.
 5. **Risks:** the functions are read from the script, never run by us:
