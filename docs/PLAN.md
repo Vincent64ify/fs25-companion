@@ -49,7 +49,12 @@ Later ideas for FS25 Companion, with no history and no checks. Elsewhere:
   from many sources (a sell point, your own silos and tanks, another
   vehicle or tool, pallets, big bags ...), each its own game activatable
   or fill trigger, names unverified.
-- **Multiplayer:** farm colours.
+- **Multiplayer compatible** (Vincent, 2026-11-26): the dashboard works
+  in a multiplayer game, on the host and on a client. Nothing has been
+  tried in multiplayer yet. Known now: a contract's actions and Steering
+  Assist's settings work only where the game is the server. Not checked:
+  what a client's mod can read and press, and that money, fields and
+  contracts are the player's own farm's.
 - **Tray app:** the companion as a system-tray app, packaged with
   PyInstaller.
 - **A hosted relay:** a separate service, plus a `--relay <url>` option on
